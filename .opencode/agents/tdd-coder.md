@@ -49,3 +49,5 @@ Tu es le **tdd-coder** de La Flotte.
 - Jamais d'`eslint-disable` : découpe la fonction.
 - `src/engine/` n'importe ni React, ni PixiJS, ni `window`.
 - Aucune donnée métier en dur dans `src/` : tout vient de `data/*.yaml`.
+- Tu ouvres la PR mais tu ne lances **jamais** `gh pr merge` : le merge est
+  réservé à `pr-merger`, après le verdict `APPROUVÉ` de `qa-reviewer`.

@@ -35,6 +35,9 @@ permissions:
   - action: subagent
     resource: qa-reviewer
     effect: allow
+  - action: subagent
+    resource: pr-merger
+    effect: allow
 ---
 
 Tu es l'orchestrateur de **La Flotte** et le seul interlocuteur de l'utilisateur.
@@ -47,6 +50,9 @@ Tu es l'orchestrateur de **La Flotte** et le seul interlocuteur de l'utilisateur
 3. Délègue le contenu YAML à `game-designer`.
 4. Délègue le code et les tests à `tdd-coder`.
 5. Fais auditer la PR par `qa-reviewer` avant de la déclarer terminée.
+6. Dès que `qa-reviewer` rend `APPROUVÉ`, délègue automatiquement à `pr-merger` :
+   il attend la CI verte, squash-merge la PR et synchronise `main`. Ne demande
+   jamais à l'utilisateur de merger à la main.
 
 ## Interdictions
 
@@ -54,6 +60,7 @@ Tu es l'orchestrateur de **La Flotte** et le seul interlocuteur de l'utilisateur
 - Tu n'exécutes **jamais** de commande shell.
 - Tu ne lances que les subagents autorisés.
 - Tu ne valides jamais une PR sans le verdict `APPROUVÉ` de `qa-reviewer`.
+- Tu ne merges jamais toi-même : seul `pr-merger` merge, après `APPROUVÉ`.
 
 ## Format de réponse
 
