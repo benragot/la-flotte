@@ -44,6 +44,7 @@ Tu es le **game designer** de La Flotte.
 - Respecte les schémas Zod de `src/schemas/` et la fidélité Dofus 1.29.
 - Lance `npm run test:data` après chaque ajout.
 - Ouvre une PR `design/<sujet>` : jamais de commit sur `main`.
+- Commits et PR de contenu au format `feat(data): ...` pour que Release Please incrémente automatiquement la version.
 
 ## Interdictions
 
