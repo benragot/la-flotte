@@ -20,10 +20,12 @@ import {
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { hpRatio } from "../../src/renderer/tokens";
 
-function demoSize(): { width: number; height: number } {
+const DEMO_SIZE = { width: 12, height: 12 };
+
+function yamlDemoSize(): { width: number; height: number } {
   const raw = readFileSync(join(process.cwd(), "data", "maps.yaml"), "utf8");
   const map = parseMapsYaml(raw)[0];
-  return { width: map?.width ?? 12, height: map?.height ?? 12 };
+  return { width: map?.width ?? 0, height: map?.height ?? 0 };
 }
 
 const CORNERS = [
@@ -50,37 +52,37 @@ describe("gridProjection — géométrie", () => {
     expect(gridToScreenOrigin({ x: 1, y: 2 })).toEqual({ x: 48, y: 96 });
   });
 
-  it("calcule la taille du canvas de la plage en 12x12", () => {
-    expect(demoSize()).toEqual({ width: 12, height: 12 });
-    expect(canvasSize(demoSize())).toEqual({ width: 576, height: 576 });
+  it("calcule la taille du canvas d'une grille 12x12", () => {
+    expect(canvasSize(DEMO_SIZE)).toEqual({ width: 576, height: 576 });
+  });
+
+  it("reste aligné sur les dimensions de la carte YAML de démonstration", () => {
+    expect(yamlDemoSize()).toEqual(DEMO_SIZE);
   });
 
   it("fait l'aller-retour pixel/grille sur les coins et le centre", () => {
-    const size = demoSize();
     CORNERS.forEach((cell) => {
-      expect(pixelToGrid(gridToPixel(cell), size)).toEqual(cell);
+      expect(pixelToGrid(gridToPixel(cell), DEMO_SIZE)).toEqual(cell);
     });
   });
 });
 
 describe("gridProjection — bornes", () => {
   it("renvoie null hors de la grille", () => {
-    const size = demoSize();
-    expect(pixelToGrid({ x: -1, y: 10 }, size)).toBeNull();
-    expect(pixelToGrid({ x: 10, y: -1 }, size)).toBeNull();
-    expect(pixelToGrid({ x: 576, y: 10 }, size)).toBeNull();
-    expect(pixelToGrid({ x: 10, y: 576 }, size)).toBeNull();
+    expect(pixelToGrid({ x: -1, y: 10 }, DEMO_SIZE)).toBeNull();
+    expect(pixelToGrid({ x: 10, y: -1 }, DEMO_SIZE)).toBeNull();
+    expect(pixelToGrid({ x: 576, y: 10 }, DEMO_SIZE)).toBeNull();
+    expect(pixelToGrid({ x: 10, y: 576 }, DEMO_SIZE)).toBeNull();
   });
 
   it("accepte la dernière fraction de la dernière tuile", () => {
-    expect(pixelToGrid({ x: 575.9, y: 575.9 }, demoSize())).toEqual({ x: 11, y: 11 });
+    expect(pixelToGrid({ x: 575.9, y: 575.9 }, DEMO_SIZE)).toEqual({ x: 11, y: 11 });
   });
 
   it("rejette les coordonnées non finies", () => {
-    const size = demoSize();
-    expect(pixelToGrid({ x: Number.NaN, y: 0 }, size)).toBeNull();
-    expect(pixelToGrid({ x: 0, y: Number.POSITIVE_INFINITY }, size)).toBeNull();
-    expect(pixelToGrid({ x: Number.NEGATIVE_INFINITY, y: 0 }, size)).toBeNull();
+    expect(pixelToGrid({ x: Number.NaN, y: 0 }, DEMO_SIZE)).toBeNull();
+    expect(pixelToGrid({ x: 0, y: Number.POSITIVE_INFINITY }, DEMO_SIZE)).toBeNull();
+    expect(pixelToGrid({ x: Number.NEGATIVE_INFINITY, y: 0 }, DEMO_SIZE)).toBeNull();
   });
 });
 
