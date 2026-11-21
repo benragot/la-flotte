@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type {
   CombatantState,
   CombatPhase,
+  CombatRewards,
   CombatState,
 } from "../../src/engine/combatLoop/types";
 import type { AsciiMap } from "../../src/engine/grid";
@@ -13,6 +14,7 @@ import {
   getRecentLog,
   isBattleOver,
   phaseLabel,
+  shouldShowRewards,
 } from "../../src/ui/hudHelpers";
 
 const ELEMENTS: readonly Element[] = ["earth", "fire", "water", "air", "neutral"];
@@ -188,5 +190,33 @@ describe("isBattleOver", () => {
   it("reconnaît une bataille en cours", () => {
     expect(isBattleOver("player_turn")).toBe(false);
     expect(isBattleOver("enemy_turn")).toBe(false);
+  });
+});
+
+describe("shouldShowRewards", () => {
+  const REWARDS: CombatRewards = {
+    xpGained: 12,
+    totalXp: 12,
+    level: 1,
+    levelUp: null,
+    prospection: 100,
+    drops: ["ferraille"],
+  };
+
+  it("affiche les gains en victoire quand le store en fournit", () => {
+    expect(shouldShowRewards("victory", REWARDS)).toBe(true);
+  });
+
+  it("n'affiche aucun gain en victoire sans récompenses", () => {
+    expect(shouldShowRewards("victory", null)).toBe(false);
+  });
+
+  it("n'affiche aucun gain en défaite, même si le store en fournit", () => {
+    expect(shouldShowRewards("defeat", REWARDS)).toBe(false);
+  });
+
+  it("n'affiche aucun gain pendant un tour", () => {
+    expect(shouldShowRewards("player_turn", REWARDS)).toBe(false);
+    expect(shouldShowRewards("enemy_turn", REWARDS)).toBe(false);
   });
 });
