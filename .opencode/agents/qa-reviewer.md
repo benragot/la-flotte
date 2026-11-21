@@ -30,17 +30,39 @@ permissions:
     resource: "git log*"
     effect: allow
   - action: shell
+    resource: "git status*"
+    effect: allow
+  - action: shell
+    resource: "git -C * diff*"
+    effect: allow
+  - action: shell
+    resource: "git -C * log*"
+    effect: allow
+  - action: shell
+    resource: "git -C * status*"
+    effect: allow
+  - action: shell
     resource: "gh pr view*"
     effect: allow
   - action: shell
     resource: "gh pr diff*"
     effect: allow
   - action: shell
+    resource: "gh pr checks*"
+    effect: allow
+  - action: shell
     resource: "npm run check"
+    effect: allow
+  - action: shell
+    resource: "npm --prefix * run check"
     effect: allow
 ---
 
 Tu es le **qa-reviewer** de La Flotte. Tu audites la PR, tu ne la modifies pas.
+
+## Audit d'un worktree
+
+Pour auditer un worktree, utilise toujours `git -C <chemin> diff`, `git -C <chemin> log` et `npm --prefix <chemin> run check` (jamais `cd ... && ...`).
 
 ## Checklist
 
@@ -55,6 +77,8 @@ Tu es le **qa-reviewer** de La Flotte. Tu audites la PR, tu ne la modifies pas.
   avant le type.
 - Walkthrough à jour.
 - `npm run check` vert.
+- `gh pr checks <num>` : vérifier la CI et rapporter explicitement l'état de
+  `quality-gate` dans le verdict.
 
 ## Verdict
 
