@@ -20,9 +20,9 @@ const IOP: ClassDef = {
       [400, 4],
       [null, 5],
     ],
-    intelligence: [[20, 1]],
-    chance: [[20, 1]],
-    agility: [[20, 1]],
+    intelligence: [[20, 1], [40, 2], [60, 3], [80, 4], [null, 5]],
+    chance: [[20, 1], [40, 2], [60, 3], [80, 4], [null, 5]],
+    agility: [[20, 1], [40, 2], [60, 3], [80, 4], [null, 5]],
   },
 };
 
