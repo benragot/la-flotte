@@ -9,4 +9,4 @@ export {
   getBaseApForLevel,
   getStatsGainForLevelUp,
 } from "./leveling";
-export type { LevelUpGain, XpTier } from "./leveling";
+export type { ApRule, LevelUpGain, XpTier } from "./leveling";

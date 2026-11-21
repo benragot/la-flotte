@@ -1,3 +1,11 @@
+/**
+ * Paliers de PA fournis par l'appelant (données YAML), jamais codés en dur ici.
+ */
+export interface ApRule {
+  minLevel: number;
+  ap: number;
+}
+
 export interface XpTier {
   level: number;
   xpRequired: number;
@@ -9,28 +17,44 @@ export interface LevelUpGain {
   spellPoints: number;
 }
 
-const FIRST_LEVEL = 1;
-const AP_BONUS_LEVEL = 100;
-const BASE_AP = 6;
-const BASE_AP_AT_MAX = 7;
-const LEVEL_UP_GAIN: LevelUpGain = { hp: 5, capitalPoints: 5, spellPoints: 1 };
-const NO_GAIN: LevelUpGain = { hp: 0, capitalPoints: 0, spellPoints: 0 };
+/** Garde purement structurelle : niveau de héros minimal. */
+const MIN_LEVEL = 1;
+/** Aucun AP disponible : structurel, pas une valeur de jeu. */
+const NO_AP = 0;
 
 function reachedLevels(xp: number, tiers: readonly XpTier[]): number[] {
   return tiers.filter((tier) => tier.xpRequired <= xp).map((tier) => tier.level);
 }
 
+/**
+ * Renvoie le plus haut palier atteint pour l'XP donnée, insensible à l'ordre
+ * de la table ; niveau minimal si aucun palier n'est atteint.
+ */
 export function computeLevelFromXp(xp: number, tiers: readonly XpTier[]): number {
   const levels = reachedLevels(xp, tiers);
-  if (levels.length === 0) return FIRST_LEVEL;
-  return Math.max(FIRST_LEVEL, ...levels);
+  if (levels.length === 0) return MIN_LEVEL;
+  return Math.max(MIN_LEVEL, ...levels);
 }
 
-export function getStatsGainForLevelUp(level: number): LevelUpGain {
-  if (level < FIRST_LEVEL) return NO_GAIN;
-  return { ...LEVEL_UP_GAIN };
+/**
+ * Renvoie les gains de montée de niveau fournis par l'appelant
+ * (`gainRules`). Sous le niveau minimal, aucun gain n'est accordé.
+ */
+export function getStatsGainForLevelUp(level: number, gainRules: LevelUpGain): LevelUpGain {
+  if (level < MIN_LEVEL) return { hp: 0, capitalPoints: 0, spellPoints: 0 };
+  return { ...gainRules };
 }
 
-export function getBaseApForLevel(level: number): number {
-  return level >= AP_BONUS_LEVEL ? BASE_AP_AT_MAX : BASE_AP;
+function higherApRule(rule: ApRule, best: ApRule): ApRule {
+  return rule.minLevel > best.minLevel ? rule : best;
+}
+
+/**
+ * Renvoie les PA du plus haut palier `apRules` dont `minLevel <= level`.
+ * Les paliers proviennent de l'appelant et peuvent être non triés.
+ */
+export function getBaseApForLevel(level: number, apRules: readonly ApRule[]): number {
+  const reached = apRules.filter((rule) => rule.minLevel <= level);
+  if (reached.length === 0) return NO_AP;
+  return reached.reduce(higherApRule).ap;
 }
