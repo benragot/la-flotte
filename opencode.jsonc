@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "orchestrator",
+  "instructions": [
+    "AGENTS.md"
+  ],
+  "permissions": [
+    { "action": "skill", "resource": "*", "effect": "allow" }
+  ]
+}

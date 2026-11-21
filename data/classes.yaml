@@ -1,0 +1,7 @@
+classes:
+  - id: iop
+    name: Iop
+    basePa: 6
+    basePm: 3
+    baseHp: 50
+    basePp: 100
