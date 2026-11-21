@@ -1,6 +1,6 @@
 ---
 name: dofus-129-combat
-description: Référentiel combat Dofus 1.29 (dégâts, CC, esquive, poussée, LoS) prêt à recevoir les formules détaillées.
+description: "Référentiel complet du combat Dofus 1.29 : dégâts, CC, retrait PA-PM, poussée, tacle, initiative et LoS."
 ---
 
 # Combat Dofus 1.29
@@ -156,8 +156,8 @@ initiative = floor((str + int + cha + agi + bonusInit) * (currentHp / maxHp));
 
 ## Méthode
 
-- Chaque formule est validée par une fiche Spec TDD avec 3 à 5 cas chiffrés.
+- Toute modification de formule exige une fiche Spec TDD et au moins 3 cas
+  chiffrés recalculés à la main.
 - Le moteur reste headless : aucun import UI dans `src/engine/`.
 - Chaque formule est isolée dans une fonction pure de 10 lignes maximum ; les
   paramètres au-delà de 3 passent par un objet d'options typé.
-- Remplacer ce squelette section par section, jamais en une seule PR.

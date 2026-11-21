@@ -1,6 +1,6 @@
 ---
 name: dofus-129-classes
-description: Référentiel des 12 classes Dofus 1.29 et de leurs paliers de sorts (structure prête à recevoir les formules).
+description: "Référentiel complet des 12 classes Dofus 1.29 : stats de base, soft caps et allocation des points de capital."
 ---
 
 # Classes Dofus 1.29
@@ -49,9 +49,19 @@ classes:
 
 ## Soft caps : format canonique
 
-Un soft cap est une **liste ordonnée croissante** de paires `[seuil, coût]`.
-Un seuil `null` vaut infini et ferme toujours la liste. Les valeurs sont
-exprimées en **points de capital**.
+Un soft cap est une **liste ordonnée croissante** de paires `[a, b]`. Deux
+formes coexistent et ne se lisent **pas** de la même façon :
+
+| Forme          | Lecture                                         | Exemple                                                              |
+| -------------- | ----------------------------------------------- | -------------------------------------------------------------------- |
+| Un seul palier | Taux d'échange fixe `[capitalPourUnGain, gain]` | `vitality: [[1, 1]]` ⇒ 1 point de capital = +1 Vitalité              |
+| Multi-paliers  | `[valeurMaxDuPalier, coûtParPoint]`             | `[[100, 1], [200, 2]]` ⇒ 1 de Force jusqu'à 100, puis 2 de 101 à 200 |
+
+- Un palier `null` en `valeurMaxDuPalier` vaut infini et ferme toujours la
+  liste.
+- Les paliers d'une table multi-paliers sont **contigus** : un palier couvre les
+  valeurs allant de `palierPrécédent + 1` à `valeurMaxDuPalier`, borne haute
+  incluse.
 
 ```yaml
 softCaps:
@@ -65,17 +75,23 @@ softCaps:
 
 ### Règle d'allocation
 
-Le coût pour atteindre la valeur `v` d'une caractéristique est le coût du
-**premier palier dont le seuil est ≥ `v`** (le palier `null` valant infini).
-On paie donc chaque point au tarif de sa valeur d'arrivée, et on s'arrête dès
-que le capital restant ne suffit plus.
+- Table à **un seul palier** : c'est un **taux d'échange fixe**
+  `[capitalPourUnGain, gain]`. Il n'y a pas de palier : `vitality: [[1, 1]]`
+  donne toujours 1 point de capital = +1 Vitalité, et `wisdom: [[3, 1]]` donne
+  toujours 3 points de capital = +1 Sagesse, quel que soit le niveau atteint.
+- Table **multi-paliers** : `[valeurMaxDuPalier, coûtParPoint]`. Le coût pour
+  atteindre la valeur `v` est le coût du palier **contenant** `v` (borne haute
+  incluse, `null` = infini). On paie chaque point au tarif de sa valeur
+  d'arrivée et on s'arrête dès que le capital restant ne suffit plus.
+- `vitalityGainPerPoint` multiplie le gain de Vitalité : à `2` (`sacrieur`),
+  1 point de capital = **+2** Vitalité.
 
 ### Vitalité et Sagesse (identiques pour toutes les classes)
 
-| Caractéristique | Paliers    | Effet par point de capital        |
-| --------------- | ---------- | --------------------------------- |
-| `vitality`      | `[[1, 1]]` | +1 Vitalité (`sacrieur` : +2)     |
-| `wisdom`        | `[[3, 1]]` | 3 points de capital = +1 Sagesse  |
+| Caractéristique | Table      | Taux d'échange                                              |
+| --------------- | ---------- | ----------------------------------------------------------- |
+| `vitality`      | `[[1, 1]]` | 1 point de capital = +1 Vitalité (× `vitalityGainPerPoint`) |
+| `wisdom`        | `[[3, 1]]` | 3 points de capital = +1 Sagesse                            |
 
 Champ associé : `vitalityGainPerPoint` vaut `1` par défaut et `2` pour
 `sacrieur`.
@@ -111,29 +127,33 @@ softCaps:
 
 `iop.strength = [[100,1],[200,2],[300,3],[400,4],[null,5]]`
 
-| Achat | Valeur visée | Premier seuil ≥ visée | Coût | Capital restant |
-| ----- | ------------ | --------------------- | ---- | --------------- |
-| 1     | 100          | 100                   | 1    | 2               |
-| 2     | 101          | 200                   | 2    | 0               |
+Les 99 points de Force sont **déjà investis** avant la dépense : on ne paie ici
+que les 3 points de capital.
+
+| Achat | Valeur visée | Palier contenant la valeur | Coût | Capital restant |
+| ----- | ------------ | -------------------------- | ---- | --------------- |
+| 1     | 100          | 1–100                      | 1    | 2               |
+| 2     | 101          | 101–200                    | 2    | 0               |
 
 ⇒ Force = **101**, 0 point restant. Le test vérifie `strength === 101` et
 `points === 0` : le point suivant coûterait 2, impossible à financer.
 
 ### Sacrieur, 1 point de capital en Vitalité
 
-`vitalityGainPerPoint: 2`, `vitality = [[1,1]]` ⇒ Vitalité = **+2**,
-capital restant = 0.
+`vitality: [[1, 1]]` (taux fixe 1 pour 1) et `vitalityGainPerPoint: 2` :
+1 point de capital ⇒ Vitalité = **+2**, capital restant = 0.
 
 ### Sagesse 3:1
 
-`wisdom = [[3,1]]`, 3 points de capital ⇒ Sagesse = **+1**, capital restant = 0.
-Avec seulement 2 points, aucun point de Sagesse n'est acheté (coût 3).
+`wisdom: [[3, 1]]` est un **taux d'échange fixe**, pas un palier :
+3 points de capital ⇒ Sagesse = **+1**, capital restant = 0.
+Avec seulement 2 points, aucun point de Sagesse n'est acheté (il en faut 3).
 
 ### Enutrof, Force = 50, 2 points de capital
 
 `enutrof.strength = [[50,1],[150,2],[250,3],[350,4],[null,5]]`
 
-Valeur visée 51 ⇒ premier seuil ≥ 51 = 150 ⇒ coût **2**.
+Valeur visée 51 ⇒ palier 51–150 ⇒ coût **2**.
 Force = **51**, capital restant = 0.
 
 ## Structure d'une fiche de classe
@@ -149,4 +169,6 @@ Force = **51**, capital restant = 0.
 - Les soft caps sont des données : ils vivent dans `data/*.yaml`, jamais en dur
   dans `src/`.
 - Les fonctions de calcul (`getStatCost`, `applyCapitalPoints`) restent pures,
-  à 10 lignes maximum, et reçoivent leurs paliers en paramètre.
+  à 10 lignes maximum, et reçoivent leur table de soft cap en paramètre :
+  taux d'échange (`[[capitalPourUnGain, gain]]`) ou multi-paliers
+  (`[[valeurMaxDuPalier, coûtParPoint]]`).
