@@ -49,6 +49,9 @@ Tu es le **qa-reviewer** de La Flotte. Tu audites la PR, tu ne la modifies pas.
 - `src/engine/` sans import React/PixiJS/`window`.
 - Aucune donnée métier en dur dans `src/`, YAML validé par Zod.
 - Fidélité Dofus 1.29 vérifiée contre la fiche Spec.
+- Format des commits **et** du titre de PR : `type(scope): <gitmoji> description`
+  avec l'emoji **après** les deux-points, types/scopes conformes au skill
+  `gitmoji-commits` ; rejette tout commit sans emoji ou avec emoji avant le type.
 - Walkthrough à jour.
 - `npm run check` vert.
 
