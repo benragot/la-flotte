@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import type { Application } from "pixi.js";
 import type { Position } from "../engine/grid";
 import type { CombatState } from "../engine/combatLoop/types";
-import { buildViewModel, renderScene } from "./sceneLayers";
+import { buildViewModel } from "./combatSceneModel";
+import { renderScene } from "./sceneLayers";
 
 export interface CombatSceneInput {
   app: Application | null;
