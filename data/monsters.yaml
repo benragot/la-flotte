@@ -1,0 +1,18 @@
+# Monstres de l'île de la Ferraille (Vague 1).
+# resistances.flat / percent : dégâts fixes et pourcentage par élément.
+monsters:
+  - id: piou_mazoute
+    name: Piou Mazouté
+    description: "Un oiseau de mer couvert de mazout qui demande des comptes à tout le monde, y compris aux vagues."
+    level: 1
+    hp: 35
+    ap: 6
+    mp: 3
+    stats: { strength: 15, intelligence: 0, chance: 0, agility: 0, wisdom: 0 }
+    resistances:
+      flat: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 }
+      percent: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 }
+    baseXp: 120
+    spellIds: [bec_mazoute]
+    loot:
+      - { itemId: plume_mazoutee, baseDropRate: 0.4, ppThreshold: 100 }

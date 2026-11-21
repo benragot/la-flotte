@@ -1,0 +1,29 @@
+# Progression Dofus 1.29 (Vague 1).
+# Les niveaux 1 à 20 sont obligatoires ; les ancres 1, 2, 3, 4, 5, 10 et 20
+# sont les valeurs de référence. Intercalation provisoire, à recaler sur les
+# tables 1.29 en Vague 2.
+xpThresholds:
+  - { level: 1, xpRequired: 0 }
+  - { level: 2, xpRequired: 110 }
+  - { level: 3, xpRequired: 440 }
+  - { level: 4, xpRequired: 1100 }
+  - { level: 5, xpRequired: 2600 }
+  - { level: 6, xpRequired: 5500 }
+  - { level: 7, xpRequired: 9000 }
+  - { level: 8, xpRequired: 13500 }
+  - { level: 9, xpRequired: 19500 }
+  - { level: 10, xpRequired: 27500 }
+  - { level: 11, xpRequired: 38000 }
+  - { level: 12, xpRequired: 52000 }
+  - { level: 13, xpRequired: 70000 }
+  - { level: 14, xpRequired: 92000 }
+  - { level: 15, xpRequired: 105000 }
+  - { level: 16, xpRequired: 118000 }
+  - { level: 17, xpRequired: 130000 }
+  - { level: 18, xpRequired: 140000 }
+  - { level: 19, xpRequired: 148000 }
+  - { level: 20, xpRequired: 155000 }
+apRules:
+  - { minLevel: 1, ap: 6 }
+  - { minLevel: 100, ap: 7 }
+gainRules: { hp: 5, capitalPoints: 5, spellPoints: 1 }
