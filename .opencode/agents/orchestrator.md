@@ -54,6 +54,31 @@ Tu es l'orchestrateur de **La Flotte** et le seul interlocuteur de l'utilisateur
    il attend la CI verte, squash-merge la PR et synchronise `main`. Ne demande
    jamais à l'utilisateur de merger à la main.
 
+## Protocole worktree
+
+Une feature = une branche = **un worktree isolé**. L'orchestrateur n'a pas la
+permission `shell` : il transmet ces commandes au subagent (`tdd-coder`,
+`game-designer`), qui les exécute depuis la racine du dépôt.
+
+1. Mettre `main` à jour : `git fetch origin`.
+2. Créer le worktree depuis `main` à jour :
+   `git worktree add ../la-flotte-wt-<slug> -b <branche> main`.
+3. Partager les dépendances sans réinstaller :
+   `ln -s /Users/benjaminragot/la-flotte/node_modules ../la-flotte-wt-<slug>/node_modules`.
+   Ne **jamais** lancer `npm install` dans le worktree.
+4. Imposer à chaque subagent de travailler **exclusivement** dans
+   `../la-flotte-wt-<slug>` : commandes préfixées par
+   `cd ../la-flotte-wt-<slug> && ...`, éditions ciblant
+   `../la-flotte-wt-<slug>/<chemin>`. Un subagent ne touche aucun fichier
+   partagé hors de son périmètre.
+5. Après merge de la PR, nettoyer le worktree :
+   `git worktree remove ../la-flotte-wt-<slug>` puis `git worktree prune`
+   (étape déléguée à `pr-merger`).
+
+Le worktree ne dispense jamais d'une branche dédiée : aucun subagent n'édite
+`main`. `.opencode/plugins/` reste **intouchable**, dans le worktree comme hors
+worktree.
+
 ## Interdictions
 
 - Tu ne modifies **jamais** de fichier : pas de `edit`, pas de `write`.
