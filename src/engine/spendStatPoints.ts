@@ -24,40 +24,54 @@ interface StatState {
   remaining: number;
 }
 
+interface ExchangeTerms {
+  capitalPerPoint: number;
+  gain: number;
+}
+
 /**
- * Une table à un seul palier encode un taux fixe : [[capitalPourUnGain, gain]].
- * Les tables multi-paliers encodent des soft caps : [valeurMaxDuPalier, coût].
+ * Convention des tables de `softCaps` :
+ * - un seul palier `[[capitalPerPoint, gain]]` : taux d'échange fixe, un point
+ *   de caractéristique coûte `capitalPerPoint` et rapporte
+ *   `gain * (input.gainPerPoint ?? 1)` ;
+ * - plusieurs paliers `[[valeurMaxDuPalier, capitalPerPoint], ..., [null, n]]` :
+ *   le coût est celui du palier contenant la valeur visée (`null` = infini) et
+ *   le gain vaut `input.gainPerPoint ?? 1`.
  */
-function flatRateCost(caps: readonly SoftCap[]): number {
-  const tier = caps[0];
-  if (!tier) return Number.POSITIVE_INFINITY;
-  const [ceiling, price] = tier;
-  return ceiling ?? price;
+function isFlatRate(caps: readonly SoftCap[]): boolean {
+  return caps.length === 1;
 }
 
-function isTierReached(threshold: number | null, value: number): boolean {
-  return threshold === null || threshold >= value;
+function flatRateTerms(caps: readonly SoftCap[], baseGain: number): ExchangeTerms {
+  // Garde runtime explicite : Zod impose min(1), un appel direct peut passer [].
+  const [capitalPerPoint, gain = 1] = caps[0] ?? [];
+  const cost = capitalPerPoint ?? Number.POSITIVE_INFINITY;
+  return { capitalPerPoint: cost, gain: gain * baseGain };
 }
 
-function costToReach(caps: readonly SoftCap[], value: number): number {
-  if (caps.length === 1) return flatRateCost(caps);
-  for (const [threshold, cost] of caps) {
-    if (isTierReached(threshold, value)) return cost;
+function capitalCost(caps: readonly SoftCap[], value: number): number {
+  for (const [threshold, capitalPerPoint] of caps) {
+    if (threshold === null || threshold >= value) return capitalPerPoint;
   }
   return Number.POSITIVE_INFINITY;
 }
 
-function isReachable(state: StatState, caps: readonly SoftCap[]): boolean {
-  return costToReach(caps, state.value + 1) <= state.remaining;
+function termsFor(caps: readonly SoftCap[], baseGain: number, value: number): ExchangeTerms {
+  if (isFlatRate(caps)) return flatRateTerms(caps, baseGain);
+  return { capitalPerPoint: capitalCost(caps, value), gain: baseGain };
 }
 
-function spendPoint(state: StatState, caps: readonly SoftCap[], gain: number): StatState {
-  const cost = costToReach(caps, state.value + 1);
+function isReachable(state: StatState, caps: readonly SoftCap[], baseGain: number): boolean {
+  return termsFor(caps, baseGain, state.value + 1).capitalPerPoint <= state.remaining;
+}
+
+function spendPoint(state: StatState, caps: readonly SoftCap[], baseGain: number): StatState {
+  const terms = termsFor(caps, baseGain, state.value + 1);
   return {
-    value: state.value + gain,
-    gained: state.gained + gain,
-    spent: state.spent + cost,
-    remaining: state.remaining - cost,
+    value: state.value + terms.gain,
+    gained: state.gained + terms.gain,
+    spent: state.spent + terms.capitalPerPoint,
+    remaining: state.remaining - terms.capitalPerPoint,
   };
 }
 
@@ -72,8 +86,8 @@ function initialState(input: SpendStatPointsInput): StatState {
 
 export function spendStatPoints(input: SpendStatPointsInput): SpendStatPointsResult {
   const caps = input.softCaps[input.stat];
-  const gain = input.gainPerPoint ?? 1;
+  const baseGain = input.gainPerPoint ?? 1;
   let state = initialState(input);
-  while (isReachable(state, caps)) state = spendPoint(state, caps, gain);
+  while (isReachable(state, caps, baseGain)) state = spendPoint(state, caps, baseGain);
   return state;
 }
