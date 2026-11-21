@@ -9,6 +9,21 @@ const IOP: ClassDef = {
   basePm: 3,
   baseHp: 50,
   basePp: 100,
+  vitalityGainPerPoint: 1,
+  softCaps: {
+    vitality: [[1, 1]],
+    wisdom: [[3, 1]],
+    strength: [
+      [100, 1],
+      [200, 2],
+      [300, 3],
+      [400, 4],
+      [null, 5],
+    ],
+    intelligence: [[20, 1], [40, 2], [60, 3], [80, 4], [null, 5]],
+    chance: [[20, 1], [40, 2], [60, 3], [80, 4], [null, 5]],
+    agility: [[20, 1], [40, 2], [60, 3], [80, 4], [null, 5]],
+  },
 };
 
 describe("createHero", () => {
