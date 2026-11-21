@@ -1,34 +1,36 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const dirtyByRoot = new Map<string, boolean>();
 
 function existingDir(target: string): string {
   let cur = path.resolve(target);
   while (!fs.existsSync(cur)) {
     const parent = path.dirname(cur);
-    if (parent === cur) return process.cwd();
+    if (parent === cur) return REPO_ROOT;
     cur = parent;
   }
   return fs.statSync(cur).isDirectory() ? cur : path.dirname(cur);
 }
 
 function resolveDirFromCmd(cmd: string, input: Record<string, unknown>): string {
-  const explicit = input.cwd ?? input.workdir;
-  if (typeof explicit === "string" && explicit.trim()) return existingDir(explicit);
   const cdMatch = cmd.match(/(?:^|&&|;)\s*cd\s+["']?([^"'&;|\n]+)["']?/);
   if (cdMatch?.[1]) return existingDir(cdMatch[1].trim());
   const gitCMatch = cmd.match(/\bgit\s+-C\s+["']?([^\s"']+)["']?/);
   if (gitCMatch?.[1]) return existingDir(gitCMatch[1].trim());
-  return process.cwd();
+  const explicit = input.cwd ?? input.workdir;
+  if (typeof explicit === "string" && explicit.trim()) return existingDir(explicit);
+  return REPO_ROOT;
 }
 
 function getGitRoot(target: string): string {
   try {
     return execSync("git rev-parse --show-toplevel", { cwd: existingDir(target), encoding: "utf8" }).trim();
   } catch {
-    return process.cwd();
+    return REPO_ROOT;
   }
 }
 
@@ -44,14 +46,24 @@ function targetsMainBranch(cmd: string): boolean {
   return /(?:^|\s|:)(main|master)(?:\s|$)/.test(cmd);
 }
 
-function assertCiPassed(cmd: string): void {
+function modifiesPluginsDir(cmd: string): boolean {
+  return cmd
+    .split(/&&|;|\n/)
+    .map((seg) => seg.trim())
+    .some((seg) => {
+      if (/^(gh\s+pr\s+(create|comment|edit)|git\s+commit)\b/.test(seg)) return false;
+      return seg.includes(".opencode/plugins/") && (/\b(rm|mv|cp|sed|tee|cat)\b/.test(seg) || seg.includes(">"));
+    });
+}
+
+function assertCiPassed(cmd: string, dir: string): void {
   if (!cmd.includes("--squash")) {
     throw new Error("MERGE REFUSÉ : utilise toujours `--squash --delete-branch`.");
   }
-  const match = cmd.match(/\bgh\s+pr\s+merge\s+(\d+)\b/);
+  const match = cmd.match(/\bgh\s+pr\s+merge\b[^|;&\n]*?\b(\d+)\b/);
   const prArg = match ? match[1] : "";
   try {
-    const out = execSync(`gh pr checks ${prArg}`, { encoding: "utf8" });
+    const out = execSync(`gh pr checks ${prArg}`, { cwd: existingDir(dir), encoding: "utf8" });
     if (!/quality-gate\s+pass/i.test(out)) {
       throw new Error("`quality-gate` n'est pas encore en `pass`.");
     }
@@ -84,7 +96,7 @@ export default {
         if (content.includes("eslint-disable")) {
           throw new Error("INTERDIT : ne contourne pas ESLint. Découpe en fonctions de 10 lignes max.");
         }
-        dirtyByRoot.set(getGitRoot(filePath || process.cwd()), true);
+        dirtyByRoot.set(getGitRoot(filePath || REPO_ROOT), true);
       }
 
       if (event.tool === "shell" || event.tool === "bash") {
@@ -93,11 +105,11 @@ export default {
         const branch = getCurrentBranch(dir);
         const isMain = branch === "main" || branch === "master";
 
-        if (cmd.includes(".opencode/plugins/") && /\b(rm|mv|cp|sed|tee|cat)\b|>/.test(cmd)) {
+        if (modifiesPluginsDir(cmd)) {
           throw new Error("INTERDIT : modification du plugin garde-fou bloquée.");
         }
         if (/\bgh\s+pr\s+merge\b/.test(cmd)) {
-          assertCiPassed(cmd);
+          assertCiPassed(cmd, dir);
         }
         if (/\bgit\s+(merge|rebase)\b/.test(cmd) && targetsMainBranch(cmd)) {
           throw new Error("INTERDIT : utilise `gh pr merge --squash` via `pr-merger`, jamais un merge manuel.");
