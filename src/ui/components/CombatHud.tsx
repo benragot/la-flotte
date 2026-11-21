@@ -1,4 +1,4 @@
-import type { CombatState } from "../../engine/combatLoop/types";
+import type { CombatRewards, CombatState } from "../../engine/combatLoop/types";
 import { useCombatStore } from "../../store/useCombatStore";
 import CombatLogPanel from "./CombatLogPanel";
 import EndOverlay from "./EndOverlay";
@@ -8,9 +8,14 @@ import SpellBar from "./SpellBar";
 import TopBanner from "./TopBanner";
 import TurnButton from "./TurnButton";
 
+/**
+ * Les gains affichés viennent de `state.rewards` (store) : `CombatState.rewards`
+ * vaut `null` en V1, le moteur ne le réassigne jamais.
+ */
 interface HudLayoutProps {
   combat: CombatState;
   mapId: string;
+  rewards: CombatRewards | null;
 }
 
 function BottomBar({ combat }: { combat: CombatState }) {
@@ -24,12 +29,12 @@ function BottomBar({ combat }: { combat: CombatState }) {
   );
 }
 
-function HudLayout({ combat, mapId }: HudLayoutProps) {
+function HudLayout({ combat, mapId, rewards }: HudLayoutProps) {
   return (
     <div className="pointer-events-none fixed inset-0 z-10">
       <TopBanner mapId={mapId} turn={combat.turn} phase={combat.phase} />
       <BottomBar combat={combat} />
-      <EndOverlay phase={combat.phase} rewards={combat.rewards} />
+      <EndOverlay phase={combat.phase} rewards={rewards} />
     </div>
   );
 }
@@ -46,6 +51,7 @@ function IdlePanel() {
 export default function CombatHud() {
   const combat = useCombatStore((state) => state.combat);
   const mapId = useCombatStore((state) => state.mapId);
+  const rewards = useCombatStore((state) => state.rewards);
   if (combat === null) return <IdlePanel />;
-  return <HudLayout combat={combat} mapId={mapId} />;
+  return <HudLayout combat={combat} mapId={mapId} rewards={rewards} />;
 }

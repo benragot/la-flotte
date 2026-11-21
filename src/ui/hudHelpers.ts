@@ -1,4 +1,8 @@
-import type { CombatPhase, CombatState } from "../engine/combatLoop/types";
+import type {
+  CombatPhase,
+  CombatRewards,
+  CombatState,
+} from "../engine/combatLoop/types";
 import type { SpellDef } from "../schemas/spellSchema";
 
 export interface CastCheckInput {
@@ -61,4 +65,15 @@ export function phaseLabel(phase: CombatPhase): string {
 
 export function isBattleOver(phase: CombatPhase): boolean {
   return phase === "victory" || phase === "defeat";
+}
+
+/**
+ * Source de vérité des gains : le store (`state.rewards`), jamais
+ * `CombatState.rewards` (non réassigné par le moteur V1).
+ */
+export function shouldShowRewards(
+  phase: CombatPhase,
+  rewards: CombatRewards | null,
+): boolean {
+  return phase === "victory" && rewards !== null;
 }
