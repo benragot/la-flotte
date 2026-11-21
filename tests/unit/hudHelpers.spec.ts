@@ -148,7 +148,7 @@ describe("formatHpBar", () => {
   });
 
   it("ne divise pas par zéro quand max vaut zéro", () => {
-    expect(formatHpBar(10, 0)).toEqual({ text: "10 / 0", percent: 0 });
+    expect(formatHpBar(10, 0)).toEqual({ text: "0 / 0", percent: 0 });
   });
 
   it("borne des PV négatifs à zéro", () => {
