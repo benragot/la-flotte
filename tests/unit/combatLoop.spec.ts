@@ -341,6 +341,34 @@ describe("resolveCombatRewards", () => {
   });
 });
 
+describe("endPlayerTurn : restauration des PA/PM ennemis", () => {
+  it("remet les PA et PM de l'ennemi à chaque début de tour", () => {
+    const state = buildState(["PM.."]);
+    const first = endPlayerTurn(state, alwaysZero);
+    expect(first.player.hp).toBe(40);
+    expect(first.turn).toBe(2);
+    expect(first.enemy.ap).toBe(first.enemy.maxAp % 3);
+    const second = endPlayerTurn(first, alwaysZero);
+    expect(second.player.hp).toBe(30);
+    expect(second.turn).toBe(3);
+  });
+
+  it("laisse le monstre se déplacer au tour suivant", () => {
+    const state = buildState();
+    const first = endPlayerTurn(state, alwaysZero);
+    expect(first.enemy.mp).toBe(0);
+    const second = endPlayerTurn(first, alwaysZero);
+    expect(second.enemy.position).not.toEqual(first.enemy.position);
+  });
+
+  it("ne mute pas l'état d'entrée", () => {
+    const state = buildState(["PM.."]);
+    const before = structuredClone(state);
+    endPlayerTurn(state, alwaysZero);
+    expect(state).toEqual(before);
+  });
+});
+
 describe("immuabilité du moteur", () => {
   it("ne mute jamais l'état d'entrée d'un cast", () => {
     const state = buildState(["P.M.", "...."]);
