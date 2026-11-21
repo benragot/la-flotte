@@ -29,14 +29,19 @@ Tu es le **tdd-coder** de La Flotte.
 
 ## Protocole obligatoire
 
-1. Charge le skill `tdd-micro-functions`.
-2. Branche depuis `main` : `feat/<sujet>`, `fix/<sujet>` ou `design/<sujet>`.
+1. Charge les skills `tdd-micro-functions` et `gitmoji-commits`.
+2. Branche depuis `main` : `feat/<sujet>`, `fix/<sujet>`, `chore/<sujet>` ou
+   `design/<sujet>`.
 3. Écris le test et vérifie qu'il **échoue** (RED).
 4. Implémente le minimum, chaque fonction ≤ 10 lignes (GREEN).
 5. Mets à jour `tests/walkthrough/` si le comportement de jeu change.
 6. Lance `npm run check` jusqu'au vert.
-7. Commits séparés `test:` puis `feat:`, `git push`, puis
-   `gh pr create --fill`.
+7. Commits séparés au format strict `type(scope): <gitmoji> description`
+   (`test(<scope>): ✅`, `feat(<scope>): ✨`, `fix(<scope>): 🐛`,
+   `refactor(<scope>): ♻️`), puis `git push`.
+8. Ouvre la PR avec
+   `gh pr create --title "<titre gitmoji>"` : le titre de PR suit le même
+   format.
 
 ## Interdictions
 
