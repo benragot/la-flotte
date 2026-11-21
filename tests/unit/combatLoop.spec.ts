@@ -17,6 +17,7 @@ import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseProgressionYaml } from "../../src/schemas/progressionSchema";
 import { parseSpellsYaml } from "../../src/schemas/spellSchema";
+import { useCombatStore } from "../../src/store/useCombatStore";
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const classes = parseClassesYaml(read("classes.yaml"));
@@ -195,7 +196,7 @@ describe("getCastableCells : Bond", () => {
   });
 });
 
-describe("castSpell : sorts de dégâts", () => {
+describe("castSpell : PA et dégâts", () => {
   it("déduit les PA et applique un jet déterministe", () => {
     const state = buildState(["P.M.", "...."]);
     const cast = castSpell({ state, spellId: "pression", target: { x: 2, y: 0 }, rng: alwaysZero });
@@ -217,7 +218,9 @@ describe("castSpell : sorts de dégâts", () => {
     const cast = castSpell({ state: drained, spellId: "pression", target: { x: 2, y: 0 }, rng: alwaysZero });
     expect(cast).toBe(drained);
   });
+});
 
+describe("castSpell : validation de cible", () => {
   it("refuse une cible hors portée ou sans ligne de vue", () => {
     const near = buildState(["P.M.", "...."]);
     const offTarget = castSpell({ state: near, spellId: "pression", target: { x: 1, y: 0 }, rng: alwaysZero });
@@ -344,5 +347,36 @@ describe("immuabilité du moteur", () => {
     const before = structuredClone(state);
     castSpell({ state, spellId: "pression", target: { x: 2, y: 0 }, rng: alwaysZero });
     expect(state).toEqual(before);
+  });
+});
+
+describe("useCombatStore", () => {
+  it("démarre le combat de démonstration", () => {
+    useCombatStore.getState().startDemoCombat();
+    const { combat, mapId } = useCombatStore.getState();
+    expect(mapId).toBe(DEMO_MAP_ID);
+    expect(combat?.phase).toBe("player_turn");
+    expect(combat?.player.name).toBe("Balthazar");
+    expect(combat?.enemy.name).toBe("Piou Mazouté");
+    expect(combat?.player.spellIds.length).toBe(3);
+  });
+
+  it("déplace le héros sur une case jouable", () => {
+    useCombatStore.getState().startDemoCombat();
+    useCombatStore.getState().clickCell({ x: 4, y: 3 });
+    expect(useCombatStore.getState().combat?.player.position).toEqual({ x: 4, y: 3 });
+  });
+
+  it("garde le sort sélectionné quand le cast est refusé", () => {
+    useCombatStore.getState().startDemoCombat();
+    useCombatStore.getState().selectSpell("pression");
+    useCombatStore.getState().clickCell({ x: 4, y: 3 });
+    expect(useCombatStore.getState().selectedSpellId).toBe("pression");
+  });
+
+  it("passe la main et incrémente le tour", () => {
+    useCombatStore.getState().startDemoCombat();
+    useCombatStore.getState().endTurn();
+    expect(useCombatStore.getState().combat?.turn).toBe(2);
   });
 });
