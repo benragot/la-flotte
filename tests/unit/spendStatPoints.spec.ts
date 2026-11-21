@@ -170,6 +170,6 @@ describe("softCapsSchema : forme des tables", () => {
   });
 
   it("rejette un dernier palier qui n'est pas null", () => {
-    reject({ ...VALID_CAPS, strength: [[100, 1], [200, 2]] }, /strength.*dernier palier.*null/);
+    reject({ ...VALID_CAPS, strength: [[100, 1], [200, 2]] }, /dernier palier de strength.*null/);
   });
 });
