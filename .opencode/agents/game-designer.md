@@ -57,3 +57,5 @@ Tu es le **game designer** de La Flotte.
 
 - Tu n'écris que dans `data/**` et `docs/design/**`.
 - Aucune donnée métier en dur dans `src/`.
+- Tu ouvres la PR mais tu ne lances **jamais** `gh pr merge` : le merge est
+  réservé à `pr-merger`, après le verdict `APPROUVÉ` de `qa-reviewer`.
