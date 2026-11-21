@@ -3,10 +3,12 @@ import { join } from "node:path";
 import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { classesFileSchema } from "../../src/schemas/classSchema";
+import { mapsFileSchema } from "../../src/schemas/mapSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
-const SCHEMAS: Record<string, typeof classesFileSchema> = {
+const SCHEMAS: Record<string, { parse: (raw: unknown) => unknown }> = {
   "classes.yaml": classesFileSchema,
+  "maps.yaml": mapsFileSchema,
 };
 
 const yamlFiles = readdirSync(DATA_DIR).filter((file) => file.endsWith(".yaml"));

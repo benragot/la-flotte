@@ -1,0 +1,21 @@
+# Île de la Ferraille — première zone jouable.
+# Légende : "." sol praticable, "#" mur (mouvement + ligne de vue),
+# "~" eau (mouvement bloqué, ligne de vue libre), "P" joueur, "M" monstre.
+maps:
+  - id: ferraille_plage_01
+    name: Plage de la Ferraille
+    width: 12
+    height: 12
+    grid:
+      - "~~~~~~~~...."
+      - "~~~~....###."
+      - "~~~...##..#."
+      - "~~.P.......#"
+      - "~~....##...."
+      - "~~....##...."
+      - "...###......"
+      - "......~~~~.."
+      - "..#.....#..."
+      - "..#..M..#..."
+      - "..#.....#..."
+      - "............"
