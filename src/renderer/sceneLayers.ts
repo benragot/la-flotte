@@ -1,5 +1,6 @@
 import { Graphics } from "pixi.js";
 import type { Application } from "pixi.js";
+import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import { drawGrid, drawHighlights } from "./scene";
 import { drawTokens } from "./tokens";
@@ -37,8 +38,9 @@ function drawLayers(layers: SceneLayers, view: ViewModel): void {
   drawTokens(layers.tokens, view.tokens);
 }
 
-/** Redessine entièrement la scène pour l'application PixiJS donnée. */
+/** Redessine la scène ; no-op immédiat si l'application a été détruite. */
 export function renderScene(app: Application, view: ViewModel): void {
+  if (!isApplicationAlive(app)) return;
   const layers = layersFor(app);
   clearLayers(layers);
   drawLayers(layers, view);

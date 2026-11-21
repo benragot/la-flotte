@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import type { Application } from "pixi.js";
 import type { CombatState } from "../engine/combatLoop/types";
 import { useCombatStore } from "../store/useCombatStore";
+import { isApplicationAlive } from "./appLifecycle";
 import type { PointerHandlers } from "./pointer";
 import { bindPointer } from "./pointer";
 
@@ -20,7 +21,7 @@ export function useCombatPointer(input: CombatPointerInput): void {
   const clickCell = useCombatStore((state) => state.clickCell);
   const { app, combat } = input;
   useEffect(() => {
-    if (app === null || combat === null) return undefined;
+    if (combat === null || !isApplicationAlive(app)) return undefined;
     return bindCombat(app, combat, { setHoveredCell, clickCell });
   }, [app, combat, setHoveredCell, clickCell]);
 }

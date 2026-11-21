@@ -11,8 +11,8 @@ export function CombatCanvas(): ReactElement {
   const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
   const hoveredCell = useCombatStore((state) => state.hoveredCell);
   const { width, height } = combatCanvasSize(combat);
-  const { host, app } = usePixiApp(SCENE_BACKGROUND, width, height);
+  const { host, app, error } = usePixiApp(SCENE_BACKGROUND, width, height);
   useCombatScene({ app, combat, selectedSpellId, hoveredCell });
   useCombatPointer({ app, combat });
-  return <div ref={host} />;
+  return <div ref={host}>{error === null ? null : <p role="alert">{error}</p>}</div>;
 }
