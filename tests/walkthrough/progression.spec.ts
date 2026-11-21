@@ -12,6 +12,7 @@ import type { CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import type { Hero } from "../../src/engine/createHero";
 import { parseAsciiMap, samePosition } from "../../src/engine/grid";
+import { findPath } from "../../src/engine/grid";
 import type { Position } from "../../src/engine/grid";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
@@ -45,10 +46,15 @@ const loadCombatData = () => ({
   progression: parseProgressionYaml(read("progression.yaml")),
 });
 
-const distance = (a: Position, b: Position) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+/** Longueur du plus court chemin vers le monstre, murs contournés. */
+function routeLength(state: CombatState, cell: Position): number {
+  const map = state.map;
+  const path = findPath({ map, from: cell, to: state.enemy.position, maxPm: map.width * map.height });
+  return path === null ? Number.POSITIVE_INFINITY : path.length;
+}
 
-const closest = (target: Position) => (best: Position | null, cell: Position) =>
-  best === null || distance(cell, target) < distance(best, target) ? cell : best;
+const closest = (state: CombatState) => (best: Position | null, cell: Position) =>
+  best === null || routeLength(state, cell) < routeLength(state, best) ? cell : best;
 
 function attackOnce(state: CombatState, rng: Rng): CombatState {
   const target = state.enemy.position;
@@ -68,10 +74,9 @@ function castAll(state: CombatState, rng: Rng): CombatState {
 }
 
 function stepCloser(state: CombatState): CombatState {
-  const target = state.enemy.position;
-  const reach = distance(state.player.position, target);
-  const better = getReachableCells(state).filter((cell) => distance(cell, target) < reach);
-  const best = better.reduce<Position | null>(closest(target), null);
+  const reach = routeLength(state, state.player.position);
+  const better = getReachableCells(state).filter((cell) => routeLength(state, cell) < reach);
+  const best = better.reduce<Position | null>(closest(state), null);
   return best === null ? state : moveActiveEntity(state, best);
 }
 
