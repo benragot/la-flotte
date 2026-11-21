@@ -1,6 +1,6 @@
 ---
 name: dofus-129-economy-drop
-description: Référentiel économie Dofus 1.29 (XP, Sagesse, PP, drop) prêt à recevoir les courbes détaillées.
+description: "Référentiel complet de l'économie Dofus 1.29 : Prospection, drop, XP, paliers et gains de niveau."
 ---
 
 # Économie & Drop Dofus 1.29
