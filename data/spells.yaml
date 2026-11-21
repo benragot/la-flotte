@@ -1,0 +1,51 @@
+# Sorts jouables et sorts de monstres (Vague 1).
+# element : earth | fire | water | air | neutral
+# kind    : damage | teleport
+spells:
+  - id: pression
+    name: Pression
+    description: "Un coup de pression horizontal. Efficace, surtout sur les marins qui n'ont rien demandé."
+    classId: iop
+    kind: damage
+    element: earth
+    apCost: 3
+    minRange: 1
+    maxRange: 2
+    requiresLos: true
+    damage: { min: 8, max: 12 }
+
+  - id: bond
+    name: Bond
+    description: "Le héros bondit trois mètres plus loin, atterrit mal, et prétend que c'était calculé."
+    classId: iop
+    kind: teleport
+    element: neutral
+    apCost: 5
+    minRange: 1
+    maxRange: 4
+    requiresLos: false
+
+  - id: epee_du_destin
+    name: Épée du Destin
+    description: "L'épée du destin. Le destin, lui, n'était pas au courant et recule d'une case."
+    classId: iop
+    kind: damage
+    element: fire
+    apCost: 4
+    minRange: 1
+    maxRange: 3
+    requiresLos: true
+    damage: { min: 10, max: 14 }
+    pushCells: 1
+
+  - id: bec_mazoute
+    name: Bec Mazouté
+    description: "Le piou attaque au bec, avec l'odeur d'un moteur qui a renoncé depuis longtemps."
+    classId: monster
+    kind: damage
+    element: neutral
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    damage: { min: 5, max: 8 }

@@ -4,11 +4,17 @@ import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { classesFileSchema } from "../../src/schemas/classSchema";
 import { mapsFileSchema } from "../../src/schemas/mapSchema";
+import { monstersFileSchema } from "../../src/schemas/monsterSchema";
+import { progressionFileSchema } from "../../src/schemas/progressionSchema";
+import { spellsFileSchema } from "../../src/schemas/spellSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
 const SCHEMAS: Record<string, { parse: (raw: unknown) => unknown }> = {
   "classes.yaml": classesFileSchema,
   "maps.yaml": mapsFileSchema,
+  "monsters.yaml": monstersFileSchema,
+  "progression.yaml": progressionFileSchema,
+  "spells.yaml": spellsFileSchema,
 };
 
 const yamlFiles = readdirSync(DATA_DIR).filter((file) => file.endsWith(".yaml"));

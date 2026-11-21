@@ -1,0 +1,65 @@
+import type { Element, SpellDef } from "../../schemas/spellSchema";
+import type { LevelUpGain } from "../economy";
+import type { AsciiMap, Position } from "../grid";
+
+/** Source d'aléa injectée, retourne une valeur dans `[0, 1[`. */
+export type Rng = () => number;
+
+export type CombatPhase = "player_turn" | "enemy_turn" | "victory" | "defeat";
+
+export type CombatantKind = "player" | "enemy";
+
+export type CombatStatKey = "strength" | "intelligence" | "chance" | "agility" | "wisdom";
+
+export interface CombatStats {
+  strength: number;
+  intelligence: number;
+  chance: number;
+  agility: number;
+  wisdom: number;
+}
+
+export interface CombatResistances {
+  flat: Record<Element, number>;
+  percent: Record<Element, number>;
+}
+
+export interface CombatantState {
+  id: string;
+  kind: CombatantKind;
+  name: string;
+  level: number;
+  hp: number;
+  maxHp: number;
+  ap: number;
+  maxAp: number;
+  mp: number;
+  maxMp: number;
+  /** Précision en pourcentage : réservée à la Vague 2, inutilisée en V1. */
+  accuracyPct: number;
+  pp: number;
+  position: Position;
+  stats: CombatStats;
+  resistances: CombatResistances;
+  spellIds: string[];
+}
+
+export interface CombatRewards {
+  xpGained: number;
+  totalXp: number;
+  level: number;
+  levelUp: LevelUpGain | null;
+  prospection: number;
+  drops: string[];
+}
+
+export interface CombatState {
+  phase: CombatPhase;
+  turn: number;
+  map: AsciiMap;
+  player: CombatantState;
+  enemy: CombatantState;
+  spellsById: Record<string, SpellDef>;
+  log: string[];
+  rewards: CombatRewards | null;
+}
