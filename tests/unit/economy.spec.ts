@@ -1,24 +1,35 @@
 import { describe, expect, it } from "vitest";
-import { computeProspection } from "../../src/engine/economy/prospection";
-import { computeDropChance, isEligibleForDrop } from "../../src/engine/economy/drop";
-import { computeCombatXp } from "../../src/engine/economy/xp";
 import {
+  computeCombatXp,
+  computeDropChance,
   computeLevelFromXp,
+  computeProspection,
   getBaseApForLevel,
   getStatsGainForLevelUp,
-} from "../../src/engine/economy/leveling";
+  isEligibleForDrop,
+} from "../../src/engine/economy";
+import type { ApRule, LevelUpGain, XpTier } from "../../src/engine/economy";
 
-interface TestTier {
-  level: number;
-  xpRequired: number;
-}
-
-const TIERS: readonly TestTier[] = [
+const TIERS: readonly XpTier[] = [
   { level: 1, xpRequired: 0 },
   { level: 2, xpRequired: 110 },
   { level: 3, xpRequired: 650 },
   { level: 4, xpRequired: 1500 },
 ];
+
+const UNSORTED_TIERS: readonly XpTier[] = [
+  { level: 3, xpRequired: 650 },
+  { level: 1, xpRequired: 0 },
+  { level: 4, xpRequired: 1500 },
+  { level: 2, xpRequired: 110 },
+];
+
+const AP_RULES: readonly ApRule[] = [
+  { minLevel: 1, ap: 6 },
+  { minLevel: 100, ap: 7 },
+];
+
+const LEVEL_UP_GAIN: LevelUpGain = { hp: 5, capitalPoints: 5, spellPoints: 1 };
 
 describe("computeProspection", () => {
   it("retourne la PP de base quand la chance est nulle", () => {
@@ -30,16 +41,16 @@ describe("computeProspection", () => {
     expect(computeProspection({ basePp: 100, chance: 57 })).toBe(105);
   });
 
-  it("ignore une chance négative au lieu de retirer de la PP", () => {
-    expect(computeProspection({ basePp: 100, chance: -50 })).toBe(100);
-  });
-
   it("ajoute le bonus de PP fourni", () => {
     expect(computeProspection({ basePp: 100, chance: 20, bonusPp: 15 })).toBe(117);
   });
 
   it("traite un bonus de PP absent comme nul", () => {
     expect(computeProspection({ basePp: 42, chance: 0, bonusPp: undefined })).toBe(42);
+  });
+
+  it("garde défensive : une chance négative n'ajoute aucun bonus", () => {
+    expect(computeProspection({ basePp: 100, chance: -50 })).toBe(100);
   });
 });
 
@@ -87,7 +98,7 @@ describe("computeCombatXp", () => {
     expect(xp).toBe(49);
   });
 
-  it("ne retourne jamais une XP négative", () => {
+  it("garde défensive : une sagesse négative ne produit jamais d'XP négative", () => {
     const xp = computeCombatXp({ baseMonsterXp: 100, wisdom: -200, levelGapFactor: 1 });
     expect(xp).toBe(0);
   });
@@ -113,26 +124,68 @@ describe("computeLevelFromXp", () => {
   it("retourne le niveau 1 quand la table est vide", () => {
     expect(computeLevelFromXp(500, [])).toBe(1);
   });
+
+  it("reste correct avec une table de paliers non triée", () => {
+    expect(computeLevelFromXp(1000, UNSORTED_TIERS)).toBe(3);
+    expect(computeLevelFromXp(650, UNSORTED_TIERS)).toBe(3);
+    expect(computeLevelFromXp(109, UNSORTED_TIERS)).toBe(1);
+  });
 });
 
 describe("getStatsGainForLevelUp", () => {
-  it("accorde 5 PV, 5 points de capital et 1 point de sort", () => {
-    expect(getStatsGainForLevelUp(2)).toEqual({ hp: 5, capitalPoints: 5, spellPoints: 1 });
+  it("renvoie les gains injectés par l'appelant", () => {
+    expect(getStatsGainForLevelUp(2, LEVEL_UP_GAIN)).toEqual({
+      hp: 5,
+      capitalPoints: 5,
+      spellPoints: 1,
+    });
   });
 
-  it("garde les mêmes gains à tous les niveaux", () => {
-    expect(getStatsGainForLevelUp(150)).toEqual(getStatsGainForLevelUp(2));
+  it("n'utilise aucune valeur de gain codée en dur", () => {
+    const customGain = { hp: 7, capitalPoints: 2, spellPoints: 3 };
+    expect(getStatsGainForLevelUp(50, customGain)).toEqual(customGain);
+  });
+
+  it("garde les mêmes gains à tous les niveaux valides", () => {
+    expect(getStatsGainForLevelUp(150, LEVEL_UP_GAIN)).toEqual(
+      getStatsGainForLevelUp(2, LEVEL_UP_GAIN),
+    );
+  });
+
+  it("renvoie des gains nuls sous le niveau 1", () => {
+    expect(getStatsGainForLevelUp(0, LEVEL_UP_GAIN)).toEqual({
+      hp: 0,
+      capitalPoints: 0,
+      spellPoints: 0,
+    });
   });
 });
 
 describe("getBaseApForLevel", () => {
-  it("donne 6 PA sous le niveau 100", () => {
-    expect(getBaseApForLevel(1)).toBe(6);
-    expect(getBaseApForLevel(99)).toBe(6);
+  it("utilise le palier de PA fourni sous le niveau 100", () => {
+    expect(getBaseApForLevel(1, AP_RULES)).toBe(6);
+    expect(getBaseApForLevel(99, AP_RULES)).toBe(6);
   });
 
-  it("donne 7 PA à partir du niveau 100", () => {
-    expect(getBaseApForLevel(100)).toBe(7);
-    expect(getBaseApForLevel(200)).toBe(7);
+  it("utilise le palier de PA fourni à partir du niveau 100", () => {
+    expect(getBaseApForLevel(100, AP_RULES)).toBe(7);
+    expect(getBaseApForLevel(200, AP_RULES)).toBe(7);
+  });
+
+  it("suit des paliers personnalisés sans valeur codée en dur", () => {
+    const customRules: readonly ApRule[] = [
+      { minLevel: 1, ap: 5 },
+      { minLevel: 50, ap: 8 },
+    ];
+    expect(getBaseApForLevel(49, customRules)).toBe(5);
+    expect(getBaseApForLevel(50, customRules)).toBe(8);
+  });
+
+  it("reste correct avec des paliers non triés", () => {
+    const unsortedRules: readonly ApRule[] = [
+      { minLevel: 100, ap: 7 },
+      { minLevel: 1, ap: 6 },
+    ];
+    expect(getBaseApForLevel(120, unsortedRules)).toBe(7);
   });
 });
