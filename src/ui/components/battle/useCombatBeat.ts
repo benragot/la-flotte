@@ -1,0 +1,98 @@
+import { useCallback, useEffect, useRef } from "react";
+import { nextBeatAt } from "../../../engine/combat/beat";
+import { MAX_ENEMY_STEPS, needsEnemyStep } from "../../../store/battleSelectors";
+import { useCombatStore } from "../../../store/useCombatStore";
+
+type BeatTimer = ReturnType<typeof setTimeout>;
+
+/** Réfs stables du pilote : le minuteur et le drapeau de vie du composant. */
+interface BeatRefs {
+  timer: { current: BeatTimer | null };
+  alive: { current: boolean };
+}
+
+export interface BeatPlanInput {
+  lastActionAt: number;
+  now: number;
+  /** Un pas est-il encore dû ? Calculé par l'appelant, jamais par une horloge ici. */
+  needed: boolean;
+}
+
+export interface CombatBeatHandlers {
+  /** Sort du héros : refusé tant que le beat de l'action précédente n'est pas écoulé. */
+  attack: (targetId: string) => void;
+  /** « Terminer le tour » : passe la main, puis cadence un pas ennemi par beat. */
+  endTurn: () => void;
+}
+
+/** Délai avant le prochain pas : 0 si le beat est écoulé, `null` si rien n'est dû. */
+export function nextBeatDelay(input: BeatPlanInput): number | null {
+  if (!input.needed) return null;
+  return Math.max(0, nextBeatAt(input.lastActionAt) - input.now);
+}
+
+function clearBeatTimer(timer: { current: BeatTimer | null }): void {
+  if (timer.current !== null) clearTimeout(timer.current);
+  timer.current = null;
+}
+
+/** Un pas, horodaté : la borne basse de l'action suivante repart de maintenant. */
+function stepNow(refs: BeatRefs, steps: number): void {
+  if (!refs.alive.current) return;
+  const store = useCombatStore.getState();
+  store.playEnemyStepOnce();
+  store.stampActionAt(Date.now());
+  scheduleStep(refs, steps + 1);
+}
+
+/** Planifie le pas suivant ; la borne dure `MAX_ENEMY_STEPS` ferme toute boucle. */
+function scheduleStep(refs: BeatRefs, steps: number): void {
+  if (!refs.alive.current || steps >= MAX_ENEMY_STEPS) return;
+  const store = useCombatStore.getState();
+  const options = { lastActionAt: store.lastActionAt, now: Date.now(), needed: needsEnemyStep(store.battle, steps > 0) };
+  const delay = nextBeatDelay(options);
+  if (delay === null) return;
+  refs.timer.current = setTimeout(() => stepNow(refs, steps), delay);
+}
+
+/** Nettoyage au démontage : `clearTimeout` puis plus aucune écriture de store. */
+function useBeatLifecycle(refs: BeatRefs): void {
+  const { timer, alive } = refs;
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      clearBeatTimer(timer);
+    };
+  }, [alive, timer]);
+}
+
+/** Action du héros : refusée tant que le beat de la précédente n'est pas écoulé. */
+function useBeatAttack(): (targetId: string) => void {
+  return useCallback((targetId: string) => {
+    if (!useCombatStore.getState().canActNow(Date.now())) return;
+    useCombatStore.getState().battleSpellAttack({ targetId });
+    useCombatStore.getState().stampActionAt(Date.now());
+  }, []);
+}
+
+/** « Terminer le tour » : horodate l'action du joueur, puis lance la cadence. */
+function useBeatStart(refs: BeatRefs): () => void {
+  const { timer } = refs;
+  return useCallback(() => {
+    clearBeatTimer(timer);
+    useCombatStore.getState().stampActionAt(Date.now());
+    scheduleStep(refs, 0);
+  }, [refs, timer]);
+}
+
+/**
+ * Pilote la cadence de combat : un beat de lecture entre deux actions, aucune
+ * animation. Le minuteur vit ici, pas dans le JSX : `clearTimeout` au démontage
+ * et drapeau `alive`, donc **aucune** écriture de store après démontage.
+ */
+export function useCombatBeat(): CombatBeatHandlers {
+  const refs = { timer: useRef<BeatTimer | null>(null), alive: useRef(true) };
+  useBeatLifecycle(refs);
+  return { attack: useBeatAttack(), endTurn: useBeatStart(refs) };
+}

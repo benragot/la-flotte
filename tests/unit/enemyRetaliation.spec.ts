@@ -312,8 +312,9 @@ describe("panneau — journal lisible et défaite cohérente", () => {
     expect(count(html, ">Attaquer<")).toBe(0);
   });
 
-  it("câble Terminer le tour sur playEnemyTurns", () => {
+  it("cadence Terminer le tour par le hook de beat, plus par playEnemyTurns d'un bloc", () => {
     const source = readFileSync(join(process.cwd(), PANEL_PATH), "utf8");
-    expect(source).toMatch(/state\.playEnemyTurns/);
+    expect(source).toContain("useCombatBeat");
+    expect(source).not.toMatch(/state\.playEnemyTurns/);
   });
 });
