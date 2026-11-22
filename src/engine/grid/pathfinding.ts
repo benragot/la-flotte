@@ -48,7 +48,8 @@ function cellKey(position: Position): string {
 
 /**
  * Distance de Chebyshev en cases : géométrie pure, **jamais une facture**
- * (DEC-10 facture `pathCost`). Ne sert plus qu'aux appels sans carte.
+ * (DEC-10 facture `pathCost`). Plus aucun chemin de production ne l'appelle
+ * (le repli « sans carte » a été supprimé) : seuls les tests la vérifient.
  */
 export function stepDistance(a: Position, b: Position): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
