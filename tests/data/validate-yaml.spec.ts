@@ -63,8 +63,8 @@ describe("manifeste des sprites", () => {
   it("associe les quatre animations à chaque entité", () => {
     sprites.forEach((sprite) => {
       expect(Object.keys(sprite.animations).sort()).toEqual(["attack", "hit", "idle", "walk"]);
-      expect(sprite.frameWidth).toBe(64);
-      expect(sprite.frameHeight).toBe(64);
+      expect(sprite.frameWidth).toBe(128);
+      expect(sprite.frameHeight).toBe(128);
     });
   });
 

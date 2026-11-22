@@ -2,7 +2,16 @@ export { ActorStage } from "./actorStage";
 export type { ActorSyncInput } from "./actorStage";
 export { EntitySprite, FALLBACK_RADIUS, SPRITE_ANCHOR } from "./EntitySprite";
 export type { ActorPlacement, EntitySpriteInput } from "./EntitySprite";
-export { SPRITE_FRAME_SIZE, animationFrames, animationRects, frameAt, frameIndexAt, frameRect } from "./frameMath";
+export {
+  SPRITE_DISPLAY_SIZE,
+  SPRITE_FRAME_SIZE,
+  animationFrames,
+  animationRects,
+  displayScaleFor,
+  frameAt,
+  frameIndexAt,
+  frameRect,
+} from "./frameMath";
 export type { AnimationCount, AnimationLayout, FrameCell, FrameRect } from "./frameMath";
 export { sheetPlan } from "./sheetPlan";
 export type { SheetPlan } from "./sheetPlan";
