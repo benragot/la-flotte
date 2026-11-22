@@ -1,8 +1,9 @@
-import type { Position } from "../engine/grid";
+import type { AsciiMap, Position } from "../engine/grid";
 import type { ViewModel } from "./combatSceneModel";
 import type { GridSize, IsoOrigin } from "./gridProjection";
 import { gridDiamond, sceneOrigin } from "./gridProjection";
-import type { TileView } from "./scene";
+import type { GridHighlight, SceneModel, TileView } from "./scene";
+import { buildSceneModel } from "./scene";
 import { PATH_STYLE } from "./tileStyle";
 import type { TokenView } from "./tokens";
 import { groupTokenView, playerTokenView } from "./tokens";
@@ -17,6 +18,8 @@ export interface ExplorationGroup {
 export interface ExplorationView {
   playerPos: Position;
   groups: ExplorationGroup[];
+  /** Carte réelle : fige l'origine et permet de dessiner le décor. */
+  map?: AsciiMap;
   path?: Position[];
 }
 
@@ -24,6 +27,8 @@ export interface ExplorationModelInput {
   exploration: ExplorationView;
   viewport: GridSize;
 }
+
+const NO_HIGHLIGHT: GridHighlight = { move: new Set(), cast: new Set(), hover: null };
 
 function groupsPositions(groups: readonly ExplorationGroup[]): Position[] {
   return groups.map((group) => group.pos);
@@ -45,6 +50,21 @@ export function explorationMapSize(exploration: ExplorationView): GridSize {
   return { width: max.x + 1, height: max.y + 1 };
 }
 
+/**
+ * Origine figée sur la carte réelle : elle ne dépend ni du chemin de survol ni
+ * des jetons, donc l'écran ne saute pas sous le curseur.
+ */
+function gridSizeOf(exploration: ExplorationView): GridSize {
+  if (exploration.map === undefined) return explorationMapSize(exploration);
+  return { width: exploration.map.width, height: exploration.map.height };
+}
+
+/** Décor complet sans surbrillance : exploration = même grille que le combat, sans PM/PO. */
+function explorationScene(exploration: ExplorationView, origin: IsoOrigin): SceneModel {
+  if (exploration.map === undefined) return { tiles: [], highlights: [] };
+  return buildSceneModel({ map: exploration.map, highlight: NO_HIGHLIGHT, origin });
+}
+
 function pathTile(position: Position, origin: IsoOrigin): TileView {
   const diamond = gridDiamond({ ...position, origin });
   return { cell: ".", center: { x: diamond.cx, y: diamond.cy }, points: diamond.points, style: PATH_STYLE };
@@ -59,12 +79,12 @@ function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): Tok
   return [playerTokenView(exploration.playerPos, origin), ...groups];
 }
 
-/** View model d'exploration : chemin A* en losanges translucides, héros puis groupes badgés. */
+/** View model d'exploration : décor iso, chemin A* translucide, héros puis groupes badgés. */
 export function buildExplorationViewModel(input: ExplorationModelInput): ViewModel {
   const exploration = input.exploration;
-  const origin = sceneOrigin(explorationMapSize(exploration), input.viewport);
+  const origin = sceneOrigin(gridSizeOf(exploration), input.viewport);
   return {
-    scene: { tiles: [], highlights: [] },
+    scene: explorationScene(exploration, origin),
     tokens: explorationTokens(exploration, origin),
     path: pathTiles(exploration.path ?? [], origin),
   };

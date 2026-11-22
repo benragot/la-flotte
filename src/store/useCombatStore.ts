@@ -127,6 +127,13 @@ function creditVictory(rewards: CombatRewards): void {
   game.saveGame();
 }
 
+function restoreHeroHp(): void {
+  const game = useGameStore.getState();
+  if (game.hero === null) return;
+  useGameStore.setState({ hero: { ...game.hero, hp: game.hero.maxHp } });
+  game.saveGame();
+}
+
 function castOrMove(state: CombatState, spellId: string | null, target: Position): CombatState {
   if (spellId === null) return moveActiveEntity(state, target);
   return castSpell({ state, spellId, target, rng: Math.random });
@@ -176,14 +183,31 @@ function groupId(group: MonsterGroup | null): string {
   return group?.id ?? "";
 }
 
-function returnUpdate(store: CombatStore): Partial<CombatStore> {
-  const { exploration, activeGroup } = store;
-  if (store.rewards === null || exploration === null) return {};
-  const spawn = spawnForGroup(activeGroup);
-  const defeated = defeatGroup(exploration, groupId(activeGroup));
-  const next = respawnMonsterGroup({ state: defeated, spawn, rng: Math.random });
-  const base = { mode: "exploration" as const, exploration: next, combat: null };
+function explorationReturn(exploration: ExplorationState | null): Partial<CombatStore> {
+  const base = { mode: "exploration" as const, exploration, combat: null };
   return { ...base, rewards: null, activeGroup: null, selectedSpellId: null, hoveredCell: null };
+}
+
+function victoryReturn(store: CombatStore): Partial<CombatStore> {
+  const { exploration, activeGroup } = store;
+  if (exploration === null || store.rewards === null) return {};
+  const defeated = defeatGroup(exploration, groupId(activeGroup));
+  const spawn = spawnForGroup(activeGroup);
+  return explorationReturn(respawnMonsterGroup({ state: defeated, spawn, rng: Math.random }));
+}
+
+/** Défaite : PV restaurés au max (D29) pour ne pas enchaîner sur un héros à 0 PV. */
+function defeatReturn(store: CombatStore): Partial<CombatStore> {
+  restoreHeroHp();
+  return explorationReturn(store.exploration);
+}
+
+function returnUpdate(store: CombatStore): Partial<CombatStore> {
+  const combat = store.combat;
+  if (combat === null) return {};
+  if (combat.phase === "victory") return victoryReturn(store);
+  if (combat.phase !== "defeat") return {};
+  return defeatReturn(store);
 }
 
 const DEFAULT_STATE = {

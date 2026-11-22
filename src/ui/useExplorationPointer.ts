@@ -20,9 +20,9 @@ function viewportOf(element: HTMLElement): GridSize {
 }
 
 function cellFromEvent(event: PointerEvent, element: HTMLElement): Position | null {
-  const { exploration, hoveredCell } = useCombatStore.getState();
+  const { exploration } = useCombatStore.getState();
   if (exploration === null) return null;
-  const input = { exploration, hoveredCell, viewport: viewportOf(element) };
+  const input = { exploration, viewport: viewportOf(element) };
   return cellAtPoint({ ...input, point: pointerPoint(event, element) });
 }
 

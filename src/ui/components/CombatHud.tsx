@@ -19,7 +19,7 @@ import { DOCK_PANEL, PRIMARY_BUTTON, SECTION_HEADING } from "./hudTheme";
  * disparaît avec l'assemblage `App` de la phase B.
  */
 const HUD_SHELL = "pointer-events-none relative flex h-full w-full flex-col text-[#e8dcc8]";
-const ARENA_ZONE = "pointer-events-none relative min-h-0 flex-1";
+const ARENA_ZONE = "pointer-events-none relative min-h-0 flex-1 overflow-hidden";
 const DOCK_SHELL =
   "pointer-events-auto flex h-[150px] shrink-0 gap-2 border-t-2 border-[#8c6d46] bg-[#2b241d] px-2 py-2";
 const LOG_COLUMN = "min-w-0 w-[34%]";
