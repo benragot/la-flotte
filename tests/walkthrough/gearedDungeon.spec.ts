@@ -137,8 +137,13 @@ const WEIGHTS: Record<BuildId, Readonly<Record<string, number>>> = {
 };
 const CAPITAL_STAT: Record<BuildId, StatKey> = { survie: "vitality", offense: "strength" };
 
-/** GARDE-FOUS de mesure, pas des résultats : le farm réel demande 324 tirages. */
+/**
+ * GARDE-FOUS de mesure, pas des résultats : depuis `DEC-07` la clef tombe en
+ * butin direct (≈ 7,05 rencontres en espérance) et 5 avec les graines retenues.
+ */
 const FARM_CAP = 600;
+/** Rencontres réellement mesurées sous `SPAWN_SEED` / `DROP_SEED` (`DEC-07`). */
+const FARM_ENCOUNTERS = 5;
 const ROOM_ACTION_CAP = 200;
 /** Graines du LCG (spawn et drop séparés) : même patron que `play.spec.ts`. */
 const SPAWN_SEED = 12_345;
@@ -303,7 +308,7 @@ function farmKey(): number {
   const rngDrop = lcg(DROP_SEED);
   let inventory = useGameStore.getState().inventory;
   let encounters = 0;
-  while (missingIngredient(inventory) && encounters < FARM_CAP) {
+  while (!keyInBag(inventory) && missingIngredient(inventory) && encounters < FARM_CAP) {
     inventory = withDrops(inventory, fightSpawn({ rngSpawn, rngDrop }));
     encounters += 1;
   }
@@ -321,11 +326,25 @@ function prepareBuild(build: BuildId, level: number): EquipmentDef[] {
   return gear;
 }
 
-function craftAndEnter(): number {
-  const encounters = farmKey();
+/** La clef est au sac : arrivée par le butin direct ou par le craft, peu importe. */
+function keyInBag(inventory: InventoryState): boolean {
+  return countItem(inventory, KEY.id) > 0;
+}
+
+/**
+ * `DEC-07` : deux chemins, un seul résultat. Le farm s'arrête dès que la clef
+ * tombe en butin direct ; sinon on craft depuis les ingrédients, chemin garanti.
+ */
+function ensureKey(): void {
+  if (keyInBag(useGameStore.getState().inventory)) return;
   expect(missingIngredient(useGameStore.getState().inventory)).toBe(false);
   useGameStore.getState().craftRecipe({ recipeId: KEY_RECIPE.id });
-  expect(countItem(useGameStore.getState().inventory, KEY.id)).toBe(KEY_RECIPE.resultQuantity);
+  expect(keyInBag(useGameStore.getState().inventory)).toBe(true);
+}
+
+function craftAndEnter(): number {
+  const encounters = farmKey();
+  ensureKey();
   expect(useCombatStore.getState().enterDungeonRun({ dungeonId: DUNGEON.id })).toBe(true);
   return encounters;
 }
@@ -617,6 +636,7 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
     const measure = measureAt(cell.level, cell.build);
     expect(measure.maxHp).toBe(cell.maxHp);
     expect(measure.gear).toHaveLength(7);
+    expect(measure.encounters).toBe(FARM_ENCOUNTERS);
     expect(measure.encounters).toBeLessThan(FARM_CAP);
     expect(outcomeOf(measure)).toBe(cell.outcome);
     const last = lastRoomOf(measure.rooms);

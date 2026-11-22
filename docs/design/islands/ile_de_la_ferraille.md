@@ -977,6 +977,21 @@ fer_marteau_cle_de_douze ← fer_pince_de_douze×6, fer_boulon_sans_fin×5, fer_
 fer_pelle_a_gravats ← fer_carapace_tole×4, fer_boulon_sans_fin×4, fer_huile_de_coude×2
 ```
 
+> **ERRATUM §7 (2026-11-22) — `DEC-07`, clef de donjon.** La ligne
+> `cle_donjon_ile_de_la_ferraille` ci-dessus est **périmée** : les quantités
+> réellement livrées dans `data/recipes.yaml` sont
+> `fer_pince_de_douze×1, fer_boulon_sans_fin×1, fer_goutte_mazout×2`.
+> Motif : la décision `DEC-07` (document de décisions, ex-`D01…D09` en cours de
+> renommage) impose qu'une clef s'obtienne en **5 à 10 rencontres en moyenne** ;
+> à `×3/×3`, le seul boulon (`fer_boulon_pousseur`, poids 4/146) coûtait 168
+> rencontres d'espérance. Les taux de drop du §2 sont **intacts** : le levier
+> retenu est le **butin direct**, la clef tombant du `fer_crabe_cle_molette`
+> (0,60) et du `fer_rat_de_cale` (0,45), soit `1 / 14,18 % ≈ 7,05` rencontres.
+> La recette reste le chemin **garanti** (coût `Σ ≈ 81,55` rencontres, borne
+> haute) mais n'est plus le chemin le moins cher. Le garde-fou est
+> `tests/data/keyFarmBudget.spec.ts`, qui mesure le **coût total** de toutes les
+> clefs (`category: key`), tous chemins confondus.
+
 ## 8. Donjon et Fruit d'Écho
 
 ```yaml
