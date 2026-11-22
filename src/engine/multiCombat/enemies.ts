@@ -44,9 +44,15 @@ function arrivalTaken(current: BattleState, enemy: CombatantLike, to: Position):
 
 /**
  * Un pas coûte une case de PM par case parcourue, comme `combatLoop/move.ts` :
- * la facture est le **chemin** (distance en pas, diagonale = 1), jamais l'écart
- * orthogonal `manhattan`, qui surévalue tout atterrissage diagonal et figeait
- * l'ennemi sur place (3 pas facturés 5).
+ * la facture est la **distance en pas** (`stepDistance`, Chebyshev, diagonale =
+ * 1), jamais l'écart orthogonal `manhattan`, qui surévalue tout atterrissage
+ * diagonal et figeait l'ennemi sur place (3 pas facturés 5).
+ *
+ * NUANCE : `stepDistance` vaut la longueur du chemin **en champ libre**. Autour
+ * d'un obstacle (mur, flaque), un atterrissage atteint par un détour est
+ * **sous-facturé** — jusqu'à ~2 PM. Impact mesuré : **aucun sur DEC-03**
+ * aujourd'hui, mais à corriger (facturation par la longueur réelle du chemin)
+ * avant d'ajouter des monstres qui contournent. Cf. dette dans la PR #86.
  */
 function moveEnemy(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
   const cost = stepDistance(enemy.position, to);
