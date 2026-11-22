@@ -14,7 +14,6 @@ import { addItem, countItem } from "../../src/engine/inventory";
 import { activeCombatant, isDefeat, isVictory, livingOf } from "../../src/engine/multiCombat";
 import type { BattleState, CombatantLike } from "../../src/engine/multiCombat";
 import type { StorageLike } from "../../src/engine/save";
-import { saveDataSchema } from "../../src/engine/save/saveSchema";
 import type { ClassDef, StatKey } from "../../src/schemas/classSchema";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
@@ -47,6 +46,10 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * `level <= 16`, on retient le meilleur score pondéré du build
  * (`survie` : Vitalité×100 + Force ; `offense` : Force×100 + int×10 + Vita),
  * départage alphabétique d'`id` ; aucun id d'objet n'est écrit dans ce fichier.
+ * Sept slots sont pourvus, mais `ring1` est une ÉGALITÉ À 0 POINT : les deux
+ * anneaux du catalogue ne scorent ni Force, ni int, ni Vita (12 Agilité contre
+ * 20 Chance), et l'Anneau Mazouté ne gagne que par ordre alphabétique. « 7
+ * pièces optimisées » serait donc flatteur : ce slot n'apporte rien.
  *
  * RÉSULTAT MESURÉ LE 22/11/2026, contre la dette D71 :
  *   survie  — 75 points en Vitalité, 303 PV max : salle 1 GAGNÉE (303 → 225 PV,
@@ -57,24 +60,29 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  *             7 PV de monstres, soit 0,35 tour manquant ≈ 5 PV de survie.
  *
  * CE QUE ÇA DIT DE D71 : elle n'est PAS résolue (les deux builds meurent en
- * salle 2, comme le héros nu de `play.spec.ts`) mais elle a changé de nature :
- * le héros nu perdait la salle 2 avec 62 PV et ~200 PV d'écart ; le build
- * offense la perd à 7 PV ennemis près. La panoplie rend la salle 1 confortable
- * et la salle 2 jouable à un objet près. Les deux critères d'optimisation
- * convergent au niveau 16 : le seul marteau (`level: 15`, Force 22 + Vita 20)
- * et la seule amulette (`level: 16`, Force 18 + Vita 22) sont à la fois les
- * plus défensifs et les plus offensifs — les pièces Brico-Lourd complètes
- * (`level` 17-18) ne sont pas accessibles et aucun palier de panoplie ne
- * s'active (1 pièce sur 4).
+ * salle 2, comme le héros nu de `play.spec.ts`) mais elle a changé de nature.
+ * ATTENTION AUX UNITÉS : ce fichier ne mesure que des PV de MONSTRES restants
+ * (55 en survie, 7 en offense). Le « ~200 PV d'écart » du commentaire de
+ * `play.spec.ts` est une ESTIMATION HÉRITÉE, NON MESURÉE, et exprimée en PV de
+ * HÉROS : elle n'est pas comparable aux deux chiffres ci-dessus et n'est donc
+ * pas mise sur la même échelle. À la seule aune mesurée ici, la salle 2 laisse
+ * 55 PV de monstres au build survie et 7 PV au build offense : elle tombe à un
+ * objet près. Les deux critères d'optimisation convergent au niveau 16 : le
+ * seul marteau (`level: 15`, Force 22 + Vita 20) et la seule amulette
+ * (`level: 16`, Force 18 + Vita 22) sont à la fois les plus défensifs et les
+ * plus offensifs — les pièces Brico-Lourd complètes (`level` 17-18) ne sont
+ * pas accessibles et aucun palier de panoplie ne s'active (1 pièce sur 4).
  *
- * CE QUI FERA CHANGER CE RÉSULTAT : (a) une pièce de plus au niveau 16 — la
- * Cape Bâche Trouée (17) ou le Casque Cabossé (18) donnent plus de 5 PV et
- * activent le palier 2 de `fer_set_brico_lourd` (+15 Vita, +10 Force) ;
- * (b) des résistances sur l'équipement (D45b, aujourd'hui toutes à 0 : les
- * `flatRes`/`percentRes` de `data/items.yaml` ne sont pas projetés dans
- * `combatantFromHero`) ; (c) des soins entre les salles (vague 6), aujourd'hui
- * interdits par le moteur. Le jour où un build gagne, remplacer l'assertion de
- * défaite par la victoire (`isDungeonComplete`) et dérouler les salles 3 et 4.
+ * CE QUI FERA CHANGER CE RÉSULTAT : (a) une pièce de niveau 16 supplémentaire,
+ * ou le palier 2 de `fer_set_brico_lourd` (+15 Vita, +10 Force), qui exige des
+ * pièces `level` 17-18, ou un héros de niveau 17-18 ; (b) les soins entre les
+ * salles (vague 6), aujourd'hui interdits par le moteur. Les résistances
+ * (D45b) ne déplaceraient PAS cette mesure : aucune pièce retenue n'en porte,
+ * et la seule du catalogue est le palier 3 de `panoplie_piou_mazoute`
+ * (`flatRes: 5`, `data/sets.yaml`), palier que ce build n'active pas. Elles
+ * compteraient si des données en ajoutaient. Le jour où un build gagne,
+ * remplacer l'assertion de défaite par la victoire (`isDungeonComplete`) et
+ * dérouler les salles 3 et 4.
  *
  * CE QU'IL NE PROUVE PAS : ni l'acquisition réelle de l'équipement (les pièces
  * sont ajoutées au sac puis équipées par l'action `equip` du store — la mesure
@@ -437,16 +445,17 @@ function playDungeon(storage: StorageLike): RoomReport[] {
   return rooms;
 }
 
-/** Sortie propre vérifiée : plus de bataille, plus de run, aucune sauvegarde à 0 PV. */
+/** Sortie propre vérifiée par `loadGame` : plus de bataille, plus de run, aucune sauvegarde à 0 PV. */
 function assertCleanExit(storage: StorageLike): void {
   const combat = useCombatStore.getState();
   expect(combat.battle).toBeNull();
   expect(combat.dungeonRun).toBeNull();
   expect(combat.dungeonNotice).toContain("Donjon quitté");
-  expect(heroOrThrow().hp).toBeGreaterThan(0);
-  const raw = storage.getItem(useGameStore.getState().saveKey);
-  if (raw === null) throw new Error("aucune sauvegarde écrite");
-  expect(saveDataSchema.parse(JSON.parse(raw)).hero.hp).toBeGreaterThan(0);
+  const alive = heroOrThrow();
+  expect(alive.hp).toBeGreaterThan(0);
+  useGameStore.getState().resetGame();
+  expect(useGameStore.getState().loadGame(storage)).toBe(true);
+  expect(heroOrThrow().hp).toBe(alive.hp);
 }
 
 function measureRun(build: BuildId, encounters: number, storage: MemoryStorage): Measurement {
@@ -508,7 +517,9 @@ describe("build survie — 75 Vitalité, l'équipement le plus défensif du nive
     expect(first?.victory).toBe(true);
     expect(first?.hpEnd).toBe(225);
     expect(second?.hpStart).toBe(first?.hpEnd);
-    expect(second?.hpEnd).toBe(0);
+    // Remplace le tautologique `hpEnd === 0` (vrai par définition d'une défaite) :
+    // le héros a bien absorbé TOUS ses PV, aucun soin ne s'est glissé en salle.
+    expect(second?.damageTaken).toBe(second?.hpStart);
     expect(second?.enemyHpLeft).toBe(55);
     const missing = deficitOf(second as RoomReport);
     expect(missing.turnsShort).toBeCloseTo(3.08, 2);
