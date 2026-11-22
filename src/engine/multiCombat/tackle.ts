@@ -35,7 +35,10 @@ function strongestTackler(tacklers: readonly CombatantLike[]): CombatantLike {
   return tacklers.reduce((best, entry) => (entry.stats.agility > best.stats.agility ? entry : best));
 }
 
-/** `rng() × 100 < échappée` : l'échappée réussie annule le tacle. */
+/**
+ * Échappée si `rng() × 100 < percent` (inégalité **stricte**) : `percent = 0`
+ * ne s'échappe jamais, `percent = 100` s'échappe toujours (`rng() < 1`).
+ */
 function escapes(mover: CombatantLike, tackler: CombatantLike, rng: Rng): boolean {
   const percent = computeTackleEscapePercent({
     fleeAgility: mover.stats.agility,
@@ -88,12 +91,21 @@ function isTackleAttempt(input: TackleInput, mover: CombatantLike): boolean {
 }
 
 /**
- * Règle de tacle retenue (1.29 simplifiée) : seuls les adversaires vivants à
- * distance 1 du point de départ comptent ; le plus agile mène le tacle.
- * Jet 1 : `computeTackleEscapePercent` ≥ `rng() × 100` ⇒ déplacement accepté,
- * 0 PA perdu. Jet 2 en cas d'échec : `computeApMpLossChance` ≥ `rng()` ⇒ 1 PA
- * perdu, sinon le déplacement est simplement refusé. La légalité de la case
- * d'arrivée et le coût en PM restent à la charge de l'appelant.
+ * Règle de tacle retenue (1.29 simplifiée, assumée) :
+ * 1. seuls les adversaires vivants à distance 1 du point de départ comptent ;
+ *    le **plus agile** mène le tacle (départage par ordre de tableau) ;
+ * 2. jet d'échappée : `rng() × 100 < computeTackleEscapePercent(...)` ⇒ le
+ *    déplacement passe, 0 PA perdu (inégalité stricte, voir `escapes`) ;
+ * 3. jet de retrait en cas de tacle : `rng() < computeApMpLossChance(...)` ⇒
+ *    **1 PA** perdu, sinon le déplacement est refusé sans perte.
+ *
+ * Simplifications assumées par rapport à 1.29 :
+ * - tacleur **unique** (1.29 combine plusieurs tacleurs par produit) ;
+ * - perte de **PA** sur déplacement refusé (1.29 retire des PM) ;
+ * - déplacement **refusé** (1.29 l'autorise avec un malus de PM).
+ *
+ * La légalité de la case d'arrivée et le coût en PM restent à la charge de
+ * l'appelant.
  */
 export function resolveTackle(input: TackleInput): TackleResult {
   const mover = findCombatant(input.state, input.moverId);

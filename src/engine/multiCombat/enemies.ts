@@ -1,7 +1,7 @@
 import type { Position } from "../grid";
 import { samePosition } from "../grid";
 import { resolveAttack } from "./attack";
-import { isAliveById, withCombatant } from "./combatants";
+import { isAlive, isAliveById, withCombatant } from "./combatants";
 import { activeCombatant } from "./timeline";
 import type { BattleState, CombatantLike, EnemyAction, EnemyStrategy, Rng } from "./types";
 
@@ -48,9 +48,16 @@ function shouldStop(previous: BattleState, next: BattleState, action: EnemyActio
   return targetDied(next, action);
 }
 
+/** Ennemi actif et vivant, `null` sinon (la timeline conserve les morts). */
+function activeEnemy(state: BattleState): CombatantLike | null {
+  const active = activeCombatant(state);
+  if (active === null || !isAlive(active) || active.side !== "enemy") return null;
+  return active;
+}
+
 function stepOnce(input: EnemiesActInput, current: BattleState): StepResult {
-  const enemy = activeCombatant(current);
-  if (enemy === null || enemy.side !== "enemy") return { state: current, stop: true };
+  const enemy = activeEnemy(current);
+  if (enemy === null) return { state: current, stop: true };
   const action = input.strategy(current, enemy.id);
   if (action === null) return { state: current, stop: true };
   const state = applyAction({ input, current, enemy, action });

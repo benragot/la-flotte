@@ -12,11 +12,10 @@ function livingAt(state: BattleState, index: number): boolean {
   return id !== undefined && isAliveById(state, id);
 }
 
-/** Prochain vivant ; à défaut l'actif courant est conservé. */
-function findNextIndex(state: BattleState): number {
-  const size = state.order.length;
-  const candidates = candidateIndexes(size, state.activeIndex);
-  return candidates.find((index) => livingAt(state, index)) ?? state.activeIndex;
+/** Prochain vivant, `null` si la timeline n'en contient aucun. */
+function findNextIndex(state: BattleState): number | null {
+  const candidates = candidateIndexes(state.order.length, state.activeIndex);
+  return candidates.find((index) => livingAt(state, index)) ?? null;
 }
 
 /** PA/PM du combattant qui devient actif remis à leurs maxima. */
@@ -30,14 +29,17 @@ function restoreActive(state: BattleState): BattleState {
  * Passe au vivant suivant. `turn` n'est incrémenté que si la boucle revient
  * en arrière (donc au premier vivant de l'ordre). Les morts sont sautés et le
  * nouvel actif récupère ses PA/PM. Immuable.
+ *
+ * Sans vivant (`order` vide, tous morts) ou si l'actif est le seul vivant,
+ * l'état est renvoyé **inchangé par identité** : un appelant en boucle ne
+ * peut plus faire tourner le compteur indéfiniment.
  */
 export function advanceTurn(state: BattleState): BattleState {
   const index = findNextIndex(state);
-  const wrapped = index <= state.activeIndex;
-  const next: BattleState = {
+  if (index === null || index === state.activeIndex) return state;
+  return restoreActive({
     ...state,
     activeIndex: index,
-    turn: state.turn + (wrapped ? 1 : 0),
-  };
-  return restoreActive(next);
+    turn: state.turn + (index < state.activeIndex ? 1 : 0),
+  });
 }

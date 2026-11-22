@@ -19,8 +19,9 @@ import {
   resolveTackle,
   targetsOf,
 } from "../../src/engine/multiCombat";
+import type { CombatResistances } from "../../src/engine/combatLoop";
+import type { AsciiMap } from "../../src/engine/grid";
 import type {
-  AsciiMap,
   AttackSpec,
   BattleState,
   CombatantLike,
@@ -30,10 +31,12 @@ import type {
 
 const STATS = { strength: 100, intelligence: 60, chance: 40, agility: 100, wisdom: 80 };
 const LEVEL = 10;
-const ZERO: Record<string, number> = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
 
-function resistances(earthPercent = 0, earthFlat = 0) {
-  return { flat: { ...ZERO, earth: earthFlat }, percent: { ...ZERO, earth: earthPercent } };
+function resistances(earthPercent = 0, earthFlat = 0): CombatResistances {
+  return {
+    flat: { earth: earthFlat, fire: 0, water: 0, air: 0, neutral: 0 },
+    percent: { earth: earthPercent, fire: 0, water: 0, air: 0, neutral: 0 },
+  };
 }
 
 function makeCombatant(overrides: Partial<CombatantLike> = {}): CombatantLike {
@@ -407,7 +410,9 @@ describe("resolveTackle — asymétrie du tacle", () => {
     expect(result.moved).toBe(true);
     expect(result.apLoss).toBe(0);
   });
+});
 
+describe("resolveTackle — choix du tacleur", () => {
   it("retient le tacleur le plus agile quand deux adversaires sont adjacents", () => {
     const { player, enemy } = duel({
       player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 0 } },
@@ -426,7 +431,7 @@ describe("resolveTackle — asymétrie du tacle", () => {
   });
 });
 
-describe("resolveTackle — contact et refus", () => {
+describe("resolveTackle — contact", () => {
   it("tacle réussi : déplacement refusé et perte de PA", () => {
     const { player, enemy } = adjacentDuel();
     const state = makeState([player, enemy]);
@@ -448,7 +453,9 @@ describe("resolveTackle — contact et refus", () => {
     expect(result.state.combatants[0]?.position).toEqual({ x: 0, y: 1 });
     expect(result.state.combatants[0]?.ap).toBe(player.ap);
   });
+});
 
+describe("resolveTackle — refus et absence de contact", () => {
   it("sans adversaire adjacent : déplacement libre sans jet", () => {
     const { player, enemy } = duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 5, y: 5 } } });
     const state = makeState([player, enemy]);
@@ -569,7 +576,7 @@ describe("enemiesAct — critique ennemi", () => {
     const state = enemyTurnFixture();
     const attack = attackSpec({ baseCrit: 200, critDamagePct: 50 });
     let calls = 0;
-    const strategy = (): EnemyAction => {
+    const strategy = (): EnemyAction | null => {
       calls += 1;
       return calls === 1 ? { kind: "attack", targetId: "p1", attack } : null;
     };

@@ -1,10 +1,13 @@
 import { computeDamage, computePushbackDamage } from "../combat";
-import { isWalkableCell } from "../grid";
-import type { Position } from "../grid";
+import { applyPush } from "../combatLoop";
+import type { CombatantState, PushResult } from "../combatLoop";
 import type { Element } from "../../schemas/spellSchema";
+import type { DamageInput } from "../combat";
+import type { Position } from "../grid";
 import { withCombatant } from "./combatants";
 import type { AttackSpec, BattleState, CombatantLike, CombatStats } from "./types";
 
+// TODO 5B : mutualiser avec combatLoop/cast.ts (ELEMENT_STAT y est privé).
 const ELEMENT_STAT: Record<Element, keyof CombatStats> = {
   earth: "strength",
   fire: "intelligence",
@@ -23,50 +26,66 @@ export interface DamageContext {
   critDamagePct: number;
 }
 
+interface PushOutcome {
+  position: Position;
+  damage: number;
+}
+
 function elementStat(stats: CombatStats, element: Element): number {
   return stats[ELEMENT_STAT[element]];
 }
 
-/** Dégâts du coup, `percentDmg` ne portant que le bonus de critique. */
-export function damageOf(context: DamageContext): number {
-  const { attack, attacker, critical, critDamagePct } = context;
-  return computeDamage({
+function resistanceInput(target: CombatantLike, element: Element): Pick<DamageInput, "flatRes" | "pctRes" | "armor"> {
+  return {
+    flatRes: target.resistances.flat[element],
+    pctRes: target.resistances.percent[element],
+    armor: target.armor,
+  };
+}
+
+/** `isPlayer` décrit bien la **cible** (plafond 50 % sur ses résistances %). */
+function damageInput(context: DamageContext): DamageInput {
+  const { attack, attacker, target, critical, critDamagePct } = context;
+  return {
     base: attack.base,
     stat: elementStat(attacker.stats, attack.element),
     percentDmg: critical ? critDamagePct : 0,
-    isPlayer: attacker.side === "player",
-  });
+    ...resistanceInput(target, attack.element),
+    isPlayer: target.side === "player",
+  };
 }
 
-function pushStep(from: Position, to: Position): Position {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (Math.abs(dx) >= Math.abs(dy)) return { x: Math.sign(dx), y: 0 };
-  return { x: 0, y: Math.sign(dy) };
+/** Dégâts du coup, `percentDmg` ne portant que le bonus de critique. */
+export function damageOf(context: DamageContext): number {
+  return computeDamage(damageInput(context));
 }
 
-function nextCell(position: Position, step: Position): Position {
-  return { x: position.x + step.x, y: position.y + step.y };
+/**
+ * Pont minimal vers `applyPush` (qui attend un `CombatantState` complet) :
+ * `applyPush` ne lit que `map` et les deux positions.
+ */
+function asPushCombatant(combatant: CombatantLike): CombatantState {
+  return { ...combatant, kind: combatant.side, accuracyPct: 0, pp: 0, spellIds: [] };
 }
 
-/** Bloquée si la case suivante sur l'axe lanceur→cible est hors map ou `#`. */
-export function isPushBlocked(context: DamageContext): boolean {
-  const { attack, attacker, state, target } = context;
-  if ((attack.pushCells ?? 0) <= 0 || state.map === undefined) return false;
-  const cell = nextCell(target.position, pushStep(attacker.position, target.position));
-  return !isWalkableCell(state.map, cell);
-}
-
-/** Dégâts de collision : la cible n'a pas pu parcourir la première case. */
-export function pushDamageOf(context: DamageContext): number {
-  if (!isPushBlocked(context)) return 0;
-  const { attack, attacker } = context;
+/** `remainingCells` = cases réellement parcourues (comme le 1v1 dans cast.ts). */
+function collisionDamage(context: DamageContext, push: PushResult): number {
+  if (!push.blocked) return 0;
   return computePushbackDamage({
-    casterLevel: attacker.level,
-    roll: attack.roll ?? 0,
-    remainingCells: 1,
+    casterLevel: context.attacker.level,
+    roll: context.attack.roll ?? 0,
+    remainingCells: push.travelled,
     isSecondaryTarget: false,
   });
+}
+
+/** Parcours de poussée délégué à `combatLoop/push.ts`, aucune case codée en dur. */
+function pushOutcome(context: DamageContext): PushOutcome {
+  const cells = context.attack.pushCells ?? 0;
+  const map = context.state.map;
+  if (cells <= 0 || map === undefined) return { position: context.target.position, damage: 0 };
+  const push = applyPush({ map, caster: asPushCombatant(context.attacker), victim: asPushCombatant(context.target), cells });
+  return { position: push.position, damage: collisionDamage(context, push) };
 }
 
 export function spendAp(state: BattleState, attacker: CombatantLike, cost: number): BattleState {
@@ -83,10 +102,15 @@ function describeHit(context: DamageContext, total: number): string {
   return `${context.attacker.name} frappe ${context.target.name}${suffix} : ${total} dégâts.`;
 }
 
-/** Applique les dégâts (plancher 0) et journalise le coup. */
-export function applyHit(context: DamageContext, damage: number, pushDamage: number): BattleState {
-  const target = context.target;
-  const hp = Math.max(0, target.hp - damage - pushDamage);
+/** Applique les dégâts (plancher 0), relocalise la cible poussée et journalise. */
+export function applyHit(context: DamageContext, damage: number, push: PushOutcome): BattleState {
+  const target = { ...context.target, position: push.position };
+  const hp = Math.max(0, target.hp - damage - push.damage);
   const next = withCombatant(context.state, { ...target, hp });
-  return appendLog(next, describeHit(context, damage + pushDamage));
+  return appendLog(next, describeHit(context, damage + push.damage));
+}
+
+/** Coup complet : poussée calculée avant les dégâts pour connaître la position finale. */
+export function resolveHit(context: DamageContext): BattleState {
+  return applyHit(context, damageOf(context), pushOutcome(context));
 }

@@ -1,5 +1,5 @@
 import type { Element } from "../../schemas/spellSchema";
-import type { Rng } from "../combatLoop/types";
+import type { CombatResistances, Rng } from "../combatLoop/types";
 import type { AsciiMap, Position } from "../grid";
 
 export type { Rng };
@@ -27,6 +27,10 @@ export interface CombatantLike {
   maxMp: number;
   position: Position;
   stats: CombatStats;
+  /** Résistances par élément, alignées sur `CombatantState` (1v1). */
+  resistances: CombatResistances;
+  /** Armure plate optionnelle, cumulée aux résistances fixes dans `computeDamage`. */
+  armor?: number;
   /** Initiative déjà calculée par l'appelant via `computeInitiative`. */
   initiative: number;
 }
@@ -47,7 +51,9 @@ export interface AttackSpec {
   element: Element;
   baseCrit: number;
   bonusCrit?: number;
-  /** Cases de poussée ; 0 ou absent = pas de collision possible. */
+  /** Bonus de dégâts (%) ajouté en cas de coup critique (défaut 0). */
+  critDamagePct?: number;
+  /** Cases de poussée ; 0 ou absent = pas de poussée. */
   pushCells?: number;
   /** Valeur de dé de la poussée (voir `computePushbackDamage`). */
   roll?: number;
