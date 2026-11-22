@@ -9,13 +9,18 @@ interface TopBannerProps {
   phase: CombatPhase;
 }
 
+const BANNER =
+  "pointer-events-auto flex items-baseline gap-4 border-b border-[#8c6d46]/60 bg-[#2b241d]/90 py-1 pl-3 pr-44 text-[#e8dcc8]";
+const TITLE = "text-sm font-bold tracking-wide text-[#d4a537]";
+const VERSION = "text-[10px] font-normal text-[#8c6d46]";
+
 export default function TopBanner({ mapId, turn, phase }: TopBannerProps) {
   const version = formatGameVersion(packageJson.version);
   return (
-    <header className="pointer-events-auto absolute inset-x-0 top-0 flex items-baseline justify-between gap-4 bg-slate-950/85 px-4 py-2 text-slate-100">
-      <h1 className="text-lg font-bold tracking-wide text-amber-300">La Flotte <small className="text-xs font-normal text-slate-400">{version}</small></h1>
-      <p className="text-xs">Carte {mapId} · Tour {turn}</p>
-      <p className="text-sm font-semibold">{phaseLabel(phase)}</p>
+    <header className={BANNER}>
+      <h1 className={TITLE}>La Flotte <small className={VERSION}>{version}</small></h1>
+      <p className="text-[11px] opacity-80">Carte {mapId} · Tour {turn}</p>
+      <p className="ml-auto text-sm font-semibold text-[#d4a537]">{phaseLabel(phase)}</p>
     </header>
   );
 }

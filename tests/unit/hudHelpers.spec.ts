@@ -8,12 +8,16 @@ import type {
 import type { AsciiMap } from "../../src/engine/grid";
 import type { Element, SpellDef } from "../../src/schemas/spellSchema";
 import {
+  HUD_COLORS,
+  buildSpellSlots,
   canCastSpell,
   formatHpBar,
   formatSpellRange,
   getRecentLog,
   isBattleOver,
+  logTone,
   phaseLabel,
+  shortcutNumberForSlot,
   shouldShowRewards,
 } from "../../src/ui/hudHelpers";
 
@@ -218,5 +222,113 @@ describe("shouldShowRewards", () => {
   it("n'affiche aucun gain pendant un tour", () => {
     expect(shouldShowRewards("player_turn", REWARDS)).toBe(false);
     expect(shouldShowRewards("enemy_turn", REWARDS)).toBe(false);
+  });
+});
+
+const SLOT_COUNT = 12;
+
+function emptySlots(count: number): null[] {
+  return Array.from({ length: count }, () => null);
+}
+
+function fakeSpells(count: number): { ids: string[]; spellsById: Record<string, SpellDef> } {
+  const ids = Array.from({ length: count }, (_, index) => `sort_${index}`);
+  const spellsById = Object.fromEntries(ids.map((id) => [id, makeSpell({ id })]));
+  return { ids, spellsById };
+}
+
+function combatWithSpells(count: number): CombatState {
+  const { ids, spellsById } = fakeSpells(count);
+  return makeCombat({ player: makeCombatant({ spellIds: ids }), spellsById });
+}
+
+describe("buildSpellSlots", () => {
+  it("retourne toujours douze emplacements pour la grille 2x6", () => {
+    expect(buildSpellSlots({ combat: makeCombat(), selectedSpellId: null })).toHaveLength(12);
+  });
+
+  it("remplit les emplacements dans l'ordre de player.spellIds", () => {
+    const slots = buildSpellSlots({ combat: combatWithSpells(3), selectedSpellId: null });
+    expect(slots.slice(0, 3).map((slot) => slot?.id)).toEqual(["sort_0", "sort_1", "sort_2"]);
+    expect(slots.slice(3)).toEqual(emptySlots(SLOT_COUNT - 3));
+  });
+
+  it("retourne douze emplacements vides quand le joueur n'a aucun sort", () => {
+    const combat = makeCombat({ player: makeCombatant({ spellIds: [] }) });
+    expect(buildSpellSlots({ combat, selectedSpellId: null })).toEqual(emptySlots(SLOT_COUNT));
+  });
+
+  it("laisse l'emplacement vide quand le sort manque dans spellsById", () => {
+    const combat = makeCombat({ player: makeCombatant({ spellIds: ["sort_fantome"] }) });
+    const slots = buildSpellSlots({ combat, selectedSpellId: null });
+    expect(slots[0]).toBeNull();
+  });
+
+  it("tronque la liste au-delà de douze sorts", () => {
+    const slots = buildSpellSlots({ combat: combatWithSpells(13), selectedSpellId: null });
+    expect(slots).toHaveLength(SLOT_COUNT);
+    expect(slots[11]?.id).toBe("sort_11");
+  });
+
+  it("produit la même grille quel que soit le sort sélectionné", () => {
+    const combat = combatWithSpells(2);
+    const withoutSelection = buildSpellSlots({ combat, selectedSpellId: null });
+    const withSelection = buildSpellSlots({ combat, selectedSpellId: "sort_1" });
+    expect(withSelection).toEqual(withoutSelection);
+  });
+});
+
+describe("shortcutNumberForSlot", () => {
+  it("numérote de 1 à 9 les neuf premiers emplacements", () => {
+    expect(shortcutNumberForSlot(0)).toBe("1");
+    expect(shortcutNumberForSlot(8)).toBe("9");
+  });
+
+  it("n'attribue aucun raccourci aux emplacements 10 à 12", () => {
+    expect(shortcutNumberForSlot(9)).toBeNull();
+    expect(shortcutNumberForSlot(11)).toBeNull();
+  });
+
+  it("n'attribue aucun raccourci à un index hors grille", () => {
+    expect(shortcutNumberForSlot(-1)).toBeNull();
+    expect(shortcutNumberForSlot(99)).toBeNull();
+  });
+});
+
+describe("logTone", () => {
+  const PLAYER = "Balthazar";
+
+  it("colore en joueur une ligne qui commence par le nom du joueur", () => {
+    expect(logTone("Balthazar lance Pression : 9 dégâts.", PLAYER)).toBe("player");
+    expect(logTone("Balthazar se déplace de 2 case(s).", PLAYER)).toBe("player");
+  });
+
+  it("colore en ennemi une action qui n'appartient pas au joueur", () => {
+    expect(logTone("Piou Mazouté lance Bec Mazouté : 6 dégâts.", PLAYER)).toBe("enemy");
+    expect(logTone("Piou Mazouté se téléporte.", PLAYER)).toBe("enemy");
+  });
+
+  it("colore en système les lignes de tour et d'ouverture", () => {
+    expect(logTone("Tour 2 : à Balthazar de jouer.", PLAYER)).toBe("system");
+    expect(logTone("Fin du combat.", PLAYER)).toBe("system");
+  });
+
+  it("reste robuste sur une ligne vide", () => {
+    expect(logTone("", PLAYER)).toBe("system");
+  });
+});
+
+describe("HUD_COLORS", () => {
+  it("fige la palette rétro Dofus 1.29", () => {
+    expect(HUD_COLORS).toEqual({
+      stone: "#2b241d",
+      copper: "#8c6d46",
+      parchment: "#3d342a",
+      text: "#e8dcc8",
+      hpRed: "#b83b3b",
+      apBlue: "#3b6fb8",
+      mpGreen: "#4a8c4a",
+      gold: "#d4a537",
+    });
   });
 });

@@ -9,8 +9,10 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 3
+  version: 5
   updated_at: "2026-11-22"
+  # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
+  next: 4C
   # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
   # ce backlog par l'agent d'intégration, qui signe `updated_by`.
   updated_by: integrator
@@ -83,12 +85,15 @@ waves:
             notes: squash eedbf26 — permissions de merge gate
       - id: 4B
         title: Intégration — useGameStore, combat câblé, walkthrough niv. 5
-        status: todo
+        status: done
+        pr: 21
         depends_on: [4A-hero-prog, 4A-inventory, 4A-save, 4A-items-sets, 4A-harness]
-        notes: dépendances toutes mergées sur main (PR 14-18), le travail d'intégration n'a pas commencé
+        updated_at: "2026-11-22"
+        notes: store persistant câblé, dettes D01/D10/D11/D17 soldées
       - id: 4C
         title: UI — création de personnage, inventaire et équipement
         status: todo
+        depends_on: [4B]
       - id: 4D
         title: Wiring App — écran de création puis arène
         status: todo
@@ -142,10 +147,6 @@ waves:
         status: todo
 
 debts:
-  - id: D01
-    title: La table XP 1.29 n'est épinglée par aucun snapshot (seule la longueur et 2 frontières sont testées)
-    severity: medium
-    target: 4B
   - id: D02
     title: requiresState est un enum d'état métier codé en dur dans src/schemas
     severity: low
@@ -178,14 +179,6 @@ debts:
     title: Regex de tailwindSetup.spec.ts à resserrer sur le JSX plutôt que sur les imports
     severity: low
     target: 4C
-  - id: D10
-    title: levelGapFactor vaut 1 en dur dans rewards.ts au lieu de venir de progression.yaml
-    severity: medium
-    target: 4B
-  - id: D11
-    title: Le store appelle resolveCombatRewards avec heroXp 0, l'XP ne persiste pas entre combats
-    severity: high
-    target: 4B
   - id: D12
     title: Release Please échoue (réglage de dépôt can_approve_pull_request_reviews = false)
     severity: high
@@ -209,7 +202,19 @@ debts:
     severity: low
     target: external
     owner: user
-  - id: D17
-    title: Le walkthrough économie n'existe pas encore
+  - id: D27
+    title: monsterSchema n'expose pas kamasMin/kamasMax — les kamas ne sont pas crédités
     severity: medium
-    target: 4B
+    target: 4C
+  - id: D28
+    title: La table XP est verrouillée par snapshot mais pas les autres tables de données
+    severity: low
+    target: 5A
+  - id: D29
+    title: Les PV courants du héros ne suivent pas le combat — chaque combat repart à PV plein et le soin hors combat est inatteignable en jeu
+    severity: high
+    target: 5B
+  - id: D30
+    title: Les items ne portent aucune résistance par élément — le combattant part toujours à 0
+    severity: medium
+    target: 5B

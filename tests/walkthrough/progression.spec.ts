@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { castSpell } from "../../src/engine/combatLoop/cast";
 import { getCastableCells } from "../../src/engine/combatLoop/castable";
 import { getReachableCells } from "../../src/engine/combatLoop/cells";
@@ -11,14 +11,21 @@ import { endPlayerTurn } from "../../src/engine/combatLoop/turn";
 import type { CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import type { Hero } from "../../src/engine/createHero";
+import { totalStatsFor } from "../../src/engine/hero/totalStats";
+import { addItem, countItem, getActiveSetBonuses } from "../../src/engine/inventory";
+import type { InventoryState } from "../../src/engine/inventory";
+import type { StorageLike } from "../../src/engine/save";
 import { parseAsciiMap, samePosition } from "../../src/engine/grid";
 import { findPath } from "../../src/engine/grid";
 import type { Position } from "../../src/engine/grid";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
+import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseProgressionYaml } from "../../src/schemas/progressionSchema";
+import { parseSetsYaml } from "../../src/schemas/setSchema";
 import { parseSpellsYaml } from "../../src/schemas/spellSchema";
+import { useGameStore } from "../../src/store/useGameStore";
 
 const CLASSES_PATH = join(process.cwd(), "data", "classes.yaml");
 const loadIop = () => {
@@ -132,5 +139,164 @@ describe("walkthrough : progression", () => {
     expect(rewards.level).toBe(2);
     expect(rewards.levelUp).toEqual({ hp: 5, capitalPoints: 5, spellPoints: 1 });
     expect(rewards.drops).toEqual(["plume_mazoutee"]);
+  });
+});
+
+const MAX_COMBATS = 60;
+const CAMPAIGN_HERO = { name: "Anselme", classId: "iop" };
+const SET_PIECES = [
+  "chapeau_piou_mazoute",
+  "cape_graisseuse",
+  "amulette_de_la_coupure",
+  "bottes_de_fond_de_cale",
+  "gourdin_du_matelot",
+];
+const FIGHT_RNG = () => 0.5;
+const DROP_RNG = () => 0;
+
+class MemoryStorage implements StorageLike {
+  private readonly entries = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.entries.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.entries.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.entries.delete(key);
+  }
+}
+
+let combatsPlayed = 0;
+
+function heroState(): Hero {
+  const { hero } = useGameStore.getState();
+  if (hero === null) throw new Error("héros persistant absent");
+  return hero;
+}
+
+function fightToVictory(hero: Hero): CombatState {
+  const data = loadCombatData();
+  const start = initCombat({ map: data.map, hero, monster: data.monster, spells: data.spells });
+  const final = runScenario(start, FIGHT_RNG);
+  if (final.phase !== "victory") throw new Error(`combat non gagné au tour ${final.turn}`);
+  return final;
+}
+
+function creditVictory(state: CombatState): void {
+  const data = loadCombatData();
+  const options = { hero: state.player, monster: data.monster, progression: data.progression };
+  const rewards = resolveCombatRewards({ ...options, heroXp: heroState().xp, rng: DROP_RNG });
+  useGameStore.getState().creditCombatRewards(rewards);
+}
+
+function farmToLevelFive(): number {
+  let combats = 0;
+  while (heroState().level < 5 && combats < MAX_COMBATS) {
+    creditVictory(fightToVictory(heroState()));
+    combats += 1;
+  }
+  return combats;
+}
+
+function gearUp(): void {
+  SET_PIECES.forEach((itemId) => addToBag(itemId));
+  SET_PIECES.forEach((itemId) => useGameStore.getState().equip({ itemId }));
+}
+
+function addToBag(itemId: string): void {
+  useGameStore.setState((state) => ({
+    inventory: addItem({ inventory: state.inventory, itemId, quantity: 1 }),
+  }));
+}
+
+function loadCatalogue() {
+  return {
+    items: parseItemsYaml(read("items.yaml")),
+    sets: parseSetsYaml(read("sets.yaml")),
+  };
+}
+
+function equippedInventory(): InventoryState {
+  return useGameStore.getState().inventory;
+}
+
+function activeSetReport() {
+  const { items, sets } = loadCatalogue();
+  const inventory = equippedInventory();
+  return { inventory, items, sets, bonuses: getActiveSetBonuses({ inventory, items, sets }) };
+}
+
+beforeAll(() => {
+  useGameStore.getState().resetGame();
+  useGameStore.getState().createCharacter(CAMPAIGN_HERO);
+  combatsPlayed = farmToLevelFive();
+});
+
+describe("walkthrough : boucle de farm déterministe", () => {
+  it("atteint le niveau 5 en moins de 60 combats réels", () => {
+    const hero = heroState();
+    expect(combatsPlayed).toBeLessThanOrEqual(MAX_COMBATS);
+    expect(combatsPlayed).toBe(24);
+    expect(hero.level).toBe(5);
+    expect(hero.xp).toBeGreaterThanOrEqual(2800);
+    expect(hero.xp).toBe(2880);
+  });
+
+  it("investit les points de capital gagnés dans la Force de l'Iop", () => {
+    expect(heroState().capitalPoints).toBe(20);
+    useGameStore.getState().allocateStat({ stat: "strength", points: 20 });
+    expect(heroState().strength).toBe(20);
+    expect(heroState().capitalPoints).toBe(0);
+  });
+
+  it("fait payer 1 puis 2 points au franchissement 99 → 100 → 101", () => {
+    useGameStore.setState({ hero: { ...heroState(), strength: 99, capitalPoints: 3 } });
+    useGameStore.getState().allocateStat({ stat: "strength", points: 1 });
+    expect(heroState().strength).toBe(100);
+    expect(heroState().capitalPoints).toBe(2);
+    useGameStore.getState().allocateStat({ stat: "strength", points: 2 });
+    expect(heroState().strength).toBe(101);
+    expect(heroState().capitalPoints).toBe(0);
+  });
+});
+
+describe("walkthrough : équipement, soin et sauvegarde", () => {
+  it("équipe les 5 pièces et active les 3 paliers de la panoplie", () => {
+    gearUp();
+    const hero = heroState();
+    const { inventory, items, sets, bonuses } = activeSetReport();
+    expect(bonuses.map((entry) => entry.activePieces)).toEqual([4]);
+    expect(bonuses[0]?.bonuses.length).toBe(3);
+    const stats = totalStatsFor({ hero, inventory, items, sets });
+    expect(stats.ap).toBe(1);
+    expect(stats.strength).toBe(hero.strength + 13);
+    expect(stats.vitality).toBe(hero.vitality + 23 + 20);
+  });
+
+  it("soigne un héros blessé sans dépasser ses PV maximum", () => {
+    const hero = heroState();
+    useGameStore.setState({ hero: { ...hero, hp: hero.maxHp - 12 } });
+    addToBag("soupe_de_baleine_tiede");
+    useGameStore.getState().drinkConsumable({ itemId: "soupe_de_baleine_tiede" });
+    expect(heroState().hp).toBe(hero.maxHp);
+    expect(countItem(equippedInventory(), "soupe_de_baleine_tiede")).toBe(0);
+  });
+
+  it("sauvegarde puis recharge héros, sac, équipement et drapeaux à l'identique", () => {
+    const storage = new MemoryStorage();
+    useGameStore.setState({ flags: { niveau_cinq_atteint: true } });
+    expect(useGameStore.getState().saveGame(storage)).toBe(true);
+    const before = useGameStore.getState();
+    useGameStore.getState().resetGame();
+    expect(useGameStore.getState().hero).toBeNull();
+    expect(useGameStore.getState().loadGame(storage)).toBe(true);
+    const after = useGameStore.getState();
+    expect(after.hero).toEqual(before.hero);
+    expect(after.inventory).toEqual(before.inventory);
+    expect(after.flags).toEqual(before.flags);
   });
 });
