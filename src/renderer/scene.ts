@@ -3,9 +3,11 @@ import type { AsciiMap, Position } from "../engine/grid";
 import { getCell, isWalkableCell } from "../engine/grid";
 import { allPositions } from "../engine/combatLoop/cells";
 import type { DecorView } from "./decor";
+import type { ExitMark } from "./exitMarks";
+import { exitMarkViews } from "./exitMarks";
 import type { Diamond, IsoOrigin, PixelPoint } from "./gridProjection";
 import { gridDiamond, originScale } from "./gridProjection";
-import { mapDecorSpecs } from "./mapDecor";
+import { mapDecorSpecs, mapExitSpecs } from "./mapDefinition";
 import type { Shape } from "./shapes";
 import type { NeighbourLand } from "./tileTexture";
 import { groundShapes, waterEdges } from "./tileTexture";
@@ -57,6 +59,8 @@ export interface SceneModel {
   decor: DecorView[];
   /** Un contour par case praticable : aucun mur, aucune case hors carte. */
   outlines: GridOutline[];
+  /** Un « soleil » par sortie déclarée dans `data/maps.yaml` ; vide sans sortie. */
+  exitMarks: ExitMark[];
 }
 
 interface TileFlags {
@@ -204,14 +208,22 @@ export function gridOutlines(map: AsciiMap, origin: IsoOrigin): GridOutline[] {
   return painterOrder(walkable).map((cell) => outlineAt(origin, cell));
 }
 
-/** Modèle d'affichage complet : tuiles, contours, décor et surbrillances en ordre peintre. */
+/** Soleils de sortie : la géométrie pure, testable sans PixiJS. */
+function sceneExitMarks(input: SceneInput): ExitMark[] {
+  return exitMarkViews(mapExitSpecs(input.map), input.origin);
+}
+
+/** Aucune surbrillance de base : le sol est peint avant les couches d'état. */
+const NO_TILE_FLAGS: TileFlags = { isMoveCell: false, isCastCell: false };
+
+/** Modèle d'affichage complet : tuiles, contours, décor, sorties et surbrillances. */
 export function buildSceneModel(input: SceneInput): SceneModel {
   const specs = mapDecorSpecs(input.map);
   const context = contextOf(input, pontoonCells(specs));
   const positions = painterOrder(allPositions(input.map));
-  const base: TileFlags = { isMoveCell: false, isCastCell: false };
-  const tiles = positions.map((cell) => tileAt(context, cell, base));
+  const tiles = positions.map((cell) => tileAt(context, cell, NO_TILE_FLAGS));
   const highlights = positions.map((cell) => highlightTile(context, cell)).filter(isTileView);
   const decor = decorViews(specs, input.origin);
-  return { tiles, highlights, decor, outlines: gridOutlines(input.map, input.origin) };
+  const outlines = gridOutlines(input.map, input.origin);
+  return { tiles, highlights, decor, outlines, exitMarks: sceneExitMarks(input) };
 }
