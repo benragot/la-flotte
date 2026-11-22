@@ -5,6 +5,11 @@
  */
 export { default as InventoryPanel } from "./InventoryPanel";
 export type { InventoryPanelProps } from "./InventoryPanel";
+export { default as ItemDetailPanel, ItemDetailBody } from "./ItemDetailPanel";
+export type { ItemDetailPanelProps } from "./ItemDetailPanel";
+export { itemDetailView } from "./itemDetailView";
+export type { ItemDetailRow, ItemDetailSet, ItemDetailView } from "./itemDetailView";
+export { nextSelection, selectionAfterKey } from "./itemSelection";
 export { default as EquipmentSlots } from "./EquipmentSlots";
 export { default as BackpackList } from "./BackpackList";
 export { default as ConsumableBar } from "./ConsumableBar";
