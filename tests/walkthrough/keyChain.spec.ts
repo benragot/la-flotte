@@ -35,7 +35,9 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
  *   exactement une clé, avec les ingrédients fournis par le farm seul.
  * Les drops passent par `resolveCombatRewards` — la fonction exacte que le store
  * appelle en combat (`useCombatStore.ts`) — avec vraie prospection et vrai
- * `computeDropChance`. Aucun `Math.random`, aucun `addItem` manuel.
+ * `computeDropChance`. Aucun `Math.random`. Les `drops` rendus par le moteur sont
+ * appliqués TELS QUELS via `addItem` : aucune quantité d'ingrédient n'est
+ * inventée.
  *
  * LE TRAJET EXPLORATION, EN DEUX TEMPS DISTINCTS :
  *   - `pickSpawn` (sur `data/spawns.yaml`) prouve que CHAQUE monstre de la zone
@@ -48,11 +50,17 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
  *   1. 8 rencontres : PLANCHER DÉTERMINISTE, pas une mesure. Sous `DROP_RNG`,
  *      chaque combat lâche (`dropChance > rng`), donc il faut exactement
  *      3 pinces + 3 boulons + 2 gouttes = 8 combats. C'est le minimum absolu.
- *   2. ≈ 14 combats : ESPÉRANCE réelle, `2/0,45 + 3/0,60 + 3/0,65`.
- *   3. ≈ 236 tirages de spawn : coût NON MODÉLISÉ. Le boulon pèse 4/146
- *      (≈ 2,7 %), soit ≈ 36,5 tirages par combat ⇒ ≈ 169 tirages pour ses
- *      ≈ 4,6 combats ; le crabe (12/146) ≈ 61 ; le Piou (100/146) ≈ 7. Un vrai
- *      joueur paie ces tirages, ce walkthrough ne les paie pas.
+ *   2. ≈ 14 combats : ESPÉRANCE réelle, `2/0,45 + 3/0,60 + 3/0,65`
+ *      (≈ 4,4 Piou + 5 crabes + 4,6 boulons), si le joueur ne combat que ce
+ *      dont il a besoin.
+ *   3. ≈ 170 tirages de spawn : coût NON MODÉLISÉ. Les tirages sont PARTAGÉS —
+ *      chaque tirage donne UN monstre — donc ils ne s'additionnent pas par
+ *      ingrédient. Le boulon (4/146, ≈ 2,7 %) domine : ≈ 169 tirages pour ses
+ *      ≈ 4,6 combats, qui couvrent en chemin ≈ 13,9 crabes (5 suffisent) et
+ *      ≈ 116 pious (4,4 suffisent). Coût de la chaîne entière : ≈ 170 tirages,
+ *      pas la somme des trois chasses séparées.
+ *      (Détail par chasse isolée : Piou ≈ 6,5 tirages pour 4,4 combats.)
+ *      Un vrai joueur paie ces tirages, ce walkthrough ne les paie pas.
  *
  * CE QU'IL NE PROUVE PAS : qu'un JOUEUR peut déclencher cette chaîne depuis
  * l'écran. Aucun écran, aucun store, aucun événement d'UI n'est exercé ici : le
@@ -98,8 +106,8 @@ const BARREN_SWEEP = 20;
  * PLANCHER DÉTERMINISTE, pas une mesure d'équilibrage : sous toutes les chances
  * calculées (0,45 / 0,60 / 0,65) chaque combat lâche, d'où exactement 1 combat
  * par unité. Les 8 rencontres du test sont le minimum absolu ; l'espérance
- * réelle est ≈ 14 combats, et le coût de spawn (≈ 236 tirages) n'est pas
- * modélisé du tout (cf. en-tête).
+ * réelle est ≈ 14 combats, et le coût de spawn (≈ 170 tirages PARTAGÉS, dominés
+ * par le boulon à 4/146) n'est pas modélisé du tout (cf. en-tête).
  */
 const DROP_RNG = 0.1;
 /** Au-dessus de toutes les chances de drop ⇒ aucun butin ne tombe jamais. */
