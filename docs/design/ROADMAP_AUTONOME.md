@@ -20,17 +20,27 @@ Légende : [ ] à faire · [x] fait
 - [ ] 5B-g table de spawn d'exploration — sortir `DEMO_MONSTER_ID`, farmer les 3 ingrédients hors donjon (PR #43 en revue)
 - [ ] 5B intégration — reste 5B-g
 - [x] 5C-a panneau de combat 1vN — rendu des N ennemis, ciblage et journal (PR #44)
-- [ ] 5C-b sorts des monstres de la Ferraille (données) — en revue, riposte à câbler en 5C-c
-- [ ] 5C-c câbler `battleEnemyTurn` — les ennemis ripostent
+- [x] 5C-b sorts des monstres de la Ferraille (données) — PR #46
+- [x] 5C-c câbler `battleEnemyTurn` — les ennemis ripostent — PR #48
 - [ ] 5C-d portée et ligne de vue — `map` dans `BattleState`
 - [x] 5C-e walkthrough de la chaîne de la clé (PR #45)
 - [ ] 5D-a premier donjon jouable — déclencher une salle depuis le jeu
 - [ ] 5D wiring
-## Vague 6 — Fruits d'Écho, sorts avancés, Archipel
-- [ ] 6A advanced-spells · echo-fruits · archipelago
-- [ ] 6B intégration
+## Vague 6 — Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
+Spec de référence : `docs/design/specs/effects-engine.md`
+- [ ] 6A-effects-schema — schéma des effets, gardes inertes, migration `duration` → `durationTurns` (11 occurrences)
+- [ ] 6A-timed-effects — durées, max PA/PM dérivés, armure dérivée
+- [ ] 6A-apmp-retrait — retrait PA/PM séquentiel (Sagesse, bornes 10–90 %)
+- [ ] 6A-heal-armor — soin (Intelligence, cap PV) et absorption d'armure
+- [ ] 6B intégration Fruits d'Écho et AoE
+- [ ] 6B-zone-geometry — croix/cercle, murs non tronquants, LoS du centre
+- [ ] 6B-cast-riders — riders + les 7 sorts, dont 2 zones
 - [ ] 6C ui-archipelago · ui-echo
+- [ ] 6C-push-fidelity — diagonale, distance non parcourue, RéPou
+- [ ] 6C-combatants-list — `CombatState` → `combatants[]` (adaptateur 1v1)
 - [ ] 6D wiring
+- [ ] 6D-summon — `soupe_a_lhuile` (soin allié) + `appel_a_la_casse` (invocation max 2)
+- [ ] 6D-boss-carapace — bouclier cassé sur `#` puis −2 PA
 ## Vague 7 — Polish, contenu, packaging Mac
 - [ ] 7A renderer-polish · ux-audio
 - [ ] 7B content-archipelago
