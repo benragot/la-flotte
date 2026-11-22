@@ -387,3 +387,44 @@ describe("walkthrough : exploration, combat et respawn", () => {
     expect(heroState().xp).toBeGreaterThan(xpBefore);
   });
 });
+
+function setHeroHp(hp: number): void {
+  const game = useGameStore.getState();
+  if (game.hero === null) throw new Error("héros persistant absent");
+  useGameStore.setState({ hero: { ...game.hero, hp } });
+}
+
+function playUntilDefeat(): void {
+  for (let turn = 0; turn < MAX_TURNS; turn += 1) {
+    if (storeCombat().phase === "defeat") return;
+    useCombatStore.getState().endTurn();
+  }
+  throw new Error("défaite non atteinte dans la borne dure");
+}
+
+describe("walkthrough : défaite et retour sur la carte", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("retourne en exploration sans vaincre le groupe et restaure les PV", () => {
+    useGameStore.getState().resetGame();
+    useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
+    const maxHp = heroState().maxHp;
+    setHeroHp(1);
+    vi.spyOn(Math, "random").mockReturnValue(STORE_RNG());
+    useCombatStore.getState().startExploration();
+    const group = getMonsterGroupAt(storeExploration(), { x: 5, y: 9 });
+    if (group === null) throw new Error("groupe attendu sur la case (5,9)");
+    useCombatStore.getState().clickCell({ x: 5, y: 9 });
+    playUntilDefeat();
+    expect(storeCombat().phase).toBe("defeat");
+    useCombatStore.getState().returnToMap();
+    const back = useCombatStore.getState();
+    expect(back.mode).toBe("exploration");
+    expect(back.combat).toBeNull();
+    expect(back.rewards).toBeNull();
+    expect(back.exploration?.monsterGroups.map((entry) => entry.id)).toEqual([group.id]);
+    expect(heroState().hp).toBe(maxHp);
+  });
+});

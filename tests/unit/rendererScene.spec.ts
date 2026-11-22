@@ -12,7 +12,7 @@ import { buildViewModel } from "../../src/renderer/combatSceneModel";
 import { buildExplorationViewModel, explorationMapSize } from "../../src/renderer/explorationScene";
 import { gridToIso, sceneOrigin } from "../../src/renderer/gridProjection";
 import { buildSceneModel } from "../../src/renderer/scene";
-import { CAST_HIGHLIGHT, HOVER_STROKE } from "../../src/renderer/tileStyle";
+import { CAST_HIGHLIGHT, HOVER_STROKE, MOVE_HIGHLIGHT } from "../../src/renderer/tileStyle";
 import { ENEMY_TOKEN_COLOR, PLAYER_TOKEN_COLOR, tokenView } from "../../src/renderer/tokens";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
@@ -170,27 +170,60 @@ describe("tokenView — bornes de PV", () => {
 });
 
 describe("exploration — héros, groupes et chemin A*", () => {
+  const map = demoMap();
   const exploration = {
     playerPos: { x: 2, y: 3 },
     groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
+    map,
     path: [
       { x: 2, y: 4 },
       { x: 3, y: 4 },
     ],
   };
+  const bbox = { playerPos: exploration.playerPos, groups: exploration.groups };
 
   it("dimensionne la carte d'exploration sur la case la plus lointaine", () => {
-    expect(explorationMapSize(exploration)).toEqual({ width: 6, height: 6 });
+    expect(explorationMapSize(bbox)).toEqual({ width: 6, height: 6 });
     expect(explorationMapSize({ playerPos: { x: 0, y: 0 }, groups: [] })).toEqual({ width: 1, height: 1 });
   });
 
   it("surligne le chemin fourni avec un losange par étape", () => {
     const view = buildExplorationViewModel({ exploration, viewport: VIEWPORT });
     expect(view.path).toHaveLength(2);
-    expect(view.scene.tiles).toHaveLength(0);
-    const origin = sceneOrigin(explorationMapSize(exploration), VIEWPORT);
+    const origin = sceneOrigin(MAP_SIZE, VIEWPORT);
     expect(view.path[0]?.center).toEqual(gridToIso({ x: 2, y: 4, origin }));
     expect(view.path[0]?.points).toHaveLength(8);
+  });
+});
+
+describe("exploration — décor et origine stables", () => {
+  const exploration = {
+    playerPos: { x: 2, y: 3 },
+    groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
+    map: demoMap(),
+  };
+
+  it("dessine toutes les tuiles de base sans surbrillance de mouvement ni de sort", () => {
+    const view = buildExplorationViewModel({ exploration, viewport: VIEWPORT });
+    expect(view.scene.tiles).toHaveLength(MAP_SIZE.width * MAP_SIZE.height);
+    expect(view.scene.highlights).toHaveLength(0);
+    const highlighted = view.scene.tiles.filter(
+      (tile) => tile.style.fill === MOVE_HIGHLIGHT || tile.style.fill === CAST_HIGHLIGHT,
+    );
+    expect(highlighted).toHaveLength(0);
+  });
+
+  it("garde l'origine figée sur la carte quand le chemin de survol change", () => {
+    const near = buildExplorationViewModel({
+      exploration: { ...exploration, path: [{ x: 2, y: 4 }] },
+      viewport: VIEWPORT,
+    });
+    const far = buildExplorationViewModel({
+      exploration: { ...exploration, path: [{ x: 10, y: 3 }] },
+      viewport: VIEWPORT,
+    });
+    expect(near.tokens[0]?.center).toEqual(far.tokens[0]?.center);
+    expect(near.scene.tiles[0]?.center).toEqual(far.scene.tiles[0]?.center);
   });
 });
 
