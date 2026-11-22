@@ -7,6 +7,7 @@ import { itemsFileSchema } from "../../src/schemas/itemSchema";
 import { mapsFileSchema } from "../../src/schemas/mapSchema";
 import { monstersFileSchema } from "../../src/schemas/monsterSchema";
 import { progressionFileSchema } from "../../src/schemas/progressionSchema";
+import { recipesFileSchema } from "../../src/schemas/recipeSchema";
 import { setsFileSchema } from "../../src/schemas/setSchema";
 import { spellsFileSchema } from "../../src/schemas/spellSchema";
 import { spritesFileSchema } from "../../src/schemas/spriteSchema";
@@ -18,6 +19,7 @@ const SCHEMAS: Record<string, { parse: (raw: unknown) => unknown }> = {
   "maps.yaml": mapsFileSchema,
   "monsters.yaml": monstersFileSchema,
   "progression.yaml": progressionFileSchema,
+  "recipes.yaml": recipesFileSchema,
   "sets.yaml": setsFileSchema,
   "spells.yaml": spellsFileSchema,
   "sprites.yaml": spritesFileSchema,
