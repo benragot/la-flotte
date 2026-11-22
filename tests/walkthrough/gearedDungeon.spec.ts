@@ -52,37 +52,45 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * Force×100 + int×10 + Vita), départage alphabétique d'`id` ; aucun id d'objet
  * n'est écrit dans ce fichier.
  *
- * RÉSULTAT MESURÉ LE 22/11/2026 — six cellules, aucune victoire :
+ * RÉSULTAT MESURÉ LE 22/11/2026 — six cellules, aucune victoire, plus aucun
+ * enlisement :
  *   niv.  build    PV max  salle  PV de monstres restants  actions
- *   16    survie    303    2     55  (défaite)              53
- *   16    offense   228    2      7  (défaite)              43
+ *   16    survie    303    2     55  (défaite)              54
+ *   16    offense   228    3    274  (défaite)              54
  *   17    survie    343    3    210  (défaite)              62
- *   17    offense   263    2    164  (ENLISEMENT)          212
- *   18    survie    433    2    162  (ENLISEMENT)          212
+ *   17    offense   263    3    241  (défaite)              49
+ *   18    survie    433    3    164  (défaite)              55
  *   18    offense   348    3    148  (défaite)              44
  *
- * RÉPONSE : le donjon n'est finissable à AUCUN des trois niveaux, dans les
- * conditions mesurées. Monter de niveau aide visiblement (le build survie
- * franchit enfin la salle 2 au niveau 17) mais ne suffit pas : la salle 3 laisse
- * 210 PV de monstres, soit ~7,9 tours de héros manquants. Ce n'est donc pas une
- * question de niveau. `recommendedLevel` N'EST PAS CORRIGÉ : le passer à 17 ou
- * 18 annoncerait un donjon toujours infaisable, et le niveau 16 reste le dernier
- * cran où le héros échoue « à 7 PV près » (build offense).
+ * LES DEUX ENLISEMENTS DE LA MESURE PRÉCÉDENTE (17 offense, 18 survie : 212
+ * actions, dont 200 de plafond en salle 2) ONT DISPARU avec le correctif
+ * « case partagée ». Le mécanisme mesuré alors : la poussée de la marmite posait
+ * le héros sur la case du rat (`fer_rat_de_cale`), le sort du héros répondait
+ * « hors portée » à distance 0, `approachCell` rendait `null` pour tous les autres
+ * monstres (« chemin bloqué ») et, le héros n'ayant aucune action de déplacement
+ * (D75), plus rien ne pouvait bouger. Depuis que la poussée s'arrête avant une
+ * case occupée et que le moteur dégage une case partagée héritée, ces deux
+ * cellules franchissent la salle 2 et meurent en salle 3 comme les autres.
  *
- * L'ENLISEMENT EST UN RÉSULTAT, PAS UN ALÉA DU TEST : aux niveaux 17 (offense)
- * et 18 (survie), la salle 2 ne se termine ni par une victoire ni par une
- * défaite en 200 actions. État de bataille lu au plafond : `fer_rat_de_cale`
- * occupe la CASE du héros (distance 0 ⇒ « hors portée » pour le sort) et les
- * autres monstres répondent « chemin bloqué ». Plus personne ne peut frapper :
- * impasse géométrique du moteur, sans rapport avec le niveau. Le plafond
- * d'actions EST le détecteur d'enlisement, il est documenté, pas contourné ; les
- * 212 actions des deux cellules enlisées = 12 (salle 1) + 200 (plafond salle 2).
+ * RÉPONSE : le donjon n'est finissable à AUCUN des trois niveaux, dans les
+ * conditions mesurées. Le mur n'est plus la salle 2 mais la salle 3, qui laisse
+ * 148 à 274 PV de monstres : de 3,3 à 11,4 tours de héros manquants (déficit
+ * chiffré par cellule, `turnsShort`/`hpNeeded`). Le niveau 16 offense passe de
+ * « 7 PV de monstres restants en salle 2 » à « salle 2 nettoyée, 274 PV en salle
+ * 3 » : le gain vient du correctif, pas d'un rééquilibrage. `recommendedLevel`
+ * N'EST PAS CORRIGÉ : aucun niveau mesuré ne gagne, et 16 est le plus bas niveau
+ * où le héros arrive encore à la salle 2 (build survie : 55 PV de monstres
+ * restants, 3,3 tours manquants) avant que toutes les cellules ne meurent en
+ * salle 3.
+ *
+ * LE PLAFOND D'ACTIONS RESTE LE DÉTECTEUR D'ENLISEMENT : il n'est ni contourné ni
+ * calibré. S'il reparaît, c'est que le moteur gèle à nouveau.
  *
  * CE QUE ÇA DIT DE D71 : toujours pas résolue. Le héros nu (`play.spec.ts`) meurt
- * en salle 2, l'équipé niveau 16 aussi, l'équipé niveau 17-18 atteint la salle 3
- * et y meurt (ou s'enlise en salle 2). Deux leviers restent hors de ce fichier :
- * les soins entre les salles (vague 6, aujourd'hui interdits par le moteur) et
- * l'impasse de cellule partagée ci-dessus.
+ * en salle 2, l'équipé niveau 16 y meurt aussi (build survie) ou y passe pour
+ * mourir en salle 3, l'équipé niveau 17-18 meurt en salle 3. Deux leviers restent
+ * hors de ce fichier : les soins entre les salles (vague 6) et l'équilibrage des
+ * salles 3-4.
  *
  * CE QU'IL NE PROUVE PAS : ni l'acquisition réelle de l'équipement (les pièces
  * sont ajoutées au sac puis équipées par l'action `equip` du store — la mesure
@@ -560,15 +568,16 @@ interface Cell {
 
 /**
  * La table EST la mesure : chaque chiffre vient d'une exécution réelle, aucune
- * valeur n'a été calée pour que le test passe (`actions` compte le plafond pour
- * les deux enlisements, cf. en-tête).
+ * valeur n'a été calée pour que le test passe. Les six cellules finissent par une
+ * défaite : `actions` est le total réellement joué, jamais un plafond atteint
+ * (le plafond de 200 actions reste le détecteur d'enlisement, cf. en-tête).
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 2, enemyHpLeft: 55, actions: 53, turnsShort: 3.08, hpNeeded: 53.3 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 2, enemyHpLeft: 7, actions: 43, turnsShort: 0.35, hpNeeded: 4.6 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 2, enemyHpLeft: 55, actions: 54, turnsShort: 3.32, hpNeeded: 53.3 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 3, enemyHpLeft: 274, actions: 54, turnsShort: 11.42, hpNeeded: 293.98 },
   { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 210, actions: 62, turnsShort: 7.88, hpNeeded: 279.6 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "enlisement", room: 2, enemyHpLeft: 164, actions: 212 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "enlisement", room: 2, enemyHpLeft: 162, actions: 212 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "defaite", room: 3, enemyHpLeft: 241, actions: 49, turnsShort: 7.47, hpNeeded: 248.47 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "defaite", room: 3, enemyHpLeft: 164, actions: 55, turnsShort: 4.78, hpNeeded: 237.24 },
   { level: 18, build: "offense", maxHp: 348, outcome: "defaite", room: 3, enemyHpLeft: 148, actions: 44, turnsShort: 3.33, hpNeeded: 144 },
 ];
 

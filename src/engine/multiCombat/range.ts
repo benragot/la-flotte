@@ -9,7 +9,12 @@ import type { AttackSpec, BattleState, CombatantLike, RangeSpec } from "./types"
  * `minRange`/`maxRange` en 1v1. La ligne de vue est **celle de `grid`**
  * (`hasLineOfSight`), jamais réimplémentée : seuls les murs `#` bloquent.
  */
-export type CastBlock = "out-of-range" | "no-los";
+/**
+ * Refus géométrique. `too-close` est distinct de `out-of-range` : à distance 0
+ * (deux combattants sur la même case, ou sort de contact refusé) le joueur doit
+ * lire « trop proche », pas « hors portée ».
+ */
+export type CastBlock = "too-close" | "out-of-range" | "no-los";
 
 export interface RangeCheck {
   state: BattleState;
@@ -25,9 +30,16 @@ export function rangeOf(attack: AttackSpec): RangeSpec | undefined {
   return { min: minRange, max: maxRange, requiresLos: attack.requiresLos ?? false };
 }
 
-function outOfRange(check: RangeCheck): boolean {
-  const distance = manhattan(check.attacker.position, check.target.position);
-  return distance < check.range.min || distance > check.range.max;
+function distanceOf(check: RangeCheck): number {
+  return manhattan(check.attacker.position, check.target.position);
+}
+
+function tooClose(check: RangeCheck): boolean {
+  return distanceOf(check) < check.range.min;
+}
+
+function beyondRange(check: RangeCheck): boolean {
+  return distanceOf(check) > check.range.max;
 }
 
 /** Sans carte, aucune mesure : le comportement historique reste intact. */
@@ -36,9 +48,19 @@ function sightBlocked(state: BattleState, from: Position, to: Position): boolean
   return !hasLineOfSight({ map: state.map, from, to });
 }
 
+function geometricBlock(check: RangeCheck): CastBlock | null {
+  if (tooClose(check)) return "too-close";
+  if (beyondRange(check)) return "out-of-range";
+  return null;
+}
+
+function lineOfSightBlock(check: RangeCheck): CastBlock | null {
+  if (!check.range.requiresLos) return null;
+  const blocked = sightBlocked(check.state, check.attacker.position, check.target.position);
+  return blocked ? "no-los" : null;
+}
+
 /** Raison du refus géométrique, `null` si le coup est possible. */
 export function castBlock(check: RangeCheck): CastBlock | null {
-  if (outOfRange(check)) return "out-of-range";
-  if (!check.range.requiresLos) return null;
-  return sightBlocked(check.state, check.attacker.position, check.target.position) ? "no-los" : null;
+  return geometricBlock(check) ?? lineOfSightBlock(check);
 }

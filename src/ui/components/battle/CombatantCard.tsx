@@ -22,6 +22,7 @@ export interface CombatantCardProps {
 
 /** Libellés des refus géométriques : le joueur voit la même raison que le journal. */
 const BLOCK_LABEL: Record<CastBlock, string> = {
+  "too-close": "Trop proche",
   "out-of-range": "Hors portée",
   "no-los": "Ligne de vue bloquée",
 };
@@ -68,7 +69,7 @@ function AttackButton({ view, onAttack }: { view: BattleCombatantView; onAttack:
   );
 }
 
-/** Cible présente mais hors portée / sans LoS : la raison remplace le bouton. */
+/** Cible présente mais trop proche, hors portée ou sans LoS : la raison remplace le bouton. */
 function BlockedHint({ view }: { view: BattleCombatantView }) {
   if (view.blockedReason === null) return null;
   return <p className={BLOCKED_HINT}>{BLOCK_LABEL[view.blockedReason]}</p>;

@@ -207,11 +207,11 @@ describe("portée — refus avant tout PA", () => {
     expect(combatantIn(next, "piou_mazoute-0").hp).toBeLessThan(combatantIn(state, "piou_mazoute-0").hp);
   });
 
-  it("refuse une cible sous minRange pour un sort à minRange 2", () => {
+  it("refuse une cible sous minRange et dit « trop proche », pas « hors portée »", () => {
     const state = heroTurn(moved(placedBattle(), { player: { x: 1, y: 1 }, "piou_mazoute-0": { x: 2, y: 1 } }));
     const attack = spellCastSpec(JET_DECROU, 8);
     expect(JET_DECROU.minRange).toBe(2);
-    expect(castRefusal(state, "piou_mazoute-0", attack)).toContain("hors portée");
+    expect(castRefusal(state, "piou_mazoute-0", attack)).toContain("trop proche");
     expect(attackOn(state, "piou_mazoute-0", attack)).toBe(state);
   });
 

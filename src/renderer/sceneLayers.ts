@@ -6,7 +6,7 @@ import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { drawGrid, drawHighlights, drawPath } from "./tilePaint";
 import type { TokenBadge, TokenView } from "./tokens";
-import { drawHpBars, drawTokens, tokenBadge } from "./tokens";
+import { drawHpBars, drawTokens, tokenBadge, tokensNeedingCircle } from "./tokens";
 
 interface SceneLayers {
   grid: Graphics;
@@ -69,11 +69,7 @@ function clearLayers(layers: SceneLayers): void {
   clearLabels(layers.labels);
 }
 
-/** Les jetons sans feuille (groupes d'exploration) restent des cercles colorés. */
-function isGeometricToken(token: TokenView): boolean {
-  return token.spriteId === null;
-}
-
+/** La couche des jetons ne filtre plus : un jeton sans feuille connue reçoit son cercle. */
 /** Applications déjà branchées sur une boucle de rendu, pour ne pas empiler les tickers. */
 const ANIMATED = new WeakSet<Application>();
 
@@ -82,18 +78,19 @@ const ANIMATED = new WeakSet<Application>();
  * frame 0 resterait figée. La boucle n'est démarrée que si la scène contient
  * au moins un acteur à feuille, pour ne pas rendre en continu une scène statique.
  */
-function ensureAnimationLoop(app: Application, tokens: readonly TokenView[]): void {
-  if (ANIMATED.has(app) || tokens.every(isGeometricToken)) return;
+function ensureAnimationLoop(app: Application, view: ViewModel, sheets: ReadonlySet<string>): void {
+  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, sheets).length === view.tokens.length) return;
   ANIMATED.add(app);
   app.ticker.add(() => app.render());
   app.ticker.start();
 }
 
+/** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
 function drawLayers(layers: SceneLayers, view: ViewModel): void {
   drawGrid(layers.grid, view.scene.tiles);
   drawHighlights(layers.highlights, view.scene.highlights);
   drawPath(layers.path, view.path);
-  drawTokens(layers.tokens, view.tokens.filter(isGeometricToken));
+  drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawHpBars(layers.hpBars, view.tokens);
   drawLabels(layers.labels, view.tokens);
 }
@@ -105,6 +102,6 @@ export function renderScene(app: Application, view: ViewModel, sheets: readonly 
   clearLayers(layers);
   drawLayers(layers, view);
   layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
-  ensureAnimationLoop(app, view.tokens);
+  ensureAnimationLoop(app, view, layers.actors.sheetIds);
   app.render();
 }

@@ -7,6 +7,12 @@ export interface PushInput {
   caster: CombatantState;
   victim: CombatantState;
   cells: number;
+  /**
+   * Cases des **autres vivants** : une poussée ne pose jamais la cible sur l'une
+   * d'elles, elle s'arrête avant. Absent = aucun tiers (1v1), comportement
+   * historique conservé.
+   */
+  occupied?: Position[];
 }
 
 export interface PushResult {
@@ -26,9 +32,19 @@ function pushDirection(caster: CombatantState, victim: CombatantState): Position
   return { x: 0, y: Math.sign(dy) };
 }
 
+function occupiedCells(input: PushInput): readonly Position[] {
+  return input.occupied ?? [];
+}
+
+/** Un tiers vivant occupe la case : la cible s'arrête avant, elle n'y monte jamais. */
+function onLivingCell(input: PushInput, cell: Position): boolean {
+  return occupiedCells(input).some((occupied) => samePosition(cell, occupied));
+}
+
 function isBlocked(input: PushInput, cell: Position): boolean {
   if (!isWalkableCell(input.map, cell)) return true;
-  return samePosition(cell, input.caster.position);
+  if (samePosition(cell, input.caster.position)) return true;
+  return onLivingCell(input, cell);
 }
 
 function nextCell(input: PushInput, from: Position, direction: Position): Position | null {

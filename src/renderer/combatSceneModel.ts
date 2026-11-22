@@ -6,6 +6,7 @@ import type { GridSize, IsoOrigin } from "./gridProjection";
 import { sceneOrigin } from "./gridProjection";
 import type { GridHighlight, SceneModel, TileView } from "./scene";
 import { buildSceneModel, cellKey } from "./scene";
+import { knownSpriteId } from "./spriteManifest";
 import type { Facing, SpriteAnimationName } from "./sprites/types";
 import type { TokenSprite, TokenView } from "./tokens";
 import { facingToward, tokenView } from "./tokens";
@@ -115,18 +116,20 @@ function tokenSprite(input: TokenSpriteInput): TokenSprite {
   };
 }
 
-/** Classe du héros déduite de ses sorts : aucune donnée métier dupliquée. */
+/** Classe du héros déduite de ses sorts, validée contre le manifeste : aucune donnée métier dupliquée. */
 function playerClassId(combat: CombatState): string | null {
   const spellId = combat.player.spellIds[0];
   const spell = spellId === undefined ? undefined : combat.spellsById[spellId];
-  return spell === undefined ? null : spell.classId;
+  return spell === undefined ? null : knownSpriteId(spell.classId);
 }
 
-const SPRITE_ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
-
-/** L'identifiant du monstre est déjà un `entityId` du manifeste, quand il est en snake_case. */
+/**
+ * Feuille de l'ennemi : l'id du monstre est un `entityId` du manifeste, mais
+ * seulement s'il y résout. Un id inconnu devient `null` — donc un cercle — au
+ * lieu d'un identifiant fantôme que personne ne dessine (combattant invisible).
+ */
 function enemySpriteId(combat: CombatState): string | null {
-  return SPRITE_ID_PATTERN.test(combat.enemy.id) ? combat.enemy.id : null;
+  return knownSpriteId(combat.enemy.id);
 }
 
 interface CombatTokenInput {

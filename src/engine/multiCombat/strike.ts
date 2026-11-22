@@ -1,6 +1,6 @@
 import { computeDamage, computePushbackDamage } from "../combat";
 import { applyPush } from "../combatLoop";
-import type { CombatantState, PushResult } from "../combatLoop";
+import type { CombatantState, PushInput, PushResult } from "../combatLoop";
 import type { Element } from "../../schemas/spellSchema";
 import type { DamageInput } from "../combat";
 import type { Position } from "../grid";
@@ -79,15 +79,29 @@ function collisionDamage(context: DamageContext, push: PushResult): number {
   });
 }
 
-/** Parcours de poussée délégué à `combatLoop/push.ts`, aucune case codée en dur. */
-function pushOutcome(context: DamageContext): PushOutcome {
-  const cells = context.attack.pushCells ?? 0;
-  const map = context.state.map;
-  if (cells <= 0 || map === undefined) return { position: context.target.position, damage: 0 };
-  const push = applyPush({ map, caster: asPushCombatant(context.attacker), victim: asPushCombatant(context.target), cells });
-  return { position: push.position, damage: collisionDamage(context, push) };
+/** Cases des vivants autres que la cible : `applyPush` refuse de s'y arrêter. */
+function livingCells(state: BattleState, victimId: string): Position[] {
+  const others = state.combatants.filter((entry) => entry.hp > 0 && entry.id !== victimId);
+  return others.map((entry) => entry.position);
 }
 
+/** Poussée préparée, `null` quand le sort ne pousse pas ou que la carte manque. */
+function pushInput(context: DamageContext): PushInput | null {
+  const cells = context.attack.pushCells ?? 0;
+  const map = context.state.map;
+  if (cells <= 0 || map === undefined) return null;
+  const occupied = livingCells(context.state, context.target.id);
+  const caster = asPushCombatant(context.attacker);
+  const victim = asPushCombatant(context.target);
+  return { map, cells, occupied, caster, victim };
+}
+
+function pushOutcome(context: DamageContext): PushOutcome {
+  const input = pushInput(context);
+  if (input === null) return { position: context.target.position, damage: 0 };
+  const push = applyPush(input);
+  return { position: push.position, damage: collisionDamage(context, push) };
+}
 export function spendAp(state: BattleState, attacker: CombatantLike, cost: number): BattleState {
   if (cost <= 0) return state;
   return withCombatant(state, { ...attacker, ap: Math.max(0, attacker.ap - cost) });

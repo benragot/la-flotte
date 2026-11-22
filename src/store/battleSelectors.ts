@@ -30,6 +30,7 @@ export const STALL_LOG = "La mêlée s'enlise : la main revient au joueur.";
 export const MAX_ENEMY_STEPS = 32;
 /** Raisons de refus géométrique, telles que le joueur les lit dans le journal. */
 export const CAST_BLOCK_LABEL: Record<CastBlock, string> = {
+  "too-close": "trop proche",
   "out-of-range": "hors portée",
   "no-los": "ligne de vue bloquée",
 };
