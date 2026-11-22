@@ -89,6 +89,25 @@ describe("closingAction — victoire ou abandon", () => {
   });
 });
 
+describe("annihilation mutuelle — la mort du héros prime sur la victoire", () => {
+  it("choisit l'abandon, jamais le report d'une salle gagnée", () => {
+    expect(closingAction(wonBattle(0))).toBe("end");
+  });
+
+  it("n'écrit aucune sauvegarde à 0 PV et laisse le héros intact", () => {
+    const storage = new MemoryStorage();
+    const mutual = wonBattle(0);
+    useCombatStore.setState({ battle: mutual });
+    const beforeHp = heroOrThrow().hp;
+    const saveKey = useGameStore.getState().saveKey;
+    clickClose(mutual, storage);
+    expect(beforeHp).toBeGreaterThan(0);
+    expect(heroOrThrow().hp).toBe(beforeHp);
+    expect(storage.getItem(saveKey)).toBeNull();
+    expect(useCombatStore.getState().battle).toBeNull();
+  });
+});
+
 describe("closeBattle — Clore la salle ne jette plus une victoire", () => {
   it("reporte les PV du héros et écrit une sauvegarde sur une salle gagnée", () => {
     const storage = new MemoryStorage();
