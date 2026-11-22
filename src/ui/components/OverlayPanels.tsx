@@ -4,10 +4,11 @@ import { GAME_CATALOG, useGameStore } from "../../store/useGameStore";
 import type { ClassDef } from "../../schemas/classSchema";
 import { StatAllocation } from "./hero";
 import { InventoryPanel } from "./inventory";
+import { DungeonEntryPanel, DungeonNotice } from "./dungeon";
 import { SECTION_HEADING } from "./hudTheme";
 
 /** Panneaux superposés accessibles depuis l'arène en exploration. */
-type PanelId = "inventory" | "hero";
+type PanelId = "inventory" | "hero" | "dungeon";
 
 const ACCESS_BAR = "pointer-events-auto absolute right-2 top-2 z-30 flex gap-2";
 const ACCESS_BUTTON =
@@ -30,6 +31,7 @@ function AccessBar({ onOpen }: { onOpen: (panel: PanelId) => void }) {
     <div className={ACCESS_BAR}>
       <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} />
       <AccessButton label="Fiche perso" onClick={() => onOpen("hero")} />
+      <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} />
     </div>
   );
 }
@@ -79,6 +81,7 @@ function HeroSheet({ hero, onClose }: { hero: Hero; onClose: () => void }) {
 function PanelContent({ active, onClose }: { active: PanelId; onClose: () => void }) {
   const hero = useGameStore((state) => state.hero);
   if (active === "inventory") return <InventoryPanel onClose={onClose} />;
+  if (active === "dungeon") return <DungeonEntryPanel onClose={onClose} />;
   return hero === null ? null : <HeroSheet hero={hero} onClose={onClose} />;
 }
 
@@ -91,14 +94,23 @@ function Overlay({ active, onClose }: { active: PanelId | null; onClose: () => v
   );
 }
 
+/** Région `aria-live` + panneau éventuel : la couche toujours montée hors barre d'accès. */
+function OverlayLayers({ active, onClose }: { active: PanelId | null; onClose: () => void }) {
+  return (
+    <>
+      <DungeonNotice />
+      <Overlay active={active} onClose={onClose} />
+    </>
+  );
+}
+
 /** Boutons d'accès discrets + panneaux fermables, posés au-dessus de l'arène. */
 export default function OverlayPanels() {
   const [active, setActive] = useState<PanelId | null>(null);
-  const close = () => setActive(null);
   return (
     <>
       <AccessBar onOpen={setActive} />
-      <Overlay active={active} onClose={close} />
+      <OverlayLayers active={active} onClose={() => setActive(null)} />
     </>
   );
 }
