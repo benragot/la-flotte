@@ -2,9 +2,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createHero } from "../../src/engine/createHero";
+import type { Hero } from "../../src/engine/createHero";
+import { spendCapitalPoints } from "../../src/engine/hero";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
-import type { ClassDef } from "../../src/schemas/classSchema";
+import type { ClassDef, StatKey } from "../../src/schemas/classSchema";
+import type { StatOption } from "../../src/ui/heroHudHelpers";
 import {
+  allocationPayload,
   buildStatOptions,
   canAffordAnyStat,
   classSummary,
@@ -154,5 +158,53 @@ describe("isValidCharacterName", () => {
     expect(isValidCharacterName("  Perceval  ")).toBe(true);
     expect(isValidCharacterName("a".repeat(20))).toBe(true);
     expect(isValidCharacterName("a".repeat(21))).toBe(false);
+  });
+});
+
+function optionFor(hero: Hero, stat: StatKey): StatOption {
+  const found = buildStatOptions({ hero, classDef: iop }).find((option) => option.stat === stat);
+  if (found === undefined) throw new Error(`${stat} absent des options`);
+  return found;
+}
+
+function allocate(hero: Hero, stat: StatKey) {
+  const option = optionFor(hero, stat);
+  return spendCapitalPoints({ hero, classDef: iop, ...allocationPayload(option) });
+}
+
+describe("allocationPayload — le budget est le coût réel, jamais 1", () => {
+  it("transmet le coût du prochain point comme budget de capital", () => {
+    expect(allocationPayload({ stat: "wisdom", label: "Sagesse", current: 0, cost: 3, affordable: true })).toEqual({
+      stat: "wisdom",
+      points: 3,
+    });
+  });
+
+  it("suit le palier de la stat (Force à 100 ⇒ budget 2)", () => {
+    const option = optionFor({ ...iopHero(2), strength: 100 }, "strength");
+    expect(allocationPayload(option)).toEqual({ stat: "strength", points: 2 });
+  });
+});
+
+describe("spendCapitalPoints — le clic + débite vraiment le capital", () => {
+  it("débite 3 points de capital pour 1 point de Sagesse", () => {
+    const out = allocate(iopHero(3), "wisdom");
+    expect(out.hero.wisdom).toBe(1);
+    expect(out.hero.capitalPoints).toBe(0);
+    expect(out.result.spent).toBe(3);
+  });
+
+  it("Force à 100 avec 2 points ⇒ 101 et capital épuisé", () => {
+    const out = allocate({ ...iopHero(2), strength: 100 }, "strength");
+    expect(out.hero.strength).toBe(101);
+    expect(out.hero.capitalPoints).toBe(0);
+  });
+
+  it("refuse sans dépense quand le budget couvre seulement un coût supérieur", () => {
+    const hero = { ...iopHero(1), strength: 100 };
+    const out = allocate(hero, "strength");
+    expect(out.hero).toBe(hero);
+    expect(out.hero.capitalPoints).toBe(1);
+    expect(out.result.spent).toBe(0);
   });
 });
