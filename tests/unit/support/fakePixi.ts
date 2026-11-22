@@ -34,7 +34,7 @@ export class FakeNode {
   }
 }
 
-/** Toutes les `Graphics` créées, dans l'ordre : la couche des jetons est la 4ᵉ. */
+/** Toutes les `Graphics` créées, dans l'ordre : la couche des jetons est la 6ᵉ. */
 export const graphicsOf: FakeGraphics[] = [];
 
 export class FakeGraphics extends FakeNode {
@@ -55,6 +55,18 @@ export class FakeGraphics extends FakeNode {
   }
 
   rect(): this {
+    return this;
+  }
+
+  ellipse(): this {
+    return this;
+  }
+
+  moveTo(): this {
+    return this;
+  }
+
+  lineTo(): this {
     return this;
   }
 
