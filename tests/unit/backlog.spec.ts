@@ -15,6 +15,7 @@ const REQUIRED_STATUSES = [
 ];
 const FREE_TARGETS = ["external", "blocked"];
 const PRIORITIES = ["high", "medium", "low"];
+const DEBT_SEVERITIES = ["low", "medium", "high"];
 const TASK_KEYS = ["id", "title", "status", "owner", "priority", "updated_at"];
 const INBOX_KEYS = ["id", "title", "created_at"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -224,6 +225,11 @@ function taskKeyGaps(backlog: Backlog): string[] {
 function invalidPriorities(backlog: Backlog): string[] {
   const valid = new Set(PRIORITIES);
   return allTasks(backlog).filter((task) => !valid.has(task.priority ?? "")).map((task) => task.id);
+}
+
+function invalidDebtSeverities(backlog: Backlog): string[] {
+  const valid = new Set(DEBT_SEVERITIES);
+  return backlog.debts.filter((debt) => !valid.has(debt.severity)).map((debt) => debt.id);
 }
 
 function missingPrTasks(backlog: Backlog, statuses: string[]): string[] {
@@ -610,5 +616,67 @@ describe("backlog — cibles des dettes", () => {
   it("exige un owner sur chaque dette externalisée", () => {
     const orphans = externalDebtsWithoutOwner(readBacklog());
     expect(orphans.map((debt) => debt.id)).toEqual([]);
+  });
+
+  it("détecte une dette qui vise une phase done sur fixtures", () => {
+    const clean = fixtureBacklog([fixturePhase("5B", "in_progress")]);
+    clean.debts = [{ id: "D01", title: "Dette ouverte", severity: "low", target: "5B" }];
+    expect(debtsTargetingDone(clean).map((debt) => debt.id)).toEqual([]);
+    const stale = fixtureBacklog([fixturePhase("5B", "done")]);
+    stale.debts = [{ id: "D01", title: "Dette périmée", severity: "low", target: "5B" }];
+    expect(debtsTargetingDone(stale).map((debt) => debt.id)).toEqual(["D01"]);
+  });
+});
+
+describe("backlog — vague 5B livrée", () => {
+  const MERGED: Array<[string, number]> = [
+    ["5B-a", 36],
+    ["5B-b", 37],
+    ["5B-c", 38],
+    ["5B-d", 39],
+    ["5B-e", 40],
+    ["5B-f", 41],
+  ];
+
+  function undelivered(backlog: Backlog): string[] {
+    return MERGED.flatMap(([id, pr]) => {
+      const task = taskById(backlog, id);
+      return task?.status === "done" && task.pr === pr ? [] : [`${id}:${task?.status ?? "absent"}`];
+    });
+  }
+
+  it("enregistre les six livraisons mergées de la 5B", () => {
+    const backlog = readBacklog();
+    expect(undelivered(backlog)).toEqual([]);
+    expect(phaseById(backlog, "5B")?.status).toBe("in_progress");
+  });
+
+  it("ouvre 5B-g en revue avec la PR #43 et la rattache à 5B-f", () => {
+    const task = taskById(readBacklog(), "5B-g");
+    expect(task?.status).toBe("needs_review");
+    expect(task?.pr).toBe(43);
+    expect(task?.depends_on).toEqual(["5B-f"]);
+  });
+
+  it("versionne le backlog en 15", () => {
+    expect(readBacklog().meta.version).toBe(15);
+  });
+});
+
+describe("backlog — dettes versées en v15", () => {
+  const VERSED = ["D55", "D56", "D57", "D58"];
+
+  it("enregistre les quatre dettes de la 5B", () => {
+    expect(VERSED.flatMap((id) => (debtById(readBacklog(), id) ? [] : [id]))).toEqual([]);
+  });
+
+  it("grade chaque dette sur l'échelle low/medium/high", () => {
+    expect(invalidDebtSeverities(readBacklog())).toEqual([]);
+  });
+
+  it("détecte une sévérité hors échelle sur fixture", () => {
+    const fixture = fixtureBacklog([fixturePhase("5B", "in_progress")]);
+    fixture.debts = [{ id: "D01", title: "Dette mal gradée", severity: "critical", target: "5B" }];
+    expect(invalidDebtSeverities(fixture)).toEqual(["D01"]);
   });
 });
