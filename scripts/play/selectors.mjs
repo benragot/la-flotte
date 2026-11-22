@@ -30,6 +30,7 @@ export const COMBAT_JOURNAL = 'section[aria-label="Journal de combat"]';
 export const VITALS = 'section[aria-label="Ressources du héros"]';
 
 export const DUNGEON_ENTRY_SHEET = 'section[aria-label="Donjons disponibles"]';
+export const DUNGEON_REFUSAL = 'p[role="alert"][aria-label="Refus d’entrée"]';
 export const BATTLE_PANEL = 'section[aria-label="Combat de salle"]';
 
 export const INVENTORY = 'section[aria-label="Inventaire"]';

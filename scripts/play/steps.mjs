@@ -1,6 +1,7 @@
-import { firstLine, requireVisible, settles } from "./probe.mjs";
+import { firstLine, requireVisible } from "./probe.mjs";
 import { SCENE_SETTLE_MS, TURN_SETTLE_MS } from "./session.mjs";
 import {
+  ACCESS_DUNGEONS,
   ARENA,
   ARENA_CANVAS,
   BACKPACK_ITEM,
@@ -9,6 +10,8 @@ import {
   COMBAT_JOURNAL,
   CREATE_BUTTON,
   CREATION_TITLE,
+  DUNGEON_ENTRY_SHEET,
+  DUNGEON_REFUSAL,
   EXPLORATION_BANNER,
   EXPLORATION_JOURNAL,
   INVENTORY,
@@ -20,6 +23,9 @@ import {
 
 /** Nom fixe : le rapport devient comparable d'un run à l'autre. */
 const HERO_NAME = "Balthazar";
+const ENTER_BUTTON = 'button:has-text("Entrer")';
+/** L'honnêteté du rapport tient à cette phrase : la salle vient d'une démo, pas de la clef. */
+const DEMO_NOTICE = "route de démo, la clef n’est pas possédée ; la fiche a été ouverte et le refus constaté à l’étape précédente";
 
 /** Écran de création : comptage des cartes et présence du bouton de création. */
 async function creationScreen(session) {
@@ -86,21 +92,33 @@ async function roomSummary(page) {
   return `${heading} · ${fighters} combattant(s)`;
 }
 
-/** Salle de donjon : `?demo=dungeon` ; la fiche `Donjons` est le repli documenté. */
-async function dungeonCombat(session) {
-  const { page, baseUrl } = session;
-  await page.goto(`${baseUrl}/?demo=dungeon`);
-  const ready = await settles(() => requireVisible(page, BATTLE_PANEL));
-  if (!ready) return skippedDungeon();
-  await page.waitForTimeout(SCENE_SETTLE_MS);
-  return { notices: ["route ?demo=dungeon (salle 1 de data/dungeons.yaml)", await roomSummary(page)] };
+function keyLineOf(text) {
+  const line = text.split("\n").map((value) => value.trim()).find((value) => value.startsWith("Clef :"));
+  return line ?? "(clef absente de la fiche)";
 }
 
-function skippedDungeon() {
-  return {
-    status: "skipped",
-    reason: "ni ?demo=dungeon ni la fiche Donjons n’affichent de salle de combat sur ce build",
-  };
+/** Vrai chemin : bouton Donjons → fiche → clic Entrer → refus sans clef. */
+async function openDungeonRefusal(session) {
+  const { page, baseUrl } = session;
+  await page.goto(baseUrl);
+  await requireVisible(page, EXPLORATION_JOURNAL);
+  await page.locator(ACCESS_DUNGEONS).click();
+  const sheet = await requireVisible(page, DUNGEON_ENTRY_SHEET);
+  const card = sheet.locator("li").first();
+  await card.locator(ENTER_BUTTON).click();
+  const refusal = firstLine(await (await requireVisible(page, DUNGEON_REFUSAL)).innerText());
+  return { box: await sheet.boundingBox(), keyLine: keyLineOf(await card.innerText()), refusal };
+}
+
+/** Donjon : la fiche réelle d'abord, puis la salle de démo. Salle absente ⇒ échec. */
+async function dungeonCombat(session) {
+  const probe = await openDungeonRefusal(session);
+  const shots = [await session.shot("05-fiche-donjons")];
+  await session.page.goto(`${session.baseUrl}/?demo=dungeon`);
+  await requireVisible(session.page, BATTLE_PANEL);
+  await session.page.waitForTimeout(SCENE_SETTLE_MS);
+  shots.push(await session.shot("05b-salle-donjon"));
+  return { shots, boxes: { entrySheet: probe.box }, notices: [probe.keyLine, probe.refusal, DEMO_NOTICE, await roomSummary(session.page)] };
 }
 
 /** Inventaire : ouverture réelle, clic sur un objet, capture du panneau de détail. */
@@ -125,6 +143,6 @@ export const STEPS = [
   { id: "02-creation-iop", title: "Création d’un Iop", run: createIop },
   { id: "03-exploration", title: "Exploration", run: exploration },
   { id: "04-combat-1v1", title: "Combat 1v1 + fin de tour", run: combat1v1 },
-  { id: "05-combat-donjon", title: "Combat de donjon", run: dungeonCombat },
+  { id: "05-combat-donjon", title: "Fiche Donjons (refus sans clef) puis salle de donjon", run: dungeonCombat },
   { id: "06-inventaire", title: "Inventaire et détail d’objet", run: inventory },
 ];

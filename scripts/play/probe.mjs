@@ -41,16 +41,6 @@ export async function requireVisible(page, selector) {
   return locator;
 }
 
-/** Sonde `Promise<boolean>` : une étape facultative ne doit pas faire échouer le run. */
-export async function settles(probe) {
-  try {
-    await probe();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export function firstLine(text) {
   const [line = ""] = text.split("\n").map((value) => value.trim()).filter((value) => value.length > 0);
   return line;

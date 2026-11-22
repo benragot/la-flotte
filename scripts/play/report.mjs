@@ -37,6 +37,8 @@ export function buildErrors(buckets) {
     failedRequests: buckets.failedRequests,
     excusedConsoleErrors: buckets.documentedConsoleErrors,
     excusedRequests: buckets.ignoredRequests,
+    /** Non bloquants, mais visibles : un contexte WebGL perdu arrive en `warning`. */
+    warnings: buckets.warnings,
   };
 }
 
@@ -62,6 +64,7 @@ function printTotals(totals, counts) {
   console.log(`\nÉtapes : ${totals.ok} ok · ${totals.skipped} skipped · ${totals.failed} failed`);
   const errors = `${counts.pageErrors} pageerror · ${counts.consoleErrors} console.error · ${counts.failedRequests} requête(s) en échec`;
   console.log(`Erreurs : ${errors}`);
+  console.log(`Skips non documentés : ${counts.undocumentedSkips} · warnings (non bloquants) : ${counts.warnings}`);
   console.log(`Excusé (commenté) : ${counts.documentedConsoleErrors} console.error · ${counts.ignoredRequests} requête(s)`);
 }
 

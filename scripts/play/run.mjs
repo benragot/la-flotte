@@ -15,6 +15,8 @@ import { classify, verdict } from "./verdict.mjs";
 
 const LOCAL_HOST = "127.0.0.1";
 const NAV_TIMEOUT_MS = 15_000;
+/** Panne d'infrastructure (port, vite, identité) : distinct de « le rapport a trouvé quelque chose ». */
+const INFRA_EXIT_CODE = 2;
 /** Chromium headless n'a pas de GPU : SwiftShader doit être autorisé explicitement. */
 const LAUNCH_ARGS = ["--enable-unsafe-swiftshader"];
 
@@ -45,7 +47,7 @@ async function playInPage({ browser, args, outDir, baseUrl, recorder }) {
 
 async function finalize({ steps, recorder, outDir, baseUrl, port, serverLog, started, viewport }) {
   const buckets = classify(recorder);
-  const result = verdict(buckets);
+  const result = verdict(buckets, steps);
   const meta = { baseUrl, port, viewport, durationMs: Date.now() - started };
   const report = buildReport({ steps, result, meta, serverLog });
   const errors = buildErrors({ ...buckets, counts: result.counts });
@@ -73,11 +75,15 @@ async function play({ args, outDir, port, serverLog }) {
   return playWithBrowser({ args, outDir, baseUrl, port, serverLog, started });
 }
 
-async function main() {
-  const args = parseArgs(process.argv.slice(2), process.env);
+async function prepareEnv(argv) {
+  const args = parseArgs(argv, process.env);
   const outDir = path.resolve(process.cwd(), args.out);
   await fs.mkdir(outDir, { recursive: true });
-  const port = await resolvePort(args.port);
+  return { args, outDir, port: await resolvePort(args.port) };
+}
+
+async function main() {
+  const { args, outDir, port } = await prepareEnv(process.argv.slice(2));
   const serverLog = [];
   installCleanup();
   activeServer = startVite({ port, cwd: process.cwd(), lines: serverLog });
@@ -92,6 +98,6 @@ async function main() {
 main()
   .then((code) => { process.exitCode = code; })
   .catch((error) => {
-    console.error(`\n❌ npm run play a échoué : ${error.message}`);
-    process.exitCode = 1;
+    console.error(`\n❌ Harnais en échec (exit ${INFRA_EXIT_CODE}, aucun verdict) : ${error.message}`);
+    process.exitCode = INFRA_EXIT_CODE;
   });
