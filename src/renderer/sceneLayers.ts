@@ -4,6 +4,16 @@ import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import type { DecorView } from "./decor";
 import { drawDecor } from "./decorPaint";
+import type { LabelBounds, NameLabel } from "./labels";
+import {
+  LABEL_FILL,
+  LABEL_FONT_SIZE,
+  LABEL_STROKE,
+  LABEL_STROKE_WIDTH,
+  clampLabelX,
+  labelBounds,
+  nameLabelFor,
+} from "./labels";
 import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
@@ -24,6 +34,13 @@ interface SceneLayers {
 
 export const BADGE_FONT_SIZE = 11;
 export const BADGE_TEXT_COLOR = 0xf2d64b;
+
+/** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
+const NAME_STYLE = {
+  fill: LABEL_FILL,
+  fontWeight: "bold" as const,
+  stroke: { color: LABEL_STROKE, width: LABEL_STROKE_WIDTH },
+};
 
 const LAYERS = new WeakMap<Application, SceneLayers>();
 
@@ -57,8 +74,31 @@ function addLabel(container: Container, token: TokenView): void {
   container.addChild(createLabel(badge));
 }
 
-function drawLabels(container: Container, tokens: readonly TokenView[]): void {
-  tokens.forEach((token) => addLabel(container, token));
+/** Nom complet ancré en bas au-dessus de la barre : aucun recouvrement, jamais coupé. */
+function createNameLabel(label: NameLabel, bounds: LabelBounds | null): Text {
+  const style = { ...NAME_STYLE, fontSize: LABEL_FONT_SIZE * label.scale };
+  const text = new Text({ text: label.text, style });
+  text.anchor.set(0.5, 1);
+  text.position.set(clampNameX(label, text.width, bounds), label.y);
+  return text;
+}
+
+function clampNameX(label: NameLabel, width: number, bounds: LabelBounds | null): number {
+  return bounds === null ? label.x : clampLabelX(label.x, width / 2, bounds);
+}
+
+function addNameLabel(container: Container, token: TokenView, bounds: LabelBounds | null): void {
+  const label = nameLabelFor(token);
+  if (label === null) return;
+  container.addChild(createNameLabel(label, bounds));
+}
+
+function drawLabels(container: Container, view: ViewModel): void {
+  const bounds = labelBounds(view.scene.tiles);
+  view.tokens.forEach((token) => {
+    addLabel(container, token);
+    addNameLabel(container, token, bounds);
+  });
 }
 
 function clearLabels(container: Container): void {
@@ -113,7 +153,7 @@ function drawActorLayers(layers: SceneLayers, view: ViewModel): void {
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
   drawHpBars(layers.hpBars, view.tokens);
-  drawLabels(layers.labels, view.tokens);
+  drawLabels(layers.labels, view);
 }
 
 /** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */

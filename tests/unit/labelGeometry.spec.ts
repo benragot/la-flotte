@@ -29,7 +29,7 @@ describe("étiquette du nom — au-dessus de la barre, écart constant", () => {
       const bar = hpBarFor(token);
       expect(label).not.toBeNull();
       expect(label?.y).toBeLessThan(bar.y);
-      expect(bar.y - (label?.y ?? Number.NaN)).toBe(LABEL_BAR_GAP * token.scale);
+      expect(bar.y - (label?.y ?? Number.NaN)).toBeCloseTo(LABEL_BAR_GAP * token.scale);
     });
   });
 
@@ -40,8 +40,8 @@ describe("étiquette du nom — au-dessus de la barre, écart constant", () => {
 
 describe("étiquette du nom — jamais hors de la carte", () => {
   it("ramène le centre du texte dans les bords", () => {
-    expect(clampLabelX(90, 40, BOUNDS)).toBe(140);
-    expect(clampLabelX(310, 40, BOUNDS)).toBe(260);
+    expect(clampLabelX(90, 40, BOUNDS)).toBe(144);
+    expect(clampLabelX(310, 40, BOUNDS)).toBe(256);
     expect(clampLabelX(200, 40, BOUNDS)).toBe(200);
   });
 

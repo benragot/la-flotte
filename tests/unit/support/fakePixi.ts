@@ -115,6 +115,11 @@ export class FakeText extends FakeNode {
   text: string;
   anchor = { set: (): void => undefined };
 
+  /** Pixi mesure le texte réel ; la doublure approxime pour les tests de bornes. */
+  get width(): number {
+    return this.text.length * 6;
+  }
+
   constructor(options: { text: string }) {
     super();
     this.text = options.text;

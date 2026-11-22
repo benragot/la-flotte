@@ -43,6 +43,7 @@ function token(overrides: Partial<TokenView> = {}): TokenView {
     maxHp: 20,
     hpRatio: 0.5,
     badge: null,
+    name: null,
     depth: 0,
     active: false,
     ...STATIC_TOKEN_SPRITE,
