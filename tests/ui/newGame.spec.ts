@@ -10,6 +10,8 @@ const CREATION_SHEET = 'section[aria-label="Création de personnage"]';
 const NEW_GAME_BUTTON = { name: "Nouvelle partie" };
 const DIALOG = '[role="alertdialog"][aria-label="Nouvelle partie"]';
 const HERO_DOCK = '[role="group"][aria-label="Dock du héros"]';
+/** `initExploration` sème une ligne (`log: [INIT_LOG]`) : sans exploration, le `<ol>` est vide. */
+const JOURNAL_LINES = 'aside[aria-label="Journal d’exploration"] li';
 
 test.describe("nouvelle partie", () => {
   test("annuler ne change rien, confirmer ramène à la création puis recrée", async ({ page }) => {
@@ -26,6 +28,7 @@ test.describe("nouvelle partie", () => {
     await page.locator(CLASS_CARDS).first().click();
     await page.getByRole("button", { name: "Créer" }).click();
     await expect(page.locator(HERO_DOCK)).toBeVisible();
+    await expect(page.locator(JOURNAL_LINES)).not.toHaveCount(0);
   });
 
   test("un rechargement après confirmation ne ressuscite pas l'ancien héros", async ({ page }) => {

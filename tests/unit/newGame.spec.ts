@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { beforeEach, describe, expect, it } from "vitest";
-import { addItem } from "../../src/engine/inventory";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { addItem, countItem } from "../../src/engine/inventory";
 import type { StorageLike } from "../../src/engine/save";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseRecipesYaml } from "../../src/schemas/recipeSchema";
@@ -35,6 +35,13 @@ class MemoryStorage implements StorageLike {
 
   removeItem(key: string): void {
     this.entries.delete(key);
+  }
+}
+
+/** Mode privé : l'écriture marche, l'effacement est refusé par le navigateur. */
+class RefusingRemoveStorage extends MemoryStorage {
+  override removeItem(): void {
+    throw new Error("SecurityError: suppression interdite");
   }
 }
 
@@ -101,6 +108,10 @@ describe("nouvelle partie — reset complet des deux stores", () => {
     const combatInitial = useCombatStore.getState();
     const storage = new MemoryStorage();
     openExplorationCombat();
+    useGameStore.getState().depositToBank({ itemId: "gourdin_du_matelot", quantity: 1 });
+    useGameStore.setState({ flags: { donjon_boueux: true } });
+    expect(countItem(useGameStore.getState().bank, "gourdin_du_matelot")).toBe(1);
+    expect(useGameStore.getState().flags).toEqual({ donjon_boueux: true });
     expect(useGameStore.getState().saveGame(storage)).toBe(true);
     const dirty = useCombatStore.getState();
     expect([dirty.mode, dirty.combat, dirty.activeGroup]).not.toEqual([null, null, null]);
@@ -160,6 +171,18 @@ describe("nouvelle partie — sauvegarde effacée", () => {
     expect(storage.getItem(SAVE_KEY)).toBeNull();
     expect(useGameStore.getState().loadGame(storage)).toBe(false);
     expect(useGameStore.getState().hero).toBeNull();
+  });
+
+  it("repart quand même à zéro en avertissant si le stockage refuse l'effacement", () => {
+    const gameInitial = useGameStore.getState();
+    const combatInitial = useCombatStore.getState();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    openExplorationCombat();
+    startNewGame(new RefusingRemoveStorage());
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(useGameStore.getState()).toEqual(gameInitial);
+    expect(useCombatStore.getState()).toEqual(combatInitial);
+    warn.mockRestore();
   });
 });
 
