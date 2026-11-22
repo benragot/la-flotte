@@ -1587,3 +1587,20 @@ function unknownCitations(text: string): string[] {
       .map((path) => `${id}:${path}`);
   });
 }
+
+const DECISIONS_PATH = "docs/design/DECISIONS.md";
+const DECISION_NUMBERS = ["D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09"];
+
+/** Les décisions du propriétaire sont normatives : leur suppression doit casser la CI. */
+function decisionHeadings(): string[] {
+  const path = join(process.cwd(), DECISIONS_PATH);
+  if (!existsSync(path)) return [];
+  return [...readFileSync(path, "utf8").matchAll(/^## (D0\d) — /gm)].map((match) => match[1] ?? "");
+}
+
+describe("backlog — décisions du propriétaire (v21)", () => {
+  it("garde le fichier normatif et numérote D01 à D09", () => {
+    expect(existsSync(join(process.cwd(), DECISIONS_PATH))).toBe(true);
+    expect(decisionHeadings()).toEqual(DECISION_NUMBERS);
+  });
+});
