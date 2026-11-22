@@ -40,10 +40,18 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * CE QUE CE FICHIER PROUVE : le parcours d'un joueur avec ses VRAIS moyens.
  *   création (`createCharacter`) → niveau 16 réel (`gainXp`, 75 000 XP lus
  *   dans `data/progression.yaml`) → capital dépensé (75 points en Force) →
- *   équipement de départ (`starting: true` seulement) → farm réel des 3
- *   ingrédients (`pickSpawn` + `resolveCombatRewards`, vrais taux) →
- *   `craftRecipe` → `enterDungeonRun` → salles jouées par les actions du store.
+ *   équipement de départ (`starting: true` seulement) → farm réel (`pickSpawn` +
+ *   `resolveCombatRewards`, vrais taux) → `ensureKey` → `enterDungeonRun` →
+ *   salles jouées par les actions du store.
  *   Aucun `level: 16` écrit à la main : c'est `gainXp` qui monte le héros.
+ *
+ * COMMENT LA CLEF ARRIVE — DEPUIS `DEC-07`, C'EST LE BUTIN DIRECT.
+ * `ensureKey` rend la main dès que la clef est au sac : sous les graines de ce
+ * fichier elle tombe au 5ᵉ combat (crabe 0,60 + rat de cale 0,45, p ≈ 0,1418),
+ * donc `craftRecipe` N'EST PAS exécuté ici — il ne l'est plus que dans
+ * `tests/walkthrough/keyChain.spec.ts`, qui mesure la chaîne de craft complète
+ * (plancher 4 combats, espérance ≈ 7,7). Le `craftRecipe` reste le repli de
+ * `ensureKey` si le butin direct ne donne rien.
  *
  * Le brief annonçait « 61 000 XP pour le niveau 16 » : `data/progression.yaml`
  * place 61 000 au niveau 15 et 75 000 au niveau 16. On suit le YAML (61 000
@@ -122,7 +130,11 @@ const DEATH_ROOM = 2;
  * `computeDropChance` (chance nulle) échoue en un éclair.
  */
 const FARM_CAP = 600;
-/** Rencontres réellement mesurées sous `SPAWN_SEED` / `DROP_SEED` (`DEC-07`). */
+/**
+ * Rencontres réellement mesurées sous `SPAWN_SEED` / `DROP_SEED` (`DEC-07`).
+ * Échantillon unique d'une géométrique (p ≈ 0,1418, médiane ≈ 4,5, P(> 10) ≈ 22 %) :
+ * la cible DEC-07 porte sur l'ESPÉRANCE (assertée par keyFarmBudget.spec.ts), pas sur cette mesure.
+ */
 const FARM_ENCOUNTERS = 5;
 /** Garde-fou de salle : la salle 2 meurt en 12 actions, la 1 gagne en 16. */
 const ROOM_ACTION_CAP = 200;
