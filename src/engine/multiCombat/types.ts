@@ -92,7 +92,9 @@ export interface AttackSpec {
 
 export type EnemyAction =
   | { kind: "attack"; targetId: string; attack: AttackSpec }
-  | { kind: "move"; to: Position };
+  | { kind: "move"; to: Position }
+  /** Ni approche ni attaque possible : la raison part au journal, pas de no-op muet. */
+  | { kind: "blocked"; reason: string };
 
 /** Stratégie injectée : rend une action ou `null` pour finir le tour. */
 export type EnemyStrategy = (state: BattleState, enemyId: string) => EnemyAction | null;

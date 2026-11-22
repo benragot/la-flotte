@@ -10,6 +10,7 @@ export type {
   Side,
 } from "./types";
 export {
+  appendLog,
   findCombatant,
   isActive,
   isAlive,
@@ -32,3 +33,5 @@ export { resolveTackle } from "./tackle";
 export type { TackleInput, TackleResult } from "./tackle";
 export { enemiesAct } from "./enemies";
 export type { EnemiesActInput } from "./enemies";
+export { approachCell } from "./approach";
+export type { ApproachInput } from "./approach";

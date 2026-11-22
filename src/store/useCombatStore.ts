@@ -108,7 +108,7 @@ interface CombatStore {
 
 const DEMO_HERO_NAME = "Balthazar";
 const DEMO_CLASS_ID = "iop";
-/** Placement de départ du héros en 1vN ; le placement des N ennemis viendra en 5C. */
+/** Placement de départ du héros en 1vN : le placement réel vient de `placeBattle`. */
 const BATTLE_ORIGIN: Position = { x: 0, y: 0 };
 /**
  * `rng() === 0` sélectionne la **première entrée** de la zone, pas la plus

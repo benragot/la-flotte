@@ -3,12 +3,12 @@ import type { AsciiMap, Position } from "../grid";
 import { isWalkableCell, samePosition } from "../grid";
 
 /**
- * Placement d'une salle (5C-d). **Aucun aléa** : l'ordre de parcours de la
- * grille décide, donc deux appels rendent les mêmes cases. Les monstres
- * prennent les cases `M` de la carte (puis les premières cases praticables
- * libres s'ils sont plus nombreux), le héros se place sur la case praticable
- * libre la plus proche du premier monstre : sans déplacement héroïque en 1vN,
- * un héros à l'autre bout de la salle ne pourrait jamais lancer un sort.
+ * Placement d'une salle (5C-d/5C-e). **Aucun aléa** : l'ordre de parcours de la
+ * grille décide, donc deux appels rendent les mêmes cases. Placement fidèle à
+ * la carte : monstres sur les cases `M`, héros sur la première case `P`. Sans
+ * `P`, le héros prend la case praticable libre la **plus éloignée** des `M`.
+ * L'approche est ensuite le travail de `spellStrategy` (`kind: "move"`) : le
+ * placement ne fabrique pas une mêlée de départ.
  */
 export interface BattlePlacement {
   hero: Position;
@@ -47,14 +47,23 @@ function byDistanceFrom(origin: Position): (a: Position, b: Position) => number 
   return (a, b) => manhattan(origin, a) - manhattan(origin, b) || a.y - b.y || a.x - b.x;
 }
 
-function nearestFree(map: AsciiMap, origin: Position, taken: readonly Position[]): Position {
-  const free = walkableCells(map).filter((cell) => isFree(cell, taken));
-  return [...free].sort(byDistanceFrom(origin))[0] ?? origin;
+/** Repli : la case libre la plus loin du premier monstre (départage en lecture). */
+function farthestFree(map: AsciiMap, monsters: readonly Position[]): Position {
+  const origin = monsters[0] ?? map.playerSpawns[0] ?? ORIGIN;
+  const free = walkableCells(map).filter((cell) => isFree(cell, monsters));
+  const ranked = free.sort(byDistanceFrom(origin));
+  return ranked[ranked.length - 1] ?? origin;
+}
+
+/** Case du héros : la première `P` de la carte, sinon le repli le plus éloigné. */
+function heroCell(map: AsciiMap, monsters: readonly Position[]): Position {
+  const spawn = map.playerSpawns[0];
+  if (spawn !== undefined && isFree(spawn, monsters)) return spawn;
+  return farthestFree(map, monsters);
 }
 
 /** Placement complet d'une salle : monstres puis héros, sur des cases distinctes. */
 export function placeBattle(map: AsciiMap, monsterCount: number): BattlePlacement {
   const monsters = placeMonsters(map, monsterCount);
-  const anchor = monsters[0] ?? map.playerSpawns[0] ?? ORIGIN;
-  return { hero: nearestFree(map, anchor, monsters), monsters };
+  return { hero: heroCell(map, monsters), monsters };
 }
