@@ -12,7 +12,7 @@
 #     qui les fonde.
 
 meta:
-  version: 25
+  version: 26
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -286,7 +286,7 @@ waves:
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
-        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements"
+        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements. Quatre retours de playtest du propriétaire ouvrent 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence (v26) ; **décision DEC-10** (diagonale = 2 PM, écart assumé à 1.29) gouverne 5C-path-8dirs et laisse 5C-spell-range-rebalance bloquée sur son arbitrage."
         tasks:
           - id: 5C-a
             title: Panneau de combat 1vN — rendu des N ennemis, ciblage et journal
@@ -359,7 +359,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/ui-dofus-retro.md §1, §6 R1 et §9 TC3 — `findPath` 8 voisins (diagonale = 1 pas) et facturation PM réelle des ennemis ; porte D68 et D69"
+            notes: "docs/design/specs/ui-dofus-retro.md §1, §6 R1 et §9 TC3 — `findPath` est **déjà 8-voisins** à HEAD (src/engine/grid/pathfinding.ts:54-68) : ce qui reste est la **règle de coin** (un pas diagonal exige les deux cases orthogonales adjacentes libres) et la **facture PM réelle** des ennemis ; porte D68, D69 et D96. **décision DEC-10** : une diagonale coûte **2 PM** (écart assumé à Dofus 1.29, où chaque case entrée coûte 1 PM) et la facture est la **somme des pas du chemin réellement trouvé** ; le « diagonale = 1 pas » de §9 TC3 est donc périmé et doit être mis à jour avec la tâche."
           - id: 5C-hero-move
             title: "Déplacement du héros en combat : PM, pathfinding et tacle"
             status: todo
@@ -427,6 +427,35 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: "décision DEC-03 : le soin entre les salles est **autorisé** (entorse assumée à Dofus) parce qu'un héros qui meurt en salle 2 (D71, #57) ne se répare pas en affaiblissant les monstres ; couvre le soin de fin de salle et la restauration de PV hors combat (D29) sans pénalité de mort (décision DEC-06)."
+          - id: 5C-explore-hp
+            title: "Masquer les barres de vie en exploration"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "Cible d'implémentation : `src/renderer/**`. Retour de playtest du propriétaire : des **barres de PV visibles en exploration**, qu'il juge inutiles — en exploration il n'y a pas de combat, donc **aucune information à porter** ; la barre ne devient légitime qu'au combat. Rattachée à 5C-hover-hp (même session de playtest) **sans en dépendre** : 5C-hover-hp traite la barre de **combat**, cette tâche traite l'**exploration** — deux rendus, deux périmètres, aucun `depends_on` croisé."
+          - id: 5C-hover-highlight
+            title: "Surbrillance au survol des entités actives (héros, monstres, PNJ)"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "Retour de playtest du propriétaire : le survol d'une entité active (héros, monstre, PNJ) doit la **distinguer légèrement** du décor, sans masquer son **nom** ni son **anneau** d'équipe. ⚠️ **Ne pas toucher à l'ombre elliptique** : sa forme et son opacité sont une **décision gelée**, la surbrillance se pose sur le jeton, jamais sur son ombre. La direction visuelle (teinte, alpha, épaisseur) revient à `render-designer` sur `src/renderer/**` (AGENTS.md règle 9) : le tdd-coder implémente, il ne choisit pas l'apparence (AGENTS.md règle 7)."
+          - id: 5C-cast-cadence
+            title: "Cadence minimale de 0,75 s entre deux résolutions de sort"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "Retour de playtest du propriétaire : il **ne peut pas lire** des lignes de dégâts qui s'empilent. Ce n'est **pas** une tâche d'animation — aucune animation graphique n'existe encore — c'est un **budget de temps de lecture**. Exigences testables : (a) la valeur `0.75 s` est une **constante unique exportée** (`SORT_CAST_MIN_INTERVAL_MS = 750` ou équivalent), jamais un littéral répété dans les appelants ; (b) le délai est **injectable** — aucune horloge murée dans le moteur headless, aucun `setTimeout` dans `src/engine/**` (AGENTS.md règle 5) : le moteur reçoit une fonction d'horloge, les tests la pilotent ; (c) la séquence « sort A puis sort B » ne peut pas produire deux résolutions à moins de 0,75 s."
+          - id: 5C-spell-range-rebalance
+            title: "Recalibrer les portées et la balance après DEC-10"
+            status: blocked
+            owner: user
+            target: external
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: "décision DEC-10 : la diagonale coûte **2 PM** (écart assumé à Dofus 1.29), donc la **mobilité** effective baisse fortement — 3 PM ne portent plus qu'une diagonale et un pas orthogonal. Le donjon (`D71`, déjà mortel en salle 2) et les portées de `data/spells.yaml` ont été calibrés sur l'ancienne mobilité (diagonale = 1 pas) : portées, agencement des salles et balance restent à **mesurer puis recalibrer**. ⚠️ **Bloquée par un arbitrage du propriétaire** : le sens du recalibrage (portées plus courtes, ennemis plus lents, salles retravaillées) est une décision de design, pas une déduction technique — ne pas démarrer sans sa réponse. `target: external`, `owner: user` : aucun agent n'écrit `data/spells.yaml` sur ce motif avant l'arbitrage."
       - id: 5D
         title: Wiring Navire-Base et premier donjon
         status: in_progress
@@ -765,10 +794,10 @@ debts:
     owner: user
     notes: "`recommendedLevel: 16` sur `fer_donjon_casse_vis_sans_fin` n'est vérifié que pour l'affichage (DungeonEntryPanel `LevelLine`) ; aucun refus n'est posé, la décision bloque/avertit relève du design — aucune tâche moteur naturelle ; reste adossé à D57 (craftLevel inerte)"
   - id: D68
-    title: "`findPath` est **4-voisins** : les diagonales ne sont pas modélisées, donc **tous les chemins sont 30-40 % trop longs** et les déplacements « collent »"
+    title: "`findPath` est **8-voisins** à HEAD : l'énoncé « 4 voisins » de cette dette est périmé ; il ne reste que la **règle de coin** (un pas diagonal à travers deux cases orthogonales occupées)"
     severity: high
     target: 5C-path-8dirs
-    notes: "src/engine/grid/pathfinding.ts (`findPath` ne développe que les 4 voisins orthogonaux) ; candidat au titre de cause principale du ressenti joueur ; TC3 de docs/design/specs/ui-dofus-retro.md §9 chiffre l'attendu (diagonale = 1 pas)"
+    notes: "src/engine/grid/pathfinding.ts:54-68 — `findPath` développe les **huit** voisins (`OFFSETS` porte les quatre orthogonaux puis les quatre diagonaux) : les chemins ne sont plus 30-40 % trop longs, l'énoncé « quatre voisins » est **périmé** et corrigé ici (vérifié sur `main` @ 69b4087). Ce qui reste, et que la **décision DEC-10** tranche : la **règle de coin** — src/engine/grid/pathfinding.ts:65 (`neighbors` — « le coin bloqué ne la ferme jamais ») laisse passer un pas diagonal entre deux cases orthogonales occupées, alors que DEC-10 exige que les **deux cases orthogonales adjacentes soient libres** ; la **facture** de la diagonale (2 PM, somme des pas du chemin réellement trouvé) reste portée par D96. Cible inchangée : 5C-path-8dirs, qui porte aussi la mise à jour du TC3 de docs/design/specs/ui-dofus-retro.md §9."
   - id: D69
     title: "`moveEnemy` facture `manhattan(from,to)` au lieu de `path.length - 1` : **PM sous-facturés** sur un contournement (jamais négatifs)"
     severity: medium
@@ -902,12 +931,12 @@ debts:
     title: "La fiche d'île parle encore d'un renommage « D01…D09 » en cours alors que les décisions sont `DEC-0n`"
     severity: low
     target: 5B-key-budget
-    notes: "docs/design/islands/ile_de_la_ferraille.md:984 : « la décision `DEC-07` (document de décisions, ex-`D01…D09` en cours de renommage) » — le renommage est fait depuis #77 et tests/unit/backlog.spec.ts:1631 nomme déjà `DEC-01 à DEC-09`. Reste cette phrase périmée dans le corps de la fiche. Cosmétique : le lecteur croit à un chantier ouvert qui n'existe plus. Correctif : supprimer la parenthèse."
+    notes: "docs/design/islands/ile_de_la_ferraille.md:984 : « la décision `DEC-07` (document de décisions, ex-`D01…D09` en cours de renommage) » — le renommage est fait depuis #77 et tests/unit/backlog.spec.ts:1630 nomme déjà `DEC-01 à DEC-10`. Reste cette phrase périmée dans le corps de la fiche. Cosmétique : le lecteur croit à un chantier ouvert qui n'existe plus. Correctif : supprimer la parenthèse."
   - id: D96
     title: "`moveEnemy` facture `stepDistance` (Chebyshev) au lieu de la longueur du chemin : un détour autour d'un mur ou d'une flaque est sous-facturé jusqu'à ~2 PM"
     severity: medium
     target: 5C-path-8dirs
-    notes: "src/engine/multiCombat/enemies.ts:58 (`const cost = stepDistance(enemy.position, to)`) facture la distance **à vol d'oiseau** alors que `findPath` a déjà calculé le chemin : en champ libre les deux coïncident, autour d'un obstacle le contournement est offert. Impact mesuré : **aucun sur DEC-03** aujourd'hui, assumé et écrit au-dessus de la fonction (src/engine/multiCombat/enemies.ts:51-55). **À corriger AVANT d'ajouter du contenu qui exploite la faille** — des monstres qui contournent rendraient le déplacement gratuit. Distinct de D69, qui visait `manhattan` : la référence a changé, la facture reste trop basse."
+    notes: "src/engine/multiCombat/enemies.ts:58 (`const cost = stepDistance(enemy.position, to)`) facture la distance **à vol d'oiseau** alors que `findPath` a déjà calculé le chemin : en champ libre les deux coïncident, autour d'un obstacle le contournement est offert. **Confirmation en jeu** par le propriétaire : déplacement ressenti comme **trop long en diagonale**, décrit de fait comme la facture **Chebyshev** sans la nommer. **Périmètre réduit** : `findPath` est **déjà 8-voisins** à HEAD (src/engine/grid/pathfinding.ts:54-68), donc D96 ne porte plus que **la facture** (ce fichier) et la **règle de coin** désormais tranchée par la décision DEC-10 (un pas diagonal exige les deux cases orthogonales adjacentes libres ; src/engine/grid/pathfinding.ts:65 dit aujourd'hui « le coin bloqué ne la ferme jamais »). Cible de facture : la **somme des pas du chemin réellement trouvé**, diagonale à **2 PM** — jamais une heuristique (DEC-10). Impact mesuré : **aucun sur DEC-03** aujourd'hui, assumé et écrit au-dessus de la fonction (src/engine/multiCombat/enemies.ts:51-55). **À corriger AVANT d'ajouter du contenu qui exploite la faille** — des monstres qui contournent rendraient le déplacement gratuit. Distinct de D69, qui visait `manhattan` : la référence a changé, la facture reste trop basse."
   - id: D97
     title: "`DEGENERATE_SIZE = 1.5` px est un nombre magique : une boîte de 20×20 n'est pas « dégénérée » mais reste une taille fausse, et la mesure est faite dessus"
     severity: low
@@ -933,5 +962,11 @@ debts:
     severity: medium
     target: 7A-spritesheets
     notes: "src/renderer/sceneLayers.ts:143-148 : `ensureAnimationLoop` fait `app.ticker.add(() => app.render())` (src/renderer/sceneLayers.ts:146) puis `app.ticker.start()` (src/renderer/sceneLayers.ts:147) — un `render()` complet par frame, indéfiniment, et rien ne l'arrête. Suspect n°1 du timeout de tests/ui/newGame.spec.ts à 1920×1080, qui a fait monter son budget à `test.setTimeout(90_000)` (tests/ui/newGame.spec.ts:22). **Non mesuré, à mesurer avant de conclure** : le budget de 90 s peut masquer une régression de perf plutôt que l'absorber. Correctif possible : ne rendre que si un acteur est effectivement animé sur la frame, ou rendre à l'événement."
+  - id: D102
+    title: "La règle de déplacement en PM n'est documentée dans aucune fiche du projet : ni coût du pas, ni diagonale, ni règle de coin"
+    severity: medium
+    target: external
+    owner: user
+    notes: ".opencode/skills/dofus-129-combat/SKILL.md:6-157 : le skill couvre boucle de tour, dégâts, CC, retrait PA-PM, poussée, tacle, initiative et ligne de vue — et **aucune section déplacement**. `PM` n'y apparaît qu'au SKILL.md:79 (réserve restante d'une cible) et `déplacement` qu'au SKILL.md:11 (liste d'actions) ; sa « règle des diagonales et des coins » (SKILL.md:152) porte sur la **ligne de vue**, pas sur le coût du pas. La décision DEC-10 (1 PM orthogonal, 2 PM diagonal, **somme du chemin réellement trouvé**, coin interdit) doit donc y être écrite **avec l'écart assumé à Dofus 1.29**, sinon un futur lecteur relira 1.29 (chaque case entrée = 1 PM) et « corrigera » le 2. `.opencode/skills/` est hors de portée d'écriture d'un agent sans accord du propriétaire, d'où `external` et `owner: user`."
 
 
