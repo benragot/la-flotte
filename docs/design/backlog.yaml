@@ -1,0 +1,215 @@
+# Backlog persistant — La Flotte
+# Source de vérité des tâches de l'orchestrateur.
+# Convention :
+#   - toute demande utilisateur arrive dans `inbox` avant d'être planifiée
+#   - `waves[].phases[].tasks[]` porte l'état réel (jamais un état supposé)
+#   - `debts[]` liste ce qui est assumé et REPORTÉ, avec la vague cible
+#   - `depends_on` (seule clé de dépendance, phases ET tâches) référence des `id`
+#   - `status: blocked` ⟺ au moins un `depends_on` de la phase n'est pas `done`
+#   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
+
+meta:
+  version: 3
+  updated_at: "2026-11-22"
+  # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
+  # ce backlog par l'agent d'intégration, qui signe `updated_by`.
+  updated_by: integrator
+  statuses: [todo, in_progress, needs_review, approved, blocked, done, dropped]
+  status_definitions:
+    todo: "planifié, jamais démarré"
+    in_progress: "travail local en cours, aucune PR ouverte"
+    needs_review: "PR ouverte ET corrections QA en cours"
+    approved: "verdict APPROUVÉ rendu, merge pas encore effectué"
+    blocked: "ne peut pas démarrer ou finir : dépendance non satisfaite"
+    done: "mergé sur main (squash), vérifié"
+    dropped: "abandonné, raison en notes"
+  update_rules:
+    - "seul l'agent d'intégration (integrator) ou un tdd-coder commité écrit ici : l'orchestrateur ne modifie jamais de fichier, il le fait écrire"
+    - "mise à jour à chaque verdict QA ET à chaque merge sur main, jamais un état supposé, ni hérité d'un avant-dernier commit"
+    - "meta.updated_at est bumpé dans le même commit que le changement d'état"
+    - "depends_on est la seule clé de dépendance : status blocked ⟺ au moins un depends_on n'est pas done (invariant bidirectionnel)"
+    - "une tâche done, approved ou needs_review cite toujours la PR qui la porte"
+
+inbox: []
+
+waves:
+  - id: wave-4
+    title: Persistance héros, 12 classes, inventaire, panoplies, sauvegarde
+    status: in_progress
+    phases:
+      - id: 4A
+        title: Modules headless en parallèle
+        status: done
+        tasks:
+          - id: 4A-hero-prog
+            title: Courbe XP 1.29 exacte, Hero persistant, 33 sorts de classe
+            status: done
+            pr: 17
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash ae3edb7
+          - id: 4A-items-sets
+            title: Items, consommables, panoplie du Piou Mazouté
+            status: done
+            pr: 14
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: squash e28c3e7
+          - id: 4A-inventory
+            title: Sac, 8 slots, bonus de panoplie
+            status: done
+            pr: 15
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash a076389
+          - id: 4A-save
+            title: Sauvegarde versionnée, export/import JSON
+            status: done
+            pr: 16
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: squash b8ba3c7
+          - id: 4A-harness
+            title: Permissions pr-merger pour valider l'arbre combiné
+            status: done
+            pr: 18
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash eedbf26 — permissions de merge gate
+      - id: 4B
+        title: Intégration — useGameStore, combat câblé, walkthrough niv. 5
+        status: todo
+        depends_on: [4A-hero-prog, 4A-inventory, 4A-save, 4A-items-sets, 4A-harness]
+        notes: dépendances toutes mergées sur main (PR 14-18), le travail d'intégration n'a pas commencé
+      - id: 4C
+        title: UI — création de personnage, inventaire et équipement
+        status: todo
+      - id: 4D
+        title: Wiring App — écran de création puis arène
+        status: todo
+  - id: wave-5
+    title: Combat 1vN, tacle/CC/retrait PA-PM, Navire-Base, craft, 1er donjon
+    status: todo
+    phases:
+      - id: 5A
+        title: Modules headless combat, tacle et navire
+        status: todo
+        tasks: []
+      - id: 5B
+        title: Intégration combat 1vN et craft
+        status: todo
+      - id: 5C
+        title: UI combat, tacle et retrait PA-PM
+        status: todo
+      - id: 5D
+        title: Wiring Navire-Base et premier donjon
+        status: todo
+  - id: wave-6
+    title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
+    status: todo
+    phases:
+      - id: 6A
+        title: Modules Fruits d'Écho et sorts avancés
+        status: todo
+        tasks: []
+      - id: 6B
+        title: Intégration Fruits d'Écho et AoE
+        status: todo
+      - id: 6C
+        title: UI archipel et Fruits d'Écho
+        status: todo
+      - id: 6D
+        title: Wiring archipel complet
+        status: todo
+  - id: wave-7
+    title: Polish visuel/audio, contenu Archipel complet, packaging Mac
+    status: todo
+    phases:
+      - id: 7A
+        title: Polish visuel et audio
+        status: todo
+        tasks: []
+      - id: 7B
+        title: Contenu archipel final
+        status: todo
+      - id: 7C
+        title: Packaging Mac
+        status: todo
+
+debts:
+  - id: D01
+    title: La table XP 1.29 n'est épinglée par aucun snapshot (seule la longueur et 2 frontières sont testées)
+    severity: medium
+    target: 4B
+  - id: D02
+    title: requiresState est un enum d'état métier codé en dur dans src/schemas
+    severity: low
+    target: 6A
+  - id: D03
+    title: Les 3 sorts Iop existants ne sont pas fidèles au rang 1.29 (pression = rang 5, epee_du_destin = niveau 9)
+    severity: medium
+    target: 6A
+  - id: D04
+    title: itemStatsSchema n'est pas .strict(), une clé de stat mal orthographiée est retirée silencieusement
+    severity: low
+    target: 5A
+  - id: D05
+    title: monstersFileSchema ne vérifie pas l'unicité des ids (helper checkUniqueIds à mutualiser)
+    severity: low
+    target: 5A
+  - id: D06
+    title: Impossible de porter deux exemplaires du même anneau (autorisé en 1.29)
+    severity: medium
+    target: 5B
+  - id: D07
+    title: aria-label posé sur un div sans rôle dans ArenaStage (ignoré par les AT)
+    severity: low
+    target: 4C
+  - id: D08
+    title: Le HUD fixed recouvre les 2 dernières rangées du canvas 576x576 sous ~900px de hauteur
+    severity: high
+    target: 4C
+  - id: D09
+    title: Regex de tailwindSetup.spec.ts à resserrer sur le JSX plutôt que sur les imports
+    severity: low
+    target: 4C
+  - id: D10
+    title: levelGapFactor vaut 1 en dur dans rewards.ts au lieu de venir de progression.yaml
+    severity: medium
+    target: 4B
+  - id: D11
+    title: Le store appelle resolveCombatRewards avec heroXp 0, l'XP ne persiste pas entre combats
+    severity: high
+    target: 4B
+  - id: D12
+    title: Release Please échoue (réglage de dépôt can_approve_pull_request_reviews = false)
+    severity: high
+    target: external
+    owner: user
+  - id: D13
+    title: Le garde-fou bloque en lecture toute commande contenant .opencode/plugins
+    severity: low
+    target: blocked
+    notes: le plugin est interdit d'édition aux agents
+  - id: D14
+    title: Les verdicts qa-reviewer ne sont pas matérialisés sur GitHub (pas de gh pr review)
+    severity: low
+    target: 5A
+  - id: D15
+    title: popBest du pathfinding retriée en O(n^2 log n)
+    severity: low
+    target: 6A
+  - id: D16
+    title: Aucun test de composant React (ni jsdom ni testing-library installés)
+    severity: low
+    target: external
+    owner: user
+  - id: D17
+    title: Le walkthrough économie n'existe pas encore
+    severity: medium
+    target: 4B
