@@ -15,13 +15,13 @@ const REQUIRED_STATUSES = [
 ];
 const FREE_TARGETS = ["external", "blocked"];
 const PRIORITIES = ["high", "medium", "low"];
+const DEBT_SEVERITIES = ["low", "medium", "high"];
 const TASK_KEYS = ["id", "title", "status", "owner", "priority", "updated_at"];
 const INBOX_KEYS = ["id", "title", "created_at"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const WAVE_ID_PATTERN = /^wave-\d+(?:\.\d+)?$/;
 const PHASE_ID_PATTERN = /^\d(?:\.\d)?[A-D]$/;
-// Le suffixe accepte aussi une majuscule : la vague 5B nomme ses livraisons 5B-A…5B-G.
-const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[A-Za-z0-9-]+$/;
+const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[a-z0-9-]+$/;
 const DEBT_ID_PATTERN = /^D\d{2}$/;
 
 interface Task {
@@ -225,6 +225,11 @@ function taskKeyGaps(backlog: Backlog): string[] {
 function invalidPriorities(backlog: Backlog): string[] {
   const valid = new Set(PRIORITIES);
   return allTasks(backlog).filter((task) => !valid.has(task.priority ?? "")).map((task) => task.id);
+}
+
+function invalidDebtSeverities(backlog: Backlog): string[] {
+  const valid = new Set(DEBT_SEVERITIES);
+  return backlog.debts.filter((debt) => !valid.has(debt.severity)).map((debt) => debt.id);
 }
 
 function missingPrTasks(backlog: Backlog, statuses: string[]): string[] {
@@ -625,12 +630,12 @@ describe("backlog — cibles des dettes", () => {
 
 describe("backlog — vague 5B livrée", () => {
   const MERGED: Array<[string, number]> = [
-    ["5B-A", 36],
-    ["5B-B", 37],
-    ["5B-C", 38],
-    ["5B-D", 39],
-    ["5B-E", 40],
-    ["5B-F", 41],
+    ["5B-a", 36],
+    ["5B-b", 37],
+    ["5B-c", 38],
+    ["5B-d", 39],
+    ["5B-e", 40],
+    ["5B-f", 41],
   ];
 
   function undelivered(backlog: Backlog): string[] {
@@ -646,11 +651,11 @@ describe("backlog — vague 5B livrée", () => {
     expect(phaseById(backlog, "5B")?.status).toBe("in_progress");
   });
 
-  it("ouvre 5B-G sans PR et la rattache à 5B-F", () => {
-    const task = taskById(readBacklog(), "5B-G");
-    expect(task?.status).toBe("in_progress");
-    expect(task?.pr).toBeUndefined();
-    expect(task?.depends_on).toEqual(["5B-F"]);
+  it("ouvre 5B-g en revue avec la PR #43 et la rattache à 5B-f", () => {
+    const task = taskById(readBacklog(), "5B-g");
+    expect(task?.status).toBe("needs_review");
+    expect(task?.pr).toBe(43);
+    expect(task?.depends_on).toEqual(["5B-f"]);
   });
 
   it("versionne le backlog en 15", () => {
@@ -665,7 +670,13 @@ describe("backlog — dettes versées en v15", () => {
     expect(VERSED.flatMap((id) => (debtById(readBacklog(), id) ? [] : [id]))).toEqual([]);
   });
 
-  it("ne duplique pas D59, déjà couverte par le wiring 5D", () => {
-    expect(debtById(readBacklog(), "D59")).toBeUndefined();
+  it("grade chaque dette sur l'échelle low/medium/high", () => {
+    expect(invalidDebtSeverities(readBacklog())).toEqual([]);
+  });
+
+  it("détecte une sévérité hors échelle sur fixture", () => {
+    const fixture = fixtureBacklog([fixturePhase("5B", "in_progress")]);
+    fixture.debts = [{ id: "D01", title: "Dette mal gradée", severity: "critical", target: "5B" }];
+    expect(invalidDebtSeverities(fixture)).toEqual(["D01"]);
   });
 });
