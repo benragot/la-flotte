@@ -3,7 +3,7 @@ import type { PixelPoint } from "../gridProjection";
 import { displayScaleFor } from "./frameMath";
 import type { Facing, SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "./types";
 import type { WalkPlan, WalkState } from "./walkMotion";
-import { sampleWalk, startWalk } from "./walkMotion";
+import { resumeWalk, sampleWalk, startWalk } from "./walkMotion";
 
 /** Pieds de la cellule : l'ancre tombe sur le centre du losange isométrique. */
 export const SPRITE_ANCHOR = { x: 0.5, y: 0.85 } as const;
@@ -106,12 +106,20 @@ export class EntitySprite {
   }
 
   /**
-   * Glisse l'acteur le long d'un chemin de centres de cases. Le trajet précédent
-   * est remplacé, jamais complété : aucune pile de tweens ne peut s'accumuler.
+   * Glisse l'acteur le long d'un chemin de centres de cases. Un trajet qui
+   * arrive **pendant** un glissement repart du **pixel peint**, pas de la case
+   * logique : le sprite ne saute plus en avant quand le joueur l'interrompt, et
+   * le trajet précédent est remplacé, jamais complété (aucune pile de tweens).
    */
   walkAlong(plan: WalkPlan, nowMs: number): void {
-    this.walk = startWalk(plan, nowMs);
+    this.walk = startWalk(this.resumedPlan(plan, nowMs), nowMs);
     this.start("walk");
+  }
+
+  /** Plan effectif : la reprise part de la position peinte quand un trajet est en cours. */
+  private resumedPlan(plan: WalkPlan, nowMs: number): WalkPlan {
+    if (this.walk === null) return plan;
+    return resumeWalk(this.walk.plan, nowMs - this.walk.startedAt, plan) ?? plan;
   }
 
   /**

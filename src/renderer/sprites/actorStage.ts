@@ -44,10 +44,10 @@ function actorKeys(tokens: readonly TokenView[]): ReadonlySet<string> {
  * le trajet (`TokenView.trail`), ce plateau ne fait que le projeter puis le
  * jouer. Il ne calcule aucun chemin — la diagonale du moteur reste un pas.
  *
- * ⚠️ Limite assumée : un second trajet qui arrive **pendant** un glissement
- * repart de la case **logique** validée par la règle, pas du pixel courant. Le
- * sprite peut donc sauter en avant d'une case au plus. Aucun tween n'est
- * empilé, et la règle reste maîtresse du placement.
+ * ⚠️ Un second trajet qui arrive **pendant** un glissement repart du **pixel
+ * peint** et finit le segment en cours avant d'enchaîner : le sprite ne saute
+ * plus sur la case logique, et aucune diagonale ne coupe un coin. Aucun tween
+ * n'est empilé, et la règle reste maîtresse du placement logique.
  */
 export class ActorStage {
   readonly container = new Container();
