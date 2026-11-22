@@ -175,7 +175,7 @@ function playBattle(): void {
     const before = battleOrThrow();
     if (isVictory(before) || isDefeat(before)) return;
     actOnce();
-    if (useCombatStore.getState().battle === before) useCombatStore.getState().advanceBattleTurn({ rng });
+    if (useCombatStore.getState().battle === before) useCombatStore.getState().advanceBattleTurn();
   }
   throw new Error(`combat non résolu en ${MAX_ACTIONS} actions`);
 }
@@ -194,7 +194,7 @@ interface RoomOutcome {
   fallen: string[];
 }
 
-function playRoom(room: DungeonRoom): RoomOutcome {
+function playRoom(room: DungeonRoom, storage?: StorageLike): RoomOutcome {
   const hpStart = heroOrThrow().hp;
   useCombatStore.getState().startDungeonRoom({ room });
   const battle = battleOrThrow();
@@ -203,7 +203,7 @@ function playRoom(room: DungeonRoom): RoomOutcome {
   playBattle();
   expect(isVictory(battleOrThrow())).toBe(true);
   const fallen = fallenIds();
-  useCombatStore.getState().settleDungeonRoom();
+  useCombatStore.getState().settleDungeonRoom({ storage });
   expect(useCombatStore.getState().battle).toBeNull();
   expect(useCombatStore.getState().combat).toBeNull();
   return { hpStart, hpEnd: heroOrThrow().hp, enemies, fallen };
@@ -272,10 +272,15 @@ function invariants() {
 }
 
 function roomBattle(roomNumber: number): BattleState {
-  const room = dungeonOrThrow().rooms[roomNumber - 1];
-  if (room === undefined) throw new Error(`salle ${roomNumber} absente`);
+  const room = roomAt(roomNumber - 1);
   useCombatStore.getState().startDungeonRoom({ room });
   return battleOrThrow();
+}
+
+function roomAt(index: number): DungeonRoom {
+  const room = dungeonOrThrow().rooms[index];
+  if (room === undefined) throw new Error(`salle ${index + 1} absente`);
+  return room;
 }
 
 function withSideHp(battle: BattleState, side: "player" | "enemy", hp: number): BattleState {
@@ -318,6 +323,23 @@ describe("walkthrough donjon de la Ferraille", () => {
     expect(hero.hp).toBeLessThan(hero.maxHp);
     expect(invariants()).toEqual(before);
     expect(useCombatStore.getState().battle).toBeNull();
+  });
+});
+
+describe("rechargement entre deux salles", () => {
+  it("ne rend pas les PV : héros blessé restauré, salle 2 au même niveau", () => {
+    prepareHero();
+    const storage = new MemoryStorage();
+    useGameStore.getState().saveGame(storage);
+    const first = playRoom(roomAt(0), storage);
+    const wounded = first.hpEnd;
+    expect(wounded).toBeLessThan(heroOrThrow().maxHp);
+    useGameStore.getState().resetGame();
+    expect(useGameStore.getState().loadGame(storage)).toBe(true);
+    expect(heroOrThrow().hp).toBe(wounded);
+    expect(heroOrThrow().hp).toBeLessThan(heroOrThrow().maxHp);
+    const second = playRoom(roomAt(1), storage);
+    expect(second.hpStart).toBe(wounded);
   });
 });
 
