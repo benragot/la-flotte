@@ -78,10 +78,9 @@ export {
   hpBarFor,
   hpRatio,
   playerTokenView,
-  tokenBadge,
   tokenView,
 } from "./tokens";
-export type { HpBar, TokenBadge, TokenSprite, TokenView } from "./tokens";
+export type { HpBar, TokenSprite, TokenView } from "./tokens";
 export { depthOf, painterOrder } from "./scene";
 export type { GridHighlight, SceneModel, TileView } from "./scene";
 export { hashInt, hashUnit } from "./cellHash";

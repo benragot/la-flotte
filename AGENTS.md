@@ -38,6 +38,7 @@
      `fix(combat): 🐛 corriger le calcul des CC`.
    - Invalide : `feat(data): add carte 🗺️` (emoji en fin de ligne),
      `🗺️ feat(data): add carte` (emoji avant le type).
+7. L'apparence de l'interface appartient à `ui-designer` : tout changement visuel passe par lui.
 
 ## Qualité
 
