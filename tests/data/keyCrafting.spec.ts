@@ -89,7 +89,7 @@ describe("clef du donjon de la Ferraille — recette du §7", () => {
   });
 });
 
-describe("clef du donjon de la Ferraille — farm réel", () => {
+describe("clef du donjon de la Ferraille — craft réel", () => {
   it("craftMany consomme tout l'inventaire et pose la clef au sac", () => {
     const recipe = recipeOfKey(loadRecipes());
     const result = craftMany({ recipe, inventory: farmInventory(), times: 1 });

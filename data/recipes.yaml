@@ -95,8 +95,8 @@ recipes:
     description: "Trois ferrailles martyrisées autour d'un boulon qui prie pour qu'on arrête. Le résultat se dévisse tout seul, la malédiction est donc bien conservée."
 
   # §7 de `docs/design/islands/ile_de_la_ferraille.md`. `craftLevel` n'y est pas
-  # fourni : 10 est une valeur provisoire (niveau du plus haut ingrédient farmable,
-  # celui du donjon étant 16), à trancher en 7B.
+  # fourni : 10 est provisoire et inerte (aucun code ne lit ce champ, seul
+  # `recipeSchema` le borne) ; il sera fixé avec la table de spawn d'exploration.
   - id: recette_cle_donjon_ile_de_la_ferraille
     resultItemId: cle_donjon_ile_de_la_ferraille
     resultQuantity: 1

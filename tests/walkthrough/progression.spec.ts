@@ -140,7 +140,7 @@ describe("walkthrough : progression", () => {
     expect(rewards.xpGained).toBe(120);
     expect(rewards.level).toBe(2);
     expect(rewards.levelUp).toEqual({ hp: 5, capitalPoints: 5, spellPoints: 1 });
-    expect(rewards.drops).toEqual(["plume_mazoutee"]);
+    expect(rewards.drops).toEqual(["plume_mazoutee", "fer_goutte_mazout"]);
   });
 });
 
