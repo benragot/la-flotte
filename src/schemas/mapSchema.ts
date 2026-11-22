@@ -34,6 +34,25 @@ export const decorSchema = z
   })
   .strict();
 
+/** Case d'arrivée écrite en donnée (sinon le miroir du bord décide). */
+export const exitTargetSchema = z
+  .object({ x: z.number().int().nonnegative(), y: z.number().int().nonnegative() })
+  .strict();
+
+/**
+ * « Soleil » d'une carte d'extérieur : `x`/`y` = case de sortie sur CETTE
+ * carte, `to` = id de la carte de destination, `at` = case d'arrivée
+ * facultative (sans elle, la position est le miroir du bord traversé).
+ */
+export const mapExitSchema = z
+  .object({
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    to: z.string().min(1),
+    at: exitTargetSchema.optional(),
+  })
+  .strict();
+
 const ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 const LEGEND = new Set<string>(cellTypeSchema.options);
 
@@ -45,6 +64,8 @@ const mapFieldsSchema = z.object({
   grid: z.array(z.string().min(1)).min(1),
   /** Objets de décor posés en données ; optionnel pour ne casser aucune carte. */
   decor: z.array(decorSchema).default([]),
+  /** Sorties de carte ; vide par défaut, donc aucune carte existante ne casse. */
+  exits: z.array(mapExitSchema).default([]),
 });
 
 type MapFields = z.infer<typeof mapFieldsSchema>;
@@ -82,7 +103,16 @@ function checkCells(map: MapFields, ctx: IssueSink): void {
 
 function checkSpawns(map: MapFields, ctx: IssueSink): void {
   if (!hasCell(map.grid, "P")) addIssue(ctx, ["grid"], "aucun placement joueur (P)");
-  if (!hasCell(map.grid, "M")) addIssue(ctx, ["grid"], "aucun placement monstre (M)");
+}
+
+function isExitInside(map: MapFields, exit: MapFields["exits"][number]): boolean {
+  return exit.x < map.width && exit.y < map.height;
+}
+
+function checkExits(map: MapFields, ctx: IssueSink): void {
+  map.exits.forEach((exit, index) => {
+    if (!isExitInside(map, exit)) addIssue(ctx, ["exits", index], "sortie hors de la grille");
+  });
 }
 
 function isInside(map: MapFields, entry: MapFields["decor"][number]): boolean {
@@ -121,16 +151,56 @@ export const mapSchema = mapFieldsSchema.superRefine((map, ctx) => {
   checkCells(map, ctx);
   checkSpawns(map, ctx);
   checkDecor(map, ctx);
+  checkExits(map, ctx);
 });
 
-export const mapsFileSchema = z.object({
-  maps: z.array(mapSchema).min(1),
-});
+const mapsFileSchemaBase = z.object({ maps: z.array(mapSchema).min(1) });
+
+type MapsFile = z.infer<typeof mapsFileSchemaBase>;
+
+/** `to` doit désigner une carte déclarée : une sortie morte est une donnée morte. */
+function checkExitTargets(file: MapsFile, ctx: IssueSink): void {
+  const ids = new Set(file.maps.map((map) => map.id));
+  file.maps.forEach((map, mapIndex) => {
+    map.exits.forEach((exit, exitIndex) => {
+      if (ids.has(exit.to)) return;
+      addIssue(ctx, ["maps", mapIndex, "exits", exitIndex], `carte inconnue: ${exit.to}`);
+    });
+  });
+}
+
+function checkMapsFile(file: MapsFile, ctx: IssueSink): void {
+  checkExitTargets(file, ctx);
+  checkArrivals(file, ctx);
+}
+
+/**
+ * `at` vit sur la carte d'ARRIVÉE : c'est sa grille qui le borne, pas celle de
+ * départ. Sans ce contrôle, une arrivée fausse ne lève pas — elle téléporte.
+ */
+function arrivalOutside(destination: MapFields | undefined, at: ExitTargetSpec | undefined): boolean {
+  if (destination === undefined || at === undefined) return false;
+  return at.x >= destination.width || at.y >= destination.height;
+}
+
+function checkArrivals(file: MapsFile, ctx: IssueSink): void {
+  const byId = new Map(file.maps.map((map) => [map.id, map]));
+  file.maps.forEach((map, mapIndex) => {
+    map.exits.forEach((exit, exitIndex) => {
+      if (!arrivalOutside(byId.get(exit.to), exit.at)) return;
+      addIssue(ctx, ["maps", mapIndex, "exits", exitIndex], `arrivée hors de ${exit.to}`);
+    });
+  });
+}
+
+export const mapsFileSchema = mapsFileSchemaBase.superRefine(checkMapsFile);
 
 export type CellType = z.infer<typeof cellTypeSchema>;
 export type DecorType = z.infer<typeof decorTypeSchema>;
 export type DecorLayer = z.infer<typeof decorLayerSchema>;
 export type DecorSpec = z.infer<typeof decorSchema>;
+export type ExitTargetSpec = z.infer<typeof exitTargetSchema>;
+export type ExitSpec = z.infer<typeof mapExitSchema>;
 export type MapDef = z.infer<typeof mapSchema>;
 
 export function parseMapsYaml(raw: string): MapDef[] {

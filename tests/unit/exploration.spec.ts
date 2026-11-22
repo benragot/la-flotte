@@ -99,9 +99,9 @@ describe("initExploration", () => {
     expect(() => initExploration({ map, ...SPAWN })).toThrow(/joueur/i);
   });
 
-  it("refuse une carte sans placement monstre", () => {
+  it("accepte une carte sans placement monstre : les monstres viennent des spawns", () => {
     const map = parseAsciiMap(["..P.", "...."]);
-    expect(() => initExploration({ map, ...SPAWN })).toThrow(/monstre/i);
+    expect(initExploration({ map, ...SPAWN }).monsterGroups).toEqual([]);
   });
 });
 

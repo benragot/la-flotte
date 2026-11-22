@@ -69,9 +69,15 @@ describe("mapSchema", () => {
     expect(mapSchema.safeParse({ ...VALID_MAP, grid }).success).toBe(false);
   });
 
-  it("rejette une grille sans monstre", () => {
+  /**
+   * Depuis les sorties de carte, une carte d'extérieur peut n'avoir aucun `M` :
+   * les monstres viennent de `data/spawns.yaml`, pas de la grille. Seul `P`
+   * reste obligatoire (sans lui, le héros n'a pas d'endroit où exister).
+   */
+  it("accepte une grille sans monstre et refuse toujours une grille sans joueur", () => {
     const grid = ["P...", "...."];
-    expect(mapSchema.safeParse({ ...VALID_MAP, grid }).success).toBe(false);
+    expect(mapSchema.safeParse({ ...VALID_MAP, grid }).success).toBe(true);
+    expect(mapSchema.safeParse({ ...VALID_MAP, grid: ["....", "..M."] }).success).toBe(false);
   });
 
   it("rejette un caractère inconnu", () => {
