@@ -65,6 +65,14 @@ describe("buildPathPreview — chemin", () => {
     expect(preview.remainingPm).toBe(6);
   });
 
+  it("contourne le mur quand un détour reste dans les PM", () => {
+    const preview = buildPathPreview({ map: MAP, from: { x: 6, y: 0 }, to: { x: 6, y: 4 }, maxPm: 8 });
+    expect(preview.reachable).toBe(true);
+    expect(preview.cost).toBeGreaterThan(4);
+  });
+});
+
+describe("buildPathPreview — refus", () => {
   it("cible mur : refus pour mur", () => {
     expect(previewTo({ x: 6, y: 2 }, 12).blockedBy).toBe("wall");
   });
@@ -78,12 +86,6 @@ describe("buildPathPreview — chemin", () => {
     expect(preview.reachable).toBe(false);
     expect(preview.blockedBy).toBe("range");
     expect(preview.cost).toBe(0);
-  });
-
-  it("contourne le mur quand un détour reste dans les PM", () => {
-    const preview = buildPathPreview({ map: MAP, from: { x: 6, y: 0 }, to: { x: 6, y: 4 }, maxPm: 8 });
-    expect(preview.reachable).toBe(true);
-    expect(preview.cost).toBeGreaterThan(4);
   });
 });
 

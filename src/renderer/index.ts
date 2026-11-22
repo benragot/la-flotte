@@ -76,3 +76,7 @@ export {
 export type { HpBar, TokenBadge, TokenSprite, TokenView } from "./tokens";
 export { depthOf, painterOrder } from "./scene";
 export type { GridHighlight, SceneModel, TileView } from "./scene";
+export { buildPathPreview, pathIsoCenters } from "./pathPreview";
+export type { BlockReason, PathCentersInput, PathPreview, PathPreviewInput } from "./pathPreview";
+export { buildDamagePreview, elementStat } from "./damagePreview";
+export type { AttackerStats, DamagePreview, DamagePreviewInput, ElementResistances } from "./damagePreview";
