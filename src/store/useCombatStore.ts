@@ -28,7 +28,7 @@ import { combatantFromHero } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { buildTimeline } from "../engine/multiCombat";
+import { advanceTurn, buildTimeline } from "../engine/multiCombat";
 import type { AttackSpec, BattleState, EnemyStrategy } from "../engine/multiCombat";
 import { mapsFileSchema } from "../schemas/mapSchema";
 import { monstersFileSchema } from "../schemas/monsterSchema";
@@ -67,6 +67,10 @@ interface CombatStore {
   startDungeonRoom: (input: { room: DungeonRoom }) => void;
   battleAttack: (input: { targetId: string; attack: AttackSpec }) => void;
   battleEnemyTurn: (input: { strategy: EnemyStrategy }) => void;
+  /** Fait tourner la timeline quand l'actif courant ne peut plus rien faire. */
+  advanceBattleTurn: () => void;
+  /** Clôt la salle en reportant les PV restants du héros : aucun soin accordé. */
+  settleDungeonRoom: () => void;
   endBattle: () => void;
 }
 
@@ -260,6 +264,33 @@ function enemyTurnUpdate(store: CombatStore, strategy: EnemyStrategy): Partial<C
   return battleUpdate(state, resolveBattleEnemyTurn({ state, strategy, rng: Math.random }));
 }
 
+function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null) return {};
+  return battleUpdate(state, advanceTurn(state));
+}
+
+/** Reporte les PV du combattant héros vers le héros persistant, plafonnés à son max. */
+function carryOverBattleHp(hp: number): void {
+  const game = useGameStore.getState();
+  if (game.hero === null) return;
+  const clamped = Math.max(0, Math.min(hp, game.hero.maxHp));
+  useGameStore.setState({ hero: { ...game.hero, hp: clamped } });
+}
+
+function battleHeroHp(state: BattleState): number | undefined {
+  return state.combatants.find((entry) => entry.side === "player")?.hp;
+}
+
+/** Aucune régénération : la salle suivante repart des PV laissés par la précédente. */
+function settleUpdate(store: CombatStore): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null) return {};
+  const hp = battleHeroHp(state);
+  if (hp !== undefined) carryOverBattleHp(hp);
+  return battleUpdate(state, null);
+}
+
 type StoreSetter = StoreApi<CombatStore>["setState"];
 
 type MapActions = Pick<
@@ -288,13 +319,18 @@ function mapActions(set: StoreSetter): MapActions {
   return { ...mapStartActions(set), ...mapClickActions(set) };
 }
 
-type BattleActions = Pick<CombatStore, "startDungeonRoom" | "battleAttack" | "battleEnemyTurn" | "endBattle">;
+type BattleActions = Pick<
+  CombatStore,
+  "startDungeonRoom" | "battleAttack" | "battleEnemyTurn" | "advanceBattleTurn" | "settleDungeonRoom" | "endBattle"
+>;
 
 function battleActions(set: StoreSetter): BattleActions {
   return {
     startDungeonRoom: (input: { room: DungeonRoom }) => set({ battle: battleFromRoom(input.room) }),
     battleAttack: (input: { targetId: string; attack: AttackSpec }) => set((store) => attackUpdate(store, input)),
     battleEnemyTurn: (input: { strategy: EnemyStrategy }) => set((store) => enemyTurnUpdate(store, input.strategy)),
+    advanceBattleTurn: () => set((store) => advanceTurnUpdate(store)),
+    settleDungeonRoom: () => set((store) => settleUpdate(store)),
     endBattle: () => set({ battle: null }),
   };
 }
@@ -321,6 +357,8 @@ const DEFAULT_STATE = {
   | "startDungeonRoom"
   | "battleAttack"
   | "battleEnemyTurn"
+  | "advanceBattleTurn"
+  | "settleDungeonRoom"
   | "endBattle"
 >;
 
