@@ -704,10 +704,10 @@ const DELIVERED_5C: Array<[string, number, string]> = [
 ];
 
 const OPEN_5C = [
-  "5C-d",
   "5C-actor-ring",
   "5C-hover-hp",
   "5C-pm-zone",
+  "5C-path-8dirs",
   "5C-cast-preview",
   "5C-turn-rail",
   "5C-info-panel",
@@ -728,14 +728,14 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur 5C-d et les sept tâches d'interface en todo", () => {
+  it("garde 5C ouverte sur les neuf tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
-    expect(taskById(backlog, "5C-d")?.status).toBe("todo");
+    expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
     expect(open).toEqual(OPEN_5C);
   });
 
-  it("ouvre les tâches 5C-b, 5C-c, 5C-d et 5D-a", () => {
+  it("référence 5C-b, 5C-c, 5C-d et 5D-a dans les bonnes phases", () => {
     const backlog = readBacklog();
     expect(taskIdsOf(backlog, "5C")).toEqual(expect.arrayContaining(["5C-b", "5C-c", "5C-d"]));
     expect(taskIdsOf(backlog, "5D")).toEqual(expect.arrayContaining(["5D-a"]));
@@ -748,10 +748,11 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(taskById(backlog, "5D-a")?.depends_on).toEqual(["5C-c", "5C-d", "5B-g"]);
   });
 
-  it("exige une PR ouverte sur 5C-d (symétrique de 5B-g)", () => {
+  it("exige que 5C-d soit livrée par la PR #50 (portée et LoS)", () => {
     const task = taskById(readBacklog(), "5C-d");
-    expect(task?.status).toBe("todo");
-    expect(task?.pr).toBeUndefined();
+    expect(task?.status).toBe("done");
+    expect(task?.pr).toBe(50);
+    expect(task?.notes ?? "").toContain("c45708f");
   });
 });
 
@@ -761,7 +762,6 @@ describe("backlog — dettes des audits #44/#45", () => {
     ["D60", "low", "5C"],
     ["D62", "low", "5C"],
     ["D63", "medium", "5C"],
-    ["D64", "high", "5C-d"],
   ];
 
   function auditGaps(backlog: Backlog): string[] {
@@ -868,7 +868,8 @@ const UI_TASKS: Array<[string, string, string[]]> = [
   ["5C-actor-ring", "5C", []],
   ["5C-hover-hp", "5C", ["5C-actor-ring"]],
   ["5C-pm-zone", "5C", ["5C-actor-ring"]],
-  ["5C-cast-preview", "5C", ["5C-pm-zone"]],
+  ["5C-path-8dirs", "5C", []],
+  ["5C-cast-preview", "5C", ["5C-pm-zone", "5C-path-8dirs"]],
   ["5C-turn-rail", "5C", ["5C-actor-ring"]],
   ["5C-info-panel", "5C", ["5C-actor-ring"]],
   ["5C-group-stars", "5C", []],
@@ -876,7 +877,7 @@ const UI_TASKS: Array<[string, string, string[]]> = [
   ["5D-hud-bar", "5D", ["5C-turn-rail"]],
   ["5D-death-end", "5D", []],
 ];
-const UI_RULES = ["R1", "R2", "R3", "R4", "R5", "R6", "R7"];
+const UI_RULES = ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"];
 
 function uiTaskGaps(backlog: Backlog): string[] {
   return UI_TASKS.flatMap(([id, phaseId, deps]) => {
@@ -915,7 +916,7 @@ describe("backlog — spec UI Dofus Retro", () => {
     expect(sections.filter((heading) => !text.includes(heading))).toEqual([]);
   });
 
-  it("déclare les sept règles d'état R1 à R7", () => {
+  it("déclare les huit règles d'état R1 à R8", () => {
     const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
     expect(UI_RULES.filter((rule) => !text.includes(`${rule}.`))).toEqual([]);
   });
@@ -926,7 +927,7 @@ describe("backlog — tâches d'interface Dofus Retro", () => {
     expect(uiTaskGaps(readBacklog())).toEqual([]);
   });
 
-  it("renvoie chaque tâche vers la spec et cite les règles R1 à R7", () => {
+  it("renvoie chaque tâche vers la spec et cite les règles R1 à R8", () => {
     const backlog = readBacklog();
     expect(uncitedRules(backlog)).toEqual([]);
   });
@@ -937,16 +938,22 @@ describe("backlog — tâches d'interface Dofus Retro", () => {
     expect(missing.map(([id]) => id)).toEqual([]);
     expect(lines.join("\n")).toContain(UI_SPEC);
   });
+
+  it("documente le sprite procédural de l'anneau plutôt qu'une dépendance spritesheets", () => {
+    const task = taskById(readBacklog(), "5C-actor-ring");
+    expect(task?.notes ?? "").toContain("procédural");
+    expect(task?.depends_on ?? []).not.toContain("7A-spritesheets");
+  });
 });
 
 describe("backlog — dettes de l'audit UI et donjon du 22/11", () => {
   const UI_DEBTS: Array<[string, string, string, string]> = [
-    ["D68", "high", "5C-pm-zone", "findPath"],
-    ["D69", "medium", "5C-pm-zone", "manhattan(from,to)"],
+    ["D68", "high", "5C-path-8dirs", "findPath"],
+    ["D69", "medium", "5C-path-8dirs", "manhattan(from,to)"],
     ["D70", "medium", "5D-a", "resolveTackle"],
     ["D71", "high", "5D-a", "panoplies"],
     ["D72", "medium", "5D-a", "minRange"],
-    ["D73", "medium", "5D-a", "findSpell"],
+    ["D73", "high", "5D-a", "findSpell"],
   ];
 
   function uiDebtGaps(backlog: Backlog): string[] {
@@ -963,14 +970,27 @@ describe("backlog — dettes de l'audit UI et donjon du 22/11", () => {
     expect(uiDebtGaps(readBacklog())).toEqual([]);
   });
 
-  it("grade en high les deux dettes structurantes", () => {
+  it("grade en high D68, D71 et D73", () => {
     const backlog = readBacklog();
     expect(debtById(backlog, "D68")?.severity).toBe("high");
     expect(debtById(backlog, "D71")?.severity).toBe("high");
+    expect(debtById(backlog, "D73")?.severity).toBe("high");
   });
 
-  it("note sur D64 la livraison de la portée et de la LoS par la PR #50", () => {
-    const notes = debtById(readBacklog(), "D64")?.notes ?? "";
-    expect(notes).toContain("#50");
+  it("recible D68 et D69 sur la tâche moteur 5C-path-8dirs", () => {
+    const backlog = readBacklog();
+    expect(debtById(backlog, "D68")?.target).toBe("5C-path-8dirs");
+    expect(debtById(backlog, "D69")?.target).toBe("5C-path-8dirs");
+    expect(taskById(backlog, "5C-path-8dirs")?.status).toBe("todo");
+  });
+});
+
+describe("backlog — dette D64 soldée", () => {
+  it("ne trouve plus la dette de portée et de LoS, livrée par la PR #50", () => {
+    expect(debtById(readBacklog(), "D64")).toBeUndefined();
+  });
+
+  it("n'exige plus le contrôle de portée absent dans les dettes", () => {
+    expect(rawBacklog()).not.toContain("le joueur frappe à distance infinie");
   });
 });
