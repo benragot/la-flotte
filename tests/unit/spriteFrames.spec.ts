@@ -61,6 +61,15 @@ function countFrames(svg: string): number {
   return svg.match(/class="frame"/g)?.length ?? 0;
 }
 
+/** Un attribut dupliqué rend le SVG invalide pour un parseur strict et pour `<img>`. */
+function hasDuplicateAttributes(svg: string): boolean {
+  for (const [, , , attrs = ""] of svg.matchAll(TAG)) {
+    const names = [...attrs.matchAll(/ ([a-zA-Z][\w:-]*)=/g)].map(([, name]) => name);
+    if (new Set(names).size !== names.length) return true;
+  }
+  return false;
+}
+
 function svgOf(id: string): string {
   return readFileSync(join(SPRITE_DIR, `${id}.svg`), "utf8");
 }
@@ -173,5 +182,9 @@ describe("feuilles SVG générées", () => {
 
   it.each(ENTITY_IDS)("produit un XML bien formé pour %s", (id) => {
     expect(isWellFormed(svgOf(id))).toBe(true);
+  });
+
+  it.each(ENTITY_IDS)("n'émet aucun attribut dupliqué pour %s", (id) => {
+    expect(hasDuplicateAttributes(svgOf(id))).toBe(false);
   });
 });
