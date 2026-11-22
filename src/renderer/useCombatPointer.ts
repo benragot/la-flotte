@@ -4,9 +4,8 @@ import type { CombatState } from "../engine/combatLoop/types";
 import { useCombatStore } from "../store/useCombatStore";
 import { isApplicationAlive } from "./appLifecycle";
 import type { GridSize } from "./gridProjection";
-import { sceneOrigin } from "./gridProjection";
 import type { BoardLayout, PointerHandlers } from "./pointer";
-import { bindPointer } from "./pointer";
+import { bindPointer, boardLayoutOf } from "./pointer";
 
 export interface CombatPointerInput {
   app: Application | null;
@@ -15,8 +14,7 @@ export interface CombatPointerInput {
 }
 
 function boardLayout(combat: CombatState, viewport: GridSize): BoardLayout {
-  const map = { width: combat.map.width, height: combat.map.height };
-  return { ...map, origin: sceneOrigin(map, viewport) };
+  return boardLayoutOf({ width: combat.map.width, height: combat.map.height }, viewport);
 }
 
 /** Relie les événements pointeur PixiJS aux actions du store de combat. */
