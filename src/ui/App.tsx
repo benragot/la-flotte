@@ -15,6 +15,8 @@ import { useGlobalShortcuts } from "./useGlobalShortcuts";
 
 const CREATION_SHELL = "flex h-screen w-screen items-center justify-center overflow-auto bg-slate-950 p-4";
 const ARENA_SHELL = "relative flex h-screen w-screen flex-col overflow-hidden";
+/** Surface de la carte : le canvas y remplit tout, le HUD est un frère. */
+const ARENA_STAGE_CLASS = "flex h-full w-full items-center justify-center bg-slate-950";
 /** Rangée carte + colonne gauche du journal (exploration) : la carte garde `flex-1`. */
 const ARENA_ROW = "relative flex min-h-0 w-full flex-1 overflow-hidden";
 /** Combat : bandeau + ligne d'initiative + dock 1.29, soit 240 px de HUD. */
@@ -94,10 +96,20 @@ function useArenaView(): ArenaView {
   return { mode, view: explorationView({ exploration, heroClassId }), returnToMap };
 }
 
+/**
+ * Case du héros écrite dans le DOM : sans elle, la position du héros n'est
+ * observable par aucun test (le canvas PixiJS n'expose rien au DOM).
+ */
+function heroCellLabel(playerPos: ExplorationView["playerPos"] | undefined): string | undefined {
+  if (playerPos === undefined) return undefined;
+  return `${playerPos.x},${playerPos.y}`;
+}
+
 /** Le canvas remplit la zone libre : `useContainerSize` mesure la surface réellement jouable. */
 function ArenaStage({ mode, exploration }: ArenaStageProps) {
+  const heroCell = heroCellLabel(exploration?.playerPos);
   return (
-    <main aria-label="Terrain de combat" className="flex h-full w-full items-center justify-center bg-slate-950">
+    <main aria-label="Terrain de combat" data-hero-cell={heroCell} className={ARENA_STAGE_CLASS}>
       <CombatCanvas mode={mode} exploration={exploration} />
     </main>
   );

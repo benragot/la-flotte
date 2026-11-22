@@ -256,9 +256,20 @@ function stateUpdate(store: CombatStore, next: CombatState): Partial<CombatStore
   return { combat: next, rewards, selectedSpellId: null };
 }
 
+/**
+ * Clic sur une case sans chemin (mur, eau, hors carte) : sans cette ligne, le
+ * joueur cliquait dans le vide et concluait « on peut pas bouger ».
+ */
+export const BLOCKED_MOVE_LOG = "Le chemin est bloqué : impossible d’aller là.";
+
+function blockedUpdate(exploration: ExplorationState): Partial<CombatStore> {
+  if (exploration.log.at(-1) === BLOCKED_MOVE_LOG) return {};
+  return { exploration: { ...exploration, log: [...exploration.log, BLOCKED_MOVE_LOG] }, hoveredCell: null };
+}
+
 function movedUpdate(exploration: ExplorationState, target: Position): Partial<CombatStore> {
-  const { state } = moveHeroOnMap(exploration, target);
-  if (state === exploration) return {};
+  const { state, path } = moveHeroOnMap(exploration, target);
+  if (path.length === 0) return blockedUpdate(exploration);
   return { exploration: state, hoveredCell: null };
 }
 
