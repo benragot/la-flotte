@@ -23,9 +23,19 @@ export interface MoveResult {
   path: Position[];
 }
 
-export interface InitExplorationInput {
-  map: AsciiMap;
+/** Description d'un monstre à instancier : le moteur ne connaît aucune donnée métier. */
+export interface MonsterSpawn {
   monsterId: string;
   monsterName: string;
   level: number;
+}
+
+export interface InitExplorationInput extends MonsterSpawn {
+  map: AsciiMap;
+}
+
+export interface RespawnInput {
+  state: ExplorationState;
+  spawn: MonsterSpawn;
+  rng: Rng;
 }

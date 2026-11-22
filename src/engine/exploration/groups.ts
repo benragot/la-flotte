@@ -1,9 +1,10 @@
 import type { AsciiMap, Position } from "../grid";
 import { isWalkableCell, samePosition } from "../grid";
-import type { ExplorationState, MonsterGroup, Rng } from "./types";
+import type { ExplorationState, MonsterGroup, MonsterSpawn, RespawnInput, Rng } from "./types";
 
 const MIN_RESPAWN_DISTANCE = 4;
 const GROUP_ID_PREFIX = "group-";
+const GROUP_ID_PATTERN = /group-(\d+)/g;
 
 export function groupPositions(state: ExplorationState): Position[] {
   return state.monsterGroups.map((group) => group.pos);
@@ -13,13 +14,10 @@ export function getMonsterGroupAt(state: ExplorationState, position: Position): 
   return state.monsterGroups.find((group) => samePosition(group.pos, position)) ?? null;
 }
 
-export function buildGroup(
-  input: { monsterId: string; monsterName: string; level: number },
-  id: string,
-  pos: Position,
-): MonsterGroup {
-  const label = `${input.monsterName} · Niv. ${input.level}`;
-  return { id, pos, monsterIds: [input.monsterId], totalLevel: input.level, label };
+/** `monsterIds` est un tableau neuf : aucun groupe ne partage sa référence. */
+export function buildGroup(spawn: MonsterSpawn, id: string, pos: Position): MonsterGroup {
+  const label = `${spawn.monsterName} · Niv. ${spawn.level}`;
+  return { id, pos, monsterIds: [spawn.monsterId], totalLevel: spawn.level, label };
 }
 
 function manhattan(a: Position, b: Position): number {
@@ -54,33 +52,44 @@ function parseGroupIndex(id: string): number {
   return Number.isFinite(suffix) ? suffix : 0;
 }
 
-function nextGroupId(groups: MonsterGroup[]): string {
-  const indexes = groups.map((group) => parseGroupIndex(group.id));
-  return `${GROUP_ID_PREFIX}${Math.max(0, ...indexes) + 1}`;
+function loggedIndexes(state: ExplorationState): number[] {
+  const matches = [...state.log.join(" ").matchAll(GROUP_ID_PATTERN)];
+  return matches.map((match) => Number(match[1] ?? 0));
 }
 
-function removeGroupsUnderPlayer(state: ExplorationState): MonsterGroup[] {
-  return state.monsterGroups.filter((group) => !samePosition(group.pos, state.playerPos));
+/**
+ * Règle d'id : plus grand suffixe numérique connu (groupes présents **et** ids
+ * déjà cités dans le journal) + 1, donc `group-1` sans historique. Le journal
+ * ne fait que croître : l'id reste déterministe et ne recule jamais, même
+ * après la victoire sur le dernier groupe.
+ */
+function nextGroupId(state: ExplorationState): string {
+  const known = state.monsterGroups.map((group) => parseGroupIndex(group.id));
+  return `${GROUP_ID_PREFIX}${Math.max(0, ...known, ...loggedIndexes(state)) + 1}`;
 }
 
-function respawnLog(label: string): string {
-  return `Un groupe rôde plus loin : ${label}.`;
+function respawnLog(group: MonsterGroup): string {
+  return `Un groupe rôde plus loin : ${group.label} (${group.id}).`;
 }
 
-function withRespawnedGroup(
-  state: ExplorationState,
-  groups: MonsterGroup[],
-  position: Position,
-): ExplorationState {
-  const template = state.monsterGroups[0];
-  if (template === undefined) return { ...state, monsterGroups: groups };
-  const group = { ...template, id: nextGroupId(groups), pos: position };
-  return { ...state, monsterGroups: [...groups, group], log: [...state.log, respawnLog(group.label)] };
+function defeatLog(groupId: string): string {
+  return `Le groupe ${groupId} est vaincu.`;
 }
 
-export function respawnMonsterGroup(state: ExplorationState, rng: Rng): ExplorationState {
-  const groups = removeGroupsUnderPlayer(state);
-  const position = pickCandidate(respawnCandidates({ ...state, monsterGroups: groups }), rng);
-  if (position === undefined) return state;
-  return withRespawnedGroup(state, groups, position);
+function withRespawnedGroup(input: RespawnInput, position: Position): ExplorationState {
+  const group = buildGroup(input.spawn, nextGroupId(input.state), position);
+  const monsterGroups = [...input.state.monsterGroups, group];
+  return { ...input.state, monsterGroups, log: [...input.state.log, respawnLog(group)] };
+}
+
+export function respawnMonsterGroup(input: RespawnInput): ExplorationState {
+  const position = pickCandidate(respawnCandidates(input.state), input.rng);
+  if (position === undefined) return input.state;
+  return withRespawnedGroup(input, position);
+}
+
+export function defeatGroup(state: ExplorationState, groupId: string): ExplorationState {
+  const monsterGroups = state.monsterGroups.filter((group) => group.id !== groupId);
+  if (monsterGroups.length === state.monsterGroups.length) return state;
+  return { ...state, monsterGroups, log: [...state.log, defeatLog(groupId)] };
 }
