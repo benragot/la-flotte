@@ -27,7 +27,7 @@ tags: [ui, retrospective, fidelity]
 |---|---|---|---|
 | Grille | matérialisée au sol, **bastable** (`Maj+&`) ; cases de placement **bleues** (soi) / **rouges** (adverses) | [D] | aucun overlay de grille |
 | **Zone PM du joueur** | **pas d'aplat permanent** : repère = **chemin au survol** ; la zone pleine est une **option** (2.x) | [D] devblog portée = option ; [?] comportement exact Retro | **aplat permanent** dès `player_turn` ⇒ **premier suspect** |
-| **Zone PM des ennemis** | **jamais affichée** par aucun client | [I] (aucune source) | non affichée ✅ |
+| **Zone PM des ennemis** | **jamais affichée en 1.29** par aucun client | [I] (aucune source) | **nous l'affichons sur demande du joueur** (écart assumé : info que le joueur ne peut pas deviner autrement) — règle **R8** |
 | Portée des sorts | sort sélectionné ⇒ **contour** de portée ; **aperçu de la zone d'effet au survol** de la case cible | [D] notion de portée affichée ; [?] forme 1.29 | `castCells` en **aplat permanent**, **aucun aperçu de zone** |
 | Ordre des combattants | **frise de portraits en bas** (pas une colonne) | [D] captures 2005 | `Timeline` **verticale en haut à droite** ⇒ non-1.29 |
 | Compteurs PA/PM/PV | (a) barre du bas : PA/PM + fin de tour ; (b) **panneau d'infos au survol en bas à droite** : nom, niv., PV, **résistances** | [D] guide combat + notes | `Vitals` en dock ✅ ; **pas de panneau au survol** ; barres de PV permanentes ⇒ non-1.29 |
@@ -89,20 +89,37 @@ Feu = **rouge** · Air = **vert** · Eau = **bleu** · Terre = **brun** · Neutr
 
 Unités relatives à la tuile iso `TILE_W × TILE_H` (`gridProjection.ts`).
 
+**Toutes les valeurs ci-dessous sont [I]** : propositions calibrées sur les captures 2005, aucune n'est documentée par Ankama. Seule exception, une constante qui **existe déjà** dans le code : `HP_BAR_WIDTH` vaut **`0.5`** dans `src/renderer/tokens.ts:17` et passe à **`0.55`** (§6 et TC4c en dépendent).
+
 | Constante | Valeur |
 |---|---|
-| Ombre au sol | ellipse `0.80 × 0.30` tuile, α 0.25, `#101820` |
-| Sprite acteur | hauteur `2.0 × TILE_H`, ancre = centre bas du losange |
-| Nom au-dessus | 11 px, `#E8DCC8`, α 0.9, à `-2.2 × TILE_H` |
-| Anneau d'équipe | ellipse `0.92 × 0.46` tuile, 2 px, sous le sprite |
-| Étoiles de groupe | rayon 4,5 px, écart 11 px, arc −30°→+30° |
-| Barre de PV de survol | largeur `0.55 × TILE_W`, hauteur 4 px, à `-2.6 × TILE_H` |
-| Case survolée | contour 1,5 px |
-| Pastille de chemin | cercle r 3 px, α 0.32 |
-| Frise de portraits | 44 × 44 px, écart 6 px, **bas-gauche à droite du chat** ; actif 52 × 52 + cadre or 2 px |
-| Chat | largeur `min(34vw, 520px)`, hauteur `32vh`, **bas-gauche**, marge 8 px |
-| Barre d'interface basse | hauteur 44 px, pleine largeur, `#2B241D`, filet `#8C6D46` 2 px |
-| Panneau d'infos survol | 220 px, **bas-droite**, marge 12 px |
+| Ombre au sol [I] | ellipse `0.80 × 0.30` tuile, α 0.25, `#101820` |
+| Sprite acteur [I] | hauteur `2.0 × TILE_H`, ancre = centre bas du losange |
+| Nom au-dessus [I] | 11 px, `#E8DCC8`, α 0.9, à `-2.2 × TILE_H` |
+| Anneau d'équipe [I] | ellipse `0.92 × 0.46` tuile, 2 px, sous le sprite |
+| Étoiles de groupe [I] | rayon 4,5 px, écart 11 px, arc −30°→+30° |
+| Barre de PV de survol [I] | largeur `0.55 × TILE_W` (`HP_BAR_WIDTH` : **0.5 → 0.55**), hauteur 4 px, à `-2.6 × TILE_H` |
+| Case survolée [I] | contour 1,5 px |
+| Pastille de chemin [I] | cercle r 3 px, α 0.32 |
+| Frise de portraits [I] | 44 × 44 px, écart 6 px, **bas-gauche à droite du chat** ; actif 52 × 52 + cadre or 2 px |
+| Chat [I] | largeur `min(34vw, 520px)`, hauteur `32vh`, **bas-gauche**, marge 8 px |
+| Barre d'interface basse [I] | hauteur 44 px, pleine largeur, `#2B241D`, filet `#8C6D46` 2 px |
+| Panneau d'infos survol [I] | 220 px, **bas-droite**, marge 12 px |
+
+### 5.1 Pile du bas de l'écran — offsets et z-order [I]
+
+Sans ces offsets, chat / frise / barre basse se recouvrent à coup sûr.
+
+| Couche | Offset | z |
+|---|---|---|
+| Barre d'interface basse | `bottom: 0`, `left: 0`, hauteur 44 px, pleine largeur | **20** |
+| Chat fermé | `bottom: 52px` (44 + marge 8), `left: 8px`, `width: min(34vw, 520px)`, hauteur `32vh` | **10** |
+| Chat ouvert | idem, hauteur `hauteurChatOuvert` (§6, 50 % du viewport) | **12** (au-dessus de la frise) |
+| Frise de portraits | `bottom: 52px`, `left: calc(8px + chatWidth + 8px)`, hauteur 52 px ; **jamais sous** le chat ouvert, elle se décale à sa droite | **10** |
+| Panneau d'infos survol | `bottom: 52px`, `right: 12px`, largeur 220 px | **15** |
+| Overlays (`Échap`) | plein cadre | **30** |
+
+Ordre de grandeur : `44 + 52 + 8 = 104 px` réservés en bas ; toute la scène iso est translatée d'autant vers le haut.
 
 ## 6. Règles d'état — le cœur du sujet
 
@@ -114,6 +131,7 @@ R4. fieldHpBar       = (hoveredCell === tokenPos)            → une seule barre
 R5. hoverOutline     = (hoveredCell !== null)                → une seule case cerclée
 R6. pathPreview      = exploration ET hoveredCell !== null ET chemin existe
 R7. logTint(line)    = élément de la ligne, sinon locuteur
+R8. enemyPmZoneVisible = (hoveredCell === enemyTokenPos)     → écart assumé vs 1.29 (§2)
 ```
 
 **Formules** (`Math.floor` partout) :
@@ -137,7 +155,9 @@ aplat   = (aperçu de zone) ? couleurÉlément α .22
 | Geste | Exploration | Combat |
 |---|---|---|
 | Survol case | contour + chemin | contour + aperçu de zone si sort sélectionné |
-| Survol personnage | nom, **rien d'autre** | **zone PM apparaît**, panneau d'infos bas-droite |
+| Survol personnage allié | nom, **rien d'autre** | **zone PM du héros (R1)** + panneau d'infos bas-droite |
+| Survol personnage ennemi | nom, **rien d'autre** | **zone PM de l'ennemi (R8)** + panneau d'infos bas-droite |
+| **`Maj` maintenu** | — | affiche la zone PM du héros **en permanence** (branche `modifierHeld` de **R1**) |
 | Clic case libre | marche (chemin auto) | déplacement si PM suffisants |
 | Clic case hors portée | marche | **rien** (aucun message) |
 | Clic ennemi | **engage le combat** | sélectionne la cible |
@@ -150,7 +170,7 @@ aplat   = (aperçu de zone) ? couleurÉlément α .22
 ## 8. Ce qu'on supprime (dette explicite)
 
 1. `drawHpBars` sur **tous** les jetons → uniquement le jeton survolé.
-2. `moveCells()` permanent → **R1**.
+2. `moveCells()` permanent → **R1** (héros) et **R8** (ennemis), au survol seulement.
 3. `castCells` en aplat permanent → contour α 0.18 + aperçu de zone.
 4. `EXPLORATION_BANNER` → **réduit au minimum** (demande joueur : overlay haut-gauche ; Dofus n'en a aucun).
 5. Badge `totalLevel` sur les groupes → **étoiles** + infobulle.
@@ -208,7 +228,7 @@ tc5e : "C'est au tour de…"   → "#E8DCC8"
 |---|---|
 | Anneau d'équipe bleu/rouge au sol | identification instantanée, zéro ambiguïté |
 | Chemin en pastilles au survol | on voit le trajet, pas une nappe |
-| Zone PM au survol de soi | écran propre, lecture du terrain |
+| Zone PM au survol de soi — **écart assumé** | option 2.x adoptée : lisibilité |
 | Frise de portraits en bas | ordre de jeu lisible |
 | Panneau d'infos bas-droite | résistances avant de frapper |
 | Chat unique en bas à gauche | un seul flux, canaux filtrés |
