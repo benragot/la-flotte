@@ -62,31 +62,29 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * (`data/spells.yaml` seul, portée et LoS comprises), aucun `Math.random`
  * (LCG injecté pour le spawn et le drop, `() => 0.5` pour le combat).
  *
- * RÉSULTAT MESURÉ AUJOURD'HUI — et c'est toujours une mauvaise nouvelle :
+ * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`) et
+ * c'est toujours une mauvaise nouvelle :
  *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 62 PV, 16 actions ;
- *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 62 → 0 PV, 12 actions.
- * Le héros meurt donc en SALLE 2, pas en salle 3 comme l'annonçait la dette
- * D71. Le brief prévoyait une défaite en salle 3 ; le moteur dit 2, et ce test
- * DÉCRIT le jeu au lieu de le souhaiter : l'assertion est la mesure.
- * Ses 130 PV de départ sont 125 PV de niveau + les 5 PV du chapeau du kit
- * (5 Vitalité × 1 PV, D45) : la Vitalité compte désormais, mais ce parcours
- * investit ses 75 points de capital en Force.
+ *   franchissement : 62 + ceil(130 × 0,5) = 127 PV rendus par la porte (DEC-03) ;
+ *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 127 → 0 PV, 21 actions.
+ * Le héros meurt donc toujours en SALLE 2. Le soin de franchissement de DEC-03
+ * retarde la mort (12 → 21 actions) sans l'éviter : il ne rend que 65 PV, une
+ * seule fois, et la salle 2 en demande davantage.
  *
- * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : le donjon reste injouable au-delà
- * de la salle 1. Sans soin et sans panoplie, 130 PV ne couvrent que 6 tours
- * ennemis de la salle 1 (68 PV perdus, soit 11 PV/tour moyen) ; la salle 2
- * aligne 287 PV de monstres (rat 52 + 2 crabes 75 + marmite 85) pour ~26 PV de
- * dégâts héroïques par tour (2 × 13 sur le crabe), soit ≈ 11 tours, contre 4-5
- * tours de survie à 14 PV/tour subis. Il manque ~200 PV effectifs : le second
- * test mesure que la Vitalité en achète désormais un par point, mais ce build
- * met les 75 points en Force et n'en tire que les 5 PV du chapeau.
+ * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros ne tient
+ * pas la salle 2 même soigné à 127 PV. La salle 2 aligne 287 PV de monstres et
+ * ce build Force n'inflige que ~26 PV par tour, alors que la porte ne rend que
+ * la moitié de la barre une fois franchie. Il manque encore de la marge : le
+ * soin de DEC-03 rapproche le build Force de la salle 3, il ne le fait pas
+ * gagner. Une salle qui dure plus longtemps que le pool effectif ne se soigne
+ * pas de l'intérieur — c'est exactement la limite mesurée ici.
  *
- * CE QUI INVERSERA L'ASSERTION : l'arrivée des panoplies (§6 de la fiche, donc
- * des objets qui portent `hp`) et des soins (vague 6). Le jour où la salle 2
- * tombe, remplacer `expect(second.defeat).toBe(true)` par la victoire de la
- * salle 2, puis dérouler les salles 3 et 4 : ce test deviendra la PREUVE que le
- * donjon est finissable par un joueur normal, pas seulement par un héros de
- * 5 000 PV.
+ * CE QUI INVERSERA L'ASSERTION : il reste l'équilibrage des salles 3-4 et de la
+ * boss room (baisser les dégâts des monstres est INTERDIT par le brief DEC-03).
+ * Le jour où la salle 2 tombe, remplacer `expect(second.defeat).toBe(true)` par
+ * la victoire, puis dérouler les salles 3 et 4 : ce test deviendra la PREUVE
+ * que le donjon est finissable par un joueur normal, pas seulement par un héros
+ * de 5 000 PV.
  *
  * CE QU'IL NE PROUVE PAS : ni le déplacement du héros en salle (le store 1vN
  * n'a pas d'action de mouvement : le héros reste sur sa case de placement, les
@@ -451,7 +449,8 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
     expect(currentRoomNumber()).toBe(2);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(DEATH_ROOM);
-    expect(second.hpStart).toBe(first.hpEnd);
+    // DEC-03 : 62 PV + ceil(130 × 0,5) = 127 PV à la porte de la salle 2.
+    expect(second.hpStart).toBe(127);
     expect(second.defeat).toBe(true);
     expect(second.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();

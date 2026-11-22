@@ -59,6 +59,13 @@ const dungeonFieldsSchema = z
     name: z.string().min(1),
     recommendedLevel: z.number().int().positive(),
     keyItemId: z.string().min(1, "keyItemId doit être non vide").regex(ID_PATTERN, SNAKE_CASE_MESSAGE),
+    /**
+     * DEC-03 : part du pool EFFECTIF rendue au franchissement d'une salle
+     * (0 = aucun soin, 1 = retour au maximum). Le `default(0)` n'est pas un
+     * réglage métier : c'est le neutre pour un donjon qui omet le champ. Le ratio
+     * réellement joué vit dans `data/dungeons.yaml`.
+     */
+    healBetweenRooms: z.number().min(0).max(1).default(0),
     rooms: z.array(dungeonRoomSchema).min(1),
   })
   .strict();

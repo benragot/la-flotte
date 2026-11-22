@@ -23,8 +23,8 @@ import {
   respawnMonsterGroup,
 } from "../engine/exploration";
 import type { ExplorationState, MonsterGroup, MonsterSpawn, SpawnPick, SpawnZone } from "../engine/exploration";
-import { attemptRoom, currentRoom, isDungeonComplete, roomMonsters } from "../engine/dungeon";
-import type { DungeonRoom, DungeonRunState } from "../engine/dungeon";
+import { attemptRoom, currentRoom, healBetweenRooms, isDungeonComplete, roomMonsters } from "../engine/dungeon";
+import type { DungeonRoom, DungeonRunState, RoomHeal } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
 import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
@@ -114,8 +114,10 @@ interface CombatStore {
    */
   battleSpellAttack: (input: { targetId: string; rng?: Rng }) => void;
   /**
-   * Clôt une salle **gagnée** en reportant les PV restants du héros : aucun soin.
-   * Refusée sur une défaite (D29) ; la sauvegarde est écrite si `storage` est fourni.
+   * Clôt une salle **gagnée** : reporte les PV restants et applique le soin de
+   * franchissement de `healBetweenRooms` (DEC-03) quand une salle suivante
+   * existe. Refusée sur une défaite (D29) et idempotente sur un second clic ;
+   * la sauvegarde est écrite si `storage` est fourni.
    */
   settleDungeonRoom: (input?: { storage?: StorageLike }) => void;
   endBattle: () => void;
@@ -342,11 +344,12 @@ function battleRange(): RangeSpec | undefined {
 }
 
 /** Battle d'une salle : la grille de `mapId` entre dans l'état et place les combattants. */
-function battleFromRoom(room: DungeonRoom): BattleState {
+function battleFromRoom(room: DungeonRoom, opening: string | null = null): BattleState {
   const map = mapById(room.mapId);
   const hero = heroBattleCombatant({ combatant: playerFor(demoHero(), BATTLE_ORIGIN) });
   const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters: roomBattleMonsters(room), map });
-  const base = { turn: 1, ...buildTimeline(combatants), combatants, log: [`Entrée dans ${room.name}`], map };
+  const log = opening === null ? [`Entrée dans ${room.name}`] : [opening, `Entrée dans ${room.name}`];
+  const base = { turn: 1, ...buildTimeline(combatants), combatants, log, map };
   const castRange = battleRange();
   return castRange === undefined ? base : { ...base, castRange };
 }
@@ -456,8 +459,43 @@ function carryOverBattleHp(hp: number): void {
   useGameStore.setState({ hero: { ...game.hero, hp: levelHp } });
 }
 
-function battleHeroHp(state: BattleState): number | undefined {
-  return state.combatants.find((entry) => entry.side === "player")?.hp;
+/** Pool EFFECTIF du héros dans la salle : le seul que le soin de franchissement lit. */
+interface HeroPool {
+  hp: number;
+  maxHp: number;
+}
+
+interface WonRoom {
+  state: BattleState;
+  pool: HeroPool;
+}
+
+function battleHeroPool(state: BattleState): HeroPool | null {
+  const player = state.combatants.find((entry) => entry.side === "player");
+  return player === undefined ? null : { hp: player.hp, maxHp: player.maxHp };
+}
+
+/** Salle gagnée ET pool lisible : les deux préconditions du report et du soin. */
+function wonRoom(state: BattleState | null): WonRoom | null {
+  if (!wonBattle(state)) return null;
+  const pool = battleHeroPool(state);
+  return pool === null ? null : { state, pool };
+}
+
+/**
+ * DEC-03 : soin uniquement au franchissement d'une salle — jamais à l'entrée du
+ * donjon, en cours de salle, après la dernière salle, ni au rechargement. Le
+ * ratio est une donnée du donjon (`healBetweenRooms`), pas une constante.
+ */
+function crossingHeal(advance: RoomAdvance | null, pool: HeroPool): RoomHeal {
+  if (advance === null || !advance.cleared || advance.complete) return { hp: pool.hp, healed: 0 };
+  return healBetweenRooms({ ...pool, ratio: advance.dungeon.healBetweenRooms });
+}
+
+/** Ligne de journal du franchissement : dit ce qui se passe ET combien est rendu. */
+function healLine(healed: number): string | null {
+  if (healed <= 0) return null;
+  return `Le quartier-maître réquisitionne une lampée de tafia : ${healed} PV repris avant la salle suivante.`;
 }
 
 const ROOM_REFUSED = "La salle n'est pas nettoyée : le donjon reste ouvert.";
@@ -483,9 +521,9 @@ function attemptCurrentRoom(store: CombatStore, state: BattleState): RoomAdvance
 }
 
 /** Battle de la salle courante, `null` quand le run est terminé. */
-function roomBattleAt(run: DungeonRunState, dungeon: DungeonDef): BattleState | null {
+function roomBattleAt(run: DungeonRunState, dungeon: DungeonDef, opening: string | null = null): BattleState | null {
   const room = currentRoom(run, dungeon);
-  return room === null ? null : battleFromRoom(room);
+  return room === null ? null : battleFromRoom(room, opening);
 }
 
 function nextRoomNotice(run: DungeonRunState, dungeon: DungeonDef): string {
@@ -494,28 +532,29 @@ function nextRoomNotice(run: DungeonRunState, dungeon: DungeonDef): string {
 }
 
 /** Progression : salle suivante, refus ou victoire de donjon (message + sortie). */
-function progressedUpdate(store: CombatStore, state: BattleState): Partial<CombatStore> {
-  const advance = attemptCurrentRoom(store, state);
-  if (advance === null) return battleUpdate(state, null);
+function progressedUpdate(advance: RoomAdvance | null, opening: string | null): Partial<CombatStore> {
+  if (advance === null) return { battle: null };
   if (!advance.cleared) return { battle: null, dungeonRun: advance.run, dungeonNotice: ROOM_REFUSED };
   if (advance.complete) return { battle: null, dungeonRun: null, dungeonNotice: `Donjon terminé : ${advance.dungeon.name}.` };
-  const battle = roomBattleAt(advance.run, advance.dungeon);
+  const battle = roomBattleAt(advance.run, advance.dungeon, opening);
   return { battle, dungeonRun: advance.run, dungeonNotice: nextRoomNotice(advance.run, advance.dungeon) };
 }
 
 /**
- * Salle gagnée : les PV sont reportés, la sauvegarde écrite, **aucun soin**, puis
- * la salle suivante démarre (ou le donjon se ferme). Une défaite est refusée ici :
- * c'est `endBattle` qui sort proprement (D44).
+ * Salle gagnée : les PV effectifs sont soignés du ratio du donjon (DEC-03), puis
+ * reportés dans le domaine de niveau, la sauvegarde est écrite, et la salle
+ * suivante démarre (ou le donjon se ferme). Une défaite est refusée ici :
+ * c'est `endBattle` qui sort proprement (D44). Un second clic ne peut pas
+ * soigner deux fois : `wonBattle` est faux dès que la salle suivante est ouverte.
  */
 function settleUpdate(store: CombatStore, storage?: StorageLike): Partial<CombatStore> {
-  const state = store.battle;
-  if (!wonBattle(state)) return {};
-  const hp = battleHeroHp(state);
-  if (hp === undefined) return {};
-  carryOverBattleHp(hp);
+  const won = wonRoom(store.battle);
+  if (won === null) return {};
+  const advance = attemptCurrentRoom(store, won.state);
+  const crossing = crossingHeal(advance, won.pool);
+  carryOverBattleHp(crossing.hp);
   useGameStore.getState().saveGame(storage);
-  return progressedUpdate(store, state);
+  return progressedUpdate(advance, healLine(crossing.healed));
 }
 
 /** Sortie du donjon (défaite ou abandon) : le run est oublié, aucun 0 PV persisté. */

@@ -197,15 +197,21 @@ beforeEach(() => {
   });
 });
 
-describe("aller-retour domaine de niveau ↔ domaine effectif (aucun soin entre salles)", () => {
-  it("démarre la salle 2 à 132 PV, pas au maximum effectif de 200", () => {
+/** Soin de franchissement DEC-03, calculé depuis le ratio du YAML et le max effectif. */
+function crossingHp(fromHp: number): number {
+  const maxHp = playerOf(battleOrThrow()).maxHp;
+  return Math.min(maxHp, fromHp + Math.ceil(maxHp * DUNGEON.healBetweenRooms));
+}
+
+describe("aller-retour domaine de niveau ↔ domaine effectif (soin de franchissement de données)", () => {
+  it("démarre la salle 2 soignée du ratio du YAML, pas au maximum par accident", () => {
     enterFirstRoom();
     const end = winRoomAt(132);
     expect(end.maxHp).toBe(IOP.baseHp + 75 + 75);
     useCombatStore.getState().settleDungeonRoom();
     const start = playerOf(battleOrThrow());
-    expect(start.hp).toBe(132);
-    expect(useGameStore.getState().hero?.hp).toBe(132 - 75);
+    expect(start.hp).toBe(crossingHp(132));
+    expect(useGameStore.getState().hero?.hp).toBe(crossingHp(132) - 75);
   });
 
   it("traverse saveGame → resetGame → loadGame sans gagner ni perdre un PV", () => {
@@ -219,6 +225,6 @@ describe("aller-retour domaine de niveau ↔ domaine effectif (aucun soin entre 
     const loaded = useGameStore.getState().hero;
     if (loaded === null) throw new Error("héros non rechargé");
     expect(loaded.hp).toBe(persisted);
-    expect(combatantOf(loaded).hp).toBe(132);
+    expect(combatantOf(loaded).hp).toBe(crossingHp(132));
   });
 });
