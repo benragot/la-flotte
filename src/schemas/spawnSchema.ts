@@ -2,7 +2,7 @@ import yaml from "js-yaml";
 import { z } from "zod";
 
 /**
- * Table de spawn d'exploration (5B-G).
+ * Table de spawn d'exploration (5B-g).
  * Le schéma valide, il ne résout rien : le tirage pondéré et le repli de zone
  * vivent dans `src/engine/exploration/spawnTable.ts`, la lecture YAML dans le
  * store. Aucun identifiant de monstre ni de map n'est connu ici.

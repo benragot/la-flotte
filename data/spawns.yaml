@@ -1,10 +1,12 @@
-# Table de spawn d'exploration (5B-G).
+# Table de spawn d'exploration (5B-g).
 # Une zone associe une map de `data/maps.yaml` à un tirage pondéré de monstres :
 # le store lit ce fichier, aucun id de monstre n'est écrit en dur dans `src/`.
 # `weight` est un poids **relatif** entier, pas un pourcentage : la part d'un
 # monstre vaut son poids divisé par la somme de sa zone.
-# Zone courante = zone dont `mapId` égale la map du héros ; une map sans zone
-# tombe en repli sur la première zone (journalisée dans le log d'exploration).
+# Zone courante = zone dont `mapId` égale le `mapId` courant du store ; une map
+# sans zone tombe en repli sur la première zone (journalisée en exploration).
+# Aucune zone ne vise une salle de donjon : le donjon passe par
+# `startDungeonRoom`, une salle est derrière la clef.
 # DETTE : le modèle n'a aucune notion de niveau de zone. Le filtrage par niveau
 # (un héros de niveau 1 ne doit pas croiser un niveau 15) viendra avec les
 # prochaines maps d'extérieur ; d'ici là c'est le poids qui limite l'exposition.
@@ -12,6 +14,9 @@ zones:
   - id: fer_plage_des_ancres
     mapId: ferraille_plage_01
     monsters:
+      # ORDRE SIGNIFICATIF : `rng() === 0` (défaut déterministe de la démo et des
+      # walkthroughs) prend la **première entrée**, pas la plus lourde. Le Piou
+      # doit rester en tête, verrouillé par tests/data/spawns.spec.ts.
       # 100 / 30 / 12 / 4 sur 146 : le Piou reste l'ordinaire de la plage.
       - { monsterId: piou_mazoute, weight: 100 }
       # Le rat est « de cale » : les cales des épaves échouées sur la plage sont
@@ -22,14 +27,3 @@ zones:
       # Niveau 15 exposé dès le niveau 1 (cf. DETTE ci-dessus) : poids minimal,
       # ≈ 2,7 % des rencontres, pour que la plage le lâche sans le rendre banal.
       - { monsterId: fer_boulon_pousseur, weight: 4 }
-
-  # Seule autre map non-portuaire du jeu : la Cour, qui est aussi la salle 1 du
-  # donjon. Sa zone documente le bestiaire de la cour et sert de second cas réel
-  # au sélecteur par `mapId` ; l'exploration ne l'atteint pas encore puisque le
-  # donjon passe par `startDungeonRoom` et non par cette table.
-  - id: fer_cour_aux_volatiles
-    mapId: fer_salle_cour_volatiles
-    monsters:
-      - { monsterId: piou_mazoute, weight: 60 }
-      - { monsterId: fer_rat_de_cale, weight: 40 }
-      - { monsterId: fer_crabe_cle_molette, weight: 20 }
