@@ -661,21 +661,28 @@ function approachStrategy(current: BattleState, enemyId: string): EnemyAction {
   return cell === null ? { kind: "blocked", reason: "chemin absent" } : { kind: "move", to: cell };
 }
 
-describe("enemiesAct — facturation du pas diagonal", () => {
-  it("paie le chemin (3 pas), pas l'écart orthogonal (manhattan 5)", () => {
-    const next = enemiesAct({ state: diagonalFixture(3), rng: () => 0.99, strategy: JUMP_DIAGONAL });
+/**
+ * DEC-10 : le saut (5,5) → (3,2) coûte 5 PM — [(5,5)→(5,4) = 1, puis deux
+ * diagonales à 2] — et non 3 PM de Chebyshev comme avant. Ces tests décrivaient
+ * l'ancien coût « diagonale = 1 PM ».
+ */
+describe("enemiesAct — facturation du chemin (DEC-10)", () => {
+  it("paie le chemin (5 PM), pas l'écart de Chebyshev (3)", () => {
+    const next = enemiesAct({ state: diagonalFixture(5), rng: () => 0.99, strategy: JUMP_DIAGONAL });
     expect(positionOf(next, "e1")).toEqual({ x: 3, y: 2 });
     expect(combatantOf(next, "e1").mp).toBe(0);
-    expect(next.log).toContain("Piou se déplace de 3 case(s).");
+    expect(next.log).toContain("Piou se déplace de 5 case(s).");
     expect(next.log.some((line) => line.includes("ne peut pas atteindre"))).toBe(false);
   });
 
-  it("refuse le même saut avec 2 PM et ne consomme rien", () => {
+  it("2 PM ne paient pas le saut : arrêt sur la dernière case payée", () => {
     const state = diagonalFixture(2);
     const next = enemiesAct({ state, rng: () => 0.99, strategy: JUMP_DIAGONAL });
-    expect(next).toBe(state);
-    expect(positionOf(next, "e1")).toEqual({ x: 5, y: 5 });
-    expect(combatantOf(next, "e1").mp).toBe(2);
+    // Le premier pas orthogonal coûte 1 PM, le suivant 2 PM : l'ennemi s'arrête
+    // donc en (5,4) avec 1 PM, jamais sur la cible et sans reculer.
+    expect(positionOf(next, "e1")).toEqual({ x: 5, y: 4 });
+    expect(combatantOf(next, "e1").mp).toBe(1);
+    expect(next.log).toContain("Piou se déplace de 1 case(s).");
   });
 
   it("journalise le refus quand la stratégie renonce", () => {
