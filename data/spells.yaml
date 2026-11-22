@@ -50,6 +50,121 @@ spells:
     requiresLos: true
     damage: { min: 5, max: 8 }
 
+  # --- Sorts de monstres : Île de la Ferraille (§3 de la fiche) ---
+  # Seuls les sorts dont les dégâts, l'élément, la poussée, le coût PA, la portée
+  # et les quotas sont représentables par le `spellSchema` actuel sont déclarés.
+  # `kind: push_pull` du dossier devient `kind: damage` + `pushCells` (la seule
+  # forme que le moteur consomme, cf. `epee_du_destin` et `fleche_de_recul`).
+  # Non déclarés (moteur d'effets, 6A) : crachat_mazout (−1 PM), grignotage_cable
+  # (−1 PA), serrage_de_boulon et tole_blindee (boucliers), soupe_a_lhuile (soin),
+  # jet_de_vapeur (croix 1), pluie_de_rivets (cercle 1), graissage (+1 PM),
+  # appel_a_la_casse (invocation).
+
+  - id: fer_spell_coup_daile_gras
+    name: Coup d'Aile Gras
+    description: "Une aile lourde de mazout qui gifle et fait reculer. L'oiseau appelle ça une manœuvre diplomatique."
+    classId: monster
+    kind: damage
+    element: air
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    cooldown: 1
+    castsPerTurn: 1
+    castsPerTarget: 1
+    damage: { min: 4, max: 6 } # fiche §3 l.264 : 4–6 Air
+    pushCells: 1 # fiche §3 l.264 : poussée 1
+
+  - id: fer_spell_morsure_tetanos
+    name: Morsure Tétanos
+    description: "Deux dents, un câble rouillé et un rappel vaccinal oublié. Le rat facture la morsure au forfait."
+    classId: monster
+    kind: damage
+    element: neutral
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    castsPerTurn: 2
+    castsPerTarget: 2
+    damage: { min: 7, max: 10 } # fiche §3 l.265 : 7–10 Neutre
+
+  - id: fer_spell_pince_de_douze
+    name: Pince de Douze
+    description: "La clef à molette remplace la pince et serre d'abord, demande ensuite. Aucun boulon n'a jamais porté plainte."
+    classId: monster
+    kind: damage
+    element: earth
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    castsPerTurn: 2
+    castsPerTarget: 2
+    damage: { min: 9, max: 13 } # fiche §3 l.267 : 9–13 Terre
+
+  - id: fer_spell_coup_de_couvercle
+    name: Coup de Couvercle
+    description: "La marmite ouvre son couvercle au mauvais moment. La soupe sort, la politesse aussi."
+    classId: monster
+    kind: damage
+    element: neutral
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    cooldown: 2
+    castsPerTurn: 1
+    castsPerTarget: 1
+    damage: { min: 6, max: 9 } # fiche §3 l.271 : 6–9 Neutre
+    pushCells: 2 # fiche §3 l.271 : poussée 2
+
+  - id: fer_spell_coup_de_tete_filete
+    name: Coup de Tête Fileté
+    description: "Un écrou de la taille d'un homme réclame l'égalité salariale en tête-à-tête, littéralement."
+    classId: monster
+    kind: damage
+    element: earth
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    castsPerTurn: 1
+    castsPerTarget: 1
+    damage: { min: 10, max: 14 } # fiche §3 l.272 : 10–14 Terre
+    pushCells: 2 # fiche §3 l.272 : poussée 2
+
+  - id: fer_spell_lancer_decrou
+    name: Lancer d'Écrou
+    description: "Un écrou lancé à distance réglementaire, avec le formulaire de réclamation dûment vissé dessus."
+    classId: monster
+    kind: damage
+    element: neutral
+    apCost: 3
+    minRange: 2
+    maxRange: 4
+    requiresLos: true
+    castsPerTurn: 2
+    castsPerTarget: 2
+    damage: { min: 9, max: 12 } # fiche §3 l.273 : 9–12 Neutre
+
+  - id: fer_spell_clef_a_choc
+    name: Clef à Choc
+    description: "La clef frappe, puis pousse. Yvon appelle ça une négociation salariale en trois temps."
+    classId: monster
+    kind: damage
+    element: earth
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    cooldown: 1
+    castsPerTurn: 1
+    castsPerTarget: 1
+    damage: { min: 14, max: 19 } # fiche §3 l.275 : 14–19 Terre
+    pushCells: 3 # fiche §3 l.275 : poussée 3
+
   # Féca
   - id: attaque_naturelle
     name: Attaque Naturelle
