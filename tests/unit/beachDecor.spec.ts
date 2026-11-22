@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { parseAsciiMap } from "../../src/engine/grid";
+import { isWalkableCell, parseAsciiMap } from "../../src/engine/grid";
 import type { DecorSpec } from "../../src/schemas/mapSchema";
 import type { Shape } from "../../src/renderer/shapes";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
@@ -129,6 +129,15 @@ describe("scène de la plage — décor posé en données", () => {
   it("donne deux fois le même modèle : aucun aléatoire non seedé", () => {
     expect(buildSceneModel({ map, highlight: EMPTY, origin: ORIGIN }))
       .toEqual(buildSceneModel({ map, highlight: EMPTY, origin: ORIGIN }));
+  });
+
+  it("porte à la fois les contours de cases (#75) et les 22 décors", () => {
+    const scene = buildSceneModel({ map, highlight: EMPTY, origin: ORIGIN });
+    const walkable = map.cells.flatMap((row, y) => row.map((cell, x) => ({ cell, position: { x, y } })));
+    const count = walkable.filter((entry) => isWalkableCell(map, entry.position)).length;
+    expect(scene.outlines).toHaveLength(count);
+    expect(scene.outlines.every((outline) => outline.points.length === 8)).toBe(true);
+    expect(scene.decor).toHaveLength(beach.decor.length);
   });
 
   it("attribue le matériau ponton aux cases de ponton de la grille", () => {

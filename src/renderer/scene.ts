@@ -1,6 +1,6 @@
 import type { CellType, DecorSpec } from "../schemas/mapSchema";
 import type { AsciiMap, Position } from "../engine/grid";
-import { getCell } from "../engine/grid";
+import { getCell, isWalkableCell } from "../engine/grid";
 import { allPositions } from "../engine/combatLoop/cells";
 import type { DecorView } from "./decor";
 import type { Diamond, IsoOrigin, PixelPoint } from "./gridProjection";
@@ -40,11 +40,23 @@ export interface SceneInput {
   origin: IsoOrigin;
 }
 
+/**
+ * Contour fin d'une case praticable. Il découpe la carte en losanges cliquables
+ * et reste **sous** les jetons : c'est la grille de Dofus, pas un décor.
+ */
+export interface GridOutline {
+  cell: Position;
+  points: number[];
+  scale: number;
+}
+
 export interface SceneModel {
   tiles: TileView[];
   highlights: TileView[];
   /** Objets de décor de `data/maps.yaml`, en ordre peintre. */
   decor: DecorView[];
+  /** Un contour par case praticable : aucun mur, aucune case hors carte. */
+  outlines: GridOutline[];
 }
 
 interface TileFlags {
@@ -182,7 +194,17 @@ function contextOf(input: SceneInput, pontoon: ReadonlySet<string>): TileContext
   return { map, origin, hover: highlight.hover, move: highlight.move, cast: highlight.cast, pontoon };
 }
 
-/** Modèle d'affichage complet : tuiles de base, décor et surbrillances en ordre peintre. */
+function outlineAt(origin: IsoOrigin, cell: Position): GridOutline {
+  return { cell, points: gridDiamond({ ...cell, origin }).points, scale: originScale(origin) };
+}
+
+/** Contours des seules cases praticables, en ordre peintre comme les tuiles. */
+export function gridOutlines(map: AsciiMap, origin: IsoOrigin): GridOutline[] {
+  const walkable = allPositions(map).filter((cell) => isWalkableCell(map, cell));
+  return painterOrder(walkable).map((cell) => outlineAt(origin, cell));
+}
+
+/** Modèle d'affichage complet : tuiles, contours, décor et surbrillances en ordre peintre. */
 export function buildSceneModel(input: SceneInput): SceneModel {
   const specs = mapDecorSpecs(input.map);
   const context = contextOf(input, pontoonCells(specs));
@@ -190,5 +212,6 @@ export function buildSceneModel(input: SceneInput): SceneModel {
   const base: TileFlags = { isMoveCell: false, isCastCell: false };
   const tiles = positions.map((cell) => tileAt(context, cell, base));
   const highlights = positions.map((cell) => highlightTile(context, cell)).filter(isTileView);
-  return { tiles, highlights, decor: decorViews(specs, input.origin) };
+  const decor = decorViews(specs, input.origin);
+  return { tiles, highlights, decor, outlines: gridOutlines(input.map, input.origin) };
 }

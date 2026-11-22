@@ -1,9 +1,18 @@
 import type { Graphics } from "pixi.js";
-import type { TileView } from "./scene";
+import type { GridOutline, TileView } from "./scene";
 import { TILE_H, TILE_W } from "./gridProjection";
 import { paintShapes } from "./paintShapes";
 import { groundColor } from "./tileMaterials";
-import { GRID_LINE, GRID_LINE_ALPHA, WALL_HEIGHT, WALL_SIDE, WALL_TOP } from "./tileStyle";
+import {
+  CELL_OUTLINE,
+  CELL_OUTLINE_ALPHA,
+  CELL_OUTLINE_WIDTH,
+  GRID_LINE,
+  GRID_LINE_ALPHA,
+  WALL_HEIGHT,
+  WALL_SIDE,
+  WALL_TOP,
+} from "./tileStyle";
 
 /** Sommets du losange translatés verticalement, pour le relief. */
 function shiftPoints(points: readonly number[], dy: number): number[] {
@@ -71,6 +80,17 @@ export function paintTiles(graphics: Graphics, views: readonly TileView[]): void
 /** Peint le sol et ses contours en losanges, matériaux compris. */
 export function drawGrid(graphics: Graphics, views: readonly TileView[]): void {
   views.forEach((view) => paintBaseTile(graphics, view));
+}
+
+function paintCellOutline(graphics: Graphics, outline: GridOutline): void {
+  const width = CELL_OUTLINE_WIDTH * outline.scale;
+  graphics.poly(outline.points);
+  graphics.stroke({ width, color: CELL_OUTLINE, alpha: CELL_OUTLINE_ALPHA });
+}
+
+/** Découpe la carte en cases cliquables : un losange fin par case praticable. */
+export function drawOutlines(graphics: Graphics, outlines: readonly GridOutline[]): void {
+  outlines.forEach((outline) => paintCellOutline(graphics, outline));
 }
 
 /** Peint par-dessus les surbrillances de déplacement et de ciblage. */

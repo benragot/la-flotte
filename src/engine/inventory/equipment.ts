@@ -1,3 +1,4 @@
+import { equippable, wornSlot } from "./equipRequirements";
 import { isDefined } from "./guards";
 import { addItem, removeItem } from "./stack";
 import type {
@@ -14,18 +15,6 @@ interface EquipTarget {
   inventory: InventoryState;
   item: ItemLike;
   slot: EquipmentSlot;
-}
-
-/** Slot résoluble : refusé si l'item n'est pas un équipement. */
-function resolveSlot(input: EquipItemInput): EquipmentSlot | undefined {
-  if (input.item.category !== "equipment") return undefined;
-  return input.slot ?? input.item.slot;
-}
-
-/** Slot occupé par `itemId`, quel qu'il soit. */
-function wornSlot(equipment: EquipmentState, itemId: string): EquipmentSlot | undefined {
-  const entries = Object.entries(equipment) as [EquipmentSlot, string][];
-  return entries.find(([, id]) => id === itemId)?.[0];
 }
 
 function withoutSlot(equipment: EquipmentState, slot: EquipmentSlot): EquipmentState {
@@ -79,14 +68,16 @@ export function equippedItems(input: EquippedItemsInput): ItemLike[] {
  * - déjà porté ailleurs : l'ancien slot est libéré, le sac est préservé ;
  * - slot occupé par un autre item : celui-ci retourne au sac ;
  * - sinon une unité est retirée du sac si elle y est.
- * Refusé si l'item n'est pas un équipement ou si aucun slot n'est résoluble.
+ * Refusé **par identité** quand le verdict de `equippable` échoue : item non
+ * équipement, slot introuvable, niveau du héros insuffisant (`heroLevel`) ou
+ * objet ni porté ni présent dans le sac.
  */
 export function equipItem(input: EquipItemInput): InventoryState {
-  const slot = resolveSlot(input);
-  if (slot === undefined) return input.inventory;
-  if (input.inventory.equipment[slot] === input.item.id) return input.inventory;
+  const verdict = equippable(input);
+  if (verdict.refusal !== null || verdict.slot === null) return input.inventory;
+  if (input.inventory.equipment[verdict.slot] === input.item.id) return input.inventory;
   const inventory = takeFromBag(input.inventory, input.item.id);
-  return swapEquipment({ inventory, item: input.item, slot });
+  return swapEquipment({ inventory, item: input.item, slot: verdict.slot });
 }
 
 /** Retire l'item du slot et le remet dans le sac ; no-op si le slot est vide. */
