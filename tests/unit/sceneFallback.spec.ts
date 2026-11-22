@@ -34,7 +34,7 @@ const SHEET: SpriteSheetSpec = {
 };
 
 function token(spriteId: string | null): TokenView {
-  const base = { id: "t", center: { x: 100, y: 80 }, radius: 12, scale: 1, hp: 10, maxHp: 20, hpRatio: 0.5, badge: null, name: null, depth: 0, active: false };
+  const base = { id: "t", cell: { x: 0, y: 0 }, center: { x: 100, y: 80 }, radius: 12, scale: 1, hp: 10, maxHp: 20, hpRatio: 0.5, badge: null, name: null, depth: 0, active: false };
   return { ...base, fill: 0x3f7fd6, spriteId, facing: "right", animation: "idle", animationKey: "static" };
 }
 
