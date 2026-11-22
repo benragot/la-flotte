@@ -333,7 +333,8 @@ describe("resolveCombatRewards", () => {
   });
 
   it("accorde le butin quand le tirage passe sous la chance", () => {
-    expect(rewards(alwaysZero).drops).toEqual(["plume_mazoutee"]);
+    // §2 de la fiche Ferraille : le Piou Mazouté lâche aussi la goutte de mazout (0.45).
+    expect(rewards(alwaysZero).drops).toEqual(["plume_mazoutee", "fer_goutte_mazout"]);
   });
 
   it("n'accorde aucun butin quand le tirage échoue", () => {
