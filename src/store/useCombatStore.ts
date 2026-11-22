@@ -15,9 +15,12 @@ import type { CombatantState, CombatRewards, CombatState } from "../engine/comba
 import type { Hero } from "../engine/createHero";
 import { createHero } from "../engine/createHero";
 import {
+  arrivalLine,
   defeatGroup,
+  exitAt,
   getMonsterGroupAt,
   initExploration,
+  landingFor,
   moveHeroOnMap,
   pickSpawn,
   respawnMonsterGroup,
@@ -35,6 +38,7 @@ import { activeCombatant } from "../engine/multiCombat/timeline";
 import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, RangeSpec, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
 import { mapsFileSchema } from "../schemas/mapSchema";
+import type { ExitSpec } from "../schemas/mapSchema";
 import { monstersFileSchema } from "../schemas/monsterSchema";
 import type { MonsterDef } from "../schemas/monsterSchema";
 import { progressionFileSchema } from "../schemas/progressionSchema";
@@ -76,6 +80,11 @@ interface CombatStore {
   /** Dernier message de donjon, annoncé par la région `aria-live` du panneau. */
   dungeonNotice: string | null;
   mapId: string;
+  /**
+   * Message de refus de transition de carte (« soleil »), annoncé comme
+   * `dungeonNotice` : l'état d'exploration, lui, n'est pas touché.
+   */
+  mapNotice: string | null;
   selectedSpellId: string | null;
   hoveredCell: Position | null;
   rewards: CombatRewards | null;
@@ -264,6 +273,14 @@ function stateUpdate(store: CombatStore, next: CombatState): Partial<CombatStore
  */
 export const BLOCKED_MOVE_LOG = "Le chemin est bloqué : impossible d’aller là.";
 
+/** Un combat ou un donjon ouvert interdit de franchir un « soleil ». */
+export const EXIT_REFUSED = "Transition refusée : termine le combat ou le donjon en cours d’abord.";
+
+function combatUpdate(store: CombatStore, group: MonsterGroup): Partial<CombatStore> {
+  const combatBase = { mode: "combat" as const, combat: buildGroupCombat(group, store.mapId), activeGroup: group };
+  return { ...combatBase, rewards: null, selectedSpellId: null };
+}
+
 function blockedUpdate(exploration: ExplorationState): Partial<CombatStore> {
   if (exploration.log.at(-1) === BLOCKED_MOVE_LOG) return {};
   return { exploration: { ...exploration, log: [...exploration.log, BLOCKED_MOVE_LOG] }, hoveredCell: null };
@@ -275,13 +292,46 @@ function movedUpdate(exploration: ExplorationState, target: Position): Partial<C
   return { exploration: state, hoveredCell: null };
 }
 
+/** Sorties de la carte courante, lues dans `data/maps.yaml` : aucun id en dur. */
+function exitsOf(mapId: string): readonly ExitSpec[] {
+  return mustFind(maps, mapId).exits;
+}
+
+/** Un combat 1v1, une salle de donjon ou un run ouvert interdit de quitter la carte. */
+function canLeaveMap(store: CombatStore): boolean {
+  return store.combat === null && store.battle === null && store.dungeonRun === null;
+}
+
+/** Carte neuve : la scène est reconstruite sur la destination, journal remplacé. */
+function travelUpdate(state: ExplorationState, exit: ExitSpec): Partial<CombatStore> {
+  const destination = mustFind(maps, exit.to);
+  const map = mapById(destination.id);
+  const landing = landingFor({ size: state.map, pos: exit, to: map, at: exit.at });
+  const fresh = initExploration({ map, ...spawnOf(defaultSpawn(destination.id).monsterId) });
+  const log = [arrivalLine(destination.name, landing)];
+  const exploration = { ...fresh, playerPos: landing.position, log };
+  return { mapId: destination.id, exploration, mapNotice: null, hoveredCell: null };
+}
+
+/** Le héros rejoint la sortie à pied ; une sortie injoignable reste un clic bloqué. */
+function walkToExit(exploration: ExplorationState, exit: ExitSpec): Partial<CombatStore> {
+  const { state, path } = moveHeroOnMap(exploration, { x: exit.x, y: exit.y });
+  return path.length === 0 ? blockedUpdate(exploration) : travelUpdate(state, exit);
+}
+
+function exitUpdate(store: CombatStore, exit: ExitSpec): Partial<CombatStore> {
+  if (!canLeaveMap(store)) return { mapNotice: EXIT_REFUSED };
+  if (store.exploration === null) return {};
+  return walkToExit(store.exploration, exit);
+}
+
 function explorationUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
   const exploration = store.exploration;
   if (exploration === null) return {};
   const group = getMonsterGroupAt(exploration, target);
-  if (group === null) return movedUpdate(exploration, target);
-  const combatBase = { mode: "combat" as const, combat: buildGroupCombat(group, store.mapId), activeGroup: group };
-  return { ...combatBase, rewards: null, selectedSpellId: null };
+  if (group !== null) return combatUpdate(store, group);
+  const exit = exitAt(exitsOf(store.mapId), target);
+  return exit === null ? movedUpdate(exploration, target) : exitUpdate(store, exit);
 }
 
 function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
@@ -684,6 +734,7 @@ const DEFAULT_STATE = {
   dungeonRun: null,
   dungeonNotice: null,
   mapId: startMapId(),
+  mapNotice: null,
   selectedSpellId: null,
   hoveredCell: null,
   rewards: null,
