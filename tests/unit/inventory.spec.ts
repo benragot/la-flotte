@@ -9,7 +9,13 @@ import {
   unequipItem,
   useConsumable,
 } from "../../src/engine/inventory";
-import type { InventoryState, ItemLike, SetLike, StatBlock } from "../../src/engine/inventory";
+import type {
+  EquipmentSlot,
+  InventoryState,
+  ItemLike,
+  SetLike,
+  StatBlock,
+} from "../../src/engine/inventory";
 
 const SET_ID = "panoplie_des_abysses";
 
@@ -91,6 +97,29 @@ const SETS: readonly SetLike[] = [
 
 const BASE: StatBlock = { vitality: 100, strength: 50, hp: 200 };
 const CAPITAL: StatBlock = { strength: 20, agility: 5 };
+
+const BRUME_SET_ID = "panoplie_des_brumes";
+
+function setPiece(id: string, slot: EquipmentSlot, stats: StatBlock): ItemLike {
+  return { id, name: id, category: "equipment", slot, setId: BRUME_SET_ID, stats };
+}
+
+const BRUME_HAT = setPiece("masque_brumes", "hat", { vitality: 5 });
+const BRUME_CLOAK = setPiece("cape_brumes", "cloak", { wisdom: 5 });
+const BRUME_BELT = setPiece("ceinture_brumes", "belt", { chance: 5 });
+const BRUME_BOOTS = setPiece("bottes_brumes", "boots", { agility: 5 });
+const BRUME_ITEMS: readonly ItemLike[] = [BRUME_HAT, BRUME_CLOAK, BRUME_BELT, BRUME_BOOTS];
+
+const BRUME_SETS: readonly SetLike[] = [
+  {
+    id: BRUME_SET_ID,
+    pieceIds: BRUME_ITEMS.map((item) => item.id),
+    bonuses: [
+      { pieces: 2, stats: { vitality: 12 } },
+      { pieces: 4, stats: { strength: 40, ap: 1 } },
+    ],
+  },
+];
 
 function emptyInventory(): InventoryState {
   return { stacks: [], equipment: {} };
@@ -223,6 +252,55 @@ describe("equipItem — refus et immuabilité", () => {
   });
 });
 
+describe("equipItem — anti-duplication", () => {
+  it("ne recrée pas un exemplaire en rééquipant l'item déjà dans le slot", () => {
+    const inventory: InventoryState = { stacks: [], equipment: { hat: HAT.id } };
+    const result = equipItem({ inventory, item: HAT });
+    expect(result.equipment).toEqual({ hat: HAT.id });
+    expect(result.stacks).toEqual([]);
+  });
+
+  it("déplace un item déjà porté vers un autre slot sans le dupliquer", () => {
+    const inventory: InventoryState = { stacks: [], equipment: { ring1: AMULET.id } };
+    const result = equipItem({ inventory, item: AMULET, slot: "ring2" });
+    expect(result.equipment).toEqual({ ring2: AMULET.id });
+    expect(countItem(result, AMULET.id)).toBe(0);
+  });
+
+  it("ne double pas les stats quand un item change de slot", () => {
+    const inventory: InventoryState = { stacks: [], equipment: { ring1: AMULET.id } };
+    const moved = equipItem({ inventory, item: AMULET, slot: "ring2" });
+    const total = computeTotalStats({
+      base: {},
+      capital: {},
+      items: ITEMS,
+      sets: SETS,
+      inventory: moved,
+    });
+    expect(total.chance).toBe(12);
+    expect(total.vitality).toBe(0);
+  });
+});
+
+describe("equipItem — sac préservé", () => {
+  it("préserve l'exemplaire du sac quand l'item est déjà porté", () => {
+    const inventory: InventoryState = {
+      stacks: [{ itemId: AMULET.id, quantity: 1 }],
+      equipment: { ring1: AMULET.id },
+    };
+    const result = equipItem({ inventory, item: AMULET, slot: "ring2" });
+    expect(countItem(result, AMULET.id)).toBe(1);
+    expect(result.equipment).toEqual({ ring2: AMULET.id });
+  });
+
+  it("ne prend qu'une unité dans une pile de deux", () => {
+    const inventory = withStacks({ itemId: HAT.id, quantity: 2 });
+    const result = equipItem({ inventory, item: HAT });
+    expect(result.equipment).toEqual({ hat: HAT.id });
+    expect(countItem(result, HAT.id)).toBe(1);
+  });
+});
+
 describe("unequipItem", () => {
   it("retire l'item du slot et le remet dans le sac", () => {
     const inventory = equipped(["hat", HAT.id]);
@@ -338,6 +416,40 @@ describe("getActiveSetBonuses — paliers", () => {
     const inventory = equipped(["hat", "item_inconnu"]);
     const result = getActiveSetBonuses({ inventory, items: ITEMS, sets: SETS });
     expect(result).toEqual([]);
+  });
+});
+
+describe("getActiveSetBonuses — palier intermédiaire", () => {
+  function threePieceBrume(): InventoryState {
+    return equipped(
+      ["hat", BRUME_HAT.id],
+      ["cloak", BRUME_CLOAK.id],
+      ["belt", BRUME_BELT.id],
+    );
+  }
+
+  it("n'accorde que le palier 2 avec trois pièces sur un set à paliers 2 et 4", () => {
+    const result = getActiveSetBonuses({
+      inventory: threePieceBrume(),
+      items: BRUME_ITEMS,
+      sets: BRUME_SETS,
+    });
+    expect(result).toEqual([
+      { setId: BRUME_SET_ID, activePieces: 3, bonuses: [{ vitality: 12 }] },
+    ]);
+  });
+
+  it("ne fait pas fuiter le bonus du palier 4 dans les stats totales", () => {
+    const total = computeTotalStats({
+      base: {},
+      capital: {},
+      items: BRUME_ITEMS,
+      sets: BRUME_SETS,
+      inventory: threePieceBrume(),
+    });
+    expect(total.vitality).toBe(17);
+    expect(total.strength).toBe(0);
+    expect(total.ap).toBe(0);
   });
 });
 
