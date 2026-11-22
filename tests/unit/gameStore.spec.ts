@@ -254,15 +254,11 @@ describe("useGameStore — persistance", () => {
   it("ignore les items et emplacements inconnus d'une sauvegarde", () => {
     const hero = createHeroInStore();
     const storage = new MemoryStorage();
-    const options = { savedAt: SAVED_AT, flags: {}, hero: heroToSnapshot(hero) };
-    const inventory = {
-      stacks: [
-        { itemId: "plume_mazoutee", quantity: 1 },
-        { itemId: "objet_fantome", quantity: 3 },
-      ],
-      equipment: { hat: "chapeau_piou_mazoute", ring1: "anneau_fantome", gouffre: "x" },
-    };
-    storage.setItem(SAVE_KEY, serializeSave(createSave({ ...options, inventory })));
+    const stacks = [{ itemId: "plume_mazoutee", quantity: 1 }, { itemId: "objet_fantome", quantity: 3 }];
+    const inventory = { stacks, equipment: { hat: "chapeau_piou_mazoute", ring1: "anneau_fantome", gouffre: "x" } };
+    const character = { id: "char-1", hero: heroToSnapshot(hero), inventory, position: null };
+    const options = { savedAt: SAVED_AT, characters: [character], bank: { stacks: [], equipment: {} }, flags: {}, lastPlayedCharacterId: "char-1" };
+    storage.setItem(SAVE_KEY, serializeSave(createSave(options)));
     useGameStore.getState().resetGame();
     expect(useGameStore.getState().loadGame(storage)).toBe(true);
     const loaded = useGameStore.getState().inventory;
@@ -443,7 +439,7 @@ describe("useGameStore — coffre de banque : immuabilité", () => {
 });
 
 describe("useGameStore — coffre de banque : sauvegarde", () => {
-  it("vide le coffre à l'import d'une sauvegarde (anti-duplication)", () => {
+  it("restaure le coffre de la sauvegarde, même vide, à l'import (anti-duplication)", () => {
     createHeroInStore();
     addToBag("plume_mazoutee", 10);
     const exported = useGameStore.getState().exportJson() ?? "";
@@ -456,7 +452,7 @@ describe("useGameStore — coffre de banque : sauvegarde", () => {
     expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(10);
   });
 
-  it("vide le coffre au chargement d'une sauvegarde", () => {
+  it("restaure le coffre de la sauvegarde, même vide, au chargement", () => {
     createHeroInStore();
     addToBag("plume_mazoutee", 4);
     const storage = new MemoryStorage();
@@ -465,6 +461,21 @@ describe("useGameStore — coffre de banque : sauvegarde", () => {
     expect(useGameStore.getState().loadGame(storage)).toBe(true);
     expect(useGameStore.getState().bank).toEqual({ stacks: [], equipment: {} });
     expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(4);
+  });
+});
+
+describe("useGameStore — coffre de banque : export / import", () => {
+  it("garde le coffre non vide et le total sac + coffre à l'import", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 10);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 4 });
+    const exported = useGameStore.getState().exportJson() ?? "";
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 6 });
+    expect(useGameStore.getState().importJson(exported)).toBe(true);
+    const { inventory, bank } = useGameStore.getState();
+    expect(countItem(bank, "plume_mazoutee")).toBe(4);
+    expect(countItem(inventory, "plume_mazoutee")).toBe(6);
+    expect(countItem(bank, "plume_mazoutee") + countItem(inventory, "plume_mazoutee")).toBe(10);
   });
 });
 

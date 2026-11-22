@@ -568,6 +568,13 @@ describe("backlog — dette D48 soldée", () => {
   });
 });
 
+describe("backlog — dette D55 soldée", () => {
+  it("ne trouve plus la dette du coffre non persisté, soldée par la PR #87", () => {
+    expect(debtById(readBacklog(), "D55")).toBeUndefined();
+    expect(rawBacklog()).not.toContain("Le coffre de banque n'est pas persisté");
+  });
+});
+
 describe("backlog — vague 4D wiring", () => {
   it("enregistre la tâche de câblage App et ouvre la phase 4D", () => {
     const backlog = readBacklog();
@@ -683,9 +690,9 @@ describe("backlog — vague 5B livrée", () => {
 });
 
 describe("backlog — dettes versées en v15", () => {
-  const VERSED = ["D55", "D56", "D57", "D58"];
+  const VERSED = ["D56", "D57", "D58"];
 
-  it("enregistre les quatre dettes de la 5B", () => {
+  it("enregistre les trois dettes restantes de la 5B", () => {
     expect(VERSED.flatMap((id) => (debtById(readBacklog(), id) ? [] : [id]))).toEqual([]);
   });
 
@@ -1039,8 +1046,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 22", () => {
-    expect(readBacklog().meta.version).toBe(22);
+  it("versionne le backlog en 23", () => {
+    expect(readBacklog().meta.version).toBe(23);
   });
 });
 

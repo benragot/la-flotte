@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addItem, countItem, equipItem, equippable } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
-import type { SaveData, StorageLike } from "../../src/engine/save";
+import type { CharacterSnapshot, SaveData, StorageLike } from "../../src/engine/save";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import type { EquipmentDef, ItemDef } from "../../src/schemas/itemSchema";
 import { useGameStore } from "../../src/store/useGameStore";
@@ -196,9 +196,16 @@ function editedSave(edit: (save: SaveData) => void): string {
   return JSON.stringify(save);
 }
 
+/** Le personnage actif du v2 : l'inventaire vit désormais sous le roster. */
+function activeCharacter(save: SaveData): CharacterSnapshot {
+  const [character] = save.characters;
+  if (character === undefined) throw new Error("personnage actif attendu");
+  return character;
+}
+
 function equipHighLevelHat(): string {
   return editedSave((save) => {
-    save.inventory.equipment = { hat: LEVEL_18_HAT };
+    activeCharacter(save).inventory.equipment = { hat: LEVEL_18_HAT };
   });
 }
 
@@ -226,7 +233,7 @@ describe("chargement — re-validation de l'équipement", () => {
 
   it("conserve un équipement légal tel quel", () => {
     const raw = editedSave((save) => {
-      save.inventory.equipment = { hat: LEVEL_1_HAT, weapon: "gourdin_du_matelot" };
+      activeCharacter(save).inventory.equipment = { hat: LEVEL_1_HAT, weapon: "gourdin_du_matelot" };
     });
     expect(useGameStore.getState().importJson(raw)).toBe(true);
     const equipment = useGameStore.getState().inventory.equipment;

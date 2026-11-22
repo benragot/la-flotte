@@ -12,7 +12,7 @@
 #     qui les fonde.
 
 meta:
-  version: 22
+  version: 23
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -718,11 +718,6 @@ debts:
     severity: low
     target: 5C-cast-preview
     notes: "src/renderer/damagePreview.ts (`DamagePreviewInput`) ; l'aperçu de dégâts/zone est réécrit par 5C-cast-preview, c'est là que le champ manquant devra être tranché"
-  - id: D55
-    title: "Le coffre de banque n'est pas persisté : `SaveData` n'a aucun champ `bank`, et `loadGame`/`importJson` le vident volontairement (anti-duplication) — déposer puis recharger perd le contenu"
-    severity: high
-    target: 5B
-    notes: src/engine/save/types.ts (`SaveData` sans champ `bank`) et src/store/useGameStore.ts (`loadGame`/`importJson` passent par `applySave`, qui vide le coffre)
   - id: D56
     title: "Des quantités fractionnaires (`2.5`) passent la garde du coffre mais `saveDataSchema` exige `z.number().int()` — le `saveGame` suivant lève une ZodError"
     severity: medium

@@ -13,6 +13,7 @@ import { gainXp, heroFromSnapshot, heroToSnapshot, spendCapitalPoints } from "..
 import { addItem, countItem, equipItem, removeItem, unequipItem, useConsumable } from "../engine/inventory";
 import type { EquipmentSlot, InventoryState, ItemLike } from "../engine/inventory";
 import {
+  MAX_CHARACTERS,
   clearSave,
   createSave,
   exportSaveJson,
@@ -20,7 +21,13 @@ import {
   loadFromStorage,
   saveToStorage,
 } from "../engine/save";
-import type { SaveData, StorageLike } from "../engine/save";
+import type {
+  CharacterPosition,
+  CharacterSnapshot,
+  InventorySnapshot,
+  SaveData,
+  StorageLike,
+} from "../engine/save";
 import { classesFileSchema } from "../schemas/classSchema";
 import type { ClassDef, StatKey } from "../schemas/classSchema";
 import { itemsFileSchema } from "../schemas/itemSchema";
@@ -47,11 +54,19 @@ export interface GameStore {
   inventory: InventoryState;
   bank: InventoryState;
   flags: Record<string, boolean>;
+  /** Roster du compte : le personnage actif y figure aussi, re-snapshoté à la sauvegarde. */
+  characters: CharacterSnapshot[];
+  activeCharacterId: string | null;
+  /** Dernière position connue du personnage actif ; écriture seule en PR A. */
+  lastPosition: CharacterPosition | null;
   /** En V1, toutes les recettes du catalogue sont connues ; la découverte viendra en 6B. */
   knownRecipeIds: string[];
   /** Clé de stockage, injectable par les tests via `setState`. */
   saveKey: string;
   createCharacter: (input: { name: string; classId: string }) => void;
+  /** Bascule sur un personnage du roster ; `false` si l'id est inconnu ou déjà actif. */
+  switchCharacter: (characterId: string) => boolean;
+  setLastPosition: (position: CharacterPosition) => void;
   allocateStat: (input: { stat: StatKey; points: number }) => void;
   equip: (input: { itemId: string }) => void;
   unequip: (input: { slot: EquipmentSlot }) => void;
@@ -76,7 +91,11 @@ export interface GameStore {
 interface GameState {
   hero: Hero | null;
   inventory: InventoryState;
+  bank: InventoryState;
   flags: Record<string, boolean>;
+  characters: CharacterSnapshot[];
+  activeCharacterId: string | null;
+  lastPosition: CharacterPosition | null;
 }
 
 type StoreUpdate = Partial<GameStore> | ((state: GameStore) => Partial<GameStore>);
@@ -118,7 +137,7 @@ function browserStorage(): StorageLike | undefined {
 }
 
 function emptyGame(): GameState {
-  return { hero: null, inventory: emptyInventory(), flags: {} };
+  return { hero: null, inventory: emptyInventory(), bank: emptyInventory(), flags: {}, characters: [], activeCharacterId: null, lastPosition: null };
 }
 
 /**
@@ -131,6 +150,8 @@ type KeptOnReset =
   | "knownRecipeIds"
   | "saveKey"
   | "createCharacter"
+  | "switchCharacter"
+  | "setLastPosition"
   | "allocateStat"
   | "equip"
   | "unequip"
@@ -148,9 +169,9 @@ type KeptOnReset =
 
 type ResetFields = Omit<GameStore, KeptOnReset>;
 
-/** État complet hors persistance : le coffre n'est pas encore sauvegardé (dette D55). */
+/** État complet hors persistance : le roster et la banque repartent vides. */
 function emptyStore(): ResetFields {
-  return { ...emptyGame(), bank: emptyInventory() };
+  return emptyGame();
 }
 
 function startingInventory(): InventoryState {
@@ -160,11 +181,56 @@ function startingInventory(): InventoryState {
   );
 }
 
-function createdGame(input: { name: string; classId: string }): Partial<GameStore> {
+interface CreateCharacterInput {
+  name: string;
+  classId: string;
+}
+
+function characterSnapshotOf(id: string, hero: Hero, inventory: InventoryState): CharacterSnapshot {
+  return { id, hero: heroToSnapshot(hero), inventory: toInventorySnapshot(inventory), position: null };
+}
+
+/** Photo du personnage actif, position comprise : le seul état « vivant » du roster. */
+function activeSnapshot(state: GameState): CharacterSnapshot | null {
+  if (state.hero === null || state.activeCharacterId === null) return null;
+  const snapshot = characterSnapshotOf(state.activeCharacterId, state.hero, state.inventory);
+  return { ...snapshot, position: state.lastPosition };
+}
+
+/** Remplace l'entrée du personnage actif sans jamais dupliquer son id. */
+function mergeActive(roster: readonly CharacterSnapshot[], snapshot: CharacterSnapshot | null): CharacterSnapshot[] {
+  if (snapshot === null) return [...roster];
+  if (!roster.some((entry) => entry.id === snapshot.id)) return [...roster, snapshot];
+  return roster.map((entry) => (entry.id === snapshot.id ? snapshot : entry));
+}
+
+function nextCharacterId(roster: readonly CharacterSnapshot[]): string {
+  const taken = new Set(roster.map((entry) => entry.id));
+  let index = roster.length + 1;
+  while (taken.has(`char-${index}`)) index += 1;
+  return `char-${index}`;
+}
+
+/** Cap dur à huit : le neuvième personnage lève, il n'est jamais tronqué. */
+function assertRosterRoom(roster: readonly CharacterSnapshot[]): void {
+  if (roster.length >= MAX_CHARACTERS) throw new Error(`un compte compte au plus ${MAX_CHARACTERS} personnages`);
+}
+
+function newCharacterState(roster: readonly CharacterSnapshot[], input: CreateCharacterInput, classDef: ClassDef): Partial<GameStore> {
+  const id = nextCharacterId(roster);
+  const hero = createHero(input.name, classDef);
+  const inventory = startingInventory();
+  const characters = mergeActive(roster, characterSnapshotOf(id, hero, inventory));
+  return { hero, inventory, characters, activeCharacterId: id, lastPosition: null };
+}
+
+/** Ajoute un personnage au roster du compte : la banque et les drapeaux sont conservés. */
+function createdGame(state: GameStore, input: CreateCharacterInput): Partial<GameStore> {
   const classDef = classDefFor(input.classId);
   if (classDef === undefined) return {};
-  const hero = createHero(input.name, classDef);
-  return { ...emptyStore(), hero, inventory: startingInventory() };
+  const roster = mergeActive(state.characters, activeSnapshot(state));
+  assertRosterRoom(roster);
+  return newCharacterState(roster, input, classDef);
 }
 
 function allocatedGame(hero: Hero | null, input: { stat: StatKey; points: number }): Partial<GameState> {
@@ -265,11 +331,16 @@ function craftInStore(state: GameStore, input: CraftRecipeInput): CraftOutcome {
   return { inventory: result.inventory, crafted: result.craftedCount };
 }
 
+function rosterForSave(state: GameState): CharacterSnapshot[] {
+  return mergeActive(state.characters, activeSnapshot(state));
+}
+
 function currentSave(game: GameState): SaveData | null {
-  if (game.hero === null) return null;
+  const characters = rosterForSave(game);
+  if (characters.length === 0) return null;
   const savedAt = new Date().toISOString();
-  const options = { savedAt, flags: game.flags, hero: heroToSnapshot(game.hero) };
-  return createSave({ ...options, inventory: toInventorySnapshot(game.inventory) });
+  const bank = toInventorySnapshot(game.bank);
+  return createSave({ savedAt, characters, bank, flags: game.flags, lastPlayedCharacterId: game.activeCharacterId });
 }
 
 function persist(game: GameState, storage: StorageLike | undefined, key: string): boolean {
@@ -298,23 +369,50 @@ function eraseStoredSave(storage: StorageLike | undefined, key: string): boolean
   }
 }
 
-function gameFromSave(save: SaveData): GameState | null {
-  const classDef = classDefFor(save.hero.classId);
+interface CharacterGameInput {
+  character: CharacterSnapshot;
+  bank: InventorySnapshot;
+  flags: Record<string, boolean>;
+  roster: CharacterSnapshot[];
+}
+
+/** Reconstruit l'état vivant depuis un personnage du roster et la banque du compte. */
+function characterGame(input: CharacterGameInput): GameState | null {
+  const classDef = classDefFor(input.character.hero.classId);
   if (classDef === undefined) return null;
-  const hero = heroFromSnapshot(save.hero, classDef);
-  const inventory = inventoryFromSnapshot(save.inventory, items, hero.level);
-  return { hero, inventory, flags: { ...save.flags } };
+  const hero = heroFromSnapshot(input.character.hero, classDef);
+  const inventory = inventoryFromSnapshot(input.character.inventory, items, hero.level);
+  const bank = inventoryFromSnapshot(input.bank, items, hero.level);
+  const flags = { ...input.flags };
+  return { hero, inventory, bank, flags, characters: input.roster, activeCharacterId: input.character.id, lastPosition: input.character.position };
+}
+
+function activeCharacterOf(save: SaveData): CharacterSnapshot | null {
+  const lastPlayed = save.characters.find((entry) => entry.id === save.lastPlayedCharacterId);
+  return lastPlayed ?? save.characters[0] ?? null;
 }
 
 /**
- * Applique une sauvegarde. `SaveData` ne contient pas le coffre (dette D55) : on le vide
- * systématiquement, sinon `exportJson → dépôt → importJson` duplique les items.
+ * Applique une sauvegarde : le roster entier et la banque partagée sont
+ * restaurés tels quels, puis le dernier personnage joué devient actif.
  */
 function applySave(setState: StoreSetter, save: SaveData | null): boolean {
-  const game = save === null ? null : gameFromSave(save);
+  if (save === null) return false;
+  const character = activeCharacterOf(save);
+  if (character === null) return false;
+  const options = { character, bank: save.bank, flags: save.flags, roster: save.characters };
+  const game = characterGame(options);
   if (game === null) return false;
-  setState({ ...game, bank: emptyInventory() });
+  setState(game);
   return true;
+}
+
+function switchedGame(state: GameStore, characterId: string): GameState | null {
+  if (characterId === state.activeCharacterId) return null;
+  const target = state.characters.find((entry) => entry.id === characterId);
+  if (target === undefined) return null;
+  const roster = mergeActive(state.characters, activeSnapshot(state));
+  return characterGame({ character: target, bank: state.bank, flags: state.flags, roster });
 }
 
 function exportState(game: GameState): string | null {
@@ -334,7 +432,7 @@ type CharacterActions = Pick<
 
 function characterActions(set: StoreSetter): CharacterActions {
   return {
-    createCharacter: (input) => set(createdGame(input)),
+    createCharacter: (input) => set((state) => createdGame(state, input)),
     allocateStat: (input) => set((state) => allocatedGame(state.hero, input)),
     equip: (input) => set((state) => equippedGame(state.hero, state.inventory, input.itemId)),
     unequip: (input) => set((state) => unequippedGame(state.inventory, input.slot)),
@@ -368,6 +466,22 @@ function bankActions(set: StoreSetter): BankActions {
   };
 }
 
+type RosterActions = Pick<GameStore, "switchCharacter" | "setLastPosition">;
+
+function switchAction(set: StoreSetter, get: () => GameStore): (characterId: string) => boolean {
+  return (characterId) => {
+    const next = switchedGame(get(), characterId);
+    if (next === null) return false;
+    set(next);
+    return true;
+  };
+}
+
+/** Sélection d'un personnage du roster et écriture de sa position : aucune restauration. */
+function rosterActions(set: StoreSetter, get: () => GameStore): RosterActions {
+  return { switchCharacter: switchAction(set, get), setLastPosition: (position) => set({ lastPosition: position }) };
+}
+
 type CraftActions = Pick<GameStore, "craftRecipe">;
 
 function craftActions(set: StoreSetter, get: () => GameStore): CraftActions {
@@ -385,6 +499,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   knownRecipeIds: KNOWN_RECIPE_IDS,
   saveKey: DEFAULT_SAVE_KEY,
   ...characterActions(set),
+  ...rosterActions(set, get),
   ...bankActions(set),
   ...craftActions(set, get),
   ...saveActions(set, get),
