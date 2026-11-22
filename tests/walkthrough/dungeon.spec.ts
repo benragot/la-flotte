@@ -34,10 +34,11 @@ const recipes = parseRecipesYaml(read("recipes.yaml"));
 const DUNGEON_ID = "fer_donjon_casse_vis_sans_fin";
 const KEY_ID = "cle_donjon_ile_de_la_ferraille";
 /**
- * `data/recipes.yaml` ne contient **aucune** recette de clé (et les ingrédients
- * `fer_pince_de_douze`/`fer_boulon_sans_fin`/`fer_goutte_mazout` n'existent pas
- * dans `data/items.yaml`) : le craft est prouvé sur une recette réelle, puis la
- * clé — item réel `category: key` — est ajoutée au sac faute de source YAML.
+ * Depuis la PR #41, `data/recipes.yaml` contient la recette de la clé et
+ * `data/items.yaml` ses 3 ingrédients. Ce walkthrough **monte néanmoins la clé
+ * à la main** : il prouve le run de donjon, pas l'obtention de la clé.
+ * L'obtention est prouvée par `tests/data/keyCrafting.spec.ts` et
+ * `tests/data/spawns.spec.ts`.
  */
 const RECIPE_ID = "recette_gourdin_du_matelot";
 const MAX_ACTIONS = 200;
