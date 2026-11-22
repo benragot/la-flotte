@@ -550,12 +550,12 @@ cooldown: 3
 maxPerTurn: 1
 maxPerTarget: 1
 zone: { type: circle, size: 2 }
-kind: glyph
+kind: debuff
 element: earth
 minValue: 16
 maxValue: 22
 effects:
-  - { type: glyphDurationTurns, value: 2, durationTurns: 2 }
+  - { type: glyphDurationTurns, value: 2, durationTurns: 2, isGlyph: true }
   - { type: pmLoss, value: 1, durationTurns: 1 }
 description: "Le Duc répand de la moutarde sur le sol, en cercle, avec le geste d'un homme qui dresse un procès-verbal."
 ```
@@ -1121,12 +1121,12 @@ cooldown: 3
 maxPerTurn: 1
 maxPerTarget: 1
 zone: { type: circle, size: 1 }
-kind: glyph
+kind: debuff
 element: water
 minValue: 14
 maxValue: 20
 effects:
-  - { type: glyphDurationTurns, value: 2, durationTurns: 2 }
+  - { type: glyphDurationTurns, value: 2, durationTurns: 2, isGlyph: true }
   - { type: pmLoss, value: 1, durationTurns: 1 }
 description: "Le porteur renverse la salière du monde. Un cercle de sel se dessine, la note tombe pendant deux tours, et personne ne discute l'addition."
 ```
@@ -1243,7 +1243,7 @@ Les écarts **communs** (`pa`/`pm` vs `ap`/`mp`, `sellValue`/`sellPrice`, `healH
 19. **`sel_spell_faux_mouvement` introduit `pullCells`** (attirance 2). Vérifié : aucun effet d'attraction n'existe, ni dans `spellSchema` (`src/schemas/spellSchema.ts` ne connaît que `pushCells`), ni dans le moteur (`pushCells` est le seul déplacement forcé consommé). C'est un nouvel effet, et le sens opposé de `pushCells` : la résolution (collision, dégâts de poussée, `breakOnWallPush`) doit être partagée, pas dupliquée.
 20. **`sel_spell_pincee_de_poivre` introduit `poLoss: 2`** (retrait de **portée**, 2 tours). Concept inédit : `CombatantState` (`src/engine/combatLoop/types.ts`) ne porte **aucun** champ de portée modifiable (ni `range`, ni `po`), et `spellSchema` n'a aucun effet de réduction de portée. Il faut d'abord doter l'état de combat d'une portée effective dérivée de l'arme et des buffs, puis un effet qui la réduit temporairement.
 21. **`zone: { type: circle, size: 2 }`** (rayon **2**) sur `sel_spell_glyphe_de_moutarde`, et `zone` sur `vent_de_panique` (`cross`), `eclaboussure_bouillante` (`circle` 1) et `addition_salee`. Vérifié : **aucune zone n'existe** dans le schéma ni dans le moteur aujourd'hui (`spellSchema` n'a pas de clé `zone`, `spellEffectSchema.target` ne décrit qu'une intention). Même en Vague 6, il faudra trancher explicitement que `size` est un **rayon** (3×3 pour `circle 1`, 5×5 pour `circle 2`) et non un diamètre, sinon les dégâts doublent silencieusement de surface.
-22. **`sel_spell_glyphe_de_moutarde` combine `isGlyph` + `glyphDurationTurns` + `pmLoss` + une zone.** Le modèle `effect` actuel est un **objet unique** (non une liste) et n'est pas consommé par le moteur : insuffisant pour un glyphe à effet périodique (dégâts Terre **et** −1 PM en début de tour, pendant 2 tours). Il faut un effet composé et un état de zone persistant sur la grille, plus la résolution au début de tour — chantier 6A complet.
+22. **`sel_spell_glyphe_de_moutarde` et `sel_spell_addition_salee` portent `kind: debuff` + `effects.isGlyph: true`.** Vérifié : `spellKindSchema` ne connaît que `damage | teleport | other` — `debuff` n'y figure pas. Et le glyphe **n'est pas une valeur de `kind`** : il est porté par `effects.isGlyph: true` combiné à `glyphDurationTurns`, `pmLoss` et une `zone`. Or le modèle `effect` actuel est un **objet unique** (non une liste) et n'est pas consommé par le moteur : insuffisant pour un glyphe à effet périodique (dégâts Terre ou Eau **et** −1 PM en début de tour, pendant 2 tours). Il faut un effet composé (liste), l'ajout de `debuff` à l'enum des `kind`, et un état de zone persistant sur la grille avec résolution au début de tour — chantier 6A complet.
 23. **`sel_spell_moutarde_qui_monte` introduit `percentDamageBonus: 25`.** Aucun bonus de dommages **temporaire** n'existe dans `CombatantState` : ni `damageBonus`, ni `percentDamageBonus`, ni pile de buffs avec durée. À noter que `itemStatsSchema` connaît `percentDmg` (permanent, équipement) — deux notions voisines à ne pas confondre dans le moteur.
 24. **Stat `po`** (portée) sur `sel_coiffe_passoire_cuivre`. `itemStatsSchema` ne connaît aucune stat de portée (`vitality`, `wisdom`, `strength`, `intelligence`, `chance`, `agility`, `hp`, `ap`, `mp`, `percentDmg`, `flatRes`, `percentRes`, `prospection`). Même prérequis que l'écart 20 : une portée effective modifiable par l'équipement, et un nom de stat à figer (`po` ou `range`).
 25. **`weaponType` doit couvrir 8 types** (`dagger`, `wand`, `hammer`, `shovel`, `bow`, `staff`, `axe`, `sword`). Le schéma d'arme **n'existe pas encore** (aucun `weaponSchema` dans `src/schemas/`), mais l'enum doit être dimensionnée dès maintenant avec les 8 valeurs, dont 4 nouvelles ici (`bow`, `staff`, `axe`, `sword`). Aucune donnée métier ne doit atterrir dans un `enum` en dur dans `src/` : la liste vit dans le schéma, les valeurs dans `data/*.yaml`.
@@ -1263,11 +1263,10 @@ Les écarts **communs** (`pa`/`pm` vs `ap`/`mp`, `sellValue`/`sellPrice`, `healH
 ## 12. Tâches et dettes prêtes à coller
 
 ⚠️ **Collision d'identifiants — état à jour au 2026-11-22.** La plage **`D27`–`D33` est prise** :
-- `D27` et `D28` ont d'abord été attribués par le lot 4B (kamas non modélisés / tables de butin non snapshotées), puis **réutilisés** par la spec de l'Île de la Ferraille (`plume_mazoutee` redéfini / `bec_mazoute` orphelin) : double attribution non résolue à ce jour ;
-- `D29` **et** `D30` sont désormais pris par la 4B (PV non synchronisés / résistances par élément), **mergés dans `docs/design/backlog.yaml`** ;
-- `D31`, `D32` et `D33` sont pris par la spec de l'Île de la Ferraille (`plume_mazoutee`, `bec_mazoute`, `SET_SLOTS`).
+- `D27`, `D28`, `D29` et `D30` appartiennent à la 4B (kamas non modélisés, tables de butin non snapshotées, PV non synchronisés, résistances par élément) — **mergées** ;
+- `D31`, `D32` et `D33` appartiennent à la spec de l'Île de la Ferraille (`plume_mazoutee` redéfini, `bec_mazoute` orphelin, `SET_SLOTS`) : spec **mergée** sur `main`, l'insertion des dettes dans `docs/design/backlog.yaml` reste à faire.
 
-En conséquence, **toutes les dettes de ce dossier vont de `D34` à `D42`** (9 dettes, une par écart 19 à 27, dans l'ordre). `D29` n'est **pas** libre. Aucune renumérotation des plages existantes n'est faite ici : la double attribution `D27`/`D28` reste à arbitrer séparément.
+En conséquence, **ce dossier utilise `D34` à `D42`** (9 dettes, une par écart 19 à 27, dans l'ordre). Aucune renumérotation des plages existantes n'est faite ici.
 
 Bloc prêt à coller. Le fichier `docs/design/backlog.yaml` appartient à une autre PR : rien n'est appliqué ici. Les 4 tâches suivent le **format tâche** (`id`, `title`, `status`, `owner`, `priority`, `updated_at`, `depends_on`) et vont dans `waves[].phases[].tasks[]` ; les 9 dettes suivent le **format dette** (`id`, `title`, `severity`, `target`) et vont dans `debts[]`.
 
@@ -1320,7 +1319,7 @@ Bloc prêt à coller. Le fichier `docs/design/backlog.yaml` appartient à une au
   severity: medium
   target: 6A
 - id: D37
-  title: glyphe de moutarde (isGlyph + glyphDurationTurns + pmLoss + zone) impossible avec un effect unique non consommé
+  title: sel_spell_glyphe_de_moutarde et addition_salee — kind debuff absent de spellKindSchema (damage|teleport|other) et glyphe (isGlyph + glyphDurationTurns + pmLoss + zone) impossible avec un effect unique non consommé
   severity: high
   target: 6A
 - id: D38
