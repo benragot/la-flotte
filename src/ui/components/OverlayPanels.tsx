@@ -95,7 +95,7 @@ function heroTitle(hero: Hero): string {
 }
 
 /** Fiche perso : identité, PV effectifs et les six caractéristiques avec le capital restant. */
-function HeroSheet({ hero, onClose }: { hero: Hero; onClose: () => void }) {
+export function HeroSheet({ hero, onClose }: { hero: Hero; onClose: () => void }) {
   const hp = useEffectiveHp();
   const classDef = classDefOf(hero.classId);
   return (
