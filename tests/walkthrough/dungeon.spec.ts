@@ -234,6 +234,10 @@ interface Traversal {
   xp: number;
 }
 
+// `attemptRoom` est appelé DIRECTEMENT par ce test : il n'a aucun appelant de
+// production aujourd'hui. La traversée n'est donc pas une chaîne câblée de bout
+// en bout — c'est le moteur de donjon piloté manuellement. Le câblage
+// store/UI arrive en 5C/5D.
 function traverseDungeon(dungeon: DungeonDef, start: DungeonRunState): Traversal {
   const traversal: Traversal = { run: start, hpTrail: [], enemyCounts: [], xp: 0 };
   for (const room of dungeon.rooms) {
@@ -259,6 +263,9 @@ function assertNoHeal(trail: readonly RoomOutcome[]): void {
   }
 }
 
+// Le `rewards` ci-dessous est CONSTRUIT À LA MAIN : ce chemin ne traverse PAS
+// `resolveCombatRewards` (donc ni prospection, ni drops, ni `levelUp`).
+// Seul le crédit via `gainXp` (dans `creditCombatRewards`) est prouvé ici.
 function creditXp(amount: number): void {
   const hero = heroOrThrow();
   const totalXp = hero.xp + amount;
@@ -315,7 +322,9 @@ describe("walkthrough donjon de la Ferraille", () => {
     expect(isDungeonComplete(traversal.run, dungeon)).toBe(true);
     creditXp(traversal.xp);
     const hero = heroOrThrow();
-    // 295 + 365 + 590 + 885 XP réels ⇒ palier 4 de data/progression.yaml.
+    // XP CALCULÉE depuis les `baseXp` du YAML (via `computeCombatXp`),
+    // mais CRÉDITÉE via un `rewards` fabriqué à la main (cf. `creditXp`).
+    // Ce n'est donc pas `resolveCombatRewards` qui est exercé.
     expect(traversal.xp).toBe(2135);
     expect(hero.level).toBe(4);
     expect(hero.xp).toBe(2135);
