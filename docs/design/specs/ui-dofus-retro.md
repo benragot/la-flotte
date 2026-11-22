@@ -287,17 +287,24 @@ Piste : feuilles de sprites en **2×** (ou `resolution` Pixi) et texture
 
 ### 12.2 Les coins de l'écran restent vides — c'est géométrique
 
-Une carte iso est un **losange**. Couvrir un rectangle avec un losange exige un
-facteur **≥ ×4** : pour que `|x|/a + |y|/b ≤ 1` contienne le rectangle `W×H` avec
-`a = cW/2` et `b = cH/2`, il faut `4/c ≤ 1`, soit `c ≥ 4`.
+Une carte iso est un **losange**. Un losange n'occupe que **la moitié de sa boîte englobante** (aire `2ab` contre `4ab` pour le rectangle `2a × 2b`) : ses quatre pointes laissent donc les coins du rectangle dehors. Si le losange avait
+le rapport d'aspect du viewport (`a = cW/2`, `b = cH/2`), le coin `(W/2, H/2)`
+donnerait `1/c + 1/c = 2/c ≤ 1`, soit **`c ≥ 2`** : il faut au moins doubler
+l'échelle pour atteindre les quatre coins.
 
-La mise à l'échelle retenue (`arenaScale`, plafonnée par `cornerSafeScale`)
-garantit que **le centre de chaque case reste dans l'arène** — donc que toute
-case est cliquable aux coins compris — et couvre **98-100 %** de la dimension
-contraignante. Mais **les quatre coins** du viewport restent hors du losange.
+Notre losange, lui, a un rapport **fixé à 2:1** par `TILE_W/TILE_H`
+(`src/renderer/gridProjection.ts:4-6`) : il n'a jamais celui du viewport. Pour
+un 4:3 (1,33), contenir les quatre coins avec un losange 2:1 exige
+`a ≥ W/2 + H`, soit **≈ ×2,5** l'échelle d'inscription (×3 pour un carré,
+×2,125 en 16:9) — et à ce zoom la carte déborde largement de l'écran.
+
+D'où le choix de `arenaScale` (`src/renderer/gridProjection.ts:155`), plafonné
+par `cornerSafeScale` : le losange est **inscrit**, le centre de **chaque** case
+reste dans l'arène (donc toute case est cliquable, coins compris) et la carte
+sature la dimension contraignante. Les quatre coins du viewport restent hors du
+losange **par construction** : couvrir et « ne perdre aucune case » sont deux
+critères incompatibles, et c'est le second qui a été retenu.
 
 **Ce n'est pas un défaut** : c'est la raison pour laquelle Dofus dessine un
 **fond sombre** derrière la carte. Piste : un fond d'arène, pas des cases
 factices — des cases factices seraient cliquables et casseraient le pathfinding.
-Un viewport **4:3** plafonne à **73 %** de remplissage : c'est le prix du choix
-« jamais perdre une case ».

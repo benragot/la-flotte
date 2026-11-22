@@ -35,7 +35,7 @@ points litigieux (chrono de tour, ordre des invocations).
 |---|---|---|---|---|
 | 1 | Pods (poids transporté, capacité liée à Force) | absent | `src/schemas/itemSchema.ts:43-48` (champs communs : id, nom, description, prix — aucun poids) et `src/engine/inventory/stack.ts:35-40` (`addItem` sans plafond) ; recherche : pods, poids, capacity dans `src/` et `data/` — `weight` n'existe que comme poids de tirage (`src/schemas/spawnSchema.ts:18`) | champ de poids sur l'objet, capacité dérivée de la Force, refus de ramasser et affichage sac (dette D78) |
 | 2 | Métiers de récolte (outil équipé, ressource ramassable) | absent | `src/engine/exploration/move.ts:26-28` (le seul clic d'exploration déplace) et aucun métier dans `src/schemas/` ; recherche : harvest, métier, récolte, tool, outil, job dans `src/` et `data/` — seules occurrences décoratives (`data/items.yaml:212`, `data/recipes.yaml:49`) | notion de métier, outil équipé, ressource récoltable et action de récolte (dette D79) |
-| 3 | Sorties de map (bords, marqueurs, transition) | absent | `src/schemas/mapSchema.ts:9-15` (`mapSchema` = id, name, width, height, grid — aucune sortie) et `src/store/useCombatStore.ts:152-156` (`startMapId` renvoie `maps[0].id`, aucune action de changement de carte) | marqueurs de sortie en données, transition et graphe d'îles ; aujourd'hui une seule carte 12×12 (tâche 5D-exits) |
+| 3 | Sorties de map (bords, marqueurs, transition) | absent | `src/schemas/mapSchema.ts:9-15` (`mapSchema` = id, name, width, height, grid — aucune sortie) et `src/store/useCombatStore.ts:152-156` (`startMapId` renvoie `maps[0].id`, aucune action de changement de carte) | marqueurs de sortie en données, transition et graphe d'îles ; `data/maps.yaml` déclare **5 cartes** mais le joueur ne peut pas quitter sa carte de départ (`maps[0]`), donc l'archipel est injouable (tâche 5D-exits) |
 | 4 | Attaque au corps-à-corps (dégâts de l'arme) | absent | `data/items.yaml:139-142` (aveu des données : `weaponType`, `damageLines`, `apCost`, `critRate` « n'existent ni dans `itemSchema` ni dans le moteur ») ; `src/store/useCombatStore.ts:342-345` et `361-366` (l'attaque du joueur = **premier sort de dégâts** de sa classe) ; `src/engine/inventory/types.ts:38-47` (`ItemLike` sans `level` ni dégâts) | ligne de dégâts, CC, PA d'arme et attaque de base : une arme n'est qu'un bloc de stats (dette D82) |
 | 5 | Médaillon central (cœur, anneau de temps, XP circulaire) | absent | recherche : médaillon, medallion, orb, anneau, circulaire dans `src/` — aucun composant ; `src/ui/components/CombatHud.tsx:59-68` (HUD = bandeau, initiative, dock, overlay) et `src/ui/components/TimelineCard.tsx:23-33` (mini barre de PV, pas d'anneau) | médaillon, anneau de tour et cercle d'XP ; aucun XP n'est même affiché (dette D80) |
 | 6 | Canaux de chat (vert/combat, noir/commun, bleu/privé, violet/guilde) | partiel | `src/engine/combatLoop/log.ts:3-5` (un seul tableau `log`) et `src/ui/components/CombatLogPanel.tsx:9-14` + `src/ui/hudHelpers.ts:137` (trois teintes par locuteur, aucun canal) | modèle de canal, filtres et teinte par élément ; privé et guilde sont sans objet mono-joueur, la teinte d'élément est la tâche 5C-log-channel (dette D81) |
@@ -47,7 +47,7 @@ points litigieux (chrono de tour, ordre des invocations).
 | 12 | Écran de création accessible | absent | `src/ui/appRouting.ts:5-7` (`hasHero` ⇒ arène, sans retour) ; `src/store/useGameStore.ts:302` expose `resetGame` mais aucun fichier de `src/ui/` ne l'appelle | bouton « nouveau personnage », purge du slot et retour à `HeroCreation` (tâche 5D-new-game) |
 | 13 | Envoûtements / buffs / debuffs | partiel | modélisés par `src/schemas/spellSchema.ts:13-31` (types, `value`, `duration`) et 18 sorts de héros `kind: other` dans `data/spells.yaml` ; **non appliqués** : `src/engine/combatLoop/cast.ts:153-161` refuse par identité tout `kind: other` | moteur d'effets (vague 6, `docs/design/specs/effects-engine.md`) : durée, PA/PM, armure, soin, zone, invocation |
 | 14 | Compte à rebours de tour | absent | recherche : timer, countdown, chrono, deadline, setInterval, Date.now dans `src/` — **zéro occurrence** ; `src/engine/combatLoop/turn.ts:26` ne compte que des tours | limite de temps par tour, anneau de temps et auto-pass ; aucun état d'horloge dans `BattleState` (dette D80) |
-| 15 | Sorts de classe et attaques d'arme | partiel | `data/spells.yaml` (44 sorts : 36 héros, 8 monstres) et `src/store/useCombatStore.ts:342-345` (seul le **premier** sort de dégâts de la classe est exposé en 1vN) contre `src/engine/combatLoop/cast.ts:153-161` (18 sorts de héros `kind: other` inertes) | 20 sorts castables sur 44 (16 dégâts + 2 téléportations + 8 monstres) : 18 sorts de héros inutilisables, et un seul accessible dans l'UI 1vN |
+| 15 | Sorts de classe et attaques d'arme | partiel | `data/spells.yaml` (44 sorts : 36 héros, 8 monstres) et `src/store/useCombatStore.ts:342-345` (seul le **premier** sort de dégâts de la classe est exposé en 1vN) contre `src/engine/combatLoop/cast.ts:153-161` (18 sorts de héros `kind: other` inertes) | **26 sorts non inertes sur 44** (16 dégâts de héros + 2 téléportations de héros + 8 sorts de monstres) ; les **18** sorts de héros `kind: other` ne font rien ; en 1vN de donjon `heroDamageSpell` n'expose qu'un sort, en 1v1 d'exploration la grille de `SPELL_SLOT_COUNT` (12 emplacements) en montre trois, dont les `kind: other` sont des clics morts |
 
 > Les écarts de fidélité de la poussée (ligne 10) sont détaillés dans la fiche
 > `docs/design/specs/effects-engine.md` §1.7, tableau « notre modèle est-il
@@ -56,12 +56,15 @@ points litigieux (chrono de tour, ordre des invocations).
 
 ## 3. Les trois écarts les plus graves
 
-1. **La moitié des sorts de héros est inerte et un seul est jouable en 1vN**
+1. **La moitié des sorts de héros est inerte et le choix de sort dépend du mode**
    (lignes 13 et 15). `castSpell` renvoie l'état inchangé pour tout `kind: other`
    (`src/engine/combatLoop/cast.ts:158-160`) : 18 des 36 sorts de classe ne font
-   rien, sans message. En 1vN, l'UI ne propose même pas de choisir un sort :
-   `heroDamageSpell()` renvoie le premier sort `damage` de la classe
-   (`src/store/useCombatStore.ts:342-345`).
+   rien, sans message. En **1vN de donjon**, le panneau de salle (`BattlePanel`)
+   n'offre qu'une attaque : `heroDamageSpell()` renvoie le premier sort `damage`
+   de la classe (`src/store/useCombatStore.ts:342-345`, `361-366`). En **1v1
+   d'exploration**, `SpellSlots` rend bien une grille de `SPELL_SLOT_COUNT` = 12
+   emplacements (`src/ui/hudHelpers.ts:107-128`), mais remplie des 3 `spellIds`
+   de la classe — et les sorts `kind: other` y sont des clics morts.
 2. **Une arme n'inflige aucun dégât** (ligne 4). Il n'existe pas d'attaque de
    base : le joueur frappe uniquement avec un sort. Une arme de niveau 17 est un
    bloc de statistiques, alors que `data/items.yaml:139-142` documente
@@ -73,7 +76,7 @@ points litigieux (chrono de tour, ordre des invocations).
    schéma promet une règle que le moteur n'applique pas.
 
 Deux blocages de jouabilité, moins « graves » mais bloquants, sont traités en
-tâches : l'absence de sortie de map (ligne 3, une seule carte 12×12) et
+tâches : l'absence de sortie de map (ligne 3 : 5 cartes déclarées, mais le joueur ne peut pas quitter `maps[0]`) et
 l'impossibilité de revenir à la création (ligne 12, `resetGame` sans appelant).
 
 ## Ce qui a été délibérément écarté
@@ -81,16 +84,23 @@ l'impossibilité de revenir à la création (ligne 12, `resetGame` sans appelant
 Ces éléments de Dofus 1.29 ne seront pas implémentés. Ils sont listés ici pour ne
 jamais réapparaître comme des « oublis » dans une prochaine analyse.
 
+- **Navires, bateaux et navigation maritime** — c'est la **prémisse de l'univers** (La Flotte, l'archipel) mais c'est du **contenu**, pas une mécanique : aucun système de navigation n'est spécifié et, tant que le joueur ne peut pas quitter `maps[0]` (écart 3), un navire n'aurait aucune destination. À réintroduire avec l'archipel (7B), jamais comme un oubli.
 - **Multi-joueurs (PvP, kolizeum, percepteurs)** — le jeu est mono-joueur : pas de serveur, pas d'état partagé, la sauvegarde est un JSON local (`src/engine/save/serializeSave.ts`).
 - **Guildes et banque de guilde** — sans second joueur il n'y a pas de guilde ; le coffre personnel (5B-c) couvre le besoin de stockage.
 - **Hôtels de vente et mode marchand** — l'économie est de subsistance (drop + craft) : un marché entre joueurs n'a aucune contrepartie hors ligne.
-- **Zaaps et réseau de transport** — hors périmètre tant qu'il n'y a qu'une carte (écart 3) ; les sorties de map passent d'abord.
+- **Zaaps et réseau de transport** — hors périmètre tant que le joueur ne peut pas quitter sa carte (écart 3) ; les sorties de map passent d'abord.
 - **Montures, élevage et dragodindes** — contenu massif de méta-progression, sans effet sur la boucle exploration → combat → butin actuelle.
 - **Alignement (Bonta/Brâkmar) et combats de guilde** — dépend entièrement des guildes et du multi-joueurs, donc écarté avec eux.
 - **Quêtes de PNJ et dialogues à choix** — l'univers et le ton existent, mais le moteur de dialogue n'est pas prioritaire face au chemin jouable actuel (donjon) ; le lore vit dans les descriptions d'objets.
 - **Forgemagie, sculptemagie, brisage et runes** — méta-artisanat hors de la boucle « je joue une session » ; le craft simple (`src/engine/craft/`) suffit.
 - **Enclos de monstres et élevage d'archimonstres** — même raison que les montures : contenu de collection, pas de combat.
 - **Encyclopédie, succès et classements** — aucune valeur en solo hors ligne tant que le contenu tient en une île.
+- **Échanges entre joueurs (objets, kamas)** — mono-joueur : il n'y a personne avec qui échanger ; le drop et le craft couvrent l'approvisionnement.
+- **Liste d'amis, contacts et messages privés** — mono-joueur hors ligne : aucun autre compte à contacter.
+- **Scaéroplanes et transports aériens** — même raison que les zaaps et les navires : pas de réseau de cartes à relier.
+- **Maisons, enclos et ateliers privés** — immobilier de guilde et de multi-joueurs, sans contrepartie en solo.
+- **Spectateurs (observer un combat)** — mono-joueur : il n'y a aucun combat à observer d'autre que le sien.
+- **Éventail (groupes de plusieurs monstres)** — nos groupes d'exploration ne contiennent **qu'un** monstre (`buildGroup`, `src/engine/exploration/groups.ts:20`) ; l'éventail 1.29 (jusqu'à 8 monstres, XP et butin accrus) est un système de groupe à part entière, hors du chemin « un groupe = un combat 1vN », à rouvrir avec le contenu d'archipel (7B).
 
 ## 4. Ce que cette analyse ouvre dans le backlog (v20)
 

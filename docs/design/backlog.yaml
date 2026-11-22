@@ -409,7 +409,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 8 — `equipItem` (src/engine/inventory/equipment.ts:20-23) ne vérifie que `category` et `slot`, et `ItemLike` (src/engine/inventory/types.ts:38-47) ne porte pas `level` alors que `src/schemas/itemSchema.ts:67` le déclare : équiper un objet de niveau 18 au niveau 1 passe, ce qui vide de son sens la panoplie de la fiche §6. Porter `level` dans `ItemLike`, refuser sous le niveau et journaliser le refus ; les prérequis de caractéristiques attendent une fiche qui les chiffre."
+            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 8 — `equipItem` (src/engine/inventory/equipment.ts:20-23) ne vérifie que `category` et `slot`, et `ItemLike` (src/engine/inventory/types.ts:38-47) ne porte pas `level` alors que `src/schemas/itemSchema.ts:67` le déclare : équiper un objet de niveau 18 au niveau 1 passe, ce qui vide de son sens la panoplie de la fiche §6. Porter `level` dans `ItemLike`, refuser sous le niveau et journaliser le refus ; **équiper sans posséder** est le même défaut : `takeFromBag` (src/engine/inventory/equipment.ts:63-66) ne vérifie pas l'échec de `removeItem` (qui rend l'inventaire inchangé quand l'objet manque) et équipe quand même — exiger la présence dans le sac. Les prérequis de caractéristiques attendent une fiche qui les chiffre."
       - id: 5D
         title: Wiring Navire-Base et premier donjon
         status: in_progress
@@ -461,7 +461,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 3 — `mapSchema` (src/schemas/mapSchema.ts:9-15) ne déclare aucune sortie et `startMapId` (src/store/useCombatStore.ts:152-156) renvoie `maps[0].id` : le joueur reste sur une seule carte 12×12, l'archipel est injouable. Déclarer les sorties en données (bord ou marqueur → cible + case d'arrivée), une action de transition unique dans `useCombatStore` et la validation Zod des cibles ; D59 (map de départ = ordre de fichier) reste ouverte."
+            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 3 — `mapSchema` (src/schemas/mapSchema.ts:9-15) ne déclare aucune sortie et `startMapId` (src/store/useCombatStore.ts:152-156) renvoie `maps[0].id` : `data/maps.yaml` déclare 5 cartes, mais le joueur ne peut pas quitter sa carte de départ (`maps[0]`) — l'archipel est injouable. Déclarer les sorties en données (bord ou marqueur → cible + case d'arrivée), une action de transition unique dans `useCombatStore` et la validation Zod des cibles ; D59 (map de départ = ordre de fichier) reste ouverte."
   - id: wave-6
     title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
     status: todo
@@ -581,7 +581,7 @@ waves:
             owner: tdd-coder
             priority: medium
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/ui-dofus-retro.md §12.2 et docs/design/specs/dofus-1.29-gaps.md ligne 7 — une carte iso est un losange : couvrir un rectangle exige un facteur ≥ ×4, `arenaScale` plafonne donc par `cornerSafeScale` et laisse les quatre coins hors carte (98-100 % de la dimension contraignante, 73 % en 4:3). C'est la raison du fond sombre de Dofus, pas un défaut à corriger : dessiner un fond d'arène, jamais des cases factices — elles seraient cliquables et casseraient le pathfinding."
+            notes: "docs/design/specs/ui-dofus-retro.md §12.2 et docs/design/specs/dofus-1.29-gaps.md ligne 7 — une carte iso est un losange de rapport 2:1 (`TILE_W/TILE_H`) : un losange n'occupe que la moitié de sa boîte englobante, donc ses quatre coins restent dehors ; s'il partageait le rapport du viewport il faudrait `c ≥ 2` (2/c ≤ 1), et pour un 4:3 contenir les quatre coins avec un losange 2:1 exige ≈ ×2,5 l'échelle d'inscription — au prix de la carte entière. `arenaScale` plafonne donc par `cornerSafeScale` : le losange est inscrit, chaque case reste cliquable. C'est la raison du fond sombre de Dofus, pas un défaut à corriger : dessiner un fond d'arène, jamais des cases factices — elles seraient cliquables et casseraient le pathfinding."
       - id: 7B
         title: Contenu archipel final
         status: todo
