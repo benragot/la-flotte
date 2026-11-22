@@ -592,6 +592,13 @@ describe("backlog — dette D55 soldée", () => {
   });
 });
 
+describe("backlog — dette D84 soldée", () => {
+  it("ne trouve plus la dette de la mesure unique du canvas, soldée par la stabilisation du harnais", () => {
+    expect(debtById(readBacklog(), "D84")).toBeUndefined();
+    expect(rawBacklog()).not.toContain("`boxOf` mesure une seule fois");
+  });
+});
+
 describe("backlog — vague 4D wiring", () => {
   it("enregistre la tâche de câblage App et ouvre la phase 4D", () => {
     const backlog = readBacklog();
@@ -1063,8 +1070,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 24", () => {
-    expect(readBacklog().meta.version).toBe(24);
+  it("versionne le backlog en 25", () => {
+    expect(readBacklog().meta.version).toBe(25);
   });
 });
 
@@ -1671,7 +1678,6 @@ describe("backlog — décisions du propriétaire (v21)", () => {
  */
 const TODAY_DEBTS: Array<[string, string, string, string]> = [
   ["D83", "high", "external", "pr-merger.md"],
-  ["D84", "medium", "5C-actor-ring", "boxOf"],
   ["D85", "medium", "external", "eslint src tests"],
   ["D86", "medium", "5C-actor-ring", "locator(\"li\")"],
   ["D87", "medium", "7A-spritesheets", "decorAbove"],
