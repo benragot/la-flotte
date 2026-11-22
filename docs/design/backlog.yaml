@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 9
+  version: 10
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -285,4 +285,16 @@ debts:
   - id: D44
     title: centeredOrigin décale la carte iso d'une demi-largeur vers la gauche — à 1024 px de large, ~256 px sortent du cadre ; clic cohérent mais décor tronqué
     severity: medium
+    target: 4D
+  - id: D45
+    title: "`combatantFromHero` jette `vitality` et force `zeroResistances()` ⇒ le palier 2 de la panoplie (Vitalité) est inerte en combat et le palier 3 (résistance fixe) est ignoré ; mapper `vitality → PV`, `flatRes`/`percentRes` → `resistances`"
+    severity: high
+    target: 5B
+  - id: D46
+    title: "`rewards.ts` appelle `computeProspection` sur un `pp` déjà calculé ⇒ double comptage de `floor(chance/10)` ; le panneau, le combattant et `RewardsSummary` peuvent afficher trois valeurs différentes"
+    severity: medium
+    target: 5B
+  - id: D47
+    title: "Restaurer et corriger `D07` : `App.tsx` porte `aria-label` sur un `<div>` sans rôle (ignoré par les AT) — à faire en 4D avec la réécriture d'App"
+    severity: low
     target: 4D
