@@ -4,6 +4,7 @@ import type { GridSize, IsoOrigin } from "./gridProjection";
 import { sceneOrigin } from "./gridProjection";
 import type { GridHighlight, SceneModel } from "./scene";
 import { buildSceneModel } from "./scene";
+import { groupNameOf } from "./labels";
 import type { TokenSprite, TokenView } from "./tokens";
 import { STATIC_TOKEN_SPRITE, groupTokenView, playerTokenView } from "./tokens";
 
@@ -71,7 +72,7 @@ function heroSprite(exploration: ExplorationView): TokenSprite {
 }
 
 function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): TokenView[] {
-  const groups = exploration.groups.map((group) => groupTokenView(group, origin));
+  const groups = exploration.groups.map((group) => groupTokenView({ ...group, name: groupNameOf(group.label) }, origin));
   return [playerTokenView(exploration.playerPos, origin, heroSprite(exploration)), ...groups];
 }
 
