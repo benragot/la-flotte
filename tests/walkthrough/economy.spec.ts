@@ -36,11 +36,6 @@ const levelOneHero = () => createHero("Anselme", iop());
 
 const tinyArena = () => parseAsciiMap(["P.M.", "...."]);
 
-function rewardsFor(player: ReturnType<typeof initCombat>["player"], rng: () => number) {
-  const options = { hero: player, monster: piou(), progression, rng };
-  return resolveCombatRewards({ ...options, heroXp: 0 });
-}
-
 beforeEach(() => {
   useGameStore.getState().resetGame();
   useCombatStore.setState({ combat: null, selectedSpellId: null, rewards: null });
@@ -50,7 +45,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("walkthrough : économie", () => {
+describe("walkthrough : économie — chaîne de calcul", () => {
   it("enchaîne prospection, drop, XP de combat et crédit dans le sac", () => {
     const hero = levelOneHero();
     const loot = piou().loot[0];
@@ -78,6 +73,9 @@ describe("walkthrough : économie", () => {
     expect(countItem(state.inventory, loot.itemId)).toBe(1);
   });
 
+});
+
+describe("walkthrough : économie — câblage du store", () => {
   it("lit le levelGapFactor de progression.yaml au lieu du 1 en dur", () => {
     const state = initCombat({ map: tinyArena(), hero: levelOneHero(), monster: piou(), spells });
     const doubled = { ...progression, levelGapFactor: 2 };

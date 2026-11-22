@@ -194,7 +194,7 @@ describe("useGameStore — consommables", () => {
   });
 });
 
-describe("useGameStore — sauvegarde", () => {
+describe("useGameStore — persistance", () => {
   it("sauvegarde puis relit un état identique", () => {
     createHeroInStore();
     useGameStore.setState({ flags: { quete_coupure: true } });
@@ -230,6 +230,9 @@ describe("useGameStore — sauvegarde", () => {
     expect(loaded.equipment).toEqual({ hat: "chapeau_piou_mazoute" });
   });
 
+});
+
+describe("useGameStore — stockage indisponible", () => {
   it("renvoie false sans héros ou sans stockage disponible", () => {
     expect(useGameStore.getState().saveGame()).toBe(false);
     createHeroInStore();
@@ -242,6 +245,9 @@ describe("useGameStore — sauvegarde", () => {
     expect(useGameStore.getState().saveGame(new FullStorage())).toBe(false);
   });
 
+});
+
+describe("useGameStore — export, import et remise à zéro", () => {
   it("exporte puis réimporte le même état", () => {
     createHeroInStore();
     addToBag("plume_mazoutee", 1);
@@ -269,7 +275,7 @@ describe("useGameStore — sauvegarde", () => {
   });
 });
 
-describe("hero — pont vers la sauvegarde et le combat", () => {
+describe("hero — snapshot de sauvegarde", () => {
   it("fait l'aller-retour exact héros → snapshot → héros", () => {
     const base = createHero("Anselme", iop());
     const options = { hero: base, amount: 1500, gainRules: progression.gainRules };
@@ -278,6 +284,9 @@ describe("hero — pont vers la sauvegarde et le combat", () => {
     expect(heroFromSnapshot(heroToSnapshot(hero), iop())).toEqual(hero);
   });
 
+});
+
+describe("hero — statistiques totales", () => {
   it("somme caractéristiques, équipement et paliers de panoplie", () => {
     const hero = createHero("Anselme", iop());
     const inventory = equipPieces(SET_PIECES);
@@ -292,6 +301,9 @@ describe("hero — pont vers la sauvegarde et le combat", () => {
     });
   });
 
+});
+
+describe("hero — projection en combattant", () => {
   it("dérive un combattant complet du héros équipé", () => {
     const hero = createHero("Anselme", iop());
     const inventory = equipPieces(SET_PIECES);
@@ -318,6 +330,9 @@ describe("hero — pont vers la sauvegarde et le combat", () => {
     expect(combatant.resistances.flat.earth).toBe(0);
   });
 
+});
+
+describe("hero — PV courants bornés", () => {
   it("borne les PV courants aux PV maximum", () => {
     const hero = { ...createHero("Anselme", iop()), hp: 40 };
     const stats = totalStatsFor({ hero, inventory: emptyInventory(), items, sets });
