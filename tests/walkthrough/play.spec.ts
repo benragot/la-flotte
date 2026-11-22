@@ -62,13 +62,17 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * (`data/spells.yaml` seul, portée et LoS comprises), aucun `Math.random`
  * (LCG injecté pour le spawn et le drop, `() => 0.5` pour le combat).
  *
- * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`) et
- * le correctif `castsPerTurn`/`cooldown` a déplacé la mort d'une salle :
- *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 62 PV, 16 actions ;
- *   franchissement : 62 + ceil(130 × 0,5) = 127 PV rendus par la porte (DEC-03) ;
- *   salle 2 « Le Hangar à Mazout » : GAGNÉE, 127 → 7 PV, 36 actions ;
- *   franchissement : 7 + ceil(130 × 0,5) = 72 PV rendus par la porte ;
- *   salle 3 « L'Allée des Boulons Perdus » : DÉFAITE, 72 → 0 PV, 10 actions.
+ * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`), le
+ * correctif `castsPerTurn`/`cooldown` est en place et le pas diagonal (1 PM) est
+ * facturé au chemin : les monstres approchent en diagonale, donc ils arrivent un
+ * tour plus tôt et les PV de fin de salle bougent (130 → 50 au lieu de 62) :
+ *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 50 PV, 16 actions ;
+ *   franchissement : 50 + ceil(130 × 0,5) = 115 PV rendus par la porte (DEC-03) ;
+ *   salle 2 « Le Hangar à Mazout » : GAGNÉE, 115 → 49 PV, 33 actions ;
+ *   franchissement : 49 + ceil(130 × 0,5) = 114 PV rendus par la porte ;
+ *   salle 3 « L'Allée des Boulons Perdus » : DÉFAITE, 114 → 0 PV, 10 actions.
+ * Le héros nu perd TOUJOURS la salle 3 (DEC-03 règle (b)) : c'est la seule
+ * propriété que ce walkthrough défend, la valeur des PV n'est qu'une mesure.
  *
  * AVANT LE CORRECTIF (même fichier, même soin, mesure du 22/11/2026) : la salle 2
  * était une DÉFAITE en 21 actions (127 → 0). `data/spells.yaml` déclarait
@@ -449,19 +453,19 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 3", () => 
     expect(first.hpEnd).toBeLessThan(first.hpStart);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(2);
-    expect(first.hpEnd).toBe(62);
+    expect(first.hpEnd).toBe(50);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(2);
-    // DEC-03 : 62 PV + ceil(130 × 0,5) = 127 PV à la porte de la salle 2.
-    expect(second.hpStart).toBe(127);
+    // DEC-03 : 50 PV + ceil(130 × 0,5) = 115 PV à la porte de la salle 2.
+    expect(second.hpStart).toBe(115);
     expect(second.victory).toBe(true);
-    expect(second.hpEnd).toBe(7);
+    expect(second.hpEnd).toBe(49);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(3);
     const third = playRoom(currentRoomNumber(), storage);
     expect(third.roomNumber).toBe(DEATH_ROOM);
-    // DEC-03 : 7 PV + ceil(130 × 0,5) = 72 PV à la porte de la salle 3.
-    expect(third.hpStart).toBe(72);
+    // DEC-03 : 49 PV + ceil(130 × 0,5) = 114 PV à la porte de la salle 3.
+    expect(third.hpStart).toBe(114);
     expect(third.defeat).toBe(true);
     expect(third.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();

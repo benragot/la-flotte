@@ -53,14 +53,16 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * n'est écrit dans ce fichier.
  *
  * RÉSULTAT MESURÉ LE 22/11/2026, `castsPerTurn` ET `cooldown` HONORÉS (fix
- * casts-per-turn), SOIN ENTRE LES SALLES ACTIF — six cellules, deux victoires :
+ * casts-per-turn), SOIN ENTRE LES SALLES ACTIF, PAS DIAGONAL (1 PM) FACTURÉ AU
+ * CHEMIN — six cellules, toujours deux victoires (les ennemis arrivent plus tôt,
+ * donc les PV restants et les actions bougent, pas les issues) :
  *   niv.  build    PV max  issue      dernière salle  PV de monstres  actions
- *   16    survie    303    défaite    3 (PV 0)        211             83
- *   16    offense   228    défaite    3 (PV 0)        176             64
- *   17    survie    343    défaite    3 (PV 0)         60             78
- *   17    offense   263    défaite    3 (PV 0)         83             58
- *   18    survie    433    VICTOIRE   4 (PV 105)        0             95
- *   18    offense   348    VICTOIRE   4 (PV 119)        0             77
+ *   16    survie    303    défaite    3 (PV 0)        200             86
+ *   16    offense   228    défaite    3 (PV 0)        210             56
+ *   17    survie    343    défaite    3 (PV 0)         90             71
+ *   17    offense   263    défaite    3 (PV 0)        122             55
+ *   18    survie    433    VICTOIRE   4 (PV 101)        0             94
+ *   18    offense   348    VICTOIRE   4 (PV 28)         0             70
  *
  * AVANT LE CORRECTIF (même fichier, mesure du 22/11/2026, même soin) : aucune
  * victoire. 16 survie 267 PV restants / 79 actions, 16 offense 232 / 57,
@@ -77,12 +79,14 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * fidélité, pas l'équilibrage (cf. DEC-03, qui interdit d'affaiblir les monstres).
  *
  * RÉPONSE DEC-03 : règle (a) — « au niveau recommandé avec un bon équipement, le
- * joueur gagne » — TOUJOURS PAS satisfaite : 16 meurt encore en salle 3 (211 et
- * 176 PV de monstres restants). Mais le mur est passé de 4 salles à 1 : 18 survie
+ * joueur gagne » — TOUJOURS PAS satisfaite : 16 meurt encore en salle 3 (200 et
+ * 210 PV de monstres restants). Mais le mur est passé de 4 salles à 1 : 18 survie
  * et 18 offense TERMINENT le donjon, ce qu'aucune cellule ne faisait avant. Le
  * levier restant est un arbitrage de design (salle 3, boss room), pas une valeur
  * de ce fichier. Règle (b) : le héros nu de `play.spec.ts` perd toujours, mais il
  * meurt désormais en salle 3 au lieu de la salle 2.
+ * Le pas diagonal ne change AUCUNE de ces deux issues : 16 perd la salle 3, 18
+ * gagne la salle 4 — seules les valeurs de mesure (PV restants, actions) bougent.
  *
  * L'ÉTAT DES QUOTAS EST PORTÉ PAR LA BATAILLE (`BattleState.spellUsage`) : un
  * compteur par lanceur et par sort, remis à zéro quand le tour change, jamais une
@@ -604,12 +608,12 @@ interface Cell {
  * fin de la précédente.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 3, enemyHpLeft: 211, actions: 83, turnsShort: 10.62, hpNeeded: 343.7 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 3, enemyHpLeft: 176, actions: 64, turnsShort: 6.35, hpNeeded: 201.4 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 60, actions: 78, turnsShort: 2.13, hpNeeded: 66.39 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "defaite", room: 3, enemyHpLeft: 83, actions: 58, turnsShort: 2.31, hpNeeded: 76.06 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 95 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 77 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 3, enemyHpLeft: 200, actions: 86, turnsShort: 10.588, hpNeeded: 356.47 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 3, enemyHpLeft: 210, actions: 56, turnsShort: 7.875, hpNeeded: 299.25 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 90, actions: 71, turnsShort: 3.214, hpNeeded: 110.25 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "defaite", room: 3, enemyHpLeft: 122, actions: 55, turnsShort: 3.444, hpNeeded: 129.38 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 94 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 70 },
 ];
 
 
