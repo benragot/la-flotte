@@ -103,6 +103,14 @@ describe("texte flottant — étiquettes et trajectoire", () => {
 });
 
 describe("couche flottante — durée de vie et changement de scène", () => {
+  it("pose la première image dès la création : aucun clignotement au coin (0,0)", () => {
+    const layer = spawn();
+    const text = layer.container.children[0] as unknown as { position: { x: number; y: number }; alpha: number };
+    expect(text.position.y).toBeGreaterThan(0);
+    expect(text.position.x).toBe(floatOrigin(token("piou-0")).x);
+    expect(text.alpha).toBe(1);
+  });
+
   it("crée un texte au-dessus de la cible et détruit le nœud après 1,5 s", () => {
     const layer = spawn();
     expect(layer.container.children).toHaveLength(1);
@@ -124,12 +132,32 @@ describe("couche flottante — durée de vie et changement de scène", () => {
     layer.sync({ events: [event()], tokens: [token("piou-0")], scene: MAP });
     expect(layer.container.children).toHaveLength(1);
   });
+});
 
+describe("couche flottante — une carte neuve ne rejoue jamais un tampon", () => {
   it("détruit tout au changement de carte : aucun texte fantôme", () => {
     const layer = spawn();
     layer.sync({ events: [], tokens: [token("piou-0")], scene: OTHER_MAP });
     expect(layer.busy()).toBe(false);
     expect(layer.container.children).toHaveLength(0);
+  });
+
+  it("change de carte avec un tampon plein sans rejouer un seul nombre", () => {
+    const layer = new FloatingTextLayer();
+    const buffer = [event({ id: 1 }), event({ id: 2 }), event({ id: 3 })];
+    layer.sync({ events: buffer, tokens: [token("piou-0")], scene: MAP });
+    expect(layer.container.children).toHaveLength(3);
+    layer.sync({ events: buffer, tokens: [token("piou-0")], scene: OTHER_MAP });
+    expect(layer.busy()).toBe(false);
+    expect(layer.container.children).toHaveLength(0);
+  });
+
+  it("affiche de nouveau après un changement de carte, même si l'identifiant repart de 1", () => {
+    const layer = new FloatingTextLayer();
+    layer.sync({ events: [event({ id: 7 })], tokens: [token("piou-0")], scene: MAP });
+    layer.sync({ events: [], tokens: [token("piou-0")], scene: OTHER_MAP });
+    layer.sync({ events: [event({ id: 1 })], tokens: [token("piou-0")], scene: OTHER_MAP });
+    expect(layer.container.children).toHaveLength(1);
   });
 
   it("ignore un événement dont la cible a quitté la scène", () => {
