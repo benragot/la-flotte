@@ -110,12 +110,15 @@ function taskIdsOf(backlog: Backlog, phaseId: string): string[] {
   return (phaseById(backlog, phaseId)?.tasks ?? []).map((task) => task.id);
 }
 
-function donePhaseIds(backlog: Backlog): Set<string> {
-  return new Set(allPhases(backlog).filter((phase) => phase.status === "done").map((phase) => phase.id));
+/** Phases ET tâches terminées : une dette qui vise l'une d'elles est périmée. */
+function doneIds(backlog: Backlog): Set<string> {
+  const phases = allPhases(backlog).filter((phase) => phase.status === "done").map((phase) => phase.id);
+  const tasks = allTasks(backlog).filter((task) => task.status === "done").map((task) => task.id);
+  return new Set([...phases, ...tasks]);
 }
 
 function debtsTargetingDone(backlog: Backlog): Debt[] {
-  const done = donePhaseIds(backlog);
+  const done = doneIds(backlog);
   return backlog.debts.filter((debt) => done.has(String(debt.target)));
 }
 
@@ -628,6 +631,16 @@ describe("backlog — cibles des dettes", () => {
     stale.debts = [{ id: "D01", title: "Dette périmée", severity: "low", target: "5B" }];
     expect(debtsTargetingDone(stale).map((debt) => debt.id)).toEqual(["D01"]);
   });
+
+  it("détecte aussi une dette qui vise une tâche done sur fixtures", () => {
+    const phase = (status: string) => fixturePhase("5D", "in_progress", { tasks: [fixtureTask("5D-a", status, 46)] });
+    const clean = fixtureBacklog([phase("todo")]);
+    clean.debts = [{ id: "D01", title: "Dette ouverte", severity: "low", target: "5D-a" }];
+    expect(debtsTargetingDone(clean).map((debt) => debt.id)).toEqual([]);
+    const stale = fixtureBacklog([phase("done")]);
+    stale.debts = [{ id: "D01", title: "Dette périmée", severity: "low", target: "5D-a" }];
+    expect(debtsTargetingDone(stale).map((debt) => debt.id)).toEqual(["D01"]);
+  });
 });
 
 describe("backlog — vague 5B livrée", () => {
@@ -714,8 +727,10 @@ describe("backlog — vague 5C/5D ouverte en v16", () => {
     expect(taskById(backlog, "5D-a")?.depends_on).toEqual(["5C-c", "5C-d", "5B-g"]);
   });
 
-  it("versionne le backlog en 16", () => {
-    expect(readBacklog().meta.version).toBe(16);
+  it("exige une PR ouverte sur 5C-b en revue (symétrique de 5B-g)", () => {
+    const task = taskById(readBacklog(), "5C-b");
+    expect(task?.status).toBe("needs_review");
+    expect(task?.pr).toBe(46);
   });
 });
 
