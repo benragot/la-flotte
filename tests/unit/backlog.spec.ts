@@ -21,7 +21,8 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const WAVE_ID_PATTERN = /^wave-\d+(?:\.\d+)?$/;
 const PHASE_ID_PATTERN = /^\d(?:\.\d)?[A-D]$/;
 const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[a-z0-9-]+$/;
-const DEBT_ID_PATTERN = /^D\d{2}$/;
+/** `D96`→`D99` épuisent les deux chiffres ; trois chiffres dès `D100`, sans zéro de tête. */
+const DEBT_ID_PATTERN = /^D(?:0[1-9]|[1-9]\d{1,2})$/;
 
 interface Task {
   id: string;
@@ -396,6 +397,22 @@ describe("backlog — identifiants", () => {
     expect(duplicated([...taskIds, ...debtIds])).toEqual([]);
     expect(taskIds.filter((id) => !TASK_ID_PATTERN.test(id))).toEqual([]);
     expect(debtIds.filter((id) => !DEBT_ID_PATTERN.test(id))).toEqual([]);
+  });
+});
+
+/**
+ * Un id de dette n'a qu'UNE graphie : la garde anti-doublon compare des chaînes
+ * brutes, donc `D096` est un alias de `D96` et échapperait à la détection.
+ */
+const INVALID_DEBT_IDS = ["D1", "d100", "D-1", "D1000", "D0123", "XD100", "D100 ", "D000", "D096"];
+
+function acceptedInvalidDebtIds(): string[] {
+  return INVALID_DEBT_IDS.filter((id) => DEBT_ID_PATTERN.test(id));
+}
+
+describe("backlog — une seule graphie par id de dette", () => {
+  it("rejette les zéros de tête, les alias à trois chiffres, les préfixes et les espaces", () => {
+    expect(acceptedInvalidDebtIds()).toEqual([]);
   });
 });
 
@@ -1046,8 +1063,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 23", () => {
-    expect(readBacklog().meta.version).toBe(23);
+  it("versionne le backlog en 24", () => {
+    expect(readBacklog().meta.version).toBe(24);
   });
 });
 
@@ -1691,5 +1708,54 @@ describe("backlog — dettes du 22/11 versées en v22", () => {
 
   it("nomme un fichier:ligne dans chaque note", () => {
     expect(unlocatedDebts(readBacklog())).toEqual([]);
+  });
+});
+
+/**
+ * Six dettes constatées pendant les audits de la nuit du 22/11 : elles existaient
+ * dans des rapports, donc nulle part dans le dépôt. Chacune nomme un symbole et un
+ * `fichier:ligne`, sinon elle n'est pas actionnable.
+ */
+const WAVE2_DEBTS: Array<[string, string, string, string]> = [
+  ["D96", "medium", "5C-path-8dirs", "stepDistance"],
+  ["D97", "low", "5C-actor-ring", "DEGENERATE_SIZE"],
+  ["D98", "low", "7B", "minY"],
+  ["D99", "medium", "5C-equip-requirements", "anneau_interdit"],
+  ["D100", "low", "5D-exits", "landingFor"],
+  ["D101", "medium", "7A-spritesheets", "ensureAnimationLoop"],
+];
+
+function wave2DebtGaps(backlog: Backlog): string[] {
+  return WAVE2_DEBTS.flatMap(([id, severity, target, keyword]) => {
+    const debt = debtById(backlog, id);
+    if (debt === undefined) return [`${id}:absent`];
+    const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+    const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    return [...graded, ...noted];
+  });
+}
+
+function wave2Unlocated(backlog: Backlog): string[] {
+  return WAVE2_DEBTS.filter(([id]) => !NOTE_LOCATION.test(debtById(backlog, id)?.notes ?? "")).map(([id]) => id);
+}
+
+describe("backlog — six dettes des audits de la nuit (v24)", () => {
+  it("verse D96 à D101 avec sévérité, cible et note factuelle", () => {
+    expect(wave2DebtGaps(readBacklog())).toEqual([]);
+  });
+
+  it("nomme un fichier:ligne dans chacune des six notes", () => {
+    expect(wave2Unlocated(readBacklog())).toEqual([]);
+  });
+
+  it("n'entre en collision avec aucun id de tâche", () => {
+    const tasks = new Set(allTasks(readBacklog()).map((task) => task.id));
+    const ids = WAVE2_DEBTS.map(([id]) => id);
+    expect(ids.filter((id) => tasks.has(id))).toEqual([]);
+  });
+
+  it("ne cible aucune tâche done", () => {
+    const done = doneIds(readBacklog());
+    expect(WAVE2_DEBTS.map(([, , target]) => target).filter((target) => done.has(target))).toEqual([]);
   });
 });
