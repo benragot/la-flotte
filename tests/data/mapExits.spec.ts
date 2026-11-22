@@ -97,6 +97,19 @@ describe("mapSchema — les sorties de carte", () => {
   });
 });
 
+function outdoorMaps(): MapDef[] {
+  const reached = reachableIds(BEACH_ID);
+  return maps.filter((map) => reached.has(map.id) && map.id !== BEACH_ID && !map.id.startsWith("fer_salle_"));
+}
+
+function expectOutdoor(map: MapDef): void {
+  expect(map.width, `${map.id} trop étroite`).toBeGreaterThanOrEqual(10);
+  expect(map.height, `${map.id} trop courte`).toBeGreaterThanOrEqual(10);
+  expect(map.id.startsWith("ferraille_"), `${map.id} mal préfixée`).toBe(true);
+  expect(symbolsOf(map).includes("M"), `${map.id} porte un M`).toBe(false);
+  expect(symbolsOf(map).split("P"), `${map.id} n'a pas exactement un P`).toHaveLength(2);
+}
+
 describe("data/maps.yaml — les cartes d'extérieur reliées", () => {
   it("la plage propose au moins une sortie", () => {
     expect(plage().exits.length).toBeGreaterThanOrEqual(1);
@@ -110,20 +123,13 @@ describe("data/maps.yaml — les cartes d'extérieur reliées", () => {
   });
 
   it("mène à deux cartes d'extérieur de 10×10 au moins, sans monstre", () => {
-    const reached = reachableIds(BEACH_ID);
-    const outdoors = maps.filter((map) => reached.has(map.id) && map.id !== BEACH_ID && !map.id.startsWith("fer_salle_"));
+    const outdoors = outdoorMaps();
     expect(outdoors.length).toBeGreaterThanOrEqual(2);
-    outdoors.forEach((map) => {
-      expect(map.width, `${map.id} trop étroite`).toBeGreaterThanOrEqual(10);
-      expect(map.height, `${map.id} trop courte`).toBeGreaterThanOrEqual(10);
-      expect(map.id.startsWith("ferraille_"), `${map.id} mal préfixée`).toBe(true);
-      expect(symbolsOf(map).includes("M"), `${map.id} porte un M`).toBe(false);
-      expect(symbolsOf(map).split("P"), `${map.id} n'a pas exactement un P`).toHaveLength(2);
-    });
+    outdoors.forEach(expectOutdoor);
   });
 
   it("les deux cartes se répondent (aller-retour par les sorties)", () => {
-    const [first, second] = maps.filter((map) => reachableIds(BEACH_ID).has(map.id) && !map.id.startsWith("fer_salle_"));
+    const [first, second] = outdoorMaps();
     expect(first).toBeDefined();
     expect(second).toBeDefined();
     if (first === undefined || second === undefined) return;
