@@ -15,6 +15,8 @@ export interface MonsterCombatantInput {
   monster: MonsterDef;
   index: number;
   position?: Position;
+  /** Facteur de PV de la salle (DEC-03) : `Math.floor(hp × hpScale)`. */
+  hpScale?: number;
 }
 
 export interface HeroBattleInput {
@@ -28,6 +30,8 @@ export interface BattleSetupInput {
   startingPositions?: { hero: Position; monsters: Position[] };
   /** Grille de la salle : active le placement déterministe (5C-d). */
   map?: AsciiMap;
+  /** Facteur de PV de la salle (DEC-03), `1` quand la salle n'en déclare pas. */
+  hpScale?: number;
 }
 
 export interface BattleSetup {
@@ -59,8 +63,19 @@ function withSide(source: BattleSource, side: Side, position: Position): Combata
   return { ...source, side, position, stats, resistances, initiative: initiativeFor(source) };
 }
 
-function monsterSource(monster: MonsterDef, index: number): BattleSource {
-  const pools = { hp: monster.hp, maxHp: monster.hp, ap: monster.ap, maxAp: monster.ap, mp: monster.mp, maxMp: monster.mp };
+/**
+ * PV de la salle : le facteur (DEC-03) s'applique au PV de référence AVANT
+ * toute autre opération, `Math.floor` inclus (jamais d'arrondi supérieur), et
+ * il est le seul modificateur de PV d'un ennemi — aucun bonus ne s'y ajoute
+ * ensuite dans `withSide`.
+ */
+function scaledHp(monster: MonsterDef, hpScale: number): number {
+  return Math.floor(monster.hp * hpScale);
+}
+
+function monsterSource(monster: MonsterDef, index: number, hpScale: number): BattleSource {
+  const hp = scaledHp(monster, hpScale);
+  const pools = { hp, maxHp: hp, ap: monster.ap, maxAp: monster.ap, mp: monster.mp, maxMp: monster.mp };
   const identity = { id: `${monster.id}-${index}`, name: monster.name, level: monster.level };
   return { ...identity, ...pools, stats: monster.stats, resistances: monster.resistances, spellIds: [...monster.spellIds] };
 }
@@ -68,7 +83,8 @@ function monsterSource(monster: MonsterDef, index: number): BattleSource {
 /** Pont `MonsterDef` → `CombatantLike` : id déterministe, aucune donnée en dur. */
 export function monsterCombatant(input: MonsterCombatantInput): CombatantLike {
   const position = input.position ?? ORIGIN;
-  return withSide(monsterSource(input.monster, input.index), "enemy", position);
+  const source = monsterSource(input.monster, input.index, input.hpScale ?? 1);
+  return withSide(source, "enemy", position);
 }
 
 /** Pont héros 1v1 → combattant 1vN : ajoute `side` et l'initiative calculée. */
@@ -95,7 +111,8 @@ function battlePositions(input: BattleSetupInput): BattlePositions | null {
 }
 
 function enemyCombatants(input: BattleSetupInput, positions: readonly Position[]): CombatantLike[] {
-  const spawn = (monster: MonsterDef, index: number) => monsterCombatant({ monster, index, position: positions[index] });
+  const spawn = (monster: MonsterDef, index: number) =>
+    monsterCombatant({ monster, index, position: positions[index], hpScale: input.hpScale });
   return input.monsters.flatMap(expandGroup).map(spawn);
 }
 

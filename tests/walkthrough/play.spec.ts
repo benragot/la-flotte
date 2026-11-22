@@ -76,17 +76,24 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * frappait deux fois par tour. Le héros nu gagne maintenant une salle de plus —
  * c'est la preuve que le mur n'était pas l'équilibrage mais la donnée jetée.
  *
- * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force ne
- * tient pas la salle 3. La salle 3 aligne 370 PV de monstres et ce build
- * n'inflige que ~28 PV par tour, alors que la porte ne rend que la moitié de la
- * barre. Une salle qui dure plus longtemps que le pool effectif ne se soigne pas
- * de l'intérieur — c'est exactement la limite mesurée ici.
+ * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force
+ * n'inflige que ~28 PV par tour quand la salle 3 menace ~32 PV par tour. Depuis
+ * la recalibration, la salle 3 aligne 127 PV de monstres (26 + 29 + 2×36, cf.
+ * `hpScale: 0.35` dans `data/dungeons.yaml`), soit ~5 tours de frappe ; mais la
+ * porte de la salle 2 ne rend que la moitié de la barre. Le héros arrive à
+ * 72 PV, encaisse ~32 PV par tour et tombe en 2-3 tours, sans avoir pu vider
+ * la salle. Une salle qui dure plus longtemps que le pool effectif ne se soigne
+ * pas de l'intérieur — c'est exactement la limite mesurée ici.
  *
- * CE QUI INVERSERA L'ASSERTION : l'équilibrage de la salle 3 et de la boss room
- * (baisser les dégâts des monstres est INTERDIT par le brief DEC-03). Le jour où
- * la salle 3 tombe, prolonger ce parcours vers la salle 4 : ce test deviendra la
- * PREUVE que le donjon est finissable par un joueur normal, pas seulement par un
- * héros de 5 000 PV.
+ * OBSERVATION DATÉE DU 22/11/2026 — LA RECALIBRATION A EU LIEU SANS INVERSER
+ * L'ASSERTION : `hpScale` 0,35 sur la salle 3 et 0,30 sur la salle 4 (PR #84)
+ * ont ramené la salle 3 de 370 à 127 PV et rendu le donjon finissable au niveau
+ * recommandé par un héros équipé (`tests/walkthrough/gearedDungeon.spec.ts`).
+ * Le héros nu, lui, meurt TOUJOURS en salle 3, exactement comme asserté
+ * ci-dessous : c'est la preuve observée que `DEC-03(b)` tient — baisser le
+ * contenu d'une salle ne suffit pas à rendre le donjon accessible sans
+ * équipement. Ce test n'est donc plus une prédiction sur un équilibrage à
+ * venir : il est le garde-fou permanent de la règle (b).
  *
  * CE QU'IL NE PROUVE PAS : ni le déplacement du héros en salle (le store 1vN
  * n'a pas d'action de mouvement : le héros reste sur sa case de placement, les
