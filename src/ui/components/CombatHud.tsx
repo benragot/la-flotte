@@ -1,6 +1,5 @@
 import type { CombatRewards, CombatState } from "../../engine/combatLoop/types";
 import type { Hero } from "../../engine/createHero";
-import type { ExplorationState } from "../../engine/exploration";
 import { useCombatStore } from "../../store/useCombatStore";
 import { useGameStore } from "../../store/useGameStore";
 import type { HudMode } from "../hudHelpers";
@@ -25,11 +24,8 @@ const DOCK_SHELL =
 const LOG_COLUMN = "min-w-0 w-[34%]";
 const VITALS_COLUMN = "flex min-w-0 w-[24%] flex-col justify-center";
 const SPELL_COLUMN = "min-w-0 flex-1";
-const EXPLORATION_BANNER =
-  "pointer-events-auto flex items-baseline gap-3 border-b border-[#8c6d46]/60 bg-[#2b241d]/90 px-3 py-1 text-[#e8dcc8]";
-const EXPLORATION_TITLE = "text-sm font-bold tracking-wide text-[#d4a537]";
-const EXPLORATION_HINT = "text-sm font-semibold text-[#d4a537]";
-const EXPLORATION_TEXT = "text-[11px] opacity-80";
+/** Exploration : le journal est passé en colonne gauche, le dock garde les ressources. */
+const EXPLORATION_HUD_SHELL = "pointer-events-none flex h-full w-full flex-col justify-end text-[#e8dcc8]";
 
 export interface CombatHudProps {
   mode?: HudMode;
@@ -91,16 +87,6 @@ function CombatLayout({ combat, mode, onReturnToMap }: CombatLayoutProps) {
   return <HudLayout {...layout} />;
 }
 
-function ExplorationBanner({ mapId }: { mapId: string }) {
-  return (
-    <header className={EXPLORATION_BANNER}>
-      <h1 className={EXPLORATION_TITLE}>La Flotte</h1>
-      <p className={EXPLORATION_HINT}>Mode Exploration — Clique un monstre pour combattre</p>
-      <p className={`ml-auto ${EXPLORATION_TEXT}`}>Carte {mapId}</p>
-    </header>
-  );
-}
-
 function HeroVitals({ hero }: { hero: Hero }) {
   return (
     <section aria-label="Ressources du héros" className={DOCK_PANEL}>
@@ -111,43 +97,28 @@ function HeroVitals({ hero }: { hero: Hero }) {
   );
 }
 
-function explorationLog(exploration: ExplorationState | null): string[] {
-  return exploration?.log ?? [];
-}
-
-function heroName(hero: Hero | null): string {
-  return hero?.name ?? "Héros";
-}
-
 function DockVitals({ hero }: { hero: Hero | null }) {
   if (hero === null) return null;
   return <HeroVitals hero={hero} />;
 }
 
-function ExplorationDock({ exploration, hero }: { exploration: ExplorationState | null; hero: Hero | null }) {
-  const log = explorationLog(exploration);
+/**
+ * Dock d'exploration : le journal est parti dans la colonne gauche et le
+ * bandeau d'état au-dessus de la carte, il ne reste que les ressources du héros.
+ */
+function ExplorationDock({ hero }: { hero: Hero | null }) {
   return (
-    <div className={DOCK_SHELL}>
-      <div className={LOG_COLUMN}><CombatLogPanel log={log} playerName={heroName(hero)} /></div>
-      <div className={VITALS_COLUMN}><DockVitals hero={hero} /></div>
-    </div>
-  );
-}
-
-function ExplorationBody(props: { exploration: ExplorationState | null; hero: Hero | null; mapId: string }) {
-  return (
-    <div className={HUD_SHELL}>
-      <div className={ARENA_ZONE}><ExplorationBanner mapId={props.mapId} /></div>
-      <ExplorationDock exploration={props.exploration} hero={props.hero} />
+    <div className={EXPLORATION_HUD_SHELL}>
+      <div className={DOCK_SHELL}>
+        <div className={VITALS_COLUMN}><DockVitals hero={hero} /></div>
+      </div>
     </div>
   );
 }
 
 function ExplorationHud() {
-  const exploration = useCombatStore((state) => state.exploration);
   const hero = useGameStore((state) => state.hero);
-  const mapId = useCombatStore((state) => state.mapId);
-  return <ExplorationBody exploration={exploration} hero={hero} mapId={mapId} />;
+  return <ExplorationDock hero={hero} />;
 }
 
 function IdlePanel() {

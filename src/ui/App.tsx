@@ -1,11 +1,12 @@
 import { useEffect, useRef } from "react";
-import type { ReactElement } from "react";
+import type { ReactNode, ReactElement } from "react";
 import type { ArenaMode, ExplorationView } from "../renderer";
 import { CombatCanvas } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
 import { useGameStore } from "../store/useGameStore";
 import { appScreen, shouldStartExploration } from "./appRouting";
 import { CombatHud, BattlePanel, HeroCreation } from "./components";
+import { ExplorationJournalPanel, ExplorationStatus } from "./components/ExplorationOverlay";
 import OverlayPanels from "./components/OverlayPanels";
 import { explorationView } from "./explorationView";
 import { useExplorationPointer } from "./useExplorationPointer";
@@ -16,6 +17,8 @@ const HUD_HEIGHT_CLASS = "relative h-[240px] w-full shrink-0";
 
 const CREATION_SHELL = "flex h-screen w-screen items-center justify-center overflow-auto bg-slate-950 p-4";
 const ARENA_SHELL = "relative flex h-screen w-screen flex-col overflow-hidden";
+/** Rangée carte + colonne gauche du journal (exploration) : la carte garde `flex-1`. */
+const ARENA_ROW = "relative flex min-h-0 w-full flex-1 overflow-hidden";
 
 /** Garde mutable d'un démarrage unique (équivalent structurel de `useRef`). */
 interface OnceGuard {
@@ -31,6 +34,10 @@ interface ArenaView {
 interface ArenaStageProps {
   mode: ArenaMode;
   exploration?: ExplorationView;
+}
+
+interface ArenaSectionProps extends ArenaStageProps {
+  children?: ReactNode;
 }
 
 /**
@@ -65,15 +72,16 @@ function runOnce(action: () => void, requested: OnceGuard): void {
   action();
 }
 
+/** Le héros prête sa classe à la scène : c'est l'`entityId` de sa feuille de sprite. */
 function useArenaView(): ArenaView {
   const mode = useCombatStore((state) => state.mode);
   const exploration = useCombatStore((state) => state.exploration);
-  const hoveredCell = useCombatStore((state) => state.hoveredCell);
+  const heroClassId = useGameStore((state) => state.hero?.classId ?? null);
   const returnToMap = useCombatStore((state) => state.returnToMap);
-  return { mode, view: explorationView(exploration, hoveredCell), returnToMap };
+  return { mode, view: explorationView({ exploration, heroClassId }), returnToMap };
 }
 
-/** Le canvas remplit la zone libre : `useContainerSize` mesure donc la surface réellement jouable. */
+/** Le canvas remplit la zone libre : `useContainerSize` mesure la surface réellement jouable. */
 function ArenaStage({ mode, exploration }: ArenaStageProps) {
   return (
     <main aria-label="Terrain de combat" className="flex h-full w-full items-center justify-center bg-slate-950">
@@ -82,12 +90,14 @@ function ArenaStage({ mode, exploration }: ArenaStageProps) {
   );
 }
 
-function ArenaSection({ mode, exploration }: ArenaStageProps) {
+/** La zone jouable est `relative` : les overlays d'exploration s'y posent au-dessus du canvas. */
+function ArenaSection({ mode, exploration, children }: ArenaSectionProps) {
   const host = useRef<HTMLElement>(null);
   useExplorationPointer(host);
   return (
     <section ref={host} aria-label="Zone jouable" className="relative min-h-0 flex-1">
       <ArenaStage mode={mode} exploration={exploration} />
+      {children}
     </section>
   );
 }
@@ -120,12 +130,22 @@ function OverlayLayer() {
   );
 }
 
+/** Colonne gauche du journal + zone jouable : la carte garde tout l'espace restant. */
+function ArenaRow({ exploring, mode, view }: { exploring: boolean; mode: ArenaMode; view: ExplorationView | undefined }) {
+  return (
+    <div className={ARENA_ROW}>
+      {exploring ? <ExplorationJournalPanel /> : null}
+      <ArenaSection mode={mode} exploration={view}>{exploring ? <ExplorationStatus /> : null}</ArenaSection>
+    </div>
+  );
+}
+
 /** Arène + dock en colonne, plus la couche d'overlays (sac, fiche perso, combat 1vN). */
 function PlayableArena() {
   const { mode, view, returnToMap } = useArenaView();
   return (
     <div className={ARENA_SHELL}>
-      <ArenaSection mode={mode} exploration={view} />
+      <ArenaRow exploring={mode === "exploration"} mode={mode} view={view} />
       <Dock mode={mode} onReturnToMap={returnToMap} />
       <OverlayLayer />
     </div>

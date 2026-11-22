@@ -32,30 +32,21 @@ function onClick(event: PointerEvent, element: HTMLElement): void {
   useCombatStore.getState().clickCell(cell);
 }
 
-function onMove(event: PointerEvent, element: HTMLElement): void {
-  useCombatStore.getState().setHoveredCell(cellFromEvent(event, element));
-}
-
-function bind(element: HTMLElement, click: (event: PointerEvent) => void, move: (event: PointerEvent) => void) {
+function bindClick(element: HTMLElement, click: (event: PointerEvent) => void): () => void {
   element.addEventListener("click", click);
-  element.addEventListener("pointermove", move);
-  return () => {
-    element.removeEventListener("click", click);
-    element.removeEventListener("pointermove", move);
-  };
+  return () => element.removeEventListener("click", click);
 }
 
 /**
  * En exploration, le renderer ne branche pas son pointeur (pas de combat) :
- * l'UI traduit le point cliqué en case via la même projection iso.
+ * l'UI traduit le clic en case via la même projection iso. Aucun survol n'est
+ * suivi : le déplacement se décide au clic, sans aperçu de chemin.
  */
 export function useExplorationPointer(host: RefObject<HTMLElement>): void {
   const mode = useCombatStore((state) => state.mode);
   useEffect(() => {
     const element = host.current;
     if (mode !== "exploration" || element === null) return undefined;
-    const click = (event: PointerEvent) => onClick(event, element);
-    const move = (event: PointerEvent) => onMove(event, element);
-    return bind(element, click, move);
+    return bindClick(element, (event: PointerEvent) => onClick(event, element));
   }, [mode, host]);
 }

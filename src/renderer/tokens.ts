@@ -122,10 +122,26 @@ export function playerTokenView(
   return tokenAt(gridToIso({ ...position, origin }), spec);
 }
 
+/** Ce qu'un groupe d'exploration doit savoir pour piloter son `EntitySprite`. */
+export interface GroupTokenInput {
+  pos: Position;
+  totalLevel: number;
+  /** Feuille du premier monstre du groupe ; absente = jeton géométrique documenté. */
+  spriteId?: string | null;
+}
+
+/** Même chemin de sprite que le combat : la feuille du manifeste, sinon repli. */
+function groupSprite(spriteId: string | null | undefined): TokenSprite {
+  const known = spriteId ?? null;
+  if (known === null) return STATIC_TOKEN_SPRITE;
+  return { spriteId: known, facing: "left", animation: "idle", animationKey: `idle-${known}` };
+}
+
 /** Jeton d'un groupe de monstres, badgé de son niveau total. */
-export function groupTokenView(group: { pos: Position; totalLevel: number }, origin: IsoOrigin): TokenView {
+export function groupTokenView(group: GroupTokenInput, origin: IsoOrigin): TokenView {
   const { pos, totalLevel } = group;
-  const spec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite: STATIC_TOKEN_SPRITE };
+  const sprite = groupSprite(group.spriteId);
+  const spec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite };
   return tokenAt(gridToIso({ ...pos, origin }), { ...spec, depth: depthOf(pos) });
 }
 
