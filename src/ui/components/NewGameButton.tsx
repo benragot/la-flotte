@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { startNewGameIfConfirmed } from "../../store/newGame";
+import { useEscapeClose } from "../useEscapeClose";
 import { SECTION_HEADING } from "./hudTheme";
 
 const ACCESS_BUTTON =
@@ -93,6 +94,7 @@ function AskLayer({ ask }: AskLayerProps) {
 /** Accès + confirmation : la remise à zéro n'a lieu qu'après un « Continuer ». */
 export default function NewGameButton() {
   const ask = useAskState();
+  useEscapeClose(ask.cancel, ask.asking);
   return (
     <>
       <NewGameAccess onRequest={ask.request} />

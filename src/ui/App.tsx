@@ -10,6 +10,7 @@ import { ExplorationJournalPanel, ExplorationStatus } from "./components/Explora
 import { useDemoEntry } from "./demoEntry";
 import OverlayPanels from "./components/OverlayPanels";
 import { explorationView } from "./explorationView";
+import { useEscapeLayer } from "./useEscapeClose";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 
@@ -189,6 +190,7 @@ function PlayableArena() {
 export default function App(): ReactElement {
   useGameBootstrap();
   useGlobalShortcuts();
+  useEscapeLayer();
   useDemoEntry();
   const hero = useGameStore((state) => state.hero);
   useArenaBootstrap(hero !== null);

@@ -2,9 +2,15 @@ import type { AsciiMap, Position } from "../grid";
 import { isWalkableCell, samePosition } from "../grid";
 import type { ExplorationState, MonsterGroup, MonsterSpawn, RespawnInput, Rng } from "./types";
 
-const MIN_RESPAWN_DISTANCE = 4;
 const GROUP_ID_PREFIX = "group-";
 const GROUP_ID_PATTERN = /group-(\d+)/g;
+/**
+ * Marge du respawn : **trois** cases, comme `MIN_GROUP_DISTANCE` du placement
+ * initial, appliquée au héros ET à chaque case d'entrée (`P` + sorties). La
+ * dette « 4 cases mais sorties ignorées » est soldée ici.
+ */
+const MIN_RESPAWN_DISTANCE = 3;
+const SATURATED_LOG = "Le pont est plein : pas une case libre de plus, on ne va pas les empiler comme des caisses de morue.";
 
 export function groupPositions(state: ExplorationState): Position[] {
   return state.monsterGroups.map((group) => group.pos);
@@ -63,10 +69,15 @@ function allCells(map: AsciiMap): Position[] {
   return cells;
 }
 
+function farFromAnchors(state: ExplorationState, position: Position): boolean {
+  const anchors = [state.playerPos, ...state.entries];
+  return anchors.every((cell) => manhattan(position, cell) >= MIN_RESPAWN_DISTANCE);
+}
+
 function isRespawnCell(state: ExplorationState, position: Position): boolean {
   if (!isWalkableCell(state.map, position)) return false;
   if (getMonsterGroupAt(state, position) !== null) return false;
-  return manhattan(position, state.playerPos) >= MIN_RESPAWN_DISTANCE;
+  return farFromAnchors(state, position);
 }
 
 function respawnCandidates(state: ExplorationState): Position[] {
@@ -107,16 +118,52 @@ function defeatLog(groupId: string): string {
   return `Le groupe ${groupId} est vaincu.`;
 }
 
-function withRespawnedGroup(input: RespawnInput, position: Position): ExplorationState {
-  const group = buildGroup(input.spawn, nextGroupId(input.state), position);
-  const monsterGroups = [...input.state.monsterGroups, group];
-  return { ...input.state, monsterGroups, log: [...input.state.log, respawnLog(group)] };
+function withRespawnedGroup(state: ExplorationState, spawn: MonsterSpawn, position: Position): ExplorationState {
+  const group = buildGroup(spawn, nextGroupId(state), position);
+  const monsterGroups = [...state.monsterGroups, group];
+  const log = [...state.log, respawnLog(group)];
+  return { ...state, monsterGroups, log, respawns: state.respawns + 1 };
 }
 
+function respawnOnce(state: ExplorationState, spawn: MonsterSpawn, rng: Rng): ExplorationState {
+  const position = pickCandidate(respawnCandidates(state), rng);
+  return position === undefined ? state : withRespawnedGroup(state, spawn, position);
+}
+
+/** Ce qu'une passe de repeuplement traîne : la carte, le monstre, l'aléa. */
+interface TopUpInput {
+  state: ExplorationState;
+  spawn: MonsterSpawn;
+  rng: Rng;
+}
+
+/** Boucle **bornée par `wanted`** : à court de cases, elle s'arrête net. */
+function topUpGroups(input: TopUpInput, wanted: number): ExplorationState {
+  let current = input.state;
+  for (let placed = 0; placed < wanted; placed += 1) {
+    const next = respawnOnce(current, input.spawn, input.rng);
+    if (next === current) return current;
+    current = next;
+  }
+  return current;
+}
+
+/** Rien de libre alors que la zone demande encore des groupes : on le dit. */
+function saturationLog(state: ExplorationState, minGroups: number): ExplorationState {
+  if (state.monsterGroups.length >= minGroups) return state;
+  return { ...state, log: [...state.log, SATURATED_LOG] };
+}
+
+/**
+ * Repeuple la carte jusqu'au `min` de la zone. Aucun groupe sur un mur, une eau,
+ * le héros, une sortie ou un autre groupe ; tous à trois cases du héros et de
+ * chaque entrée. Carte pleine : aucun ajout, une ligne de journal, aucune boucle.
+ */
 export function respawnMonsterGroup(input: RespawnInput): ExplorationState {
-  const position = pickCandidate(respawnCandidates(input.state), input.rng);
-  if (position === undefined) return input.state;
-  return withRespawnedGroup(input, position);
+  const wanted = input.minGroups - input.state.monsterGroups.length;
+  if (wanted <= 0) return input.state;
+  const filled = topUpGroups({ state: input.state, spawn: input.spawn, rng: input.rng }, wanted);
+  return saturationLog(filled, input.minGroups);
 }
 
 export function defeatGroup(state: ExplorationState, groupId: string): ExplorationState {
