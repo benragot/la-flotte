@@ -7,6 +7,7 @@ import { useGameStore } from "../store/useGameStore";
 import { appScreen, shouldStartExploration } from "./appRouting";
 import { CombatHud, BattlePanel, HeroCreation } from "./components";
 import { ExplorationJournalPanel, ExplorationStatus } from "./components/ExplorationOverlay";
+import { useDemoEntry } from "./demoEntry";
 import OverlayPanels from "./components/OverlayPanels";
 import { explorationView } from "./explorationView";
 import { useExplorationPointer } from "./useExplorationPointer";
@@ -155,6 +156,7 @@ function PlayableArena() {
 export default function App(): ReactElement {
   useGameBootstrap();
   useGlobalShortcuts();
+  useDemoEntry();
   const hero = useGameStore((state) => state.hero);
   useArenaBootstrap(hero !== null);
   if (appScreen(hero !== null) === "creation") return <CreationScreen />;
