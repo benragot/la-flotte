@@ -27,7 +27,7 @@ export const HP_FILL = "h-1 rounded";
 export const ACTION_BUTTON =
   "mt-1 rounded border border-[#8c6d46] bg-[#2b241d] px-2 py-0.5 text-[11px] text-[#e8dcc8] transition hover:bg-[#d4a537] hover:text-[#2b241d]";
 
-export const FOOT = "flex items-center justify-between gap-2";
+export const FOOT = "mt-1 flex flex-col gap-1";
 
 export const LOG_LINE = "truncate text-[10px] opacity-80";
 
