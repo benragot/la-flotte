@@ -75,6 +75,11 @@ describe("data/maps.yaml — placement du décor", () => {
     });
   });
 
+  it("refuse une clé inconnue sur un objet de décor (schéma strict)", () => {
+    const typo = { maps: [{ id: "grille_stricte", name: "Grille stricte", width: 2, height: 1, grid: ["PM"], decor: [{ type: "rocher", x: 1, y: 0, layr: "above" }] }] };
+    expect(() => mapsFileSchema.parse(typo)).toThrow();
+  });
+
   it("refuse un décor posé sur un mur", () => {
     const broken = { maps: [{ id: "grille_invalide", name: "Grille invalide", width: 2, height: 1, grid: ["P#"], decor: [{ type: "rocher", x: 1, y: 0 }] }] };
     expect(() => mapsFileSchema.parse(broken)).toThrow();
