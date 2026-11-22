@@ -1193,9 +1193,15 @@ rewards:
 3. **`slot: ring` n'existe pas.** `EquipmentSlot` vaut `hat|cloak|weapon|amulet|ring1|ring2|belt|boots`. Deux pièces du dossier sont des bagues (`fer_anneau_mazoute`, `fer_anneau_rondelle_chance`). Lié à la dette **D06** (interdiction actuelle de porter deux bagues identiques, contraire à 1.29).
 4. **`setId: null`** n'est pas accepté par `itemSchema` (chaîne optionnelle). À trancher : clé absente plutôt que `null`.
 5. **Stats d'équipement en fourchettes `{min,max}`**, alors que `itemSchema` attend des entiers plats. Le modèle « jet aléatoire 1.29 » n'existe pas encore : c'est un chantier de schéma (et de calcul de stats) avant d'intégrer ce dossier.
-6. **Panoplies : structure et plafond de paliers.** Le dossier fournit bien `pieceIds` (le même nom que `setSchema`, bonne nouvelle) mais écrit ses bonus sous forme de map `bonusesByCount` 2→5 (une entrée par nombre de pièces), alors que `setSchema` attend une **liste ordonnée** `bonuses: [{ pieces, stats }]` dont `pieces` est plafonné à **4** (`MAX_TIER_PIECES`). Les paliers 5 pièces et les bonus `pm: 1` / `pa: 1` n'ont donc pas de représentation, et une map ne peut pas passer `bonusesIncrease` (qui exige des paliers strictement croissants sur un tableau).
+6. **Panoplies : structure et plafond de paliers.** Le dossier fournit bien `pieceIds` (le même nom que `setSchema`, bonne nouvelle) mais écrit ses bonus sous forme de map `bonusesByCount` 2→5 (une entrée par nombre de pièces), alors que `setSchema` attend une **liste ordonnée** `bonuses: [{ pieces, stats }]` dont `pieces` est plafonné à **4** (`MAX_TIER_PIECES`). Les paliers 5 pièces et les bonus `pm: 1` / `pa: 1` n'ont donc pas de représentation, et une map ne peut pas passer `bonusesIncrease` (qui exige des paliers strictement croissants sur un tableau). ⚠️ Ce n'est **pas** le seul blocage d'une panoplie 5 pièces : même après refonte du tableau de bonus, `SET_SLOTS` interdit structurellement la 5ᵉ pièce — voir §10.19.
 7. **Armes : modèle inexistant.** `weaponType`, `damageLines`, `critRate`, `critBonus`, `conditions` (ex. `agility >= 20`) n'ont ni schéma ni moteur. Les dégâts d'arme multi-lignes (terre + neutre) ne sont pas gérés par `computeDamage`.
-8. **Sorts de monstre : schéma partiel, moteur d'effets absent.** Mise au point vérifiée dans `src/schemas/spellSchema.ts` : **`cooldown`, `castsPerTurn` et `castsPerTarget` existent déjà** dans le schéma — c'est le **moteur** qui ne les consomme pas. Le dossier reste non collable pour autant : les **16 blocs de sorts** n'ont **ni `description` ni `classId`** (tous deux requis), écrivent `minValue`/`maxValue` au lieu de `damage: { min, max }`, `maxPerTurn`/`maxPerTarget` au lieu de `castsPerTurn`/`castsPerTarget`, et `effects: []` au lieu de `effect`. Surtout, `zone: cross|circle`, `kind: heal|buff|debuff|push_pull|summon` et les effets (`pmLoss`, `apLoss`, `shield`, `pushCells`, `durationTurns`, `summonMonsterId`, `breakOnWallPush`, `wallBreakApLoss`) n'ont **aucune représentation** : `spellSchema` n'accepte que `kind: damage|teleport|other` et un `effect` unique **descriptif, non consommé** par le moteur. C'est le chantier de la Vague 6A (`advanced-spells`) ; il est **bloquant pour 13 des 16 sorts** (voir §11).
+8. **Sorts de monstre : schéma partiel, moteur d'effets absent.** Mise au point vérifiée dans `src/schemas/spellSchema.ts` : **`cooldown`, `castsPerTurn` et `castsPerTarget` existent déjà** dans le schéma — c'est le **moteur** qui ne les consomme pas. Et **`pushCells` n'est pas absent** : le champ existe au niveau du sort (`spellSchema`) et il est réellement consommé par `src/engine/combatLoop/cast.ts` (`runResolveHit`), seule sa présence **à l'intérieur de `effects`** n'a pas de représentation — ne pas créer de doublon en 6A. Le dossier reste non collable pour autant. Non-conformités des **16 blocs de sorts** :
+    - **ni `description` ni `classId`** (tous deux requis, `z.string().min(1)`) ;
+    - `minValue`/`maxValue` au lieu de `damage: { min, max }` ;
+    - `maxPerTurn`/`maxPerTarget` au lieu de `castsPerTurn`/`castsPerTarget` ;
+    - `effects: []` au lieu de `effect` ;
+    - **`element: null` sur 5 sorts** — `fer_spell_serrage_de_boulon`, `fer_spell_soupe_a_lhuile`, `fer_spell_graissage`, `fer_spell_tole_blindee`, `fer_spell_appel_a_la_casse` — alors que `element` est `elementSchema.optional()`, donc accepte `undefined` mais **pas `null`** : 5 erreurs de parse de plus.
+    Surtout, `zone: cross|circle`, `kind: heal|buff|debuff|push_pull|summon` et les effets (`pmLoss`, `apLoss`, `shield`, `durationTurns`, `summonMonsterId`, `breakOnWallPush`, `wallBreakApLoss`) n'ont **aucune représentation** : `spellSchema` n'accepte que `kind: damage|teleport|other` et un `effect` unique **descriptif, non consommé** par le moteur. C'est le chantier de la Vague 6A (`advanced-spells`) ; il est **bloquant pour 13 des 16 sorts** (voir §11).
 9. **`ai` par monstre inexistant.** Le moteur actuel a une IA unique et codée (`runEnemyTurn` : rapprochement + attaque). Les 6 archétypes (`ranged_kiter`, `melee_rusher`, `tank_tackler`, `support_healer`, `pusher_control`, `boss_custom`) et `behaviorRules` exigent une IA paramétrable — chantier 5A (`multi-combat`) ou 6A.
 10. **`isBoss`, `kamasMin`, `kamasMax` absents** de `monsterSchema`, et la clé de butin n'a pas le bon nom : les 6 blocs du dossier écrivent **`drops:`** alors que le schéma exige **`loot:`**. Le contenu de `lootEntrySchema` est en revanche compatible (`itemId`/`baseDropRate`/`ppThreshold`) — un simple renommage de clé suffit pour ce point.
 11. **Donjons, PNJ, quêtes : aucun schéma.** `dungeons.yaml`, `npcs.yaml`, `quests.yaml` sont à créer (`dungeonSchema`, `npcSchema`, `questSchema`) — chantier 5A (`dungeon-data`).
@@ -1212,6 +1218,10 @@ rewards:
 16. **Clés de stats inexistantes — et le pire mode de défaillance.** `crit`, `initiative`, `flatDamage` et `percentDamage` (**20 occurrences** en §5–§6 : 6 `crit`, 9 `flatDamage`, 4 `initiative`, 1 `percentDamage`) n'existent pas dans `itemStatsSchema`, qui connaît `percentDmg`, `flatRes`, `percentRes` — et aucune des quatre ci-dessus. Le lien avec la dette **D04** est critique : `itemStatsSchema` n'étant **pas `.strict()`**, ces clés seraient **silencieusement supprimées** par Zod. Les panoplies perdraient crit, initiative et dégâts plats **sans aucune erreur**, ni au parse, ni en CI, ni dans un test de données : le jeu tournerait avec des pièces vides. C'est le pire mode de défaillance pour du contenu. Prérequis avant intégration : `.strict()` + table de renommage explicite (`percentDamage` → `percentDmg` ; `flatDamage`, `crit`, `initiative` → clés moteur à créer, aucune n'existe aujourd'hui).
 17. **Résistances négatives interdites par `monsterSchema`.** `resistanceSchema` (`src/schemas/monsterSchema.ts`) est `.nonnegative()` sur `flat` **et** `percent`. Les valeurs du dossier invalident **les 6 monstres sur 6** — la revue QA en annonçait 5, mais `fer_crabe_cle_molette` porte lui aussi `percent.fire: -10` : piou `-10` feu, crabe `-10` feu, rat `-5` feu et `-5` air, marmite `-10` eau, boulon `-5` eau, boss `-10` eau. Or **la faiblesse Eau d'Yvon est sa mécanique centrale** : tant que Tôle Blindée n'est pas cassée, c'est par l'eau qu'on contourne ses résistances fixes. Sans assouplissement du schéma (borne ±100 et cohérence flat/percent via `superRefine`), le boss perd son point faible et les 6 blocs de bestiaire sont rejetés au parse.
 18. **Collision de contenu : `plume_mazoutee` et `bec_mazoute`.** `plume_mazoutee` **existe déjà** dans `data/items.yaml` (ressource, `sellPrice: 3`, description différente) : le dossier le redéfinit, donc `itemsFileSchema` → `checkUniqueIds` échouera au parse. C'est la **même classe de conflit que `piou_mazoute` (D18)**, non couverte jusqu'ici : trancher entre fusion (garder l'entrée existante), renommage, ou redéfinition assumée avec migration. Et remplacer les `spellIds` de `piou_mazoute` par `[fer_spell_crachat_mazout, fer_spell_coup_daile_gras]` rend **`bec_mazoute` orphelin** dans `data/spells.yaml` (plus référencé par aucun monstre) : à supprimer, réaffecter à une variante de piou, ou assumer comme sort hors bestiaire. La dette **D03** porte sur la fidélité des sorts Iop, pas sur ce nettoyage.
+19. **`SET_SLOTS` interdit la 5ᵉ pièce de panoplie — bloquant pour les deux panoplies du dossier.** Dans `src/schemas/itemSchema.ts`, `SET_SLOTS = ["hat", "cloak", "amulet", "boots"]` et `checkSetSlot` rejette toute pièce portant un `setId` hors de ces quatre slots.
+    - **Trois pièces du dossier sont invalides au parse** : `fer_anneau_mazoute` (`ring`), `fer_ceinture_goudron` (`belt`), `fer_ceinture_outils_rouilles` (`belt`). `checkSetSlot` émet une issue, `itemsFileSchema` échoue, la CI tombe.
+    - **Plus grave** : cette règle **plafonne structurellement une panoplie à 4 pièces**. Le §10.6 est donc incomplet : même après refonte du tableau de bonus, une panoplie 5 pièces reste **irreprésentable** tant que `belt`/`ring` ne sont pas dans `SET_SLOTS`.
+    - **Conséquence d'implémentation** : la refonte 6B doit **élargir `SET_SLOTS`** (ou le supprimer, la cohérence restant portée par `setSchema.pieceIds`) **avant** de toucher `bonusesByCount` — sinon les panoplies Goudron-et-Plumes et Brico-Lourd de cette île sont impossibles. Dette **D33**.
 
 ## 11. Ordre d'implémentation recommandé
 
@@ -1223,7 +1233,9 @@ rewards:
 
 ## 12. Tâches à reporter dans `docs/design/backlog.yaml`
 
-Bloc prêt à coller. Le fichier appartient à une autre PR : rien n'est appliqué ici. Les 4 tâches suivent le **format tâche** de `docs/design/backlog.yaml` (`id`, `title`, `status`, `owner`, `priority`, `updated_at`, `depends_on`) et vont dans `waves[].phases[].tasks[]` ; les 11 dettes suivent le **format dette** (`id`, `title`, `severity`, `target`) et vont dans `debts[]`. Aucun id ne collisionne avec `D01`–`D17`, et chaque `target` pointe vers une phase existante (`5A`, `6A`, `6B`, `7B`).
+Bloc prêt à coller. Le fichier appartient à une autre PR : rien n'est appliqué ici. Les **5 tâches** suivent le **format tâche** de `docs/design/backlog.yaml` (`id`, `title`, `status`, `owner`, `priority`, `updated_at`, `depends_on`) et vont dans `waves[].phases[].tasks[]` ; les **12 dettes** suivent le **format dette** (`id`, `title`, `severity`, `target`) et vont dans `debts[]`. Chaque `target` pointe vers une phase existante (`5A`, `6A`, `6B`, `7B`).
+
+> **Note de collision d'identifiants** — Les dettes **D18–D26 sont valides**. Les identifiants **D27 et D28** de cette spec sont en collision avec ceux de la 4B (kamas, tables) : ils doivent être renumérotés **`D31`+** à l'insertion dans `docs/design/backlog.yaml`. `D27`/`D28` appartiennent à la 4B, `D29`/`D30` lui sont réservés (PV non synchronisés, items sans résistances) — cette spec n'utilise donc que `D18`–`D26` puis `D31`–`D33`.
 
 ```yaml
 # --- waves[wave-5].phases[5A].tasks ---
@@ -1271,7 +1283,7 @@ Bloc prêt à coller. Le fichier appartient à une autre PR : rien n'est appliqu
 
 # --- debts ---
 - id: D18
-  title: piou_mazoute redéfini (niv. 3, 5/4 PA-PM, baseXp 120→28) casse le walkthrough « 120 XP ⇒ niveau 2 » ; collisions de contenu associées tracées en D27 et D28
+  title: piou_mazoute redéfini (niv. 3, 5/4 PA-PM, baseXp 120→28) casse le walkthrough « 120 XP ⇒ niveau 2 » ; collisions de contenu associées tracées en D31 et D32
   severity: high
   target: 6B
 - id: D19
@@ -1306,12 +1318,16 @@ Bloc prêt à coller. Le fichier appartient à une autre PR : rien n'est appliqu
   title: fer_fruit_coup_de_boulon à la fois drop et craft — deux schémas qui se croisent
   severity: medium
   target: 6A
-- id: D27
+- id: D31
   title: plume_mazoutee redéfini alors qu'il existe déjà dans data/items.yaml (sellPrice 3) — checkUniqueIds cassera
   severity: high
   target: 6B
-- id: D28
+- id: D32
   title: bec_mazoute orphelin après remplacement des spellIds de piou_mazoute
   severity: low
+  target: 6B
+- id: D33
+  title: SET_SLOTS (hat/cloak/amulet/boots) rejette les pièces de panoplie ring/belt et plafonne toute panoplie à 4 pièces — élargir avant bonusesByCount
+  severity: high
   target: 6B
 ```
