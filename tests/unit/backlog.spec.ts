@@ -1039,8 +1039,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 21", () => {
-    expect(readBacklog().meta.version).toBe(21);
+  it("versionne le backlog en 22", () => {
+    expect(readBacklog().meta.version).toBe(22);
   });
 });
 
@@ -1636,5 +1636,53 @@ describe("backlog — décisions du propriétaire (v21)", () => {
   it("exige un **Interdit** par décision, rédigé en affirmatif", () => {
     expect(decisionInterdits()).toHaveLength(DECISION_NUMBERS.length);
     expect(negatedInterdits()).toEqual([]);
+  });
+});
+
+/**
+ * Dettes constatées le 22/11 hors de tout rapport d'agent : mergeurs concurrents,
+ * harnais UI et play, couches de décor, constantes de sprite, chemins de la clef.
+ * Chaque note porte un `fichier:ligne` : une dette sans localisation n'est pas
+ * actionnable, donc elle n'est pas une dette.
+ */
+const TODAY_DEBTS: Array<[string, string, string, string]> = [
+  ["D83", "high", "external", "pr-merger.md"],
+  ["D84", "medium", "5C-actor-ring", "boxOf"],
+  ["D85", "medium", "external", "eslint src tests"],
+  ["D86", "medium", "5C-actor-ring", "locator(\"li\")"],
+  ["D87", "medium", "7A-spritesheets", "decorAbove"],
+  ["D88", "medium", "7A-spritesheets", "this.actors"],
+  ["D89", "medium", "7A-spritesheets", "SPRITE_DISPLAY_SIZE"],
+  ["D90", "medium", "5B-key-budget", "81,55"],
+  ["D91", "high", "external", "DECISIONS.md"],
+  ["D92", "low", "5C-equip-requirements", "heroLevel"],
+  ["D93", "low", "5B-key-budget", "keyInBag"],
+  ["D94", "low", "7A-spritesheets", "SPRITE_FRAME_SIZE"],
+  ["D95", "low", "5B-key-budget", "D01…D09"],
+];
+
+const NOTE_LOCATION = /\.(?:ts|tsx|mjs|yaml|json|jsonc|md):\d+/;
+
+function todayDebtGaps(backlog: Backlog): string[] {
+  return TODAY_DEBTS.flatMap(([id, severity, target, keyword]) => {
+    const debt = debtById(backlog, id);
+    if (debt === undefined) return [`${id}:absent`];
+    const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+    const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    return [...graded, ...noted];
+  });
+}
+
+function unlocatedDebts(backlog: Backlog): string[] {
+  return TODAY_DEBTS.filter(([id]) => !NOTE_LOCATION.test(debtById(backlog, id)?.notes ?? "")).map(([id]) => id);
+}
+
+describe("backlog — dettes du 22/11 versées en v22", () => {
+  it("verse D83 à D95 avec sévérité, cible et note factuelle", () => {
+    expect(todayDebtGaps(readBacklog())).toEqual([]);
+  });
+
+  it("nomme un fichier:ligne dans chaque note", () => {
+    expect(unlocatedDebts(readBacklog())).toEqual([]);
   });
 });
