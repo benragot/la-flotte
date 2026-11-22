@@ -25,12 +25,14 @@ export const decorTypeSchema = z.enum([
 /** `below` : sous les jetons ; `above` : par-dessus (voile, cordage haut). */
 export const decorLayerSchema = z.enum(["below", "above"]);
 
-export const decorSchema = z.object({
-  type: decorTypeSchema,
-  x: z.number().int().nonnegative(),
-  y: z.number().int().nonnegative(),
-  layer: decorLayerSchema.default("below"),
-});
+export const decorSchema = z
+  .object({
+    type: decorTypeSchema,
+    x: z.number().int().nonnegative(),
+    y: z.number().int().nonnegative(),
+    layer: decorLayerSchema.default("below"),
+  })
+  .strict();
 
 const ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 const LEGEND = new Set<string>(cellTypeSchema.options);
