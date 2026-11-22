@@ -12,6 +12,7 @@
     "test:unit": "vitest run tests/unit",
     "test:walkthrough": "vitest run tests/walkthrough",
     "test": "vitest run",
+    "test:ui": "playwright test",
     "check": "npm run typecheck && npm run lint && npm run test:data && npm run test:unit && npm run test:walkthrough"
   },
   "dependencies": {
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@modyfi/vite-plugin-yaml": "^1.1.0",
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/vite": "^4.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.10.2",
