@@ -62,6 +62,7 @@ items:
     setId: panoplie_piou_mazoute
     level: 1
     stats: { vitality: 5 }
+    starting: true
     sellPrice: 12
 
   - id: cape_graisseuse
@@ -101,4 +102,5 @@ items:
     slot: weapon
     level: 1
     stats: { strength: 3 }
+    starting: true
     sellPrice: 8

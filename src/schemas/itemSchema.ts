@@ -66,6 +66,7 @@ const equipmentItemSchema = z.object({
   setId: itemIdSchema.optional(),
   level: z.number().int(),
   stats: itemStatsSchema,
+  starting: z.boolean().optional().default(false),
 });
 
 const itemUnionSchema = z.discriminatedUnion("category", [
