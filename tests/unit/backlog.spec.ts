@@ -1790,12 +1790,12 @@ function missingVisionSections(): string[] {
   return VISION_SECTIONS.filter(([, heading]) => !text.includes(heading)).map(([id]) => id);
 }
 
-/** Chaque paire texte/fond est écrite « X.XX:1 » : rien n'est estimé de mémoire. */
+/** Chaque paire texte/fond est écrite « X.XX:1 » ou « X,XX:1 » : rien n'est estimé de mémoire. */
 function measuredRatios(text: string): number {
-  return text.match(/\b\d{1,2}\.\d{2}:1\b/g)?.length ?? 0;
+  return text.match(/\b\d{1,2}[.,]\d{2}:1\b/g)?.length ?? 0;
 }
 
-describe("design — direction visuelle du HUD (v25)", () => {
+describe("design — direction visuelle du HUD (v24)", () => {
   it("garde le document de direction visuelle", () => {
     expect(existsSync(join(process.cwd(), UI_VISION_PATH))).toBe(true);
   });
