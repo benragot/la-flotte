@@ -52,37 +52,46 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * Force×100 + int×10 + Vita), départage alphabétique d'`id` ; aucun id d'objet
  * n'est écrit dans ce fichier.
  *
- * RÉSULTAT MESURÉ LE 22/11/2026, `castsPerTurn` ET `cooldown` HONORÉS (fix
- * casts-per-turn), SOIN ENTRE LES SALLES ACTIF — six cellules, deux victoires :
- *   niv.  build    PV max  issue      dernière salle  PV de monstres  actions
- *   16    survie    303    défaite    3 (PV 0)        211             83
- *   16    offense   228    défaite    3 (PV 0)        176             64
- *   17    survie    343    défaite    3 (PV 0)         60             78
- *   17    offense   263    défaite    3 (PV 0)         83             58
- *   18    survie    433    VICTOIRE   4 (PV 105)        0             95
- *   18    offense   348    VICTOIRE   4 (PV 119)        0             77
+ * RÉSULTAT MESURÉ LE 22/11/2026 APRÈS CALIBRATION (`hpScale` 0,35 salle 3,
+ * 0,30 salle 4), `castsPerTurn` ET `cooldown` HONORÉS, SOIN ENTRE LES SALLES
+ * ACTIF — SIX VICTOIRES, plus aucune défaite :
+ *   niv.  build    PV max  issue      dernière salle  PV monstres  PV fin  marge min  actions
+ *   16    survie    303    VICTOIRE   4 (120 PV)      0            27      1,40        105
+ *   16    offense   228    VICTOIRE   4 (120 PV)      0            60      2,66         76
+ *   17    survie    343    VICTOIRE   4 (120 PV)      0           195      6,83         81
+ *   17    offense   263    VICTOIRE   4 (120 PV)      0           159      6,73         62
+ *   18    survie    433    VICTOIRE   4 (120 PV)      0           329     13,67         61
+ *   18    offense   348    VICTOIRE   4 (120 PV)      0           261     10,20         52
  *
- * AVANT LE CORRECTIF (même fichier, mesure du 22/11/2026, même soin) : aucune
- * victoire. 16 survie 267 PV restants / 79 actions, 16 offense 232 / 57,
- * 17 survie 180 / 65, 17 offense 166 / 55, 18 survie 36 / 64, 18 offense 246 / 64
- * (seule cellule à atteindre la boss room, pour y mourir).
+ * AVANT CALIBRATION (même fichier, même jour, cast-per-turn corrigé) : 16 survie
+ * 211 PV de monstres restants en salle 3, 16 offense 176, 17 survie 60, 17 offense
+ * 83 — quatre défaites ; seuls 18 survie (95 actions) et 18 offense (77) gagnaient.
+ * AVANT LE CORRECTIF `castsPerTurn` : aucune victoire.
  *
- * POURQUOI TOUT CHANGE SANS TOUCHER UNE SEULE DONNÉE DE MONSTRE :
- * `data/spells.yaml` déclare `castsPerTurn` et `cooldown` depuis la 5A. Le schéma
- * les validait, puis le code les jetait : la stratégie ennemie ne regardait que
- * les PA. Yvon Rouiller (6 PA, Clef à Choc 3 PA, `castsPerTurn: 1`,
- * `cooldown: 1`) frappait donc DEUX fois par tour, 54 dégâts au lieu de 27, tous
- * les tours. Il frappe maintenant une fois, et une fois sur deux. Aucun PV,
- * dégât, drop ni `healBetweenRooms` n'a bougé : le mur du donjon était ce bug de
- * fidélité, pas l'équilibrage (cf. DEC-03, qui interdit d'affaiblir les monstres).
+ * LE LEVIER EST `hpScale`, UN FACTEUR DE PV PAR SALLE, JAMAIS LES MONSTRES :
+ * `data/monsters.yaml` reste intact, donc `fer_crabe_cle_molette` (12/146 des
+ * rencontres du monde ouvert) et `fer_boulon_pousseur` (4/146, seule rencontre
+ * de niveau 15 de la plage) ne deviennent pas triviaux en exploration. Retirer
+ * des exemplaires aurait vidé « L'Allée des Boulons Perdus » de son identité ET
+ * baissé sa menace ; baisser les PV des monstres aurait cassé le monde ouvert.
+ * `hpScale` ne touche QUE les PV (`Math.floor`, donc `floor(105 × 0,35) = 36`) :
+ * dégâts, PA/PM, portée et drops d'une salle restent ceux du monde ouvert, et la
+ * salle 3 menace toujours ~32 PV/tour. Salles 1-2 : champ absent, facteur 1,
+ * comportement identique au PV près (mesures 122 et 287 PV inchangées).
  *
- * RÉPONSE DEC-03 : règle (a) — « au niveau recommandé avec un bon équipement, le
- * joueur gagne » — TOUJOURS PAS satisfaite : 16 meurt encore en salle 3 (211 et
- * 176 PV de monstres restants). Mais le mur est passé de 4 salles à 1 : 18 survie
- * et 18 offense TERMINENT le donjon, ce qu'aucune cellule ne faisait avant. Le
- * levier restant est un arbitrage de design (salle 3, boss room), pas une valeur
- * de ce fichier. Règle (b) : le héros nu de `play.spec.ts` perd toujours, mais il
- * meurt désormais en salle 3 au lieu de la salle 2.
+ * RÉPONSE DEC-03 : (a) « au niveau recommandé (16) avec un bon équipement, le
+ * joueur gagne » est VRAIE — les deux builds terminent les quatre salles, avec
+ * 1 à 2 tours de marge pour le build contraignant (`survie`, 20 dégâts/tour).
+ * (b) le héros nu perd toujours, et toujours en salle 3 (mesuré ci-dessous).
+ *
+ * CONSTAT D'ARITHMÉTIQUE ASSUMÉ : aucune valeur ne donne 1-2 tours de marge aux
+ * DEUX builds. `survie` (303 PV, 20 dmg/tour) est le contraignant : à 0,33 sur la
+ * salle 4, il meurt avec 32 PV de monstres restants — soit un cran, ≈ 1 tour, le
+ * pas de la quantification. `offense` (228 PV, 36 dmg/tour) garde donc plus de
+ * marge (2,66 tours mesurés) ; son garde-fou « pas trivial » est le ratio de PV
+ * restants, `hpEnd < maxHp / 2` (60/228 = 26 %). Prétendre calibrer les deux à
+ * 1-2 tours serait un chiffre faux : on calibre sur `survie` et on borne
+ * `offense` par ce ratio.
  *
  * L'ÉTAT DES QUOTAS EST PORTÉ PAR LA BATAILLE (`BattleState.spellUsage`) : un
  * compteur par lanceur et par sort, remis à zéro quand le tour change, jamais une
@@ -466,7 +475,7 @@ class MemoryStorage implements StorageLike {
 
 interface Measurement {
   level: number;
-  build: BuildId;
+  build: BuildId | "nu";
   maxHp: number;
   gear: readonly EquipmentDef[];
   encounters: number;
@@ -528,7 +537,7 @@ function assertCleanExit(storage: StorageLike, victory: boolean): void {
   expect(heroOrThrow().hp).toBe(alive.hp);
 }
 
-function measureRun(input: { build: BuildId; level: number; encounters: number; storage: MemoryStorage }): Measurement {
+function measureRun(input: { build: BuildId | "nu"; level: number; encounters: number; storage: MemoryStorage }): Measurement {
   const { build, level, encounters, storage } = input;
   const maxHp = playerOf(battleOrThrow()).maxHp;
   const gear = wornGear(level);
@@ -548,6 +557,31 @@ function measureAt(level: number, build: BuildId): Measurement {
   expect(heroOrThrow().level).toBe(level);
   const encounters = craftAndEnter();
   return measureRun({ build, level, encounters, storage: new MemoryStorage() });
+}
+
+/** Les seuls objets qu'un « héros nu » possède : ceux marqués `starting`. */
+function startingKit(): EquipmentDef[] {
+  return items.filter((item): item is EquipmentDef => item.category === "equipment" && item.starting === true);
+}
+
+/**
+ * Le « héros nu » de `play.spec.ts` : niveau recommandé, capital dépensé, kit de
+ * départ uniquement. Aucune pièce du build, aucun objet ajouté par ce fichier.
+ */
+function prepareNaked(): void {
+  useGameStore.getState().createCharacter({ name: "Anselme", classId: HERO_CLASS.id });
+  const hero = withCapital(leveledHero(heroOrThrow(), DUNGEON.recommendedLevel), CAPITAL_STAT.offense);
+  useGameStore.setState({ hero });
+  const kit = startingKit();
+  useGameStore.setState({ inventory: addGear(useGameStore.getState().inventory, kit) });
+  equipAll(kit);
+}
+
+/** Mesure du héros nu : la règle (b) de DEC-03, sur le même chemin que les builds. */
+function measureNaked(): Measurement {
+  prepareNaked();
+  const encounters = craftAndEnter();
+  return measureRun({ build: "nu", level: DUNGEON.recommendedLevel, encounters, storage: new MemoryStorage() });
 }
 
 interface Deficit {
@@ -588,28 +622,27 @@ interface Cell {
   outcome: Outcome;
   room: number;
   enemyHpLeft: number;
+  /** PV du héros à la sortie de la dernière salle : le coussin de la calibration. */
+  hpEnd: number;
   actions: number;
-  /** Déficit chiffré, seulement quand la salle se termine par une défaite. */
-  turnsShort?: number;
-  hpNeeded?: number;
 }
 
 /**
  * La table EST la mesure : chaque chiffre vient d'une exécution réelle, aucune
- * valeur n'a été calée pour que le test passe. Quatre cellules finissent par une
- * défaite, deux par la VICTOIRE : `actions` est le total réellement joué, jamais
- * un plafond atteint (le plafond de 200 actions reste le détecteur d'enlisement,
- * cf. en-tête). Le soin de franchissement (DEC-03) est mesuré par
- * `crossingHeal` ci-dessous : chaque salle suivante démarre au-dessus des PV de
- * fin de la précédente.
+ * valeur n'a été calée pour que le test passe. SIX VICTOIRES depuis la
+ * calibration `hpScale` (0,35 salle 3 / 0,30 salle 4) : `actions` est le total
+ * réellement joué, jamais un plafond atteint (le plafond de 200 actions reste le
+ * détecteur d'enlisement, cf. en-tête). Le soin de franchissement (DEC-03) est
+ * mesuré par `assertCrossingHeal` : chaque salle suivante démarre au-dessus des
+ * PV de fin de la précédente.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 3, enemyHpLeft: 211, actions: 83, turnsShort: 10.62, hpNeeded: 343.7 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 3, enemyHpLeft: 176, actions: 64, turnsShort: 6.35, hpNeeded: 201.4 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 60, actions: 78, turnsShort: 2.13, hpNeeded: 66.39 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "defaite", room: 3, enemyHpLeft: 83, actions: 58, turnsShort: 2.31, hpNeeded: 76.06 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 95 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 77 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 27, actions: 105 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 60, actions: 76 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 195, actions: 81 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 159, actions: 62 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 329, actions: 61 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 261, actions: 52 },
 ];
 
 
@@ -625,11 +658,14 @@ function outcomeOf(measure: Measurement): Outcome {
   return measure.stalled ? "enlisement" : "defaite";
 }
 
-function assertDeficit(cell: Cell, room: RoomReport): void {
-  if (cell.turnsShort === undefined || cell.hpNeeded === undefined) return;
-  const missing = deficitOf(room);
-  expect(missing.turnsShort).toBeCloseTo(cell.turnsShort, 2);
-  expect(missing.hpNeeded).toBeCloseTo(cell.hpNeeded, 1);
+/**
+ * Marge d'une salle GAGNÉE, en tours ennemis : les PV restants du héros divisés
+ * par la pression qu'il a réellement subie (`damageTaken / heroTurns`). C'est le
+ * pas de la quantification : ≈ 1 tour, soit ~32 PV sur la salle 3.
+ */
+function margin(room: RoomReport): number {
+  const rate = room.heroTurns === 0 ? 0 : room.damageTaken / room.heroTurns;
+  return rate === 0 ? Number.POSITIVE_INFINITY : room.hpEnd / rate;
 }
 
 /** DEC-03 : chaque porte franchie rend des PV, donc la salle suivante repart plus haut. */
@@ -647,19 +683,20 @@ describe("couverture de la mesure", () => {
     expect(CELLS).toHaveLength(LEVELS.length * 2);
   });
 
-  it("ne corrige pas `recommendedLevel` : 16 ne gagne pas, seul 18 gagne", () => {
+  it("garde `recommendedLevel` à 16 et le rend vrai : 16 gagne, les deux builds", () => {
     expect(DUNGEON.recommendedLevel).toBe(16);
-    expect(CELLS.filter((cell) => cell.level === 16 && cell.outcome === "victoire")).toEqual([]);
+    const cells16 = CELLS.filter((cell) => cell.level === 16);
+    expect(cells16.map((cell) => cell.outcome)).toEqual(["victoire", "victoire"]);
   });
 
   it("la victoire mesurée est bien un donjon complet, pas une salle", () => {
     const winners = CELLS.filter((cell) => cell.outcome === "victoire");
-    expect(winners.map((cell) => cell.room)).toEqual([4, 4]);
+    expect(winners.map((cell) => cell.room)).toEqual([4, 4, 4, 4, 4, 4]);
   });
 });
 
 describe.each(CELLS)("niveau $level, build $build", (cell) => {
-  it(`${cell.outcome} en salle ${cell.room} — ${cell.enemyHpLeft} PV de monstres restants, ${cell.actions} actions`, () => {
+  it(`${cell.outcome} en salle ${cell.room} — ${cell.enemyHpLeft} PV de monstres restants, ${cell.hpEnd} PV finaux, ${cell.actions} actions`, () => {
     const measure = measureAt(cell.level, cell.build);
     expect(measure.maxHp).toBe(cell.maxHp);
     expect(measure.gear).toHaveLength(7);
@@ -669,8 +706,49 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
     const last = lastRoomOf(measure.rooms);
     expect(last.roomNumber).toBe(cell.room);
     expect(last.enemyHpLeft).toBe(cell.enemyHpLeft);
+    expect(last.hpEnd).toBe(cell.hpEnd);
     expect(measure.actions).toBe(cell.actions);
     assertCrossingHeal(measure.rooms);
-    assertDeficit(cell, last);
   });
 });
+
+/**
+ * DEC-03, les deux règles dans un seul parcours : (a) le niveau recommandé avec
+ * un bon équipement gagne le donjon entier, sans que la dernière salle soit une
+ * formalité ; (b) le héros nu perd, et en salle 3.
+ *
+ * CE QUE LA MESURE DIT DE L'ARITHMÉTIQUE : `survie` (303 PV, 20 dmg/tour) est le
+ * build contraignant, il finit avec 1,40 tour de marge — dans la fenêtre 1-2.
+ * `offense` (228 PV, 36 dmg/tour) a mécaniquement plus de marge (2,66 tours) :
+ * exiger 1-2 tours pour les deux serait un chiffre faux. Son garde-fou « pas
+ * trivial » est donc le ratio de PV restants (`hpEnd < maxHp / 2`, mesuré 60/228
+ * = 26 %). Un cran plus dur sur la salle 4 (`hpScale` 0,33, ≈ 1 tour de plus)
+ * fait mourir `survie` avec 32 PV de monstres restants : la marge se quantifie
+ * bien par pas d'un tour, pas au centième.
+ */
+describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
+  it("16 gagne les quatre salles avec un bon équipement, et le héros nu meurt en salle 3", () => {
+    const cells16 = (["survie", "offense"] as const).map((build) => measureAt(16, build));
+    for (const cell of cells16) {
+      expect(cell.victory).toBe(true);
+      expect(lastRoomOf(cell.rooms).roomNumber).toBe(4);
+      expect(lastRoomOf(cell.rooms).enemyHpLeft).toBe(0);
+    }
+    const [survie, offense] = cells16;
+    if (survie === undefined || offense === undefined) throw new Error("cellule 16 manquante");
+    const survieMargin = Math.min(...survie.rooms.map(margin));
+    expect(survieMargin).toBeGreaterThanOrEqual(1);
+    expect(survieMargin).toBeLessThanOrEqual(2);
+    expect(Math.min(...offense.rooms.map(margin))).toBeCloseTo(2.66, 2);
+    expect(lastRoomOf(offense.rooms).hpEnd).toBeLessThan(offense.maxHp / 2);
+    const naked = measureNaked();
+    expect(naked.victory).toBe(false);
+    const nakedLast = lastRoomOf(naked.rooms);
+    expect(nakedLast.roomNumber).toBe(3);
+    const missing = deficitOf(nakedLast);
+    expect(missing.turnsShort).toBeGreaterThan(0);
+    expect(missing.hpNeeded).toBeGreaterThan(0);
+  }, 120_000);
+});
+
+

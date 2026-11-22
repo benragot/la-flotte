@@ -347,7 +347,8 @@ function battleRange(): RangeSpec | undefined {
 function battleFromRoom(room: DungeonRoom, opening: string | null = null): BattleState {
   const map = mapById(room.mapId);
   const hero = heroBattleCombatant({ combatant: playerFor(demoHero(), BATTLE_ORIGIN) });
-  const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters: roomBattleMonsters(room), map });
+  const monsters = roomBattleMonsters(room);
+  const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters, map, hpScale: room.hpScale });
   const log = opening === null ? [`Entrée dans ${room.name}`] : [opening, `Entrée dans ${room.name}`];
   const base = { turn: 1, ...buildTimeline(combatants), combatants, log, map };
   const castRange = battleRange();
