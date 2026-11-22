@@ -35,6 +35,6 @@ export function useCombatScene(input: CombatSceneInput): void {
     const scene = { combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails };
     const view = arenaSceneView(scene);
     if (view === null || !isApplicationAlive(app)) return;
-    renderScene(app, view, { sheets: SPRITE_SHEETS, scene: arenaSceneMap(scene) });
+    renderScene(app, view, { sheets: SPRITE_SHEETS, scene: arenaSceneMap(scene), hoveredCell });
   }, [app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails]);
 }

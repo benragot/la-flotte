@@ -1,9 +1,11 @@
 import { Container, Graphics, Text } from "pixi.js";
 import type { Application } from "pixi.js";
+import type { Position } from "../engine/grid";
 import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import type { DecorView } from "./decor";
 import { drawDecor } from "./decorPaint";
+import { drawEntityHover, entityHover } from "./entityHover";
 import { FloatingTextLayer } from "./floatingTextLayer";
 import type { LabelBounds, TokenLabel } from "./labels";
 import {
@@ -24,12 +26,16 @@ import { drawExitMarks } from "./exitPaint";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
+import type { SceneLayerName } from "./sceneLayerOrder";
+import { SCENE_LAYER_ORDER } from "./sceneLayerOrder";
 
 interface SceneLayers {
   grid: Graphics;
   decor: Graphics;
   decorAbove: Graphics;
   highlights: Graphics;
+  /** Surbrillance de l'entité survolée (aplat + liseré) : au-dessus du décor, sous les jetons. */
+  hover: Graphics;
   path: Graphics;
   exitMarks: Graphics;
   tokens: Graphics;
@@ -48,19 +54,42 @@ const NAME_STYLE = {
 
 const LAYERS = new WeakMap<Application, SceneLayers>();
 
+/**
+ * Ordre de **création** des `Graphics` : il reste celui des couches historiques
+ * (les tests de repli y lisent des offsets). L'ordre **peintre**, lui, vient de
+ * `SCENE_LAYER_ORDER` — la création ne décide de rien.
+ */
 function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const graphics = { grid: new Graphics(), decor: new Graphics(), decorAbove: new Graphics() };
-  const moreGraphics = { highlights: new Graphics(), path: new Graphics(), exitMarks: new Graphics(), tokens: new Graphics(), hpBars: new Graphics() };
+  const moreGraphics = { highlights: new Graphics(), path: new Graphics(), exitMarks: new Graphics() };
+  const markers = { tokens: new Graphics(), hpBars: new Graphics() };
   const floats = new FloatingTextLayer();
-  return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container(), floats };
+  return { ...graphics, ...moreGraphics, ...markers, hover: new Graphics(), actors: new ActorStage(sheets), labels: new Container(), floats };
+}
+
+/** Chaque couche rangée par son nom : `SCENE_LAYER_ORDER` reste la seule source d'ordre. */
+function layerByName(layers: SceneLayers): Record<SceneLayerName, Container> {
+  const board = { grid: layers.grid, decor: layers.decor, highlights: layers.highlights, hover: layers.hover, path: layers.path };
+  const exits = { exitMarks: layers.exitMarks, tokens: layers.tokens, actors: layers.actors.container, decorAbove: layers.decorAbove };
+  const top = { hpBars: layers.hpBars, labels: layers.labels, floats: layers.floats.container };
+  return { ...board, ...exits, ...top };
+}
+
+/**
+ * Enfants du `stage` dans l'ordre peintre de `SCENE_LAYER_ORDER` : une seule
+ * source d'ordre, donc la surbrillance de survol ne peut pas passer au-dessus
+ * des jetons par accident.
+ */
+function stageLayers(layers: SceneLayers): Container[] {
+  const byName = layerByName(layers);
+  return SCENE_LAYER_ORDER.map((name) => byName[name]);
 }
 
 function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const existing = LAYERS.get(app);
   if (existing !== undefined) return existing;
   const created = createLayers(sheets);
-  const { grid, decor, decorAbove, highlights, path, exitMarks, tokens, actors, hpBars, labels, floats } = created;
-  app.stage.addChild(grid, decor, highlights, path, exitMarks, tokens, actors.container, decorAbove, hpBars, labels, floats.container);
+  app.stage.addChild(...stageLayers(created));
   LAYERS.set(app, created);
   return created;
 }
@@ -133,6 +162,7 @@ function clearBoardLayers(layers: SceneLayers): void {
   layers.decor.clear();
   layers.decorAbove.clear();
   layers.highlights.clear();
+  layers.hover.clear();
   layers.path.clear();
   layers.exitMarks.clear();
 }
@@ -192,26 +222,38 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawPath(layers.path, view.path);
 }
 
-/** Anneau doré **sous** les acteurs, puis jetons géométriques, PV et badges. */
+/** Anneau doré **sous** les acteurs, puis jetons géométriques, PV déclarés et badges. */
 function drawActorLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
-  drawHpBars(layers.hpBars, view.tokens);
+  drawHpBars(layers.hpBars, view.hpBarTokens);
   drawLabels(layers.labels, view, viewport);
 }
 
-/** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
-function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
-  drawBoardLayers(layers, view);
-  drawActorLayers(layers, view, viewport);
+/** Surbrillance de l'entité survolée : un seul aplat, sur la case logique du jeton. */
+function drawHover(layers: SceneLayers, view: ViewModel, cell: Position | null): void {
+  drawEntityHover(layers.hover, entityHover(view.tokens, cell));
 }
 
-/** Ce qu'un rendu doit connaître en plus de l'image : feuilles et identité de carte. */
+/** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
+function drawLayers(paint: ScenePaint): void {
+  const { layers, view, input, app } = paint;
+  drawBoardLayers(layers, view);
+  drawHover(layers, view, input.hoveredCell ?? null);
+  drawActorLayers(layers, view, app.screen);
+}
+
+/** Ce qu'un rendu doit connaître en plus de l'image : feuilles, carte et case survolée. */
 export interface RenderInput {
   sheets?: readonly SpriteSheetSpec[];
   /** Carte dessinée : un changement invalide les trajets **et** les nombres en vol. */
   scene?: object | null;
+  /**
+   * Case sous le pointeur, telle que la frontière l'a résolue. Le rendu en déduit
+   * la **seule** entité survolée ; il ne lit jamais le DOM ni un événement souris.
+   */
+  hoveredCell?: Position | null;
 }
 
 /** Une seule identité de carte pour les deux animations : elles s'annulent ensemble. */
@@ -241,11 +283,11 @@ interface ScenePaint {
   input: RenderInput;
 }
 
-/** Une image complète : plateau, acteurs puis nombres flottants, dans cet ordre. */
+/** Une image complète : plateau, survol, acteurs puis nombres flottants, dans cet ordre. */
 function paintScene(paint: ScenePaint): void {
   const { layers, view, input } = paint;
   clearLayers(layers);
-  drawLayers(layers, view, paint.app.screen);
+  drawLayers(paint);
   syncFloats(layers, view, sceneOf(view, input));
   layers.actors.sync(actorSyncInput(paint));
 }

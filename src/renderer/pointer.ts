@@ -1,8 +1,8 @@
 import type { Application, Container, FederatedPointerEvent } from "pixi.js";
 import type { Position } from "../engine/grid";
 import { isApplicationAlive } from "./appLifecycle";
-import type { IsoOrigin, PixelPoint } from "./gridProjection";
-import { isoToGrid } from "./gridProjection";
+import type { GridSize, IsoOrigin, PixelPoint } from "./gridProjection";
+import { isoToGrid, sceneOrigin } from "./gridProjection";
 import { cellKey } from "./scene";
 
 /**
@@ -23,6 +23,15 @@ export interface PointerHandlers {
 /** Case sous le curseur, `null` hors du losange de la carte. */
 export function cellFromPointer(global: PixelPoint, layout: BoardLayout): Position | null {
   return isoToGrid({ px: global.x, py: global.y, origin: layout.origin, width: layout.width, height: layout.height });
+}
+
+/**
+ * Grille + origine de projection d'une scène : exactement ce que la peinture
+ * reçoit. Le survol d'exploration passe par ici, comme le clic de combat — donc
+ * une seule projection pour viser et pour peindre.
+ */
+export function boardLayoutOf(map: GridSize, viewport: GridSize): BoardLayout {
+  return { ...map, origin: sceneOrigin(map, viewport) };
 }
 
 function createHoverTracker(onMove: PointerHandlers["setHoveredCell"]): (cell: Position | null) => void {
@@ -76,3 +85,41 @@ export function bindPointer(app: Application, layout: BoardLayout, handlers: Poi
   attachLeave(stage, handlers.setHoveredCell);
   return () => detach(stage);
 }
+
+/** Ce qu'un survol DOM doit connaître : l'élément qui monte le canvas et sa projection. */
+export interface HoverBindingInput {
+  element: HTMLElement;
+  layout: BoardLayout;
+  onHover: (position: Position | null) => void;
+}
+
+type PointerListener = (event: PointerEvent) => void;
+
+/** Coordonnée du pointeur ramenée dans le canvas, puis case de la même projection. */
+function cellAtEvent(event: PointerEvent, element: HTMLElement, layout: BoardLayout): Position | null {
+  const rect = element.getBoundingClientRect();
+  return cellFromPointer({ x: event.clientX - rect.left, y: event.clientY - rect.top }, layout);
+}
+
+function detachHover(element: HTMLElement, move: PointerListener, leave: PointerListener): () => void {
+  return () => {
+    element.removeEventListener("pointermove", move);
+    element.removeEventListener("pointerleave", leave);
+  };
+}
+
+/**
+ * Survole une scène **sans combat** (l'exploration) : le renderer PixiJS n'y
+ * branche pas son pointeur, c'est donc l'élément qui monte le canvas qui écrit
+ * la case. Aucun clic : il reste aux hooks existants, un seul auteur par geste.
+ */
+export function bindHover(input: HoverBindingInput): () => void {
+  const { element, layout, onHover } = input;
+  const track = createHoverTracker(onHover);
+  const move = (event: PointerEvent): void => track(cellAtEvent(event, element, layout));
+  const leave = (): void => track(null);
+  element.addEventListener("pointermove", move);
+  element.addEventListener("pointerleave", leave);
+  return detachHover(element, move, leave);
+}
+
