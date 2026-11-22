@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 4
+  version: 5
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -210,3 +210,11 @@ debts:
     title: La table XP est verrouillée par snapshot mais pas les autres tables de données
     severity: low
     target: 5A
+  - id: D29
+    title: Les PV courants du héros ne suivent pas le combat — chaque combat repart à PV plein et le soin hors combat est inatteignable en jeu
+    severity: high
+    target: 5B
+  - id: D30
+    title: Les items ne portent aucune résistance par élément — le combattant part toujours à 0
+    severity: medium
+    target: 5B
