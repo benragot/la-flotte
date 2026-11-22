@@ -2,6 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MIN_BEAT_MS, canAct, nextBeatAt } from "../../src/engine/combat/beat";
+import type { DungeonRoom } from "../../src/engine/dungeon";
 import { monsterCombatant } from "../../src/engine/dungeon/combatants";
 import type {
   AttackSpec,
@@ -11,6 +12,8 @@ import type {
   EnemyStrategy,
   Rng,
 } from "../../src/engine/multiCombat";
+import type { DungeonDef } from "../../src/schemas/dungeonSchema";
+import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import type { MonsterDef } from "../../src/schemas/monsterSchema";
 import {
@@ -19,11 +22,14 @@ import {
   needsEnemyStep,
 } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
-import { nextBeatDelay } from "../../src/ui/components/battle/useCombatBeat";
+import { nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const monsters = parseMonstersYaml(read("monsters.yaml"));
+const dungeons = parseDungeonsYaml(read("dungeons.yaml"));
 const HOOK_PATH = "src/ui/components/battle/useCombatBeat.ts";
+const DUNGEON_ID = "fer_donjon_casse_vis_sans_fin";
+const TARGET_ID = "piou_mazoute-0";
 const ZERO = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
 const NO_STATS = { strength: 0, intelligence: 0, chance: 0, agility: 0, wisdom: 0 };
 const ONE_HIT: AttackSpec = { base: 10, element: "neutral", baseCrit: 0, apCost: 1 };
@@ -198,6 +204,132 @@ describe("useCombatBeat — le minuteur vit dans le hook et se nettoie", () => {
     expect(source).toContain("clearTimeout");
     expect(source).toMatch(/alive\.current = false/);
     expect(source).toContain("playEnemyStepOnce");
+  });
+});
+
+function roomOne(): DungeonRoom {
+  const dungeon: DungeonDef = mustFind(dungeons, DUNGEON_ID);
+  const room = dungeon.rooms[0];
+  if (room === undefined) throw new Error("salle 1 absente");
+  return room;
+}
+
+/**
+ * Salle 1 réelle, héros à la main, cible de `data/monsters.yaml` au contact :
+ * `ap` à 0 rend le sort « trop cher » sans invention de données.
+ */
+function heroRoom(ap?: number): BattleState {
+  useCombatStore.setState({ battle: null, combat: null, mode: "exploration", exploration: null });
+  useCombatStore.getState().startDungeonRoom({ room: roomOne() });
+  const state = useCombatStore.getState().battle;
+  if (state === null) throw new Error("battle absent");
+  const hero = state.combatants.find((entry) => entry.side === "player");
+  if (hero === undefined) throw new Error("héros absent");
+  const adjacent = { x: hero.position.x + 1, y: hero.position.y };
+  const combatants = state.combatants.map((entry) => {
+    if (entry.side === "player") return ap === undefined ? entry : { ...entry, ap };
+    return entry.id === TARGET_ID ? { ...entry, position: adjacent } : entry;
+  });
+  return { ...state, activeIndex: Math.max(0, state.order.indexOf("player")), combatants };
+}
+
+/** Cible reculée de 5 cases : « hors portée » avant toute ligne de vue. */
+function farRoom(): BattleState {
+  const state = heroRoom();
+  const hero = state.combatants.find((entry) => entry.side === "player");
+  if (hero === undefined) throw new Error("héros absent");
+  const far = { x: hero.position.x + 5, y: hero.position.y };
+  const combatants = state.combatants.map((entry) => (entry.id === TARGET_ID ? { ...entry, position: far } : entry));
+  return { ...state, combatants };
+}
+
+/** Le corps du hook, sans React : même gardien, même ordre d'appel. */
+function beatCast(now: number): boolean {
+  const store = useCombatStore.getState();
+  const input = { now, canAct: store.canActNow, stamp: store.stampActionAt };
+  return runBeatAction({ ...input, perform: () => store.battleSpellAttack({ targetId: TARGET_ID, rng: () => 0 }) });
+}
+
+interface CastVerdict {
+  performed: boolean;
+  reason: string | undefined;
+}
+
+function castVerdict(lastActionAt: number, battle: BattleState): CastVerdict {
+  useCombatStore.setState({ battle, lastActionAt });
+  const performed = useCombatStore.getState().battleSpellAttack({ targetId: TARGET_ID, rng: () => 0 });
+  return { performed, reason: useCombatStore.getState().battle?.log.at(-1) };
+}
+
+function beatHarness(performed: boolean) {
+  const stamps: number[] = [];
+  const last = (): number => stamps.at(-1) ?? 0;
+  const run = (now: number): boolean =>
+    runBeatAction({ now, canAct: (at) => canAct(last(), at), perform: () => performed, stamp: (at) => stamps.push(at) });
+  return { run, stamps: () => stamps };
+}
+
+describe("runBeatAction — le tampon suit l'action, jamais le clic", () => {
+  it("ne tamponne pas un refus : l'appel suivant reste immédiatement possible", () => {
+    const refused = beatHarness(false);
+    expect(refused.run(1000)).toBe(false);
+    expect(refused.stamps()).toEqual([]);
+    expect(refused.run(1000)).toBe(false);
+    expect(refused.stamps()).toEqual([]);
+  });
+
+  it("tamponne une action effectuée : 749 ms refusés, 750 ms acceptés", () => {
+    const done = beatHarness(true);
+    expect(done.run(1000)).toBe(true);
+    expect(done.stamps()).toEqual([1000]);
+    expect(done.run(1749)).toBe(false);
+    expect(done.run(1750)).toBe(true);
+    expect(done.stamps()).toEqual([1000, 1750]);
+  });
+
+  it("n'exécute même pas l'action qu'une cadence encore fermée refuse", () => {
+    const calls = { performed: 0 };
+    const stamps: number[] = [];
+    const perform = (): boolean => {
+      calls.performed += 1;
+      return true;
+    };
+    const refused = runBeatAction({ now: 1000, canAct: () => false, perform, stamp: (at) => stamps.push(at) });
+    expect(refused).toBe(false);
+    expect(calls.performed).toBe(0);
+    expect(stamps).toEqual([]);
+  });
+});
+
+describe("useCombatStore — un refus ne consomme pas le beat", () => {
+  it("sort trop cher : aucun tampon, l'action suivante passe à +0 ms", () => {
+    useCombatStore.setState({ battle: heroRoom(0), lastActionAt: 0 });
+    expect(beatCast(1000)).toBe(false);
+    expect(useCombatStore.getState().lastActionAt).toBe(0);
+    expect(useCombatStore.getState().canActNow(1000)).toBe(true);
+  });
+
+  it("cast accepté : tampon posé, refusé à 749 ms puis accepté à 750 ms", () => {
+    useCombatStore.setState({ battle: heroRoom(), lastActionAt: 0 });
+    expect(beatCast(1000)).toBe(true);
+    expect(useCombatStore.getState().lastActionAt).toBe(1000);
+    expect(useCombatStore.getState().canActNow(1749)).toBe(false);
+    expect(useCombatStore.getState().canActNow(1750)).toBe(true);
+  });
+
+  it("sort trop cher : refusé pour les PA, quel que soit l'état de la cadence", () => {
+    const broken = heroRoom(0);
+    const verdicts = [0, 9990].map((at) => castVerdict(at, broken));
+    expect(verdicts.map((verdict) => verdict.performed)).toEqual([false, false]);
+    expect(useCombatStore.getState().battle).toBe(broken);
+    expect(useCombatStore.getState().lastActionAt).toBe(9990);
+  });
+
+  it("refus géométrique : le motif reste lisible et rien n'est tamponné", () => {
+    const verdict = castVerdict(0, farRoom());
+    expect(verdict.performed).toBe(false);
+    expect(verdict.reason).toContain("hors portée");
+    expect(useCombatStore.getState().lastActionAt).toBe(0);
   });
 });
 
