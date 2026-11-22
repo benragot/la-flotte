@@ -1,14 +1,14 @@
 import type { CombatState } from "../../engine/combatLoop/types";
-import type { HudMode } from "../hudHelpers";
 import { formatHpBar } from "../hudHelpers";
 import { DOCK_PANEL } from "./hudTheme";
-import TurnButton from "./TurnButton";
 
 type VitalTone = "hp" | "ap" | "mp";
 
 interface VitalStatProps {
   icon: string;
   tone: VitalTone;
+  /** Suffixe de lisibilité Dofus : « PA », « PM », vide pour les PV. */
+  suffix: string;
   current: number;
   max: number;
 }
@@ -19,49 +19,36 @@ const TONE_CLASS: Record<VitalTone, string> = {
   mp: "text-[#4a8c4a]",
 };
 
-const BADGE =
-  "rounded border border-dashed border-[#8c6d46] px-2 py-1 text-center text-[10px] leading-3 text-[#e8dcc8]/80";
-
-function VitalStat({ icon, tone, current, max }: VitalStatProps) {
+function VitalStat({ icon, tone, suffix, current, max }: VitalStatProps) {
   const value = formatHpBar(current, max);
   return (
     <span className={`flex items-center gap-1 text-sm font-bold ${TONE_CLASS[tone]}`}>
       <span aria-hidden="true">{icon}</span>
-      <span>{value.text}</span>
+      <span>{value.text}{suffix}</span>
     </span>
   );
 }
 
+/** Les trois compteurs ne se disputent pas la place : ils passent à la ligne. */
 function VitalRow({ combat }: { combat: CombatState }) {
   const { player } = combat;
   return (
-    <div className="flex items-center gap-3">
-      <VitalStat icon="❤" tone="hp" current={player.hp} max={player.maxHp} />
-      <VitalStat icon="★" tone="ap" current={player.ap} max={player.maxAp} />
-      <VitalStat icon="👢" tone="mp" current={player.mp} max={player.maxMp} />
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <VitalStat icon="❤" tone="hp" suffix="" current={player.hp} max={player.maxHp} />
+      <VitalStat icon="★" tone="ap" suffix=" PA" current={player.ap} max={player.maxAp} />
+      <VitalStat icon="👢" tone="mp" suffix=" PM" current={player.mp} max={player.maxMp} />
     </div>
   );
 }
 
-function ExplorationBadge() {
+/**
+ * Zone `vitals` : **uniquement** les compteurs PV/PA/PM. L'action de tour a sa
+ * propre colonne (`turn`), sinon le bouton recouvre les chiffres.
+ */
+export default function Vitals({ combat }: { combat: CombatState }) {
   return (
-    <p className={BADGE}>
-      Mode Exploration — Clique un monstre pour combattre
-    </p>
-  );
-}
-
-function ActionSlot({ combat, mode }: { combat: CombatState; mode: HudMode }) {
-  if (mode === "exploration") return <ExplorationBadge />;
-  return <TurnButton phase={combat.phase} />;
-}
-
-/** Cœur PV, étoile PA, botte PM puis l'action de tour (ou le badge d'exploration). */
-export default function Vitals({ combat, mode }: { combat: CombatState; mode: HudMode }) {
-  return (
-    <section aria-label="Ressources du héros" className={DOCK_PANEL}>
+    <section aria-label="Ressources du héros" className={`${DOCK_PANEL} justify-center`}>
       <VitalRow combat={combat} />
-      <ActionSlot combat={combat} mode={mode} />
     </section>
   );
 }

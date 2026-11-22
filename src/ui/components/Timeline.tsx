@@ -7,8 +7,12 @@ interface TimelineProps {
   phase: CombatPhase;
 }
 
-const SHELL =
-  "pointer-events-auto absolute right-0 top-0 z-10 flex w-40 flex-col gap-1 p-1";
+/**
+ * Zone `initiative` : une bande horizontale **dans le flux**, sous le bandeau.
+ * L'ancien `absolute right-0 top-0` recouvrait le titre et débordait sur le
+ * dock des sorts.
+ */
+const SHELL = "pointer-events-auto flex items-start gap-2 px-3 py-1";
 
 type ActiveKind = "player" | "enemy" | null;
 
@@ -18,11 +22,11 @@ function activeKind(phase: CombatPhase): ActiveKind {
   return null;
 }
 
-/** Ordre de jeu vertical, à droite de la zone libre : joueur puis adversaire. */
+/** Ordre de jeu : joueur puis adversaire, côte à côte dans la bande d'initiative. */
 export default function Timeline({ player, enemy, phase }: TimelineProps) {
   const active = activeKind(phase);
   return (
-    <aside aria-label="Ordre de jeu" className={SHELL}>
+    <aside aria-label="Ordre de jeu" data-zone="initiative" className={SHELL}>
       <TimelineCard combatant={player} isActive={active === "player"} />
       <TimelineCard combatant={enemy} isActive={active === "enemy"} />
     </aside>

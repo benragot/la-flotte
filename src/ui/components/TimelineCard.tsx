@@ -6,10 +6,10 @@ interface TimelineCardProps {
   isActive: boolean;
 }
 
-const ACTIVE_CARD =
-  "rounded border-2 border-[#d4a537] bg-[#3d342a] px-2 py-1 text-[#e8dcc8] shadow-[0_0_8px_#d4a537]";
-const IDLE_CARD =
-  "rounded border border-[#8c6d46] bg-[#3d342a]/80 px-2 py-1 text-[#e8dcc8]/70";
+/** Largeur fixe : la bande d'initiative ne laisse pas deux cartes se chevaucher. */
+const CARD_BASE = "w-60 min-w-0 shrink-0 rounded px-2 py-1";
+const ACTIVE_CARD = `${CARD_BASE} border-2 border-[#d4a537] bg-[#3d342a] text-[#e8dcc8] shadow-[0_0_8px_#d4a537]`;
+const IDLE_CARD = `${CARD_BASE} border border-[#8c6d46] bg-[#3d342a]/80 text-[#e8dcc8]/70`;
 
 function cardClass(isActive: boolean): string {
   return isActive ? ACTIVE_CARD : IDLE_CARD;
@@ -31,7 +31,7 @@ function MiniHpBar({ percent }: { percent: number }) {
 export default function TimelineCard({ combatant, isActive }: TimelineCardProps) {
   const hp = formatHpBar(combatant.hp, combatant.maxHp);
   return (
-    <article aria-label={cardLabel(combatant)} className={cardClass(isActive)}>
+    <article aria-label={cardLabel(combatant)} data-combatant={combatant.id} className={cardClass(isActive)}>
       <p className="truncate text-[11px] font-semibold">{combatant.name}</p>
       <p className="text-[10px] opacity-80">Niv. {combatant.level} · {hp.text} PV</p>
       <MiniHpBar percent={hp.percent} />

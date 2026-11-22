@@ -3,12 +3,10 @@ import type { Hero } from "../../engine/createHero";
 import { useCombatStore } from "../../store/useCombatStore";
 import { useGameStore } from "../../store/useGameStore";
 import type { HudMode } from "../hudHelpers";
-import CombatLogPanel from "./CombatLogPanel";
 import EndOverlay from "./EndOverlay";
-import SpellSlots from "./SpellSlots";
 import Timeline from "./Timeline";
 import TopBanner from "./TopBanner";
-import Vitals from "./Vitals";
+import { CombatDock } from "./battle/CombatDock";
 import { DOCK_PANEL, PRIMARY_BUTTON, SECTION_HEADING } from "./hudTheme";
 
 /**
@@ -16,14 +14,15 @@ import { DOCK_PANEL, PRIMARY_BUTTON, SECTION_HEADING } from "./hudTheme";
  * parent (zone libre `flex-1` pour la carte, puis dock `shrink-0`). C'est la
  * cause racine du recouvrement des dernières rangées du canvas (dette D08) qui
  * disparaît avec l'assemblage `App` de la phase B.
+ *
+ * Trois bandes, cf. `battle/layout.ts` : `header` (bandeau), `initiative`
+ * (noms des combattants) puis `dock` (journal, vitals, tour, sorts).
  */
 const HUD_SHELL = "pointer-events-none relative flex h-full w-full flex-col text-[#e8dcc8]";
-const ARENA_ZONE = "pointer-events-none relative min-h-0 flex-1 overflow-hidden";
+const INITIATIVE_ZONE = "pointer-events-none flex min-h-0 flex-1 items-start overflow-hidden";
 const DOCK_SHELL =
   "pointer-events-auto flex h-[150px] shrink-0 gap-2 border-t-2 border-[#8c6d46] bg-[#2b241d] px-2 py-2";
-const LOG_COLUMN = "min-w-0 w-[34%]";
 const VITALS_COLUMN = "flex min-w-0 w-[24%] flex-col justify-center";
-const SPELL_COLUMN = "min-w-0 flex-1";
 /** Exploration : le journal est passé en colonne gauche, le dock garde les ressources. */
 const EXPLORATION_HUD_SHELL = "pointer-events-none flex h-full w-full flex-col justify-end text-[#e8dcc8]";
 
@@ -38,52 +37,38 @@ interface HudLayoutProps {
   mapId: string;
   rewards: CombatRewards | null;
   selectedSpellId: string | null;
-  mode: HudMode;
   onReturnToMap?: (() => void) | undefined;
 }
 
 interface CombatLayoutProps {
   combat: CombatState;
-  mode: HudMode;
   onReturnToMap?: (() => void) | undefined;
 }
 
-function ArenaZone({ combat, mapId }: { combat: CombatState; mapId: string }) {
+function InitiativeZone({ combat }: { combat: CombatState }) {
   return (
-    <div className={ARENA_ZONE}>
-      <TopBanner mapId={mapId} turn={combat.turn} phase={combat.phase} />
+    <div className={INITIATIVE_ZONE}>
       <Timeline player={combat.player} enemy={combat.enemy} phase={combat.phase} />
     </div>
   );
 }
 
-function BottomDock(props: HudLayoutProps) {
-  const { combat, selectedSpellId, mode } = props;
-  return (
-    <div className={DOCK_SHELL}>
-      <div className={LOG_COLUMN}><CombatLogPanel log={combat.log} playerName={combat.player.name} /></div>
-      <div className={VITALS_COLUMN}><Vitals combat={combat} mode={mode} /></div>
-      <div className={SPELL_COLUMN}><SpellSlots combat={combat} selectedSpellId={selectedSpellId} /></div>
-    </div>
-  );
-}
-
-function HudLayout(props: HudLayoutProps) {
-  const { combat, mapId, rewards } = props;
+function HudLayout({ combat, mapId, rewards, selectedSpellId, onReturnToMap }: HudLayoutProps) {
   return (
     <div className={HUD_SHELL}>
-      <ArenaZone combat={combat} mapId={mapId} />
-      <BottomDock {...props} />
-      <EndOverlay phase={combat.phase} rewards={rewards} onReturnToMap={props.onReturnToMap} />
+      <TopBanner mapId={mapId} turn={combat.turn} phase={combat.phase} />
+      <InitiativeZone combat={combat} />
+      <CombatDock combat={combat} selectedSpellId={selectedSpellId} />
+      <EndOverlay phase={combat.phase} rewards={rewards} onReturnToMap={onReturnToMap} />
     </div>
   );
 }
 
-function CombatLayout({ combat, mode, onReturnToMap }: CombatLayoutProps) {
+function CombatLayout({ combat, onReturnToMap }: CombatLayoutProps) {
   const mapId = useCombatStore((state) => state.mapId);
   const rewards = useCombatStore((state) => state.rewards);
   const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
-  const layout = { combat, mapId, rewards, selectedSpellId, mode, onReturnToMap };
+  const layout = { combat, mapId, rewards, selectedSpellId, onReturnToMap };
   return <HudLayout {...layout} />;
 }
 
@@ -138,5 +123,5 @@ export default function CombatHud({ mode = "combat", onReturnToMap }: CombatHudP
   const combat = useCombatStore((state) => state.combat);
   if (mode === "exploration") return <ExplorationHud />;
   if (combat === null) return <IdlePanel />;
-  return <CombatLayout combat={combat} mode={mode} onReturnToMap={onReturnToMap} />;
+  return <CombatLayout combat={combat} onReturnToMap={onReturnToMap} />;
 }
