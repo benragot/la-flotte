@@ -57,7 +57,7 @@ export function overlapMessage(context: OverlapContext): string {
 }
 
 /** Boîte d'un sélecteur, ou échec explicite s'il est absent / invisible. */
-export async function boxOf(page: Page, selector: string): Promise<Box> {
+async function readBox(page: Page, selector: string): Promise<Box> {
   const matches = page.locator(selector);
   expect(await matches.count(), `Élément introuvable : « ${selector} »`).toBeGreaterThan(0);
   const locator = matches.first();
@@ -65,6 +65,48 @@ export async function boxOf(page: Page, selector: string): Promise<Box> {
   const box = await locator.boundingBox();
   if (box === null) throw new Error(`Élément sans rectangle : « ${selector} »`);
   return box;
+}
+
+export interface StableBoxInput {
+  read: () => Promise<Box>;
+  settle: () => Promise<void>;
+  attempts?: number;
+}
+
+/** Deux mesures identiques à 0,5 px près : la géométrie ne bouge plus. */
+function sameBox(a: Box, b: Box): boolean {
+  const close = (left: number, right: number) => Math.abs(left - right) <= 0.5;
+  return close(a.x, b.x) && close(a.y, b.y) && close(a.width, b.width) && close(a.height, b.height);
+}
+
+/**
+ * D84 : `boxOf` mesurait **une seule fois**, parfois le canvas encore en 1×1
+ * avant que Pixi ne le redimensionne. On relit jusqu'à deux mesures identiques,
+ * en laissant une frame entre chaque lecture. Aucun seuil de géométrie changé.
+ */
+export async function readSettledBox(input: StableBoxInput): Promise<Box> {
+  let previous = await input.read();
+  for (let attempt = 0; attempt < (input.attempts ?? 4); attempt += 1) {
+    await input.settle();
+    const next = await input.read();
+    if (sameBox(previous, next)) return next;
+    previous = next;
+  }
+  return previous;
+}
+
+/** Deux frames + polices prêtes : Pixi a redimensionné son canvas avant la mesure. */
+export async function settlePage(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+}
+
+/** Boîte d'un sélecteur, stabilisée avant lecture (canvas Pixi, polices, resize). */
+export async function boxOf(page: Page, selector: string): Promise<Box> {
+  const input = { read: () => readBox(page, selector), settle: () => settlePage(page) };
+  return readSettledBox(input);
 }
 
 /** Échoue sur chaque paire qui se recouvre de plus de `TOLERANCE_PX` sur les deux axes. */

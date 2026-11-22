@@ -13,6 +13,14 @@ const HERO_DOCK = '[role="group"][aria-label="Dock du héros"]';
 /** `initExploration` sème une ligne (`log: [INIT_LOG]`) : sans exploration, le `<ol>` est vide. */
 const JOURNAL_LINES = 'aside[aria-label="Journal d’exploration"] li';
 
+/**
+ * Flake CI 45029718192 : 10 actions enchaînées à 1920×1080, suite en 1 worker
+ * sur SwiftShader, dépassaient les 30 s par défaut. Le snapshot d'échec montrait
+ * pourtant le journal rempli : aucune assertion de géométrie n'était fausse.
+ * Budget de temps seulement, aucun seuil ni assertion élargi.
+ */
+test.setTimeout(90_000);
+
 test.describe("nouvelle partie", () => {
   test("annuler ne change rien, confirmer ramène à la création puis recrée", async ({ page }) => {
     await createHero(page);
