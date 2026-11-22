@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 17
+  version: 18
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -315,6 +315,67 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash 8a84b15 — de l'exploration au donjon
+          - id: 5C-actor-ring
+            title: Anneau d'équipe bleu/rouge + sprite + ombre (suppression du disque plein)
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/ui-dofus-retro.md §3.2, §5 et §8.6 — anneau au sol 2 px sous les pieds, sprite iso et ombre elliptique, nom au-dessus de la tête (§1)"
+          - id: 5C-hover-hp
+            title: Barres de PV au survol uniquement
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-actor-ring]
+            notes: "docs/design/specs/ui-dofus-retro.md §6 R4, §5 et §8.1 — une seule barre à l'écran, sur le jeton survolé ; TC4 pour la largeur"
+          - id: 5C-pm-zone
+            title: Zone PM conditionnelle — héros au survol, ennemis au survol (écart assumé vs Dofus)
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-actor-ring]
+            notes: "docs/design/specs/ui-dofus-retro.md §6 R1 et R6, §2 et §8.2 — plus d'aplat permanent ; D68 (findPath 4-voisins) et D69 (PM sous-facturés) se corrigent ici"
+          - id: 5C-cast-preview
+            title: Portée en contour et aperçu de zone d'effet au survol
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-pm-zone]
+            notes: "docs/design/specs/ui-dofus-retro.md §6 R2, R3 et R5, §3.2 et §8.3 — contour α 0.18, aperçu de zone α 0.22 ; TC1 pour le style de case"
+          - id: 5C-turn-rail
+            title: Frise de portraits en bas (remplace la timeline verticale)
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            depends_on: [5C-actor-ring]
+            notes: "docs/design/specs/ui-dofus-retro.md §2, §5 et §8 — portraits 44 px à droite du chat, actif 52 px et cadre or"
+          - id: 5C-info-panel
+            title: Panneau d'infos bas-droite (nom, niveau, PV, 5 résistances) au survol
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            depends_on: [5C-actor-ring]
+            notes: "docs/design/specs/ui-dofus-retro.md §2 et §5 — 220 px en bas-droite, marge 12 px"
+          - id: 5C-group-stars
+            title: Groupes — étoiles de bonus + infobulle nom/niveau au lieu du badge de niveau
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/ui-dofus-retro.md §1, §3.2 et §8.5 — les étoiles sont un bonus de butin, pas un niveau ; §11.7 pour la périodicité non tranchée"
+          - id: 5C-log-channel
+            title: Journal unique — teinte par élément, suppression du message de déplacement
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/ui-dofus-retro.md §6 R7, §3.1, §4 et §8.7 — teinte d'élément avec glyphe de renfort (deutéranopie) ; TC5"
       - id: 5D
         title: Wiring Navire-Base et premier donjon
         status: todo
@@ -327,6 +388,21 @@ waves:
             updated_at: "2026-11-22"
             depends_on: [5C-c, 5C-d, 5B-g]
             notes: lancer une salle depuis l'exploration ; requiert la riposte et la portée
+          - id: 5D-hud-bar
+            title: Barre d'interface basse — portrait, niveau, XP, kamas
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            depends_on: [5C-turn-rail]
+            notes: "docs/design/specs/ui-dofus-retro.md §1 et §5 — 44 px de haut, filet or ; les coordonnées restent en bascule (§4)"
+          - id: 5D-death-end
+            title: Mort et fin de combat sobres
+            status: todo
+            owner: tdd-coder
+            priority: low
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/ui-dofus-retro.md §2, §4 et §10 — portrait barré, retrait du terrain, récapitulatif sans fanfare"
   - id: wave-6
     title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
     status: todo
@@ -600,7 +676,7 @@ debts:
     title: "`battleSpellAttack` **ignore portée et ligne de vue** et `BattleState` ne porte **aucune `map`** ⇒ en l'état, le joueur frappe à distance infinie. À verrouiller avec `5C-d`."
     severity: high
     target: 5C-d
-    notes: src/store/useCombatStore.ts (`battleSpellAttack` sans contrôle de portée/LoS) ; src/engine/multiCombat/strike.ts (`map` lue seulement pour la poussée) ; src/engine/multiCombat/types.ts (`map` optionnelle)
+    notes: "src/store/useCombatStore.ts (`battleSpellAttack` sans contrôle de portée/LoS) ; src/engine/multiCombat/strike.ts (`map` lue seulement pour la poussée) ; src/engine/multiCombat/types.ts (`map` optionnelle) ; soldée par la PR #50 (portée, LoS et `map` dans `BattleState`) — les dettes n'ont aucun statut de clôture, elle reste donc listée"
   - id: D65
     title: "`cooldown` et `castsPerTurn` ne sont lus par aucun code : la Marmite et Yvon frappent 2×/tour au lieu de 1 et les salles 2-4 sont plus dures que la fiche (pré-existant, identique au chemin héros)"
     severity: medium
@@ -616,3 +692,34 @@ debts:
     severity: medium
     target: 5D-a
     notes: "`recommendedLevel: 16` n'est vérifié nulle part à l'entrée — attente de design à écrire (message d'avertissement au lancement de salle, ou gate par niveau) ; dépend de 5D-a et de D57"
+  - id: D68
+    title: "`findPath` est **4-voisins** : les diagonales ne sont pas modélisées, donc **tous les chemins sont 30-40 % trop longs** et les déplacements « collent »"
+    severity: high
+    target: 5C-pm-zone
+    notes: "src/engine/grid/pathfinding.ts (`findPath` ne développe que les 4 voisins orthogonaux) ; candidat au titre de cause principale du ressenti joueur ; TC3 de docs/design/specs/ui-dofus-retro.md §9 chiffre l'attendu (diagonale = 1 pas)"
+  - id: D69
+    title: "`moveEnemy` facture `manhattan(from,to)` au lieu de `path.length - 1` : **PM sous-facturés** sur un contournement (jamais négatifs)"
+    severity: medium
+    target: 5C-pm-zone
+    notes: "src/engine/multiCombat/enemies.ts (`moveEnemy` facture `manhattan(from,to)` au lieu de `path.length - 1`) ; à aligner sur `src/engine/combatLoop/move.ts` (une case de PM par case parcourue)"
+  - id: D70
+    title: "`resolveTackle` existe et est **exporté mais jamais appelé** : aucun malus de tacle en quittant un corps-à-corps"
+    severity: medium
+    target: 5D-a
+    notes: "src/engine/multiCombat/index.ts exporte `resolveTackle` et src/engine/multiCombat/tackle.ts l'implémente ; aucun appelant dans src/engine/combatLoop/ ni src/store/useCombatStore.ts — seule tests/unit/multiCombat.spec.ts l'exerce"
+  - id: D71
+    title: "**balance du donjon** : un héros de **niveau 16 réel** (125 PV, 75 pts de capital) **perd les salles 3 et 4 d'un facteur 3-4** (41-43 dégâts/tour pour 3 tours de survie, contre 12-13 tours nécessaires)"
+    severity: high
+    target: 5D-a
+    notes: "causes probables : **panoplies (§6 de la fiche) non implémentées** et **soins absents** (vague 6, 6A-heal-armor) ; mesure à refaire après 5D-a"
+  - id: D72
+    title: "`tests/walkthrough/dungeon.spec.ts` utilise `HERO_ATTACK` **sans `minRange`/`maxRange`** ⇒ la géométrie est **court-circuitée**"
+    severity: medium
+    target: 5D-a
+    notes: "tests/walkthrough/dungeon.spec.ts (`HERO_ATTACK` sans `minRange`/`maxRange`) ; ce walkthrough prouve la séquence des 4 salles, **pas la viabilité**"
+  - id: D73
+    title: "le 1v1 (`src/engine/combatLoop/enemy.ts`) garde un **standoff silencieux** (`if (next === current) return current`) et un `findSpell` **non distance-aware**"
+    severity: medium
+    target: 5D-a
+    notes: "src/engine/combatLoop/enemy.ts (`next === current` → `return current`, `findSpell` sans portée) ; même maladie que le softlock corrigé en 1vN, mais hors donjon"
+
