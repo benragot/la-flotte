@@ -31,25 +31,43 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
  *
  * CE QUE CE FICHIER PROUVE : la chaîne de DONNÉES et de MOTEUR, avec les YAML
  * réels et aucun inventaire fabriqué.
- *   exploration (`data/spawns.yaml`) `pickSpawn` → monstres lâcheurs
- *   → drops tirés par `resolveCombatRewards` (vraie prospection, vrai
- *     `computeDropChance`) → `craftMany` sur la recette réelle
- *   → `enterDungeon` qui consomme exactement une clé.
- * Chaque rencontre est un appel à la fonction de production : le nombre de
- * rencontres n'est pas un décor, c'est le résultat du tirage.
+ *   drops → `craftMany` sur la recette réelle → `enterDungeon` qui consomme
+ *   exactement une clé, avec les ingrédients fournis par le farm seul.
+ * Les drops passent par `resolveCombatRewards` — la fonction exacte que le store
+ * appelle en combat (`useCombatStore.ts`) — avec vraie prospection et vrai
+ * `computeDropChance`. Aucun `Math.random`, aucun `addItem` manuel.
+ *
+ * LE TRAJET EXPLORATION, EN DEUX TEMPS DISTINCTS :
+ *   - `pickSpawn` (sur `data/spawns.yaml`) prouve que CHAQUE monstre de la zone
+ *     est réellement tirable, un par un, `rng` dérivé de sa bande de poids ;
+ *   - la boucle de farm, elle, NE PASSE PAS par `pickSpawn` : `farmZone` parcourt
+ *     `zone.monsters` dans l'ordre du YAML et NE MODÉLISE DONC PAS la rareté du
+ *     spawn. Les rencontres affichées sont un coût de drop, pas un coût de jeu.
+ *
+ * CE QUE COÛTE CE FARM — TROIS CHIFFRES, TROIS STATUTS :
+ *   1. 8 rencontres : PLANCHER DÉTERMINISTE, pas une mesure. Sous `DROP_RNG`,
+ *      chaque combat lâche (`dropChance > rng`), donc il faut exactement
+ *      3 pinces + 3 boulons + 2 gouttes = 8 combats. C'est le minimum absolu.
+ *   2. ≈ 14 combats : ESPÉRANCE réelle, `2/0,45 + 3/0,60 + 3/0,65`.
+ *   3. ≈ 236 tirages de spawn : coût NON MODÉLISÉ. Le boulon pèse 4/146
+ *      (≈ 2,7 %), soit ≈ 36,5 tirages par combat ⇒ ≈ 169 tirages pour ses
+ *      ≈ 4,6 combats ; le crabe (12/146) ≈ 61 ; le Piou (100/146) ≈ 7. Un vrai
+ *      joueur paie ces tirages, ce walkthrough ne les paie pas.
  *
  * CE QU'IL NE PROUVE PAS : qu'un JOUEUR peut déclencher cette chaîne depuis
  * l'écran. Aucun écran, aucun store, aucun événement d'UI n'est exercé ici : le
- * câblage exploration → combat → craft → porte est du ressort de la 5D. Ce
- * fichier ne prouve pas non plus l'équilibrage de la plage, ni le niveau de
- * zone (cf. DETTE de `data/spawns.yaml`) : un héros de niveau 1 peut y croiser
- * un niveau 15, ce walkthrough le montre sans le corriger.
+ * câblage exploration → combat → craft → porte est du ressort de la 5D. Il ne
+ * prouve pas non plus la faisabilité côté joueur : ni le coût de spawn chiffré
+ * ci-dessus, ni le niveau de zone (un héros de niveau 1 croise un niveau 15,
+ * cf. DETTE de `data/spawns.yaml`).
  *
- * COHÉRENCE DES QUANTITÉS : la seule source est `data/recipes.yaml` (3 pinces,
- * 3 boulons, 2 gouttes). Le commentaire de la recette renvoie au « §7 » de
- * `docs/design/islands/ile_de_la_ferraille.md`, section qui n'existe PAS : la
- * fiche ne contient ni §7 ni recette de clé. Aucune quantité n'est donc
- * recopiée ici en dur, sinon celle du YAML.
+ * COHÉRENCE DES QUANTITÉS : `data/recipes.yaml` est fidèle au §7 « Recettes de
+ * craft (22) » de `docs/design/islands/ile_de_la_ferraille.md` (ligne 953),
+ * ligne à ligne : la ligne 956 dit mot pour mot
+ * `cle_donjon_ile_de_la_ferraille ← fer_pince_de_douze×3, fer_boulon_sans_fin×3,
+ * fer_goutte_mazout×2`. Le commentaire de la recette qui renvoie à ce §7 est
+ * donc CORRECT. Aucune quantité n'est recopiée ici en dur : toutes viennent des
+ * `quantity` du YAML.
  */
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const classes = parseClassesYaml(read("classes.yaml"));
@@ -64,17 +82,29 @@ const spawns = parseSpawnsYaml(read("spawns.yaml"));
 const ZONE_MAP_ID = "ferraille_plage_01";
 const DUNGEON_ID = "fer_donjon_casse_vis_sans_fin";
 const RECIPE_ID = "recette_cle_donjon_ile_de_la_ferraille";
-/** Une rencontre coûte au plus ce nombre de combats : au-delà, la chaîne est infarmable. */
-const MAX_ENCOUNTERS_PER_MONSTER = 120;
-/** Budget total de farm : au-delà, la chaîne demanderait trop de farm pour être jouable. */
-const MAX_TOTAL_ENCOUNTERS = 500;
+/**
+ * GARDE-FOU DE BOUCLE, et PAS une mesure de farm : sous `DROP_RNG` chaque combat
+ * lâche, il faut donc 1 combat par unité, et ces bornes (120 / 500) sont
+ * INATTEIGNABLES avec les données actuelles (8 combats au total). Elles existent
+ * seulement pour qu'une régression de `computeDropChance` (chance ramenée à 0,
+ * seuil de PP infranchissable) échoue en quelques millisecondes au lieu de
+ * boucler.
+ */
+const LOOP_GUARD_PER_MONSTER = 120;
+const LOOP_GUARD_TOTAL = 500;
 /** Balayage de la contre-épreuve : combien de fois on insiste par monstre. */
 const BARREN_SWEEP = 20;
-/** Sous toutes les chances de drop calculées ⇒ le butin tombe à chaque rencontre. */
+/**
+ * PLANCHER DÉTERMINISTE, pas une mesure d'équilibrage : sous toutes les chances
+ * calculées (0,45 / 0,60 / 0,65) chaque combat lâche, d'où exactement 1 combat
+ * par unité. Les 8 rencontres du test sont le minimum absolu ; l'espérance
+ * réelle est ≈ 14 combats, et le coût de spawn (≈ 236 tirages) n'est pas
+ * modélisé du tout (cf. en-tête).
+ */
 const DROP_RNG = 0.1;
 /** Au-dessus de toutes les chances de drop ⇒ aucun butin ne tombe jamais. */
 const NO_DROP_RNG = 0.99;
-const TOO_MUCH_FARM = "la chaîne demande trop de farm pour être jouable";
+const LOOP_GUARD_HIT = "garde-fou de boucle atteint : aucun butin ne sort (chance de drop nulle ?)";
 
 function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   const found = list.find((entry) => entry.id === id);
@@ -154,13 +184,13 @@ function missingQuantity(state: FarmState, itemId: string): number {
   return neededQuantity(itemId) - countItem(state.inventory, itemId);
 }
 
-/** Insiste tant qu'il manque l'ingrédient, et échoue si le farm est infarmable. */
+/** Insiste tant qu'il manque l'ingrédient ; garde-fou de boucle (jamais atteint). */
 function huntLoot(state: FarmState, monsterId: string, itemId: string, rng: Rng): FarmState {
   let current = state;
   while (missingQuantity(current, itemId) > 0) {
     const fought = encountersOf(current, monsterId);
-    if (fought >= MAX_ENCOUNTERS_PER_MONSTER) {
-      throw new Error(`${TOO_MUCH_FARM} : ${itemId} via ${monsterId} en ${fought} rencontres`);
+    if (fought >= LOOP_GUARD_PER_MONSTER) {
+      throw new Error(`${LOOP_GUARD_HIT} : ${itemId} via ${monsterId} en ${fought} rencontres`);
     }
     current = fightMonster(current, monsterId, rng);
   }
@@ -180,7 +210,10 @@ function huntMonster(state: FarmState, monsterId: string, rng: Rng): FarmState {
   );
 }
 
-/** Farm complet : chaque monstre de la zone, dans l'ordre du YAML, pour son butin utile. */
+/**
+ * Farm complet : chaque monstre de la zone, DANS L'ORDRE DU YAML, pour son butin
+ * utile. Ne passe pas par `pickSpawn` : la rareté du spawn n'est pas modélisée.
+ */
 function farmZone(rng: Rng): FarmState {
   const start: FarmState = { inventory: emptyInventory(), encounters: {} };
   return explorationZone().monsters.reduce(
@@ -248,7 +281,10 @@ function dropChance(itemId: string): number {
   return computeDropChance(input);
 }
 
-/** Sous le seuil de PP, la chance serait nulle : on exige ici un vrai tirage. */
+/**
+ * La chance doit être un VRAI tirage, pas un 0 de seuil de PP : elle doit
+ * dépasser le plancher `DROP_RNG`, sinon les 8 rencontres ne tomberaient pas.
+ */
 function assertDroppable(itemId: string): void {
   expect(dropChance(itemId)).toBeGreaterThan(DROP_RNG);
 }
@@ -264,15 +300,20 @@ function assertKeyContract(): void {
   }
 }
 
-/** Budget de rencontres : borné, et exactement la somme des quantités de la recette. */
-function assertEncounterBudget(farm: FarmState): void {
+/**
+ * Plancher déterministe : sous `DROP_RNG` chaque combat lâche son ingrédient, il
+ * faut donc exactement 1 combat par unité de la recette. C'est le MINIMUM, pas
+ * une mesure : l'espérance est ≈ 14 combats et la rareté du spawn n'est pas
+ * payée ici (cf. en-tête). Le garde-fou total reste une simple ceinture.
+ */
+function assertDeterministicFloor(farm: FarmState): void {
   const total = Object.values(farm.encounters).reduce((sum, count) => sum + count, 0);
   const needed = keyRecipe().ingredients.reduce((sum, entry) => sum + entry.quantity, 0);
   expect(total).toBe(needed);
-  expect(total).toBeLessThanOrEqual(MAX_TOTAL_ENCOUNTERS);
-  // Sous `DROP_RNG`, chaque rencontre lâche son ingrédient : autant de combats
-  // que la quantité de la recette, ni plus ni moins. (Le Rat d'Égoût-dron, qui
-  // partage la goutte avec le Piou, n'est jamais atteint : 0 rencontre.)
+  expect(total).toBeLessThanOrEqual(LOOP_GUARD_TOTAL);
+  // Le Rat d'Égoût-dron à 0 rencontre n'est PAS une vérité structurelle : le
+  // Piou est en tête du YAML et couvre la goutte avant lui. Avec un autre `rng`
+  // (ou un autre ordre), le rat lâche la même goutte ; il reste tirable en jeu.
   for (const { itemId, quantity } of keyRecipe().ingredients) {
     expect(encountersOf(farm, dropperFor(itemId))).toBe(quantity);
   }
@@ -285,7 +326,7 @@ function craftKey(inventory: InventoryState): CraftManyResult {
 /** Le farm complet, ingrédients vérifiés un par un sur les quantités de la recette. */
 function farmKey(rng: Rng): FarmState {
   const farm = farmZone(rng);
-  assertEncounterBudget(farm);
+  assertDeterministicFloor(farm);
   for (const { itemId, quantity } of keyRecipe().ingredients) {
     assertDroppable(itemId);
     expect(countItem(farm.inventory, itemId)).toBe(quantity);
@@ -341,7 +382,9 @@ describe("walkthrough : chaîne de la clé, contre-épreuves", () => {
     expect(barren.inventory.stacks).toEqual([]);
     for (const { itemId } of keyRecipe().ingredients) {
       expect(countItem(barren.inventory, itemId)).toBe(0);
-      expect(dropChance(itemId)).toBeGreaterThan(0);
+      // C'est CETTE inégalité qui garantit « aucun butin » : une chance de 1,0
+      // ferait tomber le drop malgré un `rng` à 0,99, et le test doit le voir.
+      expect(dropChance(itemId)).toBeLessThanOrEqual(NO_DROP_RNG);
     }
     const crafted = craftKey(barren.inventory);
     expect(crafted.craftedCount).toBe(0);
