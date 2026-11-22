@@ -96,7 +96,9 @@ describe("findPath", () => {
   it("contourne un mur", () => {
     const map = parseAsciiMap(["..#..", "..#..", ".....", "..#..", "..#.."]);
     const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 4, y: 0 }, maxPm: 12 });
-    expect(path).toHaveLength(9);
+    // Mesure 8 directions : 5 cases (4 pas) — (0,0)→(1,1)→(2,2)→(3,1)→(4,0),
+    // distance de Chebyshev 4, donc 4 PM. C'était 9 cases en 4 directions.
+    expect(path).toHaveLength(5);
     expect(path?.some((cell) => cell.x === 2 && cell.y === 0)).toBe(false);
   });
 
@@ -109,7 +111,9 @@ describe("findPath", () => {
     const map = parseAsciiMap(OPEN);
     const occupied = [{ x: 0, y: 1 }];
     const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 0, y: 2 }, maxPm: 6, occupied });
-    expect(path).toHaveLength(5);
+    // Mesure 8 directions : 3 cases (2 pas) — (0,0)→(1,1)→(0,2). C'était 5
+    // cases en 4 directions ; la case occupée (0,1) reste hors du chemin.
+    expect(path).toHaveLength(3);
     expect(path?.some((cell) => cell.x === 0 && cell.y === 1)).toBe(false);
   });
 
