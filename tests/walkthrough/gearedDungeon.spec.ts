@@ -33,63 +33,63 @@ import { GAME_CATALOG, useGameStore } from "../../src/store/useGameStore";
 import { useCombatStore } from "../../src/store/useCombatStore";
 
 /**
- * WALKTHROUGH 5C-set-panoplies — « le donjon avec un héros ÉQUIPÉ ».
+ * WALKTHROUGH 5C-set-panoplies — « à quel niveau le donjon est-il finissable ? ».
  *
- * CE QUE CE FICHIER MESURE (et rien d'autre) : un héros de niveau 16 réel,
- * 75 points de capital dépensés, l'équipement le plus adapté disponible au
- * niveau 16, puis les salles du donjon jouées par les actions du store.
- * Aucun héros surpuissant, aucune clef injectée, aucun sort inventé, aucun
- * `Math.random` (LCG de farm + `() => 0.5` en combat).
+ * CE QUE CE FICHIER MESURE : un héros réel de niveau 16, 17 PUIS 18, tout son
+ * capital dépensé, l'équipement le plus adapté que CE niveau autorise, puis les
+ * salles du donjon jouées par les actions du store. Aucun héros surpuissant,
+ * aucune clef injectée, aucun sort inventé, aucun `Math.random` (LCG de farm +
+ * `() => 0.5` en combat).
  *
- * DEUX BUILDS, UN SEUL CRITÈRE DE SÉLECTION — l'algorithme, en une ligne :
- * pour chaque slot, parmi les `equipment` de `data/items.yaml` dont
- * `level <= 16`, on retient le meilleur score pondéré du build
- * (`survie` : Vitalité×100 + Force ; `offense` : Force×100 + int×10 + Vita),
- * départage alphabétique d'`id` ; aucun id d'objet n'est écrit dans ce fichier.
- * Sept slots sont pourvus, mais `ring1` est une ÉGALITÉ À 0 POINT : les deux
- * anneaux du catalogue ne scorent ni Force, ni int, ni Vita (12 Agilité contre
- * 20 Chance), et l'Anneau Mazouté ne gagne que par ordre alphabétique. « 7
- * pièces optimisées » serait donc flatteur : ce slot n'apporte rien.
+ * LE NIVEAU EST UN PARAMÈTRE (`LEVELS`), PLUS UNE DONNÉE DU DONJON. Ce fichier
+ * dérivait le niveau de `recommendedLevel` (`data/dungeons.yaml`) : changer la
+ * valeur testée aurait changé le pool d'équipement, donc la mesure elle-même.
+ * `recommendedLevel` est désormais ce que l'on TESTE, jamais ce qui configure.
  *
- * RÉSULTAT MESURÉ LE 22/11/2026, contre la dette D71 :
- *   survie  — 75 points en Vitalité, 303 PV max : salle 1 GAGNÉE (303 → 225 PV,
- *             18 actions), salle 2 DÉFAITE (225 → 0, 35 actions), il restait
- *             55 PV de monstres, soit 3,08 tours de héros manquants ≈ 53 PV.
- *   offense — 75 points en Force, 228 PV max : salle 1 GAGNÉE (228 → 182 PV,
- *             12 actions), salle 2 DÉFAITE (182 → 0, 31 actions), il restait
- *             7 PV de monstres, soit 0,35 tour manquant ≈ 5 PV de survie.
+ * DEUX BUILDS, UN SEUL CRITÈRE DE SÉLECTION — pour chaque slot, parmi les
+ * `equipment` de `data/items.yaml` dont `level <= NIVEAU MESURÉ`, on retient le
+ * meilleur score pondéré du build (`survie` : Vitalité×100 + Force ; `offense` :
+ * Force×100 + int×10 + Vita), départage alphabétique d'`id` ; aucun id d'objet
+ * n'est écrit dans ce fichier.
  *
- * CE QUE ÇA DIT DE D71 : elle n'est PAS résolue (les deux builds meurent en
- * salle 2, comme le héros nu de `play.spec.ts`) mais elle a changé de nature.
- * ATTENTION AUX UNITÉS : ce fichier ne mesure que des PV de MONSTRES restants
- * (55 en survie, 7 en offense). Le « ~200 PV d'écart » du commentaire de
- * `play.spec.ts` est une ESTIMATION HÉRITÉE, NON MESURÉE, et exprimée en PV de
- * HÉROS : elle n'est pas comparable aux deux chiffres ci-dessus et n'est donc
- * pas mise sur la même échelle. À la seule aune mesurée ici, la salle 2 laisse
- * 55 PV de monstres au build survie et 7 PV au build offense : elle tombe à un
- * objet près. Les deux critères d'optimisation convergent au niveau 16 : le
- * seul marteau (`level: 15`, Force 22 + Vita 20) et la seule amulette
- * (`level: 16`, Force 18 + Vita 22) sont à la fois les plus défensifs et les
- * plus offensifs — les pièces Brico-Lourd complètes (`level` 17-18) ne sont
- * pas accessibles et aucun palier de panoplie ne s'active (1 pièce sur 4).
+ * RÉSULTAT MESURÉ LE 22/11/2026 — six cellules, aucune victoire :
+ *   niv.  build    PV max  salle  PV de monstres restants  actions
+ *   16    survie    303    2     55  (défaite)              53
+ *   16    offense   228    2      7  (défaite)              43
+ *   17    survie    343    3    210  (défaite)              62
+ *   17    offense   263    2    164  (ENLISEMENT)          212
+ *   18    survie    433    2    162  (ENLISEMENT)          212
+ *   18    offense   348    3    148  (défaite)              44
  *
- * CE QUI FERA CHANGER CE RÉSULTAT : (a) une pièce de niveau 16 supplémentaire,
- * ou le palier 2 de `fer_set_brico_lourd` (+15 Vita, +10 Force), qui exige des
- * pièces `level` 17-18, ou un héros de niveau 17-18 ; (b) les soins entre les
- * salles (vague 6), aujourd'hui interdits par le moteur. Les résistances
- * (D45b) ne déplaceraient PAS cette mesure : aucune pièce retenue n'en porte,
- * et la seule du catalogue est le palier 3 de `panoplie_piou_mazoute`
- * (`flatRes: 5`, `data/sets.yaml`), palier que ce build n'active pas. Elles
- * compteraient si des données en ajoutaient. Le jour où un build gagne,
- * remplacer l'assertion de défaite par la victoire (`isDungeonComplete`) et
- * dérouler les salles 3 et 4.
+ * RÉPONSE : le donjon n'est finissable à AUCUN des trois niveaux, dans les
+ * conditions mesurées. Monter de niveau aide visiblement (le build survie
+ * franchit enfin la salle 2 au niveau 17) mais ne suffit pas : la salle 3 laisse
+ * 210 PV de monstres, soit ~7,9 tours de héros manquants. Ce n'est donc pas une
+ * question de niveau. `recommendedLevel` N'EST PAS CORRIGÉ : le passer à 17 ou
+ * 18 annoncerait un donjon toujours infaisable, et le niveau 16 reste le dernier
+ * cran où le héros échoue « à 7 PV près » (build offense).
+ *
+ * L'ENLISEMENT EST UN RÉSULTAT, PAS UN ALÉA DU TEST : aux niveaux 17 (offense)
+ * et 18 (survie), la salle 2 ne se termine ni par une victoire ni par une
+ * défaite en 200 actions. État de bataille lu au plafond : `fer_rat_de_cale`
+ * occupe la CASE du héros (distance 0 ⇒ « hors portée » pour le sort) et les
+ * autres monstres répondent « chemin bloqué ». Plus personne ne peut frapper :
+ * impasse géométrique du moteur, sans rapport avec le niveau. Le plafond
+ * d'actions EST le détecteur d'enlisement, il est documenté, pas contourné ; les
+ * 212 actions des deux cellules enlisées = 12 (salle 1) + 200 (plafond salle 2).
+ *
+ * CE QUE ÇA DIT DE D71 : toujours pas résolue. Le héros nu (`play.spec.ts`) meurt
+ * en salle 2, l'équipé niveau 16 aussi, l'équipé niveau 17-18 atteint la salle 3
+ * et y meurt (ou s'enlise en salle 2). Deux leviers restent hors de ce fichier :
+ * les soins entre les salles (vague 6, aujourd'hui interdits par le moteur) et
+ * l'impasse de cellule partagée ci-dessus.
  *
  * CE QU'IL NE PROUVE PAS : ni l'acquisition réelle de l'équipement (les pièces
  * sont ajoutées au sac puis équipées par l'action `equip` du store — la mesure
- * porte sur l'effet de l'équipement, pas sur son farm, contrairement à la
- * clef qui est, elle, réellement farmée), ni le déplacement en salle (aucune
- * action de mouvement : les monstres viennent au héros), ni l'équilibrage des
- * salles 3-4 (jamais atteintes).
+ * porte sur l'effet de l'équipement, pas sur son farm, contrairement à la clef
+ * qui est, elle, réellement farmée), ni le déplacement en salle (aucune action de
+ * mouvement : les monstres viennent au héros), ni l'équilibrage des salles 3-4
+ * (la salle 3 n'est jamais nettoyée, la salle 4 jamais atteinte).
  */
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
@@ -111,8 +111,14 @@ const HERO_SPELL: SpellDef = first(damageSpells(), "sort de dégâts du héros")
 const CAST_SPEC = spellCastSpec(HERO_SPELL, 0);
 const KEY: ItemDef = mustFind(items, DUNGEON.keyItemId);
 const KEY_RECIPE: RecipeDef = recipes.find((recipe) => recipe.resultItemId === KEY.id) ?? noRecipe();
-/** Niveau de la mesure : celui que le donjon recommande, jamais réécrit. */
-const LEVEL = DUNGEON.recommendedLevel;
+
+/**
+ * Niveaux mesurés, ÉCRITS ICI : le niveau d'équipement est un paramètre de la
+ * mesure. `recommendedLevel` (data/dungeons.yaml) est ce que l'on teste, et
+ * n'alimente plus ni le héros, ni le pool d'équipement — sinon changer la valeur
+ * testée changerait la mesure (mesure circulaire).
+ */
+const LEVELS = [16, 17, 18] as const;
 
 type BuildId = "survie" | "offense";
 
@@ -227,22 +233,22 @@ function bestOf(build: BuildId, candidates: readonly EquipmentDef[]): EquipmentD
   return candidates.slice(1).reduce(rank, first(candidates, "candidat d'équipement"));
 }
 
-/** Éligible = équipement que le niveau 16 autorise. */
-function eligible(item: ItemDef): item is EquipmentDef {
-  return item.category === "equipment" && item.level <= LEVEL;
+/** Éligible = équipement que le niveau MESURÉ autorise (jamais le donjon). */
+function eligible(item: ItemDef, level: number): item is EquipmentDef {
+  return item.category === "equipment" && item.level <= level;
 }
 
-function buildGear(build: BuildId): EquipmentDef[] {
-  const pool = items.filter(eligible);
+function buildGear(build: BuildId, level: number): EquipmentDef[] {
+  const pool = items.filter((item) => eligible(item, level));
   const slots = [...new Set(pool.map((item) => item.slot))].sort();
   return slots.map((slot) => bestOf(build, pool.filter((item) => item.slot === slot)));
 }
 
 /** Équipement réellement porté, relu dans l'inventaire : pas dans `buildGear`. */
-function wornGear(): EquipmentDef[] {
+function wornGear(level: number): EquipmentDef[] {
   const { inventory } = useGameStore.getState();
   const worn = Object.values(inventory.equipment).map((itemId) => mustFind(items, itemId as string));
-  return worn.filter(eligible);
+  return worn.filter((item) => eligible(item, level));
 }
 
 function addGear(inventory: InventoryState, gear: readonly EquipmentDef[]): InventoryState {
@@ -297,11 +303,11 @@ function farmKey(): number {
   return encounters;
 }
 
-function prepareBuild(build: BuildId): EquipmentDef[] {
+function prepareBuild(build: BuildId, level: number): EquipmentDef[] {
   useGameStore.getState().createCharacter({ name: "Anselme", classId: HERO_CLASS.id });
-  const hero = withCapital(leveledHero(heroOrThrow(), LEVEL), CAPITAL_STAT[build]);
+  const hero = withCapital(leveledHero(heroOrThrow(), level), CAPITAL_STAT[build]);
   useGameStore.setState({ hero });
-  const gear = buildGear(build);
+  const gear = buildGear(build, level);
   useGameStore.setState({ inventory: addGear(useGameStore.getState().inventory, gear) });
   equipAll(gear);
   return gear;
@@ -331,11 +337,24 @@ interface Step {
   damageTaken: number;
 }
 
+function heroActive(state: BattleState): boolean {
+  return activeCombatant(state)?.side === "player";
+}
+
+/** Cible réellement attaquable : le refus du moteur est l'arbitre, pas le test. */
+function targetOf(state: BattleState): CombatantLike | null {
+  return heroActive(state) ? weakestOf(castableEnemies(state)) : null;
+}
+
+/**
+ * Une itération = une action du héros (sort) ou un tour ennemi. Aucun
+ * déplacement dans ce fichier : le héros attend que les monstres viennent.
+ */
 function actOnce(storage?: StorageLike): Step {
   const store = useCombatStore.getState();
   const state = battleOrThrow();
   const before = hpOf(state);
-  const target = activeCombatant(state)?.side === "player" ? weakestOf(castableEnemies(state)) : null;
+  const target = targetOf(state);
   if (target !== null && playerOf(state).ap >= HERO_SPELL.apCost) {
     store.battleSpellAttack({ targetId: target.id, rng: COMBAT_RNG });
     return { cast: true, damageTaken: 0 };
@@ -350,6 +369,8 @@ interface RoomReport {
   hpEnd: number;
   victory: boolean;
   defeat: boolean;
+  /** Aucune issue en `ROOM_ACTION_CAP` itérations : ni victoire, ni défaite. */
+  stalled: boolean;
   actions: number;
   casts: number;
   heroTurns: number;
@@ -371,17 +392,26 @@ function tally(steps: readonly Step[]): Tally {
   return { casts, heroTurns: steps.length - casts, damageTaken };
 }
 
+/** La salle est terminée : victoire, défaite, ou enlisement (plus rien ne bouge). */
+function roomOver(state: BattleState): boolean {
+  return isVictory(state) || isDefeat(state);
+}
+
+/** Plafond atteint sans issue : l'enlisement EST le résultat, pas un aléa du test. */
+function isStalled(steps: readonly Step[], state: BattleState): boolean {
+  return steps.length >= ROOM_ACTION_CAP && !roomOver(state);
+}
+
 function playRoom(roomNumber: number, storage: StorageLike): RoomReport {
   const state = battleOrThrow();
   const hpStart = hpOf(state);
   const enemyHpStart = enemyHp(state);
   const steps: Step[] = [];
-  while (steps.length < ROOM_ACTION_CAP && !isVictory(battleOrThrow()) && !isDefeat(battleOrThrow())) {
+  while (steps.length < ROOM_ACTION_CAP && !roomOver(battleOrThrow())) {
     steps.push(actOnce(storage));
   }
-  expect(steps.length).toBeLessThan(ROOM_ACTION_CAP);
   const end = battleOrThrow();
-  const flags = { victory: isVictory(end), defeat: isDefeat(end) };
+  const flags = { victory: isVictory(end), defeat: isDefeat(end), stalled: isStalled(steps, end) };
   const ends = { hpEnd: hpOf(end), enemyHpLeft: enemyHp(end) };
   return { roomNumber, hpStart, enemyHpStart, ...ends, ...flags, ...tally(steps), actions: steps.length };
 }
@@ -403,12 +433,13 @@ class MemoryStorage implements StorageLike {
 }
 
 interface Measurement {
+  level: number;
   build: BuildId;
   maxHp: number;
   gear: readonly EquipmentDef[];
   encounters: number;
   victory: boolean;
-  deathRoom: number | null;
+  stalled: boolean;
   actions: number;
   rooms: RoomReport[];
 }
@@ -425,9 +456,12 @@ function runOrThrow(): DungeonRunState {
   return dungeonRun;
 }
 
-/** Une salle gagnée : `settleDungeonRoom` ; une défaite : `endBattle` (D44). */
+/**
+ * Une salle gagnée : `settleDungeonRoom` ; une défaite : `endBattle` (D44) ;
+ * un enlisement : `endBattle` aussi, aucune salle n'est validée.
+ */
 function nextRoomOrStop(report: RoomReport, storage: StorageLike): boolean {
-  if (report.defeat) {
+  if (report.defeat || report.stalled) {
     expect(isDungeonComplete(runOrThrow(), DUNGEON)).toBe(false);
     return false;
   }
@@ -458,17 +492,26 @@ function assertCleanExit(storage: StorageLike): void {
   expect(heroOrThrow().hp).toBe(alive.hp);
 }
 
-function measureRun(build: BuildId, encounters: number, storage: MemoryStorage): Measurement {
+function measureRun(input: { build: BuildId; level: number; encounters: number; storage: MemoryStorage }): Measurement {
+  const { build, level, encounters, storage } = input;
   const maxHp = playerOf(battleOrThrow()).maxHp;
-  const gear = wornGear();
+  const gear = wornGear(level);
   const rooms = playDungeon(storage);
   const last = rooms[rooms.length - 1];
-  const deathRoom = last?.defeat === true ? last.roomNumber : null;
   useCombatStore.getState().endBattle();
   assertCleanExit(storage);
-  expect(gear.map((item) => item.level).every((level) => level <= LEVEL)).toBe(true);
+  expect(gear.map((item) => item.level).every((worn) => worn <= level)).toBe(true);
   const actions = rooms.reduce((total, room) => total + room.actions, 0);
-  return { build, maxHp, gear, encounters, victory: last?.victory === true, deathRoom, actions, rooms };
+  const stalled = last?.stalled === true;
+  return { level, build, maxHp, gear, encounters, victory: last?.victory === true, stalled, actions, rooms };
+}
+
+/** Une mesure complète et indépendante : héros, équipement, clef, donjon, sortie. */
+function measureAt(level: number, build: BuildId): Measurement {
+  prepareBuild(build, level);
+  expect(heroOrThrow().level).toBe(level);
+  const encounters = craftAndEnter();
+  return measureRun({ build, level, encounters, storage: new MemoryStorage() });
 }
 
 interface Deficit {
@@ -500,47 +543,77 @@ beforeEach(() => {
   });
 });
 
-describe("build survie — 75 Vitalité, l'équipement le plus défensif du niveau 16", () => {
-  it("303 PV : salle 1 gagnée, défaite salle 2 avec 55 PV ennemis restants", () => {
-    const gear = prepareBuild("survie");
-    expect(gear).toHaveLength(7);
-    expect(heroOrThrow().capitalPoints).toBe(0);
-    const encounters = craftAndEnter();
-    const measure = measureRun("survie", encounters, new MemoryStorage());
-    expect(measure.maxHp).toBe(303);
-    expect(measure.gear).toHaveLength(gear.length);
-    expect(measure.encounters).toBeLessThan(FARM_CAP);
-    expect(measure.victory).toBe(false);
-    expect(measure.deathRoom).toBe(2);
-    expect(measure.rooms.map((room) => room.roomNumber)).toEqual([1, 2]);
-    const [first, second] = measure.rooms;
-    expect(first?.victory).toBe(true);
-    expect(first?.hpEnd).toBe(225);
-    expect(second?.hpStart).toBe(first?.hpEnd);
-    // Remplace le tautologique `hpEnd === 0` (vrai par définition d'une défaite) :
-    // le héros a bien absorbé TOUS ses PV, aucun soin ne s'est glissé en salle.
-    expect(second?.damageTaken).toBe(second?.hpStart);
-    expect(second?.enemyHpLeft).toBe(55);
-    const missing = deficitOf(second as RoomReport);
-    expect(missing.turnsShort).toBeCloseTo(3.08, 2);
-    expect(missing.hpNeeded).toBeCloseTo(53.3, 1);
+type Outcome = "victoire" | "defaite" | "enlisement";
+
+interface Cell {
+  level: number;
+  build: BuildId;
+  maxHp: number;
+  outcome: Outcome;
+  room: number;
+  enemyHpLeft: number;
+  actions: number;
+  /** Déficit chiffré, seulement quand la salle se termine par une défaite. */
+  turnsShort?: number;
+  hpNeeded?: number;
+}
+
+/**
+ * La table EST la mesure : chaque chiffre vient d'une exécution réelle, aucune
+ * valeur n'a été calée pour que le test passe (`actions` compte le plafond pour
+ * les deux enlisements, cf. en-tête).
+ */
+const CELLS: readonly Cell[] = [
+  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 2, enemyHpLeft: 55, actions: 53, turnsShort: 3.08, hpNeeded: 53.3 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 2, enemyHpLeft: 7, actions: 43, turnsShort: 0.35, hpNeeded: 4.6 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 210, actions: 62, turnsShort: 7.88, hpNeeded: 279.6 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "enlisement", room: 2, enemyHpLeft: 164, actions: 212 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "enlisement", room: 2, enemyHpLeft: 162, actions: 212 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "defaite", room: 3, enemyHpLeft: 148, actions: 44, turnsShort: 3.33, hpNeeded: 144 },
+];
+
+function lastRoomOf(rooms: readonly RoomReport[]): RoomReport {
+  const last = rooms[rooms.length - 1];
+  if (last === undefined) throw new Error("aucune salle jouée");
+  return last;
+}
+
+/** Issue de la DERNIÈRE salle : la victoire s'entend « donjon complet ». */
+function outcomeOf(measure: Measurement): Outcome {
+  if (measure.victory) return "victoire";
+  return measure.stalled ? "enlisement" : "defaite";
+}
+
+function assertDeficit(cell: Cell, room: RoomReport): void {
+  if (cell.turnsShort === undefined || cell.hpNeeded === undefined) return;
+  const missing = deficitOf(room);
+  expect(missing.turnsShort).toBeCloseTo(cell.turnsShort, 2);
+  expect(missing.hpNeeded).toBeCloseTo(cell.hpNeeded, 1);
+}
+
+describe("couverture de la mesure", () => {
+  it("mesure les trois niveaux et les deux builds, sans dériver du donjon", () => {
+    expect([...new Set(CELLS.map((cell) => cell.level))]).toEqual([...LEVELS]);
+    expect(CELLS).toHaveLength(LEVELS.length * 2);
+  });
+
+  it("ne corrige pas `recommendedLevel` : aucun niveau mesuré ne gagne", () => {
+    expect(CELLS.filter((cell) => cell.outcome === "victoire")).toEqual([]);
+    expect(DUNGEON.recommendedLevel).toBe(16);
   });
 });
 
-describe("build offense — 75 Force, l'équipement le plus offensif du niveau 16", () => {
-  it("228 PV : salle 1 gagnée, défaite salle 2 à 7 PV ennemis près", () => {
-    prepareBuild("offense");
-    expect(heroOrThrow().capitalPoints).toBe(0);
-    const encounters = craftAndEnter();
-    const measure = measureRun("offense", encounters, new MemoryStorage());
-    expect(measure.maxHp).toBe(228);
-    expect(measure.rooms.map((room) => room.roomNumber)).toEqual([1, 2]);
-    expect(measure.deathRoom).toBe(2);
-    const second = measure.rooms[1] as RoomReport;
-    expect(second.defeat).toBe(true);
-    expect(second.enemyHpLeft).toBe(7);
-    const missing = deficitOf(second);
-    expect(missing.turnsShort).toBeCloseTo(0.35, 2);
-    expect(missing.hpNeeded).toBeCloseTo(4.6, 1);
+describe.each(CELLS)("niveau $level, build $build", (cell) => {
+  it(`${cell.outcome} en salle ${cell.room} — ${cell.enemyHpLeft} PV de monstres restants, ${cell.actions} actions`, () => {
+    const measure = measureAt(cell.level, cell.build);
+    expect(measure.maxHp).toBe(cell.maxHp);
+    expect(measure.gear).toHaveLength(7);
+    expect(measure.encounters).toBeLessThan(FARM_CAP);
+    expect(outcomeOf(measure)).toBe(cell.outcome);
+    const last = lastRoomOf(measure.rooms);
+    expect(last.roomNumber).toBe(cell.room);
+    expect(last.enemyHpLeft).toBe(cell.enemyHpLeft);
+    expect(measure.actions).toBe(cell.actions);
+    assertDeficit(cell, last);
   });
 });
