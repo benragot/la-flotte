@@ -9,6 +9,7 @@ import { StatAllocation } from "./hero";
 import HeroVitalsLine from "./HeroVitalsLine";
 import { InventoryPanel } from "./inventory";
 import { DungeonEntryPanel, DungeonNotice } from "./dungeon";
+import NewGameButton from "./NewGameButton";
 import { SECTION_HEADING } from "./hudTheme";
 
 /** Panneaux superposés accessibles depuis l'arène en exploration. */
@@ -44,13 +45,27 @@ function useLiveCombat(): boolean {
   return combat !== null || battle !== null;
 }
 
+interface PanelButtonsProps {
+  onOpen: (panel: PanelId) => void;
+  blocked: boolean;
+}
+
+function PanelButtons({ onOpen, blocked }: PanelButtonsProps) {
+  return (
+    <>
+      <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} />
+      <AccessButton label="Fiche perso" onClick={() => onOpen("hero")} />
+      <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} disabled={blocked} />
+    </>
+  );
+}
+
 function AccessBar({ onOpen }: { onOpen: (panel: PanelId) => void }) {
   const blocked = useLiveCombat();
   return (
     <div className={ACCESS_BAR}>
-      <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} />
-      <AccessButton label="Fiche perso" onClick={() => onOpen("hero")} />
-      <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} disabled={blocked} />
+      <PanelButtons onOpen={onOpen} blocked={blocked} />
+      <NewGameButton />
     </div>
   );
 }

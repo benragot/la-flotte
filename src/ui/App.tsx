@@ -62,10 +62,21 @@ function useArenaBootstrap(hasHero: boolean): void {
   const startExploration = useCombatStore((state) => state.startExploration);
   const isFresh = useCombatStore((state) => state.combat === null && state.exploration === null);
   const requested = useRef(false);
+  useGuardRearm(requested, hasHero);
   const enabled = shouldStartExploration({ hasHero, isFresh, requested: requested.current });
   useEffect(() => {
     if (enabled) runOnce(startExploration, requested);
   }, [enabled, startExploration]);
+}
+
+/**
+ * « Nouvelle partie » vide le héros : le garde se réarme pour que la création
+ * suivante redémarre l'exploration, au lieu de rester bloquée sur l'ancien oui.
+ */
+function useGuardRearm(requested: OnceGuard, hasHero: boolean): void {
+  useEffect(() => {
+    if (!hasHero) requested.current = false;
+  }, [hasHero, requested]);
 }
 
 function runOnce(action: () => void, requested: OnceGuard): void {

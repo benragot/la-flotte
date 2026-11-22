@@ -14,6 +14,13 @@ export interface ExplorationJournalProps {
   lines: readonly string[];
 }
 
+/**
+ * Liste vide **stable** : un `[]` littéral dans le sélecteur zustand renvoyait un
+ * nouveau tableau à chaque snapshot et React bouclait jusqu'au « Maximum update
+ * depth exceeded » (arène blanche) dès qu'un héros existait sans exploration.
+ */
+const NO_LOG: readonly string[] = [];
+
 export interface ExplorationStatusProps {
   mapId: string;
 }
@@ -43,7 +50,7 @@ export function ExplorationStatusOverlay({ mapId }: ExplorationStatusProps) {
 
 /** Connexion au store : le mode dev/prod vient de Vite, jamais d'un flag maison. */
 export function ExplorationJournalPanel() {
-  const log = useCombatStore((state) => state.exploration?.log ?? []);
+  const log = useCombatStore((state) => state.exploration?.log ?? NO_LOG);
   return <ExplorationJournal lines={visibleExplorationLog(log, import.meta.env.DEV)} />;
 }
 
