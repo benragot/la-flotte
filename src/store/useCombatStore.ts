@@ -23,8 +23,8 @@ import {
   respawnMonsterGroup,
 } from "../engine/exploration";
 import type { ExplorationState, MonsterGroup, MonsterSpawn, SpawnPick, SpawnZone } from "../engine/exploration";
-import { roomMonsters } from "../engine/dungeon";
-import type { DungeonRoom } from "../engine/dungeon";
+import { attemptRoom, currentRoom, isDungeonComplete, roomMonsters } from "../engine/dungeon";
+import type { DungeonRoom, DungeonRunState } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
 import { combatantFromHero } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
@@ -42,6 +42,7 @@ import type { ProgressionDef } from "../schemas/progressionSchema";
 import type { SpellDef } from "../schemas/spellSchema";
 import { spellsFileSchema } from "../schemas/spellSchema";
 import { spawnsFileSchema } from "../schemas/spawnSchema";
+import type { DungeonDef } from "../schemas/dungeonSchema";
 import {
   appendBattleLog,
   battleAttack as resolveBattleAttack,
@@ -53,6 +54,8 @@ import {
   spellStrategy,
 } from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
+import { dungeonById, dungeonEntry, fallenMonsterIds } from "./dungeonSelectors";
+import type { DungeonEntryOutcome } from "./dungeonSelectors";
 
 export type CombatMode = "exploration" | "combat";
 
@@ -68,6 +71,10 @@ interface CombatStore {
   exploration: ExplorationState | null;
   /** Groupe à l'origine du combat courant, nécessaire au respawn. */
   activeGroup: MonsterGroup | null;
+  /** Run de donjon en cours (`null` hors donjon) : la clé est déjà consommée. */
+  dungeonRun: DungeonRunState | null;
+  /** Dernier message de donjon, annoncé par la région `aria-live` du panneau. */
+  dungeonNotice: string | null;
   mapId: string;
   selectedSpellId: string | null;
   hoveredCell: Position | null;
@@ -81,6 +88,14 @@ interface CombatStore {
   clickCell: (pos: Position) => void;
   endTurn: () => void;
   startDungeonRoom: (input: { room: DungeonRoom }) => void;
+  /**
+   * NOUVEAU (5D-a) : entrée de donjon par le catalogue réel. Sans la clef, rien
+   * n'est modifié (`false`) ; sinon la clef est consommée et la salle 1 démarre.
+   * Refusée pendant un 1v1 ou une salle ouverte : les deux HUD ne cohabitent pas.
+   */
+  enterDungeonRun: (input: { dungeonId: string }) => boolean;
+  /** Purge la notice périmée à l'ouverture du panneau ou après une entrée réussie. */
+  clearDungeonNotice: () => void;
   /** `rng` injectable (défaut `Math.random`) pour des combats déterministes en test. */
   battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) => void;
   battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) => void;
@@ -89,7 +104,7 @@ interface CombatStore {
    * héros, avec les sorts réels des monstres (`data/spells.yaml`). Si le héros
    * tombe, aucun `hp: 0` n'est persisté (voir `restoreHeroHp`).
    */
-  playEnemyTurns: (input?: { rng?: Rng }) => void;
+  playEnemyTurns: (input?: { rng?: Rng; storage?: StorageLike }) => void;
   /** Fait tourner la timeline quand l'actif courant ne peut plus rien faire (aucun aléa). */
   advanceBattleTurn: () => void;
   /**
@@ -214,11 +229,11 @@ function creditVictory(rewards: CombatRewards): void {
   game.saveGame();
 }
 
-function restoreHeroHp(): void {
+function restoreHeroHp(storage?: StorageLike): void {
   const game = useGameStore.getState();
   if (game.hero === null) return;
   useGameStore.setState({ hero: { ...game.hero, hp: game.hero.maxHp } });
-  game.saveGame();
+  game.saveGame(storage);
 }
 
 function castOrMove(state: CombatState, spellId: string | null, target: Position): CombatState {
@@ -390,13 +405,19 @@ function battleFinished(state: BattleState): boolean {
   return isDefeat(state) || isVictory(state);
 }
 
+function wonBattle(state: BattleState | null): state is BattleState {
+  if (state === null) return false;
+  return isVictory(state) && !isDefeat(state);
+}
+
 /** Les ennemis ripostent ; une défaite passe par `restoreHeroHp`, jamais par `hp: 0`. */
-function playEnemyTurnsUpdate(store: CombatStore, rng: Rng): Partial<CombatStore> {
+function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLike): Partial<CombatStore> {
   const state = store.battle;
-  if (state === null || battleFinished(state)) return {};
-  const options = { state, strategyFor: (enemy: CombatantLike) => strategyForEnemy(enemy, rng), rng };
-  const next = resolveEnemyTurns(options);
-  if (isDefeat(next)) restoreHeroHp();
+  if (state === null) return {};
+  if (battleFinished(state)) return {};
+  const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
+  const next = resolveEnemyTurns({ state, strategyFor, rng });
+  if (isDefeat(next)) restoreHeroHp(storage);
   return battleUpdate(state, next);
 }
 
@@ -412,15 +433,96 @@ function battleHeroHp(state: BattleState): number | undefined {
   return state.combatants.find((entry) => entry.side === "player")?.hp;
 }
 
-/** Aucune régénération : la salle suivante repart des PV laissés par la précédente. */
+const ROOM_REFUSED = "La salle n'est pas nettoyée : le donjon reste ouvert.";
+const DUNGEON_LEFT = "Donjon quitté : la salle reste aux monstres.";
+const UNKNOWN_DUNGEON = "Donjon inconnu.";
+const COMBAT_REFUSED = "Entrée refusée : termine le combat en cours d'abord.";
+
+interface RoomAdvance {
+  run: DungeonRunState;
+  dungeon: DungeonDef;
+  cleared: boolean;
+  complete: boolean;
+}
+
+/** Valide la salle avec les vaincus **lus dans le battle**, puis mesure l'avancement. */
+function attemptCurrentRoom(store: CombatStore, state: BattleState): RoomAdvance | null {
+  const run = store.dungeonRun;
+  if (run === null) return null;
+  const dungeon = dungeonById(run.dungeonId);
+  if (dungeon === null) return null;
+  const attempt = attemptRoom({ run, dungeon, defeatedMonsterIds: fallenMonsterIds(state) });
+  return { run: attempt.run, dungeon, cleared: attempt.cleared, complete: isDungeonComplete(attempt.run, dungeon) };
+}
+
+/** Battle de la salle courante, `null` quand le run est terminé. */
+function roomBattleAt(run: DungeonRunState, dungeon: DungeonDef): BattleState | null {
+  const room = currentRoom(run, dungeon);
+  return room === null ? null : battleFromRoom(room);
+}
+
+function nextRoomNotice(run: DungeonRunState, dungeon: DungeonDef): string {
+  const room = currentRoom(run, dungeon);
+  return room === null ? DUNGEON_LEFT : `Salle gagnée. La suivante t'attend : ${room.name}.`;
+}
+
+/** Progression : salle suivante, refus ou victoire de donjon (message + sortie). */
+function progressedUpdate(store: CombatStore, state: BattleState): Partial<CombatStore> {
+  const advance = attemptCurrentRoom(store, state);
+  if (advance === null) return battleUpdate(state, null);
+  if (!advance.cleared) return { battle: null, dungeonRun: advance.run, dungeonNotice: ROOM_REFUSED };
+  if (advance.complete) return { battle: null, dungeonRun: null, dungeonNotice: `Donjon terminé : ${advance.dungeon.name}.` };
+  const battle = roomBattleAt(advance.run, advance.dungeon);
+  return { battle, dungeonRun: advance.run, dungeonNotice: nextRoomNotice(advance.run, advance.dungeon) };
+}
+
+/**
+ * Salle gagnée : les PV sont reportés, la sauvegarde écrite, **aucun soin**, puis
+ * la salle suivante démarre (ou le donjon se ferme). Une défaite est refusée ici :
+ * c'est `endBattle` qui sort proprement (D44).
+ */
 function settleUpdate(store: CombatStore, storage?: StorageLike): Partial<CombatStore> {
   const state = store.battle;
-  if (state === null || !isVictory(state)) return {};
+  if (!wonBattle(state)) return {};
   const hp = battleHeroHp(state);
   if (hp === undefined) return {};
   carryOverBattleHp(hp);
   useGameStore.getState().saveGame(storage);
-  return battleUpdate(state, null);
+  return progressedUpdate(store, state);
+}
+
+/** Sortie du donjon (défaite ou abandon) : le run est oublié, aucun 0 PV persisté. */
+function endBattleUpdate(store: CombatStore): Partial<CombatStore> {
+  if (store.dungeonRun === null) return { battle: null };
+  return { battle: null, dungeonRun: null, dungeonNotice: DUNGEON_LEFT };
+}
+
+/** Refus d'entrée lisible : le nom du donjon vient du YAML, la clef aussi. */
+function keyRefusal(dungeon: DungeonDef): string {
+  return `Entrée refusée : il manque la clef de ${dungeon.name}.`;
+}
+
+/** Entrée acceptée : la clef est déjà consommée par `dungeonEntry`, la salle 1 démarre. */
+function startedRunUpdate(outcome: DungeonEntryOutcome): Partial<CombatStore> {
+  const { dungeon, result } = outcome;
+  if (result.run === null) return { dungeonNotice: keyRefusal(dungeon) };
+  useGameStore.setState({ inventory: result.inventory });
+  const battle = roomBattleAt(result.run, dungeon);
+  return { dungeonRun: result.run, battle, dungeonNotice: null };
+}
+
+/** Un 1v1 ou une salle de donjon déjà ouverte interdit l'entrée. */
+function inLiveCombat(store: CombatStore): boolean {
+  return store.combat !== null || store.battle !== null;
+}
+
+/** Entrée : catalogue déjà parsé, aucun id de donjon ni de clef écrit ici. */
+function enterUpdate(store: CombatStore, input: { dungeonId: string }): Partial<CombatStore> {
+  if (store.dungeonRun !== null) return {};
+  if (inLiveCombat(store)) return { dungeonNotice: COMBAT_REFUSED };
+  const inventory = useGameStore.getState().inventory;
+  const outcome = dungeonEntry({ dungeonId: input.dungeonId, inventory });
+  return outcome === null ? { dungeonNotice: UNKNOWN_DUNGEON } : startedRunUpdate(outcome);
 }
 
 type StoreSetter = StoreApi<CombatStore>["setState"];
@@ -468,7 +570,8 @@ function battlePlayActions(set: StoreSetter) {
 
 function battleTurnActions(set: StoreSetter) {
   return {
-    playEnemyTurns: (input?: { rng?: Rng }) => set((store) => playEnemyTurnsUpdate(store, input?.rng ?? Math.random)),
+    playEnemyTurns: (input?: { rng?: Rng; storage?: StorageLike }) =>
+      set((store) => playEnemyTurnsUpdate(store, input?.rng ?? Math.random, input?.storage)),
     advanceBattleTurn: () => set((store) => advanceTurnUpdate(store)),
   };
 }
@@ -483,12 +586,26 @@ function battleSpellActions(set: StoreSetter) {
 function battleCloseActions(set: StoreSetter) {
   return {
     settleDungeonRoom: (input?: { storage?: StorageLike }) => set((store) => settleUpdate(store, input?.storage)),
-    endBattle: () => set({ battle: null }),
+    endBattle: () => set((store) => endBattleUpdate(store)),
   };
 }
 
 function battleActions(set: StoreSetter): BattleActions {
   return { ...battlePlayActions(set), ...battleTurnActions(set), ...battleCloseActions(set) };
+}
+
+type DungeonActions = Pick<CombatStore, "enterDungeonRun" | "clearDungeonNotice">;
+
+/** Entrée de donjon : l'action rend `true` seulement si un run a démarré (clef consommée). */
+function dungeonActions(set: StoreSetter, get: () => CombatStore): DungeonActions {
+  return {
+    enterDungeonRun: (input) => {
+      const update = enterUpdate(get(), input);
+      set(update);
+      return update.dungeonRun !== null && update.dungeonRun !== undefined;
+    },
+    clearDungeonNotice: () => set({ dungeonNotice: null }),
+  };
 }
 
 const DEFAULT_STATE = {
@@ -497,6 +614,8 @@ const DEFAULT_STATE = {
   mode: "exploration",
   exploration: null,
   activeGroup: null,
+  dungeonRun: null,
+  dungeonNotice: null,
   mapId: startMapId(),
   selectedSpellId: null,
   hoveredCell: null,
@@ -511,6 +630,8 @@ const DEFAULT_STATE = {
   | "clickCell"
   | "endTurn"
   | "startDungeonRoom"
+  | "enterDungeonRun"
+  | "clearDungeonNotice"
   | "battleAttack"
   | "battleSpellAttack"
   | "battleEnemyTurn"
@@ -540,11 +661,12 @@ function endTurnAction(store: CombatStore): Partial<CombatStore> {
   return endTurnUpdate(store);
 }
 
-export const useCombatStore = create<CombatStore>((set) => ({
+export const useCombatStore = create<CombatStore>((set, get) => ({
   ...DEFAULT_STATE,
   ...mapActions(set),
   ...battleActions(set),
   ...battleSpellActions(set),
+  ...dungeonActions(set, get),
 }));
 
 export type { CombatStore };
