@@ -865,9 +865,8 @@ debts:
   - id: D86
     title: "Le harnais compte tous les `li` du panneau, journal inclus : il annonce 5 combattants pour 4"
     severity: medium
-    target: external
-    owner: user
-    notes: "scripts/play/steps.mjs:107 : `panel.locator(\"li\").count()` compte les entrées du journal en plus des combattants — un combat à 4 ennemis est rapporté « 5 combattant(s) » (steps.mjs:109). Un instrument qui se trompe sur son propre chiffre finira par faire valider une capture qu'on n'aurait pas dû. Correctif : cibler la liste des combattants (sélecteur dédié), pas tous les `li`. **Lié** : le harnais n'asserte presque rien — `cards` (steps.mjs:36) et `fighters` (steps.mjs:107) ne sont que des notices, et l'étape 04 (`combat1v1`, steps.mjs:90-103) ne mesure jamais `canvas` alors que `ARENA_CANVAS` n'est vérifié qu'à l'exploration (steps.mjs:64) : un combat au rendu noir sortirait vert, sans `fighters > 0` ni `cards === 12`."
+    target: 5C-actor-ring
+    notes: "scripts/play/steps.mjs:107 : `panel.locator(\"li\").count()` compte les entrées du journal en plus des combattants — un combat à 4 ennemis est rapporté « 5 combattant(s) » (steps.mjs:109). Un instrument qui se trompe sur son propre chiffre finira par faire valider une capture qu'on n'aurait pas dû. Correctif : cibler la liste des combattants (sélecteur dédié), pas tous les `li`. `scripts/` **n'étant pas** dans la liste d'interdiction de tdd-coder.md:56-58, la dette est payable par une tâche et non `external` : même harnais que D84, donc même cible. **Lié** : le harnais n'asserte presque rien — `cards` (steps.mjs:36) et `fighters` (steps.mjs:107) ne sont que des notices, et l'étape 04 (`combat1v1`, steps.mjs:90-103) ne mesure jamais `canvas` alors que `ARENA_CANVAS` n'est vérifié qu'à l'exploration (steps.mjs:64) : un combat au rendu noir sortirait vert, sans `fighters > 0` ni `cards === 12`."
   - id: D87
     title: "Le décor `layer: above` n'est jamais exercé : s'il l'était, il recouvrirait la grille et rendrait une case jouable invisible"
     severity: medium
@@ -877,7 +876,7 @@ debts:
     title: "`ActorStage.actors` n'est jamais purgé : un sprite reste en mémoire par clé de jeton à chaque salle"
     severity: medium
     target: 7A-spritesheets
-    notes: "src/renderer/sprites/actorStage.ts:37 : `private readonly actors = new Map<string, EntitySprite>()`, alimenté par actorStage.ts:67 et actorStage.ts:75 (`this.actors.set(key, actor)`), lu par actorStage.ts:85 — aucun `delete` ni `clear` dans le fichier. Chaque salle et chaque combat ajoutent des clés que rien ne retire, et les `EntitySprite` restent attachés à leur `Container`. Aucun impact visuel, fuite lente. Correctif : purger les clés absentes du `sync` courant et `destroy()` les sprites orphelins."
+    notes: "src/renderer/sprites/actorStage.ts:37 : `private readonly actors = new Map<string, EntitySprite>()`, alimenté par actorStage.ts:67 (lecture `get` avec création paresseuse via `createActor`) et écrit par actorStage.ts:75 (`this.actors.set(key, actor)`), relu par actorStage.ts:85 — aucun `delete` ni `clear` dans le fichier. Chaque salle et chaque combat ajoutent des clés que rien ne retire, et les `EntitySprite` restent attachés à leur `Container`. Aucun impact visuel, fuite lente. Correctif : purger les clés absentes du `sync` courant et `destroy()` les sprites orphelins."
   - id: D89
     title: "`SPRITE_DISPLAY_SIZE = 64` duplique `TILE_W` sans le référencer : les sprites ne suivent pas la tuile"
     severity: medium
@@ -887,7 +886,7 @@ debts:
     title: "La clef du donjon a deux chemins licites à 11× d'écart (7,05 contre 81,55 combats) et rien ne dit au joueur lequel prendre"
     severity: medium
     target: 5B-key-budget
-    notes: "docs/design/islands/ile_de_la_ferraille.md:989-990 chiffre les deux chemins : butin direct `1 / 14,18 % ≈ 7,05` rencontres, recette `Σ ≈ 81,55`. Les deux sont licites au regard de DEC-07 (« obtainable en 5 à 10 combats ») et tests/data/keyFarmBudget.spec.ts:1-40 retient le moins cher des deux (`min(craft, drop)`) : le tarif est **conforme**, il ne faut pas re-tarifer. Le défaut est de narration : data/recipes.yaml:114-121 présente la recette comme la voie, data/monsters.yaml:86-92 ne porte le butin direct qu'en commentaire, et aucun composant n'appelle `craftRecipe` (déclaré en src/store/useGameStore.ts:63, aucun appelant dans src/ui/). Correctif : un dialogue ou un PNJ qui indique le bon chemin — une décision d'interface, pas d'équilibrage."
+    notes: "docs/design/islands/ile_de_la_ferraille.md:989-990 chiffre les deux chemins : butin direct `1 / 14,18 % ≈ 7,05` rencontres, recette `Σ ≈ 81,55`. Les deux sont licites au regard de DEC-07 (« obtainable en 5 à 10 combats ») et tests/data/keyFarmBudget.spec.ts:1-40 retient le moins cher des deux (`min(craft, drop)`) : le tarif est **conforme**, il ne faut pas re-tarifer. Le défaut est de narration : data/recipes.yaml:114-121 présente la recette comme la voie, data/monsters.yaml:87-91 ne porte que le commentaire qui **justifie** le butin direct — l'entrée réelle est déjà là, en data/monsters.yaml:92 (`baseDropRate: 0.60`) — et aucun composant n'appelle `craftRecipe` (déclaré en src/store/useGameStore.ts:63, aucun appelant dans src/ui/). Correctif : un dialogue ou un PNJ qui indique le bon chemin — une décision d'interface, pas d'équilibrage. **Ne pas ajouter de butin** : le drop existe, un second doublonnerait le tirage et casserait le budget DEC-07."
   - id: D91
     title: "`AGENTS.md` ne cite pas `docs/design/DECISIONS.md` : un agent qui ne lit que la constitution ignore les neuf décisions normatives"
     severity: high

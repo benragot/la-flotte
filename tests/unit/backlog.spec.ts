@@ -1649,7 +1649,7 @@ const TODAY_DEBTS: Array<[string, string, string, string]> = [
   ["D83", "high", "external", "pr-merger.md"],
   ["D84", "medium", "5C-actor-ring", "boxOf"],
   ["D85", "medium", "external", "eslint src tests"],
-  ["D86", "medium", "external", "locator(\"li\")"],
+  ["D86", "medium", "5C-actor-ring", "locator(\"li\")"],
   ["D87", "medium", "7A-spritesheets", "decorAbove"],
   ["D88", "medium", "7A-spritesheets", "this.actors"],
   ["D89", "medium", "7A-spritesheets", "SPRITE_DISPLAY_SIZE"],
