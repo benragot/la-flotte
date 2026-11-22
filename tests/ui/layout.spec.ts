@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { ARENA, createHero, expectInsideViewport, expectNoOverlap } from "./helpers";
+import {
+  ARENA,
+  createHero,
+  expectCenteredIn,
+  expectCoverage,
+  expectFlushWithViewportBottom,
+  expectInsideViewport,
+  expectNoOverlap,
+  expectVerticallyAdjacent,
+} from "./helpers";
 
 /**
  * Garde-fous de mise en page : `jsdom` renvoie des rectangles à zéro, donc ces
@@ -28,6 +37,18 @@ const TIMELINE = 'aside[aria-label="Ordre de jeu"]';
 const TIMELINE_FIRST = `${TIMELINE} article:first-child`;
 const TIMELINE_LAST = `${TIMELINE} article:last-child`;
 const BATTLE_PANEL = 'section[aria-label="Combat de salle"]';
+
+/** Zone jouable mesurée seule : c'est elle qui doit être centrée, pas la page. */
+const ARENA_SECTION = 'section[aria-label="Zone jouable"]';
+const ARENA_CANVAS = `${ARENA} canvas`;
+/** Dock d'exploration : seul contenu du conteneur de HUD, donc sa hauteur. */
+const HERO_DOCK = '[role="group"][aria-label="Dock du héros"]';
+
+/**
+ * Seuil couverture du canvas : il doit remplir sa section. 95 % laisse passer
+ * un liseré d'arrondi de 1-2 px sans autoriser un cadre vide.
+ */
+const CANVAS_COVERAGE = 0.95;
 
 test.describe("création de personnage", () => {
   test.beforeEach(async ({ page }) => {
@@ -66,6 +87,31 @@ test.describe("exploration", () => {
     await expect(page.locator(DUNGEON_ENTRY_SHEET)).toBeVisible();
     await expectInsideViewport(page, DUNGEON_ENTRY_SHEET);
     await expectInsideViewport(page, `${DUNGEON_ENTRY_SHEET} button:has-text("Entrer")`);
+  });
+});
+
+/**
+ * Mesure la boîte DOM du canvas (100 % de la section).
+ * L'image iso dessinée DEDANS — origine `centeredOrigin`, échelle cover — n'est
+ * PAS couverte ici : voir la PR `src/renderer` / dette D44.
+ */
+test.describe("géométrie de l'arène", () => {
+  test.beforeEach(async ({ page }) => {
+    await createHero(page);
+  });
+
+  test("le canvas occupe toute la zone jouable", async ({ page }) => {
+    await expectCenteredIn(page, ARENA_CANVAS, ARENA_SECTION);
+  });
+
+  test("le canvas remplit la surface de la zone jouable", async ({ page }) => {
+    await expectCoverage(page, ARENA_CANVAS, ARENA_SECTION, CANVAS_COVERAGE);
+  });
+
+  test("l'arène et le dock du héros sont contigus : aucune bande morte", async ({ page }) => {
+    await expect(page.locator(HERO_DOCK)).toBeVisible();
+    await expectVerticallyAdjacent(page, ARENA_SECTION, HERO_DOCK);
+    await expectFlushWithViewportBottom(page, HERO_DOCK);
   });
 });
 

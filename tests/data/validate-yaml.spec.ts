@@ -51,9 +51,13 @@ describe("données YAML", () => {
 describe("manifeste des sprites", () => {
   const sprites = spritesFileSchema.parse(yaml.load(readFileSync(join(DATA_DIR, "sprites.yaml"), "utf8"))).sprites;
 
-  it("décrit les 13 entités animées", () => {
-    expect(sprites).toHaveLength(13);
-    expect(new Set(sprites.map((sprite) => sprite.entityId)).size).toBe(13);
+  // 13 = 12 classes + le Piou Mazouté. 16 = 13 + les trois monstres de la plage
+  // de la Ferraille (rat de cale, crabe à clé-à-molette, écrou-bâton), qui
+  // s'affichaient en cercle rouge faute de feuille. Le compte reste exact : une
+  // feuille ajoutée ou retirée sans mise à jour du manifeste casse le test.
+  it("décrit les 16 entités animées", () => {
+    expect(sprites).toHaveLength(16);
+    expect(new Set(sprites.map((sprite) => sprite.entityId)).size).toBe(16);
   });
 
   it("associe les quatre animations à chaque entité", () => {

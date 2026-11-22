@@ -13,13 +13,14 @@ import { explorationView } from "./explorationView";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 
-/** Wrapper HUD dans la colonne : 240 px au total, dont 150 px de dock 1.29. */
-const HUD_HEIGHT_CLASS = "relative h-[240px] w-full shrink-0";
-
 const CREATION_SHELL = "flex h-screen w-screen items-center justify-center overflow-auto bg-slate-950 p-4";
 const ARENA_SHELL = "relative flex h-screen w-screen flex-col overflow-hidden";
 /** Rangée carte + colonne gauche du journal (exploration) : la carte garde `flex-1`. */
 const ARENA_ROW = "relative flex min-h-0 w-full flex-1 overflow-hidden";
+/** Combat : bandeau + ligne d'initiative + dock 1.29, soit 240 px de HUD. */
+const HUD_HEIGHT_CLASS = "relative h-[240px] w-full shrink-0";
+/** Exploration : le dock est le seul contenu, le conteneur épouse donc sa hauteur. */
+const EXPLORATION_HUD_CLASS = "relative w-full shrink-0";
 
 /** Garde mutable d'un démarrage unique (équivalent structurel de `useRef`). */
 interface OnceGuard {
@@ -103,10 +104,19 @@ function ArenaSection({ mode, exploration, children }: ArenaSectionProps) {
   );
 }
 
-/** Le HUD est un frère dans la colonne : le dock réserve sa place, la grille ne passe jamais dessous. */
+/** Hauteur du conteneur de HUD par mode : 240 px en combat, épousée en exploration. */
+const HUD_CLASS: Record<ArenaMode, string> = {
+  combat: HUD_HEIGHT_CLASS,
+  exploration: EXPLORATION_HUD_CLASS,
+};
+
+/**
+ * Le HUD est un frère dans la colonne : sa hauteur suit ses bandes, donc la
+ * grille ne passe jamais dessous et aucune bande vide ne mange l'arène.
+ */
 function Dock({ mode, onReturnToMap }: { mode: ArenaMode; onReturnToMap: () => void }) {
   return (
-    <div className={HUD_HEIGHT_CLASS}>
+    <div className={HUD_CLASS[mode]}>
       <CombatHud mode={mode} onReturnToMap={onReturnToMap} />
     </div>
   );

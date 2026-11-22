@@ -27,9 +27,11 @@ describe("générateur de feuilles — garde anti-dérive", () => {
     expect(run.status).toBe(0);
   });
 
-  it("vérifie les 13 feuilles et pas moins", () => {
+  // 13 → 16 : les trois monstres de la plage de la Ferraille ont désormais une
+  // feuille. La borne reste exacte, elle n'est pas assouplie.
+  it("vérifie les 16 feuilles et pas moins", () => {
     const run = runCheck();
-    expect(run.stdout).toContain("13 feuilles");
+    expect(run.stdout).toContain("16 feuilles");
   });
 
   it("compare le contenu des SVG au rendu du générateur", () => {

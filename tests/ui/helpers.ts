@@ -98,3 +98,63 @@ export async function createHero(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Créer" }).click();
   await expect(page.locator(ARENA)).toBeVisible();
 }
+
+/** Marges signées entre deux boîtes : positif = l'intérieur est plus petit. */
+export interface Gaps {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+export function gapsBetween(inner: Box, outer: Box): Gaps {
+  return {
+    left: inner.x - outer.x,
+    right: outer.x + outer.width - (inner.x + inner.width),
+    top: inner.y - outer.y,
+    bottom: outer.y + outer.height - (inner.y + inner.height),
+  };
+}
+
+/** Centrage optique : les marges opposées diffèrent de moins de `TOLERANCE_PX`. */
+export async function expectCenteredIn(page: Page, inner: string, outer: string): Promise<void> {
+  const a = await boxOf(page, inner);
+  const b = await boxOf(page, outer);
+  const gaps = gapsBetween(a, b);
+  const centered = Math.abs(gaps.left - gaps.right) <= TOLERANCE_PX && Math.abs(gaps.top - gaps.bottom) <= TOLERANCE_PX;
+  const margins = `marges [g=${Math.round(gaps.left)} d=${Math.round(gaps.right)} h=${Math.round(gaps.top)} b=${Math.round(gaps.bottom)}]`;
+  expect(centered, `« ${inner} » ${rect(a)} n'est pas centré dans « ${outer} » ${rect(b)} : ${margins}.`).toBe(true);
+}
+
+/** Part de la surface du conteneur couverte par l'élément (1 = pleine surface). */
+export function coverageRatio(inner: Box, outer: Box): number {
+  return (inner.width * inner.height) / (outer.width * outer.height);
+}
+
+export async function expectCoverage(page: Page, inner: string, outer: string, minimum: number): Promise<void> {
+  const a = await boxOf(page, inner);
+  const b = await boxOf(page, outer);
+  const ratio = coverageRatio(a, b);
+  const percent = Math.round(ratio * 100);
+  const message = `« ${inner} » ${rect(a)} ne couvre que ${percent} % de « ${outer} » ${rect(b)} (minimum ${Math.round(minimum * 100)} %).`;
+  expect(ratio, message).toBeGreaterThanOrEqual(minimum);
+}
+
+/** Échoue si une bande vide sépare le bas du bloc supérieur du haut du bloc inférieur. */
+export async function expectVerticallyAdjacent(page: Page, upper: string, lower: string): Promise<void> {
+  const a = await boxOf(page, upper);
+  const b = await boxOf(page, lower);
+  const band = b.y - (a.y + a.height);
+  const message = `Bande morte de ${Math.round(band)} px entre « ${upper} » ${rect(a)} et « ${lower} » ${rect(b)} (tolérance ${TOLERANCE_PX}px).`;
+  expect(Math.abs(band) <= TOLERANCE_PX, message).toBe(true);
+}
+
+/** Échoue si le bloc ne touche pas le bas du viewport (bande morte sous le HUD). */
+export async function expectFlushWithViewportBottom(page: Page, selector: string): Promise<void> {
+  const box = await boxOf(page, selector);
+  const viewport = page.viewportSize();
+  if (viewport === null) throw new Error("Viewport inconnu : impossible de vérifier le bas du HUD.");
+  const band = viewport.height - (box.y + box.height);
+  const message = `Bande morte de ${Math.round(band)} px sous « ${selector} » ${rect(box)} : le viewport finit à ${viewport.height} (tolérance ${TOLERANCE_PX}px).`;
+  expect(Math.abs(band) <= TOLERANCE_PX, message).toBe(true);
+}
