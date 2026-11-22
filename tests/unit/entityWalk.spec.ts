@@ -82,19 +82,39 @@ describe("EntitySprite — glissement d'une case à l'autre", () => {
 
 });
 
-describe("EntitySprite — annulation d'un trajet", () => {
-  it("un second trajet remplace le premier : aucun empilement de tweens", () => {
+describe("EntitySprite — reprise d'un trajet interrompu", () => {
+  const C: PixelPoint = { x: 128, y: 0 };
+  /** Position peinte après 70 ms d'une case : 7/15 du segment, jamais une case. */
+  const PAINTED = (B.x * 70) / WALK_MS_PER_CELL;
+
+  it("repart du point peint : interrompre ne téléporte pas sur la case logique", () => {
     const { actor, node } = spawn();
     actor.update(placement("idle"));
     actor.walkAlong(plan([A, B]), 0);
     actor.advance(70);
-    actor.walkAlong(plan([B, { x: 128, y: 0 }]), 1000);
-    actor.advance(1075);
-    expect(node.position.x).toBeCloseTo(96, 6);
-    actor.advance(1150);
-    expect(node.position.x).toBe(128);
+    expect(node.position.x).toBeCloseTo(PAINTED, 6);
+    actor.walkAlong(plan([B, C]), 70);
+    actor.advance(70);
+    expect(node.position.x).toBeCloseTo(PAINTED, 6);
+    expect(node.position.y).toBe(0);
   });
 
+  it("finit le segment en cours, puis enchaîne le nouveau chemin sans à-coup", () => {
+    const { actor, node } = spawn();
+    actor.update(placement("idle"));
+    actor.walkAlong(plan([A, B]), 0);
+    actor.advance(70);
+    actor.walkAlong(plan([B, C]), 70);
+    actor.advance(70 + WALK_MS_PER_CELL / 2);
+    expect(node.position.x).toBeCloseTo((PAINTED + B.x) / 2, 6);
+    actor.advance(70 + WALK_MS_PER_CELL);
+    expect(node.position.x).toBeCloseTo(B.x, 6);
+    actor.advance(70 + WALK_MS_PER_CELL * 2);
+    expect(node.position.x).toBeCloseTo(C.x, 6);
+  });
+});
+
+describe("EntitySprite — annulation d'un trajet", () => {
   it("un trajet d'une seule case ne fabrique aucun plan", () => {
     expect(walkPlan([A])).toBeNull();
   });

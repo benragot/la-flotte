@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { PixelPoint } from "../../src/renderer/gridProjection";
+import { TILE_H, TILE_W, gridToIso } from "../../src/renderer/gridProjection";
 import {
   WALK_MS_PER_CELL,
   interpolatedCell,
   pathAt,
+  resumeWalk,
   sampleWalk,
   startWalk,
   stepProgress,
@@ -91,6 +93,45 @@ describe("pathAt — le trajet suit le chemin, case par case", () => {
       const expected = interpolatedCell(TRAIL.points[sample.segment]!, TRAIL.points[sample.segment + 1]!, sample.t);
       expect(sample.point).toEqual(expected);
     });
+  });
+});
+
+describe("resumeWalk — un trajet interrompu repart du point peint", () => {
+  /** Centres de cases réels : la distance centre à centre d'une case. */
+  const ORIGIN = { x: 0, y: 0, scale: 1 };
+  const CELL_STEP = Math.hypot(TILE_W / 2, TILE_H / 2);
+  const centre = (x: number, y: number): PixelPoint => gridToIso({ x, y, origin: ORIGIN });
+  const START = centre(0, 0);
+  const MID = centre(1, 0);
+  const CORNER = centre(1, 1);
+  const NEXT = centre(2, 1);
+
+  /** Trajet peint en L : deux cases, interrompu en son milieu. */
+  const TRAIL = plan([START, MID, CORNER]);
+
+  function legs(points: readonly PixelPoint[]): number[] {
+    const tails = points.slice(1);
+    return tails.map((point, index) => Math.hypot(point.x - points[index]!.x, point.y - points[index]!.y));
+  }
+
+  it("à 50 % d'un segment, le nouveau plan part du point interpolé exact", () => {
+    const resumed = resumeWalk(TRAIL, WALK_MS_PER_CELL / 2, plan([CORNER, NEXT]));
+    expect(resumed?.points[0]).toEqual(interpolatedCell(START, MID, 0.5));
+    expect(resumed?.points).toEqual([interpolatedCell(START, MID, 0.5), MID, CORNER, NEXT]);
+  });
+
+  it("pile sur une case, aucun point intermédiaire parasite", () => {
+    const resumed = resumeWalk(TRAIL, WALK_MS_PER_CELL, plan([CORNER, NEXT]));
+    expect(resumed?.points).toEqual([MID, CORNER, NEXT]);
+  });
+
+  it("ne contient aucun saut : aucune jambe plus longue qu'une case, aucun coin coupé", () => {
+    const resumed = resumeWalk(TRAIL, WALK_MS_PER_CELL / 2, plan([CORNER, NEXT]));
+    expect(resumed).not.toBeNull();
+    const lengths = legs(resumed?.points ?? []);
+    expect(lengths).toHaveLength(3);
+    lengths.forEach((length) => expect(length).toBeLessThanOrEqual(CELL_STEP + 1e-9));
+    expect(resumed?.points).toContainEqual(CORNER);
   });
 });
 
