@@ -7,6 +7,7 @@ import {
   BACKPACK_ITEM,
   BATTLE_PANEL,
   CLASS_CARDS,
+  COMBAT_BANNER,
   COMBAT_JOURNAL,
   CREATE_BUTTON,
   CREATION_TITLE,
@@ -71,18 +72,34 @@ async function lastJournalLine(page) {
   return lines.at(-1) ?? "(journal vide)";
 }
 
-/** Combat 1v1 par `?demo=combat` (dev only), puis fin de tour réelle. */
+/** Compteur `Tour N` du bandeau : la seule preuve d'un tour réellement joué. */
+const TURN_PATTERN = /Tour (\d+)/;
+
+async function turnNumberOf(page) {
+  const match = TURN_PATTERN.exec(await page.locator(COMBAT_BANNER).innerText());
+  return match === null ? null : Number(match[1]);
+}
+
+/** Un clic « Passer » qui ne change pas de tour est un tour inerte : échec explicite. */
+function requireTurnAdvanced(before, after) {
+  if (before === null || after === null) throw new Error("compteur de tour illisible dans le bandeau");
+  if (after <= before) throw new Error(`fin de tour sans effet : Tour ${before} → Tour ${after}`);
+}
+
+/** Combat 1v1 par `?demo=combat` (dev only), puis fin de tour réelle **vérifiée**. */
 async function combat1v1(session) {
   const { page, baseUrl } = session;
   await page.goto(`${baseUrl}/?demo=combat`);
   await requireVisible(page, SPELLS);
   const shots = [await session.shot("04-combat-1v1")];
-  const before = await lastJournalLine(page);
+  const before = { turn: await turnNumberOf(page), log: await lastJournalLine(page) };
   await page.locator(TURN_BUTTON).first().click();
   await page.waitForTimeout(TURN_SETTLE_MS);
   shots.push(await session.shot("04b-fin-de-tour"));
-  const after = await lastJournalLine(page);
-  return { shots, notices: [`journal avant : ${before}`, `journal après fin de tour : ${after}`] };
+  const after = { turn: await turnNumberOf(page), log: await lastJournalLine(page) };
+  requireTurnAdvanced(before.turn, after.turn);
+  const notices = [`tour ${before.turn} → ${after.turn}`, `journal avant : ${before.log}`, `journal après : ${after.log}`];
+  return { shots, notices };
 }
 
 async function roomSummary(page) {

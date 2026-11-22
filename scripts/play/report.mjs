@@ -17,7 +17,7 @@ export function buildReport({ steps, result, meta, serverLog }) {
   return {
     generatedAt: new Date().toISOString(),
     ...meta,
-    verdict: { code: result.code, reasons: result.reasons },
+    verdict: { code: result.code, reasons: result.reasons, advisories: result.advisories },
     errors: result.counts,
     totals: statusCounts(steps),
     steps,
@@ -35,6 +35,8 @@ export function buildErrors(buckets) {
     pageErrors: buckets.pageErrors,
     consoleErrors: buckets.consoleErrors,
     failedRequests: buckets.failedRequests,
+    /** Bloquant : une étape `ok` avec une zone absente n'a rien prouvé. */
+    missingZones: buckets.missing,
     excusedConsoleErrors: buckets.documentedConsoleErrors,
     excusedRequests: buckets.ignoredRequests,
     /** Non bloquants, mais visibles : un contexte WebGL perdu arrive en `warning`. */
@@ -63,7 +65,7 @@ function stepLine(step) {
 function printTotals(totals, counts) {
   console.log(`\nÉtapes : ${totals.ok} ok · ${totals.skipped} skipped · ${totals.failed} failed`);
   const errors = `${counts.pageErrors} pageerror · ${counts.consoleErrors} console.error · ${counts.failedRequests} requête(s) en échec`;
-  console.log(`Erreurs : ${errors}`);
+  console.log(`Erreurs : ${errors} · ${counts.missingZones} zone(s) absente(s)`);
   console.log(`Skips non documentés : ${counts.undocumentedSkips} · warnings (non bloquants) : ${counts.warnings}`);
   console.log(`Excusé (commenté) : ${counts.documentedConsoleErrors} console.error · ${counts.ignoredRequests} requête(s)`);
 }
@@ -75,16 +77,26 @@ function printPageErrors(entries) {
   }
 }
 
+/** Les zones absentes sont dites nommément : sans elles, la raison reste une énigme. */
+function printMissing(entries = []) {
+  for (const entry of entries) console.log(`   ❌ zone absente [${entry.step}] ${entry.zones.join(", ")}`);
+}
+
+function printAdvisories(advisories = []) {
+  for (const advisory of advisories) console.log(`   ⚠️  non bloquant : ${advisory}`);
+}
+
 function printDetails(errors) {
   printPageErrors(errors.pageErrors);
   for (const entry of errors.consoleErrors) console.log(`   ❌ console.error [${entry.step}] ${entry.text}`);
   for (const entry of errors.failedRequests) {
     console.log(`   ❌ requête [${entry.step}] ${entry.status ?? entry.failure} ${entry.url}`);
   }
+  printMissing(errors.missingZones);
 }
 
 function verdictLine(result) {
-  if (result.code === 0) return "✅ Verdict : aucune erreur console, aucune requête en échec — exit 0";
+  if (result.code === 0) return "✅ Verdict : aucune erreur console, aucune requête en échec, aucune zone absente — exit 0";
   return `❌ Verdict : ${result.reasons.join(", ")} — exit 1`;
 }
 
@@ -93,6 +105,7 @@ export function printSummary({ report, errors, result, outDir }) {
   for (const step of report.steps) console.log(stepLine(step));
   printTotals(report.totals, errors.counts);
   printDetails(errors);
+  printAdvisories(result.advisories);
   console.log(`\nCaptures   : ${path.join(outDir, "*.png")}`);
   console.log(`Rapport    : ${path.join(outDir, REPORT_FILE)} · ${path.join(outDir, ERRORS_FILE)}`);
   console.log(verdictLine(result));
