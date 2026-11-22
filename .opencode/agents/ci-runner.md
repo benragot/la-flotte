@@ -1,5 +1,5 @@
 ---
-description: Remplaçant local de GitHub Actions ; mesure `check`, `build` et `test:ui` dans un worktree et rend un verdict, sans jamais corriger.
+description: Exécutant de mesure locale, complémentaire à GitHub Actions ; ne corrige, ne pousse et ne merge rien.
 mode: subagent
 permissions:
   - action: "*"
