@@ -155,9 +155,11 @@ interface CombatStore {
   /**
    * NOUVEAU (5C) : attaque 1vN du héros avec son sort de dégâts lu dans
    * `data/spells.yaml`. **Additif** : `battleAttack` reste l'API bas niveau, et
-   * l'UI n'invente aucun chiffre de dégâts.
+   * l'UI n'invente aucun chiffre de dégâts. Rend `true` **seulement** quand le
+   * coup a réellement eu lieu : un refus (PA, portée, cible) rend `false` sans
+   * tamponner la cadence. Les appelants qui ignoraient le retour restent valides.
    */
-  battleSpellAttack: (input: { targetId: string; rng?: Rng }) => void;
+  battleSpellAttack: (input: { targetId: string; rng?: Rng }) => boolean;
   /**
    * Clôt une salle **gagnée** : reporte les PV restants et applique le soin de
    * franchissement de `healBetweenRooms` (DEC-03) quand une salle suivante
@@ -527,19 +529,36 @@ function canCastHeroSpell(state: BattleState, spell: SpellDef | null): spell is 
 }
 
 /** Le refus géométrique est journalisé : le joueur voit pourquoi son clic ne fait rien. */
-function castHeroSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): BattleState {
-  const rng = input.rng ?? Math.random;
-  const attack = spellCastSpec(spell, rollSpellBase(spell, rng));
-  const refusal = castRefusal(state, input.targetId, attack);
-  if (refusal !== null) return appendBattleLog(state, refusal);
-  return resolveBattleAttack({ state, targetId: input.targetId, attack, rng });
+interface CastOutcome {
+  state: BattleState;
+  /** `true` seulement si le moteur a rendu un état neuf : un refus ne compte pas. */
+  performed: boolean;
 }
 
-function spellAttackUpdate(store: CombatStore, input: { targetId: string; rng?: Rng }): Partial<CombatStore> {
+function refusedCast(state: BattleState, refusal: string | null): CastOutcome | null {
+  return refusal === null ? null : { state: appendBattleLog(state, refusal), performed: false };
+}
+
+function castHeroSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): CastOutcome {
+  const rng = input.rng ?? Math.random;
+  const attack = spellCastSpec(spell, rollSpellBase(spell, rng));
+  const refusal = refusedCast(state, castRefusal(state, input.targetId, attack));
+  if (refusal !== null) return refusal;
+  const next = resolveBattleAttack({ state, targetId: input.targetId, attack, rng });
+  return { state: next, performed: next !== state };
+}
+
+interface SpellAttackResult {
+  update: Partial<CombatStore>;
+  performed: boolean;
+}
+
+function spellAttackResult(store: CombatStore, input: { targetId: string; rng?: Rng }): SpellAttackResult {
   const state = store.battle;
   const spell = heroDamageSpell();
-  if (state === null || !canCastHeroSpell(state, spell)) return {};
-  return battleUpdate(store, castHeroSpell(state, input, spell));
+  if (state === null || !canCastHeroSpell(state, spell)) return { update: {}, performed: false };
+  const cast = castHeroSpell(state, input, spell);
+  return { update: battleUpdate(store, cast.state), performed: cast.performed };
 }
 
 /** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */
@@ -828,9 +847,13 @@ function beatActions(set: StoreSetter, get: () => CombatStore): BeatActions {
 }
 
 /** Attaque 1vN data-driven (5C), isolée pour garder chaque fabrique sous 10 lignes. */
-function battleSpellActions(set: StoreSetter) {
+function battleSpellActions(set: StoreSetter, get: () => CombatStore) {
   return {
-    battleSpellAttack: (input: { targetId: string; rng?: Rng }) => set((store) => spellAttackUpdate(store, input)),
+    battleSpellAttack: (input: { targetId: string; rng?: Rng }) => {
+      const result = spellAttackResult(get(), input);
+      set(result.update);
+      return result.performed;
+    },
   };
 }
 
@@ -944,7 +967,7 @@ export const useCombatStore = create<CombatStore>((set, get) => ({
   ...mapActions(set),
   ...battleActions(set),
   ...beatActions(set, get),
-  ...battleSpellActions(set),
+  ...battleSpellActions(set, get),
   ...dungeonActions(set, get),
   ...resetActions(set),
 }));

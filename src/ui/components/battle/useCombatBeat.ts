@@ -25,6 +25,27 @@ export interface CombatBeatHandlers {
   endTurn: () => void;
 }
 
+export interface BeatActionInput {
+  now: number;
+  /** Gardien de cadence du store, consulté avec `now`. */
+  canAct: (now: number) => boolean;
+  /** L'action elle-même : `true` **seulement** si elle a réellement eu lieu. */
+  perform: () => boolean;
+  /** Pose la borne basse ; jamais appelée sur un refus. */
+  stamp: (now: number) => void;
+}
+
+/**
+ * Un clic refusé (PA insuffisants, hors portée, cible invalide) n'est pas une
+ * action : il ne pose **aucun** tampon, donc le joueur peut recliquer aussitôt.
+ */
+export function runBeatAction(input: BeatActionInput): boolean {
+  if (!input.canAct(input.now)) return false;
+  if (!input.perform()) return false;
+  input.stamp(input.now);
+  return true;
+}
+
 /** Délai avant le prochain pas : 0 si le beat est écoulé, `null` si rien n'est dû. */
 export function nextBeatDelay(input: BeatPlanInput): number | null {
   if (!input.needed) return null;
@@ -70,9 +91,9 @@ function useBeatLifecycle(refs: BeatRefs): void {
 /** Action du héros : refusée tant que le beat de la précédente n'est pas écoulé. */
 function useBeatAttack(): (targetId: string) => void {
   return useCallback((targetId: string) => {
-    if (!useCombatStore.getState().canActNow(Date.now())) return;
-    useCombatStore.getState().battleSpellAttack({ targetId });
-    useCombatStore.getState().stampActionAt(Date.now());
+    const store = useCombatStore.getState();
+    const input = { now: Date.now(), canAct: store.canActNow, stamp: store.stampActionAt };
+    runBeatAction({ ...input, perform: () => store.battleSpellAttack({ targetId }) });
   }, []);
 }
 
