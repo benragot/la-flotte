@@ -1,7 +1,9 @@
 import { defineConfig } from "@playwright/test";
+import { resolvePort, shouldReuseServer } from "./tests/ui/playwrightPort";
 
 const CI = process.env.CI !== undefined;
-const BASE_URL = "http://localhost:4173";
+const PORT = resolvePort(process.env);
+const BASE_URL = `http://localhost:${PORT}`;
 
 /** Les trois largeurs réellement visées par le joueur : portable, HD, écran large. */
 const VIEWPORTS = [
@@ -26,9 +28,9 @@ export default defineConfig({
   use: { baseURL: BASE_URL, trace: "on-first-retry" },
   projects: projects(),
   webServer: {
-    command: "npm run dev -- --port 4173 --strictPort",
+    command: `npm run dev -- --port ${PORT} --strictPort`,
     url: BASE_URL,
-    reuseExistingServer: !CI,
+    reuseExistingServer: shouldReuseServer(process.env),
     timeout: 120_000,
   },
 });

@@ -17,6 +17,23 @@ npm run test:ui   # démarre vite sur :4173 puis joue tests/ui
 `npm run check` reste rapide et **n'inclut pas** Playwright : la suite navigateur
 est un job CI séparé (`ui-layout`, `needs: quality-gate`).
 
+### Plusieurs worktrees en parallèle : un port par suite
+
+Le port par défaut reste **4173**. Dès que deux worktrees lancent `test:ui` en
+même temps, ils se disputent ce port : une suite peut alors tester le serveur
+d'une **autre branche** (vert sur du mauvais code) ou refuser de mesurer. Donne
+donc à chaque suite son propre port :
+
+```bash
+PLAYWRIGHT_PORT=4210 npm run test:ui
+```
+
+Avec un port explicite, Playwright **ne réutilise jamais** un serveur existant
+(`reuseExistingServer: false`) : il démarre le sien, sur le code de ce dossier.
+Un `PLAYWRIGHT_PORT` illisible (`abc`, hors 1-65535) échoue bruyamment au lieu de
+retomber silencieusement sur 4173 — un repli silencieux rejouerait exactement le
+bug : mesurer un serveur qu'on n'a pas lancé.
+
 ⚠️ **Piège du `node_modules` partagé.** Un worktree n'a pas de `node_modules`
 propre : il pointe par symlink vers `la-flotte/node_modules`. `@playwright/test`
 doit donc être installé dans ce dossier **partagé**, depuis le **dépôt
