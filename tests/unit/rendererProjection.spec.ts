@@ -2,25 +2,32 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  TILE_SIZE,
-  canvasSize,
-  gridToPixel,
-  gridToScreenOrigin,
-  pixelToGrid,
+  TILE_H,
+  TILE_W,
+  centeredOrigin,
+  gridDiamond,
+  gridToIso,
+  isoMapSize,
+  isoToGrid,
+  sceneOrigin,
 } from "../../src/renderer/gridProjection";
 import {
   BASE_ALPHA,
   CAST_HIGHLIGHT,
   HOVER_STROKE,
   MOVE_HIGHLIGHT,
+  PATH_HIGHLIGHT,
   TILE_COLORS,
   getTileColor,
   resolveTileStyle,
 } from "../../src/renderer/tileStyle";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { hpRatio } from "../../src/renderer/tokens";
+import { combatCanvasSize, FALLBACK_GRID } from "../../src/renderer/combatCanvasConfig";
 
 const DEMO_SIZE = { width: 12, height: 12 };
+const VIEWPORT = { width: 1024, height: 768 };
+const ORIGIN = { x: 116, y: 108 };
 
 function yamlDemoSize(): { width: number; height: number } {
   const raw = readFileSync(join(process.cwd(), "data", "maps.yaml"), "utf8");
@@ -28,61 +35,129 @@ function yamlDemoSize(): { width: number; height: number } {
   return { width: map?.width ?? 0, height: map?.height ?? 0 };
 }
 
-const CORNERS = [
-  { x: 0, y: 0 },
-  { x: 11, y: 0 },
-  { x: 0, y: 11 },
-  { x: 11, y: 11 },
-  { x: 6, y: 6 },
-];
+function allCells(): { x: number; y: number }[] {
+  const cells: { x: number; y: number }[] = [];
+  for (let y = 0; y < DEMO_SIZE.height; y += 1) {
+    for (let x = 0; x < DEMO_SIZE.width; x += 1) cells.push({ x, y });
+  }
+  return cells;
+}
 
 const BASE_INPUT = { cell: ".", isMoveCell: false, isCastCell: false, isHovered: false } as const;
 
-describe("gridProjection — géométrie", () => {
-  it("expose une taille de tuile de 48 px", () => {
-    expect(TILE_SIZE).toBe(48);
+describe("gridProjection — losanges 2:1", () => {
+  it("expose des tuiles deux fois plus larges que hautes", () => {
+    expect(TILE_W).toBe(64);
+    expect(TILE_H).toBe(32);
+    expect(TILE_W / TILE_H).toBe(2);
   });
 
-  it("place le centre d'une tuile", () => {
-    expect(gridToPixel({ x: 0, y: 0 })).toEqual({ x: 24, y: 24 });
-    expect(gridToPixel({ x: 3, y: 2 })).toEqual({ x: 168, y: 120 });
+  it("place le centre du losange d'une case", () => {
+    expect(gridToIso({ x: 0, y: 0, origin: { x: 0, y: 0 } })).toEqual({ x: 0, y: 16 });
+    expect(gridToIso({ x: 3, y: 2, origin: { x: 0, y: 0 } })).toEqual({ x: 32, y: 96 });
+    expect(gridToIso({ x: 3, y: 2, origin: ORIGIN })).toEqual({ x: 148, y: 204 });
   });
 
-  it("place l'origine haut-gauche d'une tuile", () => {
-    expect(gridToScreenOrigin({ x: 1, y: 2 })).toEqual({ x: 48, y: 96 });
+  it("calcule la bounding box du losange complet", () => {
+    expect(isoMapSize(DEMO_SIZE)).toEqual({ width: 768, height: 384 });
+    expect(isoMapSize({ width: 1, height: 1 })).toEqual({ width: 64, height: 32 });
   });
 
-  it("calcule la taille du canvas d'une grille 12x12", () => {
-    expect(canvasSize(DEMO_SIZE)).toEqual({ width: 576, height: 576 });
+  it("centre la bounding box dans un viewport large (origine positive)", () => {
+    const origin = centeredOrigin({ ...isoMapSize(DEMO_SIZE), viewport: VIEWPORT });
+    expect(origin).toEqual({ x: 128, y: 192 });
+    expect(origin.x).toBeGreaterThan(0);
+    expect(origin.y).toBeGreaterThan(0);
+  });
+
+  it("accepte une origine négative quand le viewport est plus petit que la carte", () => {
+    const origin = centeredOrigin({ ...isoMapSize(DEMO_SIZE), viewport: { width: 320, height: 200 } });
+    expect(origin).toEqual({ x: -224, y: -92 });
+    expect(origin.x).toBeLessThan(0);
+  });
+
+  it("déduit l'origine de scène depuis la taille de la carte et le viewport", () => {
+    expect(sceneOrigin(DEMO_SIZE, VIEWPORT)).toEqual(centeredOrigin({ ...isoMapSize(DEMO_SIZE), viewport: VIEWPORT }));
   });
 
   it("reste aligné sur les dimensions de la carte YAML de démonstration", () => {
     expect(yamlDemoSize()).toEqual(DEMO_SIZE);
   });
+});
 
-  it("fait l'aller-retour pixel/grille sur les coins et le centre", () => {
-    CORNERS.forEach((cell) => {
-      expect(pixelToGrid(gridToPixel(cell), DEMO_SIZE)).toEqual(cell);
+describe("gridProjection — inverse", () => {
+  it("fait l'aller-retour sur toutes les cases d'une grille 12x12", () => {
+    allCells().forEach((cell) => {
+      const center = gridToIso({ ...cell, origin: ORIGIN });
+      expect(isoToGrid({ px: center.x, py: center.y, origin: ORIGIN, ...DEMO_SIZE })).toEqual(cell);
     });
+  });
+
+  it("fait l'aller-retour sur une origine fractionnaire", () => {
+    const origin = { x: 37.5, y: -12.25 };
+    allCells().forEach((cell) => {
+      const center = gridToIso({ ...cell, origin });
+      expect(isoToGrid({ px: center.x, py: center.y, origin, ...DEMO_SIZE })).toEqual(cell);
+    });
+  });
+
+  it("garde la case pour un point proche du centre", () => {
+    const center = gridToIso({ x: 5, y: 7, origin: ORIGIN });
+    const picked = isoToGrid({ px: center.x + 12, py: center.y + 5, origin: ORIGIN, ...DEMO_SIZE });
+    expect(picked).toEqual({ x: 5, y: 7 });
   });
 });
 
-describe("gridProjection — bornes", () => {
-  it("renvoie null hors de la grille", () => {
-    expect(pixelToGrid({ x: -1, y: 10 }, DEMO_SIZE)).toBeNull();
-    expect(pixelToGrid({ x: 10, y: -1 }, DEMO_SIZE)).toBeNull();
-    expect(pixelToGrid({ x: 576, y: 10 }, DEMO_SIZE)).toBeNull();
-    expect(pixelToGrid({ x: 10, y: 576 }, DEMO_SIZE)).toBeNull();
-  });
-
-  it("accepte la dernière fraction de la dernière tuile", () => {
-    expect(pixelToGrid({ x: 575.9, y: 575.9 }, DEMO_SIZE)).toEqual({ x: 11, y: 11 });
+describe("gridProjection — bornes du losange", () => {
+  it("renvoie null hors du losange", () => {
+    const outside = [
+      gridToIso({ x: -1, y: 0, origin: ORIGIN }),
+      gridToIso({ x: 0, y: -1, origin: ORIGIN }),
+      gridToIso({ x: 12, y: 0, origin: ORIGIN }),
+      gridToIso({ x: 0, y: 12, origin: ORIGIN }),
+      { x: -10_000, y: -10_000 },
+    ];
+    outside.forEach((point) => {
+      expect(isoToGrid({ px: point.x, py: point.y, origin: ORIGIN, ...DEMO_SIZE })).toBeNull();
+    });
   });
 
   it("rejette les coordonnées non finies", () => {
-    expect(pixelToGrid({ x: Number.NaN, y: 0 }, DEMO_SIZE)).toBeNull();
-    expect(pixelToGrid({ x: 0, y: Number.POSITIVE_INFINITY }, DEMO_SIZE)).toBeNull();
-    expect(pixelToGrid({ x: Number.NEGATIVE_INFINITY, y: 0 }, DEMO_SIZE)).toBeNull();
+    expect(isoToGrid({ px: Number.NaN, py: 0, origin: ORIGIN, ...DEMO_SIZE })).toBeNull();
+    expect(isoToGrid({ px: 0, py: Number.POSITIVE_INFINITY, origin: ORIGIN, ...DEMO_SIZE })).toBeNull();
+    expect(isoToGrid({ px: Number.NEGATIVE_INFINITY, py: 0, origin: ORIGIN, ...DEMO_SIZE })).toBeNull();
+  });
+});
+
+describe("gridDiamond — géométrie du losange", () => {
+  it("retourne un centre et quatre sommets", () => {
+    const diamond = gridDiamond({ x: 2, y: 3, origin: ORIGIN });
+    expect({ x: diamond.cx, y: diamond.cy }).toEqual(gridToIso({ x: 2, y: 3, origin: ORIGIN }));
+    expect(diamond.points).toHaveLength(8);
+  });
+
+  it("place les sommets haut, droite, bas et gauche de façon symétrique", () => {
+    const { cx, cy, points } = gridDiamond({ x: 0, y: 0, origin: { x: 0, y: 0 } });
+    expect(points).toEqual([cx, cy - TILE_H / 2, cx + TILE_W / 2, cy, cx, cy + TILE_H / 2, cx - TILE_W / 2, cy]);
+    expect(points[1]).toBeLessThan(cy);
+    expect(points[5]).toBeGreaterThan(cy);
+    expect((points[1] ?? 0) + (points[5] ?? 0)).toBe(cy * 2);
+  });
+});
+
+describe("combatCanvasSize — dimensions du conteneur", () => {
+  it("garde le fallback 1x1 sans combat ni exploration", () => {
+    expect(combatCanvasSize({ combat: null, viewport: VIEWPORT, hasExploration: false })).toEqual(FALLBACK_GRID);
+  });
+
+  it("suit la taille du conteneur quand une scène existe", () => {
+    const empty = { combat: null, viewport: VIEWPORT, hasExploration: true };
+    expect(combatCanvasSize(empty)).toEqual(VIEWPORT);
+  });
+
+  it("retombe sur le fallback si le conteneur n'est pas encore mesuré", () => {
+    const unmeasured = { combat: null, viewport: { width: 0, height: 0 }, hasExploration: true };
+    expect(combatCanvasSize(unmeasured)).toEqual(FALLBACK_GRID);
   });
 });
 
@@ -99,6 +174,12 @@ describe("tileStyle — couleurs", () => {
     expect(getTileColor("P")).not.toBe(getTileColor("M"));
     expect(getTileColor("~")).not.toBe(getTileColor("."));
     expect(getTileColor("#")).not.toBe(getTileColor("."));
+  });
+
+  it("teinte l'eau en bleu-vert et les murs en ardoise", () => {
+    expect(getTileColor("~")).toBe(TILE_COLORS["~"]);
+    expect(getTileColor("#")).toBe(TILE_COLORS["#"]);
+    expect(PATH_HIGHLIGHT).not.toBe(MOVE_HIGHLIGHT);
   });
 });
 

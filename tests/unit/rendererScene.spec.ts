@@ -9,7 +9,8 @@ import { createHero } from "../../src/engine/createHero";
 import { parseAsciiMap, samePosition } from "../../src/engine/grid";
 import { isApplicationAlive } from "../../src/renderer/appLifecycle";
 import { buildViewModel } from "../../src/renderer/combatSceneModel";
-import { gridToPixel, gridToScreenOrigin } from "../../src/renderer/gridProjection";
+import { buildExplorationViewModel, explorationMapSize } from "../../src/renderer/explorationScene";
+import { gridToIso, sceneOrigin } from "../../src/renderer/gridProjection";
 import { buildSceneModel } from "../../src/renderer/scene";
 import { CAST_HIGHLIGHT, HOVER_STROKE } from "../../src/renderer/tileStyle";
 import { ENEMY_TOKEN_COLOR, PLAYER_TOKEN_COLOR, tokenView } from "../../src/renderer/tokens";
@@ -25,6 +26,10 @@ const classes = parseClassesYaml(read("classes.yaml"));
 const spells = parseSpellsYaml(read("spells.yaml"));
 const monsters = parseMonstersYaml(read("monsters.yaml"));
 const maps = parseMapsYaml(read("maps.yaml"));
+
+const VIEWPORT = { width: 1024, height: 768 };
+const MAP_SIZE = { width: 12, height: 12 };
+const ORIGIN = sceneOrigin(MAP_SIZE, VIEWPORT);
 
 function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   const found = list.find((entry) => entry.id === id);
@@ -49,74 +54,102 @@ const EMPTY_HIGHLIGHT = { move: new Set<string>(), cast: new Set<string>(), hove
 
 describe("buildSceneModel — tuiles", () => {
   it("produit une tuile par case et aucune surbrillance par défaut", () => {
-    const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT });
+    const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT, origin: ORIGIN });
     expect(model.tiles).toHaveLength(144);
     expect(model.highlights).toHaveLength(0);
   });
 
+  it("dessine chaque case comme un losange de quatre sommets", () => {
+    const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT, origin: ORIGIN });
+    model.tiles.forEach((tile) => {
+      expect(tile.points).toHaveLength(8);
+      expect(tile.cell).toBeDefined();
+    });
+    expect(model.tiles[0]?.center).toEqual(gridToIso({ x: 0, y: 0, origin: ORIGIN }));
+  });
+
+  it("trie les tuiles par profondeur x + y croissante (ordre peintre)", () => {
+    const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT, origin: ORIGIN });
+    const indexOf = (cell: { x: number; y: number }) =>
+      model.tiles.findIndex((tile) => samePosition(tile.center, gridToIso({ ...cell, origin: ORIGIN })));
+    expect(indexOf({ x: 0, y: 0 })).toBeLessThan(indexOf({ x: 1, y: 0 }));
+    expect(indexOf({ x: 1, y: 0 })).toBeLessThan(indexOf({ x: 1, y: 1 }));
+    expect(indexOf({ x: 0, y: 11 })).toBeLessThan(indexOf({ x: 11, y: 11 }));
+  });
+});
+
+describe("buildSceneModel — surbrillances", () => {
   it("priorise le ciblage du sort sur le déplacement pour une même case", () => {
     const highlight = { move: new Set(["1:1"]), cast: new Set(["1:1"]), hover: null };
-    const model = buildSceneModel({ map: demoMap(), highlight });
+    const model = buildSceneModel({ map: demoMap(), highlight, origin: ORIGIN });
     expect(model.highlights).toHaveLength(1);
     expect(model.highlights[0]?.style.fill).toBe(CAST_HIGHLIGHT);
   });
 
   it("ajoute le contour de survol sans créer de surbrillance", () => {
-    const model = buildSceneModel({ map: demoMap(), highlight: { ...EMPTY_HIGHLIGHT, hover: "2:2" } });
+    const model = buildSceneModel({ map: demoMap(), highlight: { ...EMPTY_HIGHLIGHT, hover: "2:2" }, origin: ORIGIN });
     const hovered = model.tiles.filter((tile) => tile.style.stroke === HOVER_STROKE);
     expect(model.highlights).toHaveLength(0);
     expect(hovered).toHaveLength(1);
-    expect(hovered[0]?.origin).toEqual(gridToScreenOrigin({ x: 2, y: 2 }));
+    expect(hovered[0]?.center).toEqual(gridToIso({ x: 2, y: 2, origin: ORIGIN }));
   });
 });
 
 describe("buildViewModel — surbrillances", () => {
   it("surligne les cases atteignables pendant le tour du joueur", () => {
     const combat = buildState();
-    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null });
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
     expect(getReachableCells(combat).length).toBeGreaterThan(0);
     expect(view.scene.highlights).toHaveLength(getReachableCells(combat).length);
   });
 
   it("ne surligne aucune case de déplacement hors du tour du joueur", () => {
     const combat: CombatState = { ...buildState(), phase: "enemy_turn" };
-    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null });
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
     expect(view.scene.highlights).toHaveLength(0);
   });
 
   it("surligne les cases ciblables par le sort sélectionné", () => {
     const combat = buildState();
     const cells = getCastableCells(combat, "bond");
-    const view = buildViewModel({ combat, selectedSpellId: "bond", hoveredCell: null });
+    const view = buildViewModel({ combat, selectedSpellId: "bond", hoveredCell: null, viewport: VIEWPORT });
     expect(cells.length).toBeGreaterThan(0);
     cells.forEach((cell) => {
-      const tile = view.scene.highlights.find((item) => samePosition(item.origin, gridToScreenOrigin(cell)));
+      const center = gridToIso({ ...cell, origin: ORIGIN });
+      const tile = view.scene.highlights.find((item) => samePosition(item.center, center));
       expect(tile?.style.fill).toBe(CAST_HIGHLIGHT);
     });
   });
 
   it("propage le survol jusqu'aux tuiles", () => {
-    const view = buildViewModel({ combat: buildState(), selectedSpellId: null, hoveredCell: { x: 4, y: 4 } });
+    const combat = buildState();
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: { x: 4, y: 4 }, viewport: VIEWPORT });
     const hovered = view.scene.tiles.filter((tile) => tile.style.stroke === HOVER_STROKE);
     expect(hovered).toHaveLength(1);
-    expect(hovered[0]?.origin).toEqual(gridToScreenOrigin({ x: 4, y: 4 }));
+    expect(hovered[0]?.center).toEqual(gridToIso({ x: 4, y: 4, origin: ORIGIN }));
+  });
+
+  it("ne dessine aucun chemin A* en mode combat", () => {
+    const view = buildViewModel({ combat: buildState(), selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.path).toHaveLength(0);
   });
 });
 
 describe("buildViewModel — jetons", () => {
   it("expose exactement deux jetons, héros bleu et monstre rouge", () => {
     const combat = buildState();
-    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null });
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
     expect(view.tokens).toHaveLength(2);
     expect(view.tokens[0]?.fill).toBe(PLAYER_TOKEN_COLOR);
     expect(view.tokens[1]?.fill).toBe(ENEMY_TOKEN_COLOR);
+    expect(view.tokens[0]?.badge).toBeNull();
   });
 
-  it("centre les jetons et borne leur ratio de PV", () => {
+  it("centre les jetons sur leur losange et borne leur ratio de PV", () => {
     const combat = buildState();
-    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null });
-    expect(view.tokens[0]?.center).toEqual(gridToPixel(combat.player.position));
-    expect(view.tokens[1]?.center).toEqual(gridToPixel(combat.enemy.position));
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.tokens[0]?.center).toEqual(gridToIso({ ...combat.player.position, origin: ORIGIN }));
+    expect(view.tokens[1]?.center).toEqual(gridToIso({ ...combat.enemy.position, origin: ORIGIN }));
     view.tokens.forEach((token) => {
       expect(token.hpRatio).toBeGreaterThanOrEqual(0);
       expect(token.hpRatio).toBeLessThanOrEqual(1);
@@ -126,11 +159,62 @@ describe("buildViewModel — jetons", () => {
 
 describe("tokenView — bornes de PV", () => {
   it("retombe à zéro quand maxHp est nul", () => {
-    expect(tokenView({ ...buildState().player, hp: 5, maxHp: 0 }).hpRatio).toBe(0);
+    const token = tokenView({ ...buildState().player, hp: 5, maxHp: 0 }, ORIGIN);
+    expect(token.hpRatio).toBe(0);
   });
 
   it("plafonne le ratio quand les PV dépassent le maximum", () => {
-    expect(tokenView({ ...buildState().player, hp: 999_999, maxHp: 100 }).hpRatio).toBe(1);
+    const token = tokenView({ ...buildState().player, hp: 999_999, maxHp: 100 }, ORIGIN);
+    expect(token.hpRatio).toBe(1);
+  });
+});
+
+describe("exploration — héros, groupes et chemin A*", () => {
+  const exploration = {
+    playerPos: { x: 2, y: 3 },
+    groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
+    path: [
+      { x: 2, y: 4 },
+      { x: 3, y: 4 },
+    ],
+  };
+
+  it("dimensionne la carte d'exploration sur la case la plus lointaine", () => {
+    expect(explorationMapSize(exploration)).toEqual({ width: 6, height: 6 });
+    expect(explorationMapSize({ playerPos: { x: 0, y: 0 }, groups: [] })).toEqual({ width: 1, height: 1 });
+  });
+
+  it("surligne le chemin fourni avec un losange par étape", () => {
+    const view = buildExplorationViewModel({ exploration, viewport: VIEWPORT });
+    expect(view.path).toHaveLength(2);
+    expect(view.scene.tiles).toHaveLength(0);
+    const origin = sceneOrigin(explorationMapSize(exploration), VIEWPORT);
+    expect(view.path[0]?.center).toEqual(gridToIso({ x: 2, y: 4, origin }));
+    expect(view.path[0]?.points).toHaveLength(8);
+  });
+});
+
+describe("exploration — jetons", () => {
+  const exploration = {
+    playerPos: { x: 2, y: 3 },
+    groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
+  };
+
+  it("place le héros puis les groupes badgés de leur niveau total", () => {
+    const view = buildExplorationViewModel({ exploration, viewport: VIEWPORT });
+    expect(view.tokens).toHaveLength(2);
+    expect(view.tokens[0]?.fill).toBe(PLAYER_TOKEN_COLOR);
+    expect(view.tokens[1]?.fill).toBe(ENEMY_TOKEN_COLOR);
+    expect(view.tokens[1]?.badge).toBe("7");
+  });
+
+  it("ne dessine aucun chemin quand la prop est absente", () => {
+    const view = buildExplorationViewModel({
+      exploration: { playerPos: { x: 1, y: 1 }, groups: [] },
+      viewport: VIEWPORT,
+    });
+    expect(view.path).toHaveLength(0);
+    expect(view.tokens).toHaveLength(1);
   });
 });
 

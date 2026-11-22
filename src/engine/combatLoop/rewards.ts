@@ -25,9 +25,10 @@ interface XpOutcome {
 }
 
 function xpOutcome(input: RewardsInput): XpOutcome {
-  const baseMonsterXp = input.monster.baseXp;
+  const { baseXp } = input.monster;
+  const levelGapFactor = input.progression.levelGapFactor;
   const wisdom = input.hero.stats.wisdom;
-  const xpGained = computeCombatXp({ baseMonsterXp, wisdom, levelGapFactor: 1 });
+  const xpGained = computeCombatXp({ baseMonsterXp: baseXp, wisdom, levelGapFactor });
   const totalXp = input.heroXp + xpGained;
   return { xpGained, totalXp, level: computeLevelFromXp(totalXp, input.progression.xpThresholds) };
 }

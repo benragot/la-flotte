@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import classesYaml from "../../data/classes.yaml";
 import mapsYaml from "../../data/maps.yaml";
 import monstersYaml from "../../data/monsters.yaml";
 import progressionYaml from "../../data/progression.yaml";
@@ -9,16 +8,19 @@ import { initCombat } from "../engine/combatLoop/init";
 import { moveActiveEntity } from "../engine/combatLoop/move";
 import { resolveCombatRewards } from "../engine/combatLoop/rewards";
 import { endPlayerTurn } from "../engine/combatLoop/turn";
-import type { CombatRewards, CombatState } from "../engine/combatLoop/types";
+import type { CombatantState, CombatRewards, CombatState } from "../engine/combatLoop/types";
+import type { Hero } from "../engine/createHero";
 import { createHero } from "../engine/createHero";
+import { combatantFromHero } from "../engine/hero/combatant";
+import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { classesFileSchema } from "../schemas/classSchema";
 import { mapsFileSchema } from "../schemas/mapSchema";
 import { monstersFileSchema } from "../schemas/monsterSchema";
 import { progressionFileSchema } from "../schemas/progressionSchema";
 import type { ProgressionDef } from "../schemas/progressionSchema";
 import { spellsFileSchema } from "../schemas/spellSchema";
+import { GAME_CATALOG, useGameStore } from "./useGameStore";
 
 interface CombatStore {
   combat: CombatState | null;
@@ -38,7 +40,6 @@ const DEMO_CLASS_ID = "iop";
 const DEMO_MAP_ID = "ferraille_plage_01";
 const DEMO_MONSTER_ID = "piou_mazoute";
 
-const classes = classesFileSchema.parse(classesYaml).classes;
 const maps = mapsFileSchema.parse(mapsYaml).maps;
 const monsters = monstersFileSchema.parse(monstersYaml).monsters;
 const spells = spellsFileSchema.parse(spellsYaml).spells;
@@ -55,15 +56,39 @@ function demoMap(): AsciiMap {
   return parseAsciiMap(def.grid);
 }
 
+/** Héros persistant, ou héros de démo créé à la volée pour ne rien casser. */
+function demoHero(): Hero {
+  const game = useGameStore.getState();
+  if (game.hero === null) game.createCharacter({ name: DEMO_HERO_NAME, classId: DEMO_CLASS_ID });
+  const { hero } = useGameStore.getState();
+  return hero ?? createHero(DEMO_HERO_NAME, mustFind(GAME_CATALOG.classes, DEMO_CLASS_ID));
+}
+
+function playerFor(hero: Hero, position: Position): CombatantState {
+  const { inventory } = useGameStore.getState();
+  const stats = totalStatsFor({ hero, inventory, items: GAME_CATALOG.items, sets: GAME_CATALOG.sets });
+  const spellIds = spells.filter((spell) => spell.classId === hero.classId).map((spell) => spell.id);
+  return combatantFromHero({ hero, stats, position, spellIds });
+}
+
 function buildDemoCombat(): CombatState {
-  const hero = createHero(DEMO_HERO_NAME, mustFind(classes, DEMO_CLASS_ID));
+  const hero = demoHero();
   const monster = mustFind(monsters, DEMO_MONSTER_ID);
-  return initCombat({ map: demoMap(), hero, monster, spells });
+  const base = initCombat({ map: demoMap(), hero, monster, spells });
+  return { ...base, player: playerFor(hero, base.player.position) };
 }
 
 function demoRewards(state: CombatState): CombatRewards {
   const monster = mustFind(monsters, DEMO_MONSTER_ID);
-  return resolveCombatRewards({ heroXp: 0, hero: state.player, monster, progression, rng: Math.random });
+  const heroXp = useGameStore.getState().hero?.xp ?? 0;
+  return resolveCombatRewards({ heroXp, hero: state.player, monster, progression, rng: Math.random });
+}
+
+/** Crédite la victoire au héros persistant ; un échec de sauvegarde est muet. */
+function creditVictory(rewards: CombatRewards): void {
+  const game = useGameStore.getState();
+  game.creditCombatRewards(rewards);
+  game.saveGame();
 }
 
 function castOrMove(state: CombatState, spellId: string | null, target: Position): CombatState {
@@ -74,7 +99,9 @@ function castOrMove(state: CombatState, spellId: string | null, target: Position
 function stateUpdate(previous: CombatState, next: CombatState): Partial<CombatStore> {
   if (next === previous) return {};
   if (next.phase !== "victory") return { combat: next, selectedSpellId: null };
-  return { combat: next, rewards: demoRewards(next), selectedSpellId: null };
+  const rewards = demoRewards(next);
+  creditVictory(rewards);
+  return { combat: next, rewards, selectedSpellId: null };
 }
 
 function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
