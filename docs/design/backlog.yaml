@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 6
+  version: 7
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -37,7 +37,7 @@ inbox: []
 waves:
   - id: wave-3.5
     title: Look & Feel Dofus 1.29
-    status: in_progress
+    status: done
     phases:
       - id: 3.5A
         title: Exploration iso, HUD rétro et spec de l'île Ferraille
@@ -77,12 +77,13 @@ waves:
             notes: squash 10a9640
       - id: 3.5B
         title: Câblage final App — exploration ↔ combat, dock et raccourcis
-        status: in_progress
+        status: done
         depends_on: [3.5A]
         tasks:
           - id: 3.5B-wiring
             title: Câblage App (zone jouable + dock), mode exploration et raccourcis globaux
-            status: in_progress
+            status: done
+            pr: 27
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
