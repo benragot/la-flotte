@@ -30,7 +30,11 @@ function refusal(hero: Hero, stat: StatKey): SpendCapitalPointsOutput {
   return { hero, result: { gained: 0, spent: 0, remaining: hero.capitalPoints, value } };
 }
 
-/** Dépense des points de capital dans UNE caractéristique ; ne touche ni PV ni PA. */
+/**
+ * Dépense des points de capital dans UNE caractéristique.
+ * Vitalité : +1 PV maximum par point (via la projection du combattant, D45a).
+ * PA et PM ne bougent jamais ici.
+ */
 export function spendCapitalPoints(input: SpendCapitalPointsInput): SpendCapitalPointsOutput {
   const { hero, stat, points, classDef } = input;
   if (points <= 0 || points > hero.capitalPoints) return refusal(hero, stat);

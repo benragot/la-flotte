@@ -1,6 +1,6 @@
 export { applyLevelUp } from "./applyLevelUp";
 export type { ApplyLevelUpInput, ApplyLevelUpOutput } from "./applyLevelUp";
-export { combatantFromHero } from "./combatant";
+export { combatantFromHero, heroHpFromCombat } from "./combatant";
 export type { HeroCombatantInput } from "./combatant";
 export { heroFromSnapshot, heroToSnapshot } from "./snapshot";
 export { gainXp } from "./gainXp";

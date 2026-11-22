@@ -18,9 +18,27 @@ function zeroResistances(): CombatResistances {
   return { flat: { ...NO_ELEMENT_RES }, percent: { ...NO_ELEMENT_RES } };
 }
 
+/** Bonus de PV porté par l'équipement et la Vitalité : commun aux deux domaines. */
+function hpBonus(stats: TotalStats): number {
+  return stats.hp + stats.vitality;
+}
+
+/**
+ * Projection additive : les PV persistés (domaine de niveau) reçoivent le bonus
+ * d'objets et de Vitalité, bornés au maximum effectif. Aucune sentinelle
+ * d'égalité : un héros blessé reste blessé, un héros plein reste plein.
+ */
 function hpPool(hero: Hero, stats: TotalStats) {
-  const maxHp = hero.maxHp + stats.hp;
-  return { hp: Math.min(hero.hp, maxHp), maxHp };
+  const maxHp = hero.maxHp + hpBonus(stats);
+  return { hp: Math.min(hero.hp + hpBonus(stats), maxHp), maxHp };
+}
+
+/**
+ * Retour vers le domaine de niveau, celui que `saveSchema` persiste : on retire
+ * le bonus d'objets/Vitalité sans jamais soigner ni dépasser `hero.maxHp`.
+ */
+export function heroHpFromCombat(hp: number, hero: Hero, stats: TotalStats): number {
+  return Math.max(0, Math.min(hp - hpBonus(stats), hero.maxHp));
 }
 
 function apPool(hero: Hero, stats: TotalStats) {
