@@ -62,7 +62,7 @@ xp = floor(baseMonsterXp * (1 + wisdom / 100) * levelGapFactor);
 
 ```ts
 // tiers: [{ level, xp }, ...] triés par xp croissante — INJECTÉS en paramètre
-computeLevelFromXp(tiers, xp) => plus haut niveau dont l'XP cumulée <= xp
+computeLevelFromXp(xp, tiers) => plus haut niveau dont l'XP cumulée <= xp
 ```
 
 - La table de paliers **n'est jamais en dur dans `src/`** : elle est injectée,

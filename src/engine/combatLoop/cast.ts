@@ -90,7 +90,7 @@ function elementStat(caster: CombatantState, element: Element): number {
 }
 
 function damageInput(context: DamageContext): DamageInput {
-  const element = context.spell.element;
+  const element = context.spell.element ?? "neutral";
   return {
     base: context.roll,
     stat: elementStat(context.caster, element),
@@ -150,8 +150,14 @@ function teleport(state: CombatState, plan: CastPlan): CombatState {
   return appendLog(moved, `${caster.name} se téléporte.`);
 }
 
+function isUtilitySpell(state: CombatState, spellId: string): boolean {
+  return state.spellsById[spellId]?.kind === "other";
+}
+
 /** Lance un sort si la phase, les PA et la cible le permettent ; sinon état inchangé. */
 export function castSpell(input: CastInput): CombatState {
+  // Effets utilitaires non implémentés (Vague 6) : refus silencieux par identité.
+  if (isUtilitySpell(input.state, input.spellId)) return input.state;
   const plan = planCast(input);
   if (plan === null) return input.state;
   const spent = spendAp(plan.state, plan.spell.apCost);

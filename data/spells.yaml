@@ -1,6 +1,6 @@
 # Sorts jouables et sorts de monstres (Vague 1).
-# element : earth | fire | water | air | neutral
-# kind    : damage | teleport
+# element : earth | fire | water | air | neutral (optionnel pour kind: other)
+# kind    : damage | teleport | other
 spells:
   - id: pression
     name: Pression
@@ -49,3 +49,439 @@ spells:
     maxRange: 1
     requiresLos: true
     damage: { min: 5, max: 8 }
+
+  # Féca
+  - id: attaque_naturelle
+    name: Attaque Naturelle
+    description: "La nature rend la politesse : une baffe de feu, sans sommation ni formulaire."
+    classId: feca
+    kind: damage
+    element: fire
+    apCost: 5
+    minRange: 1
+    maxRange: 6
+    requiresLos: true
+    damage: { min: 2, max: 6 }
+
+  - id: glyphe_agressif
+    name: Glyphe Agressif
+    description: "Un cercle de feu dessiné à la craie. Les crabes n'aiment pas, les impôts non plus."
+    classId: feca
+    kind: other
+    element: fire
+    apCost: 3
+    minRange: 1
+    maxRange: 3
+    requiresLos: false
+    cooldown: 2
+    effect: { type: glyph, amount: { min: 1, max: 3 }, duration: 3 }
+
+  - id: armure_terrestre
+    name: Armure Terrestre
+    description: "Une carapace de cailloux. Ça protège, ça gratte, et ça sent la plage."
+    classId: feca
+    kind: other
+    element: neutral
+    apCost: 2
+    minRange: 0
+    maxRange: 0
+    requiresLos: false
+    cooldown: 5
+    effect: { type: buff, value: 9, duration: 4, target: self }
+
+  # Osamodas
+  - id: griffe_spectrale
+    name: Griffe Spectrale
+    description: "Une griffe fantôme qui griffe quand même. Le fantôme, lui, facture."
+    classId: osamodas
+    kind: damage
+    element: fire
+    apCost: 5
+    minRange: 1
+    maxRange: 5
+    requiresLos: true
+    damage: { min: 4, max: 7 }
+
+  - id: cri_de_l_ours
+    name: Cri de l'Ours
+    description: "Un cri viril venu d'un ours imaginaire. L'imaginaire n'en peut plus."
+    classId: osamodas
+    kind: other
+    element: neutral
+    apCost: 3
+    minRange: 1
+    maxRange: 4
+    requiresLos: true
+    cooldown: 4
+    effect: { type: buff, amount: { min: 3, max: 4 }, duration: 11 }
+
+  - id: invocation_de_tofu
+    name: Invocation de Tofu
+    description: "Un tofu vivant à votre service. Service limité, tofu aussi."
+    classId: osamodas
+    kind: other
+    element: air
+    apCost: 5
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    cooldown: 5
+    effect: { type: summon }
+
+  # Enutrof
+  - id: lancer_de_pelle
+    name: Lancer de Pelle
+    description: "Le seul lancer autorisé par le syndicat des chercheurs d'or."
+    classId: enutrof
+    kind: damage
+    element: earth
+    apCost: 4
+    minRange: 1
+    maxRange: 4
+    requiresLos: true
+    damage: { min: 2, max: 5 }
+
+  - id: lancer_de_pieces
+    name: Lancer de Pièces
+    description: "Lancer de pièces. L'ennemi se baisse, par réflexe de contribuable."
+    classId: enutrof
+    kind: damage
+    element: water
+    apCost: 2
+    minRange: 0
+    maxRange: 8
+    requiresLos: true
+    damage: { min: 1, max: 2 }
+    castsPerTarget: 3
+
+  - id: sac_anime
+    name: Sac Animé
+    description: "Un sac qui mord. Probablement vexé d'être un sac."
+    classId: enutrof
+    kind: other
+    element: neutral
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: false
+    cooldown: 10
+    effect: { type: summon }
+
+  # Sram
+  - id: sournoiserie
+    name: Sournoiserie
+    description: "Une attaque dans le dos, avec beaucoup de courtoisie dans le geste."
+    classId: sram
+    kind: damage
+    element: earth
+    apCost: 4
+    minRange: 1
+    maxRange: 3
+    requiresLos: true
+    damage: { min: 2, max: 4 }
+
+  - id: piege_sournois
+    name: Piège Sournois
+    description: "Un piège discret. Le porteur de mauvaises nouvelles appréciera peu."
+    classId: sram
+    kind: other
+    element: earth
+    apCost: 2
+    minRange: 1
+    maxRange: 3
+    requiresLos: false
+    castsPerTurn: 1
+    effect: { type: trap, amount: { min: 5, max: 9 } }
+
+  - id: invisibilite
+    name: Invisibilité
+    description: "Vous disparaissez. Pas de vos responsabilités, juste du champ de vision."
+    classId: sram
+    kind: other
+    element: neutral
+    apCost: 2
+    minRange: 0
+    maxRange: 0
+    requiresLos: false
+    cooldown: 11
+    effect: { type: state, duration: 3, target: self }
+
+  # Xélor
+  - id: aiguille
+    name: Aiguille
+    description: "Une aiguille de temps pile dans le mille. Le temps, lui, s'en fiche."
+    classId: xelor
+    kind: damage
+    element: fire
+    apCost: 6
+    minRange: 1
+    maxRange: 5
+    requiresLos: true
+    damage: { min: 4, max: 8 }
+
+  - id: ralentissement
+    name: Ralentissement
+    description: "Le temps ralentit. Les excuses aussi, malheureusement."
+    classId: xelor
+    kind: other
+    element: neutral
+    apCost: 1
+    minRange: 3
+    maxRange: 4
+    requiresLos: true
+    castsPerTurn: 4
+    castsPerTarget: 1
+    effect: { type: debuff, value: 3, duration: 1 }
+
+  - id: contre
+    name: Contre
+    description: "Un contre bien placé : l'agression revient à l'envoyeur, frais de port compris."
+    classId: xelor
+    kind: other
+    element: neutral
+    apCost: 2
+    minRange: 0
+    maxRange: 1
+    requiresLos: true
+    cooldown: 6
+    effect: { type: reflect, value: 3, duration: 3 }
+
+  # Ecaflip
+  - id: pile_ou_face
+    name: Pile ou Face
+    description: "Pile : dégâts. Face : dégâts. Le chat triche, mais personne ne vérifie."
+    classId: ecaflip
+    kind: damage
+    element: earth
+    apCost: 3
+    minRange: 0
+    maxRange: 5
+    requiresLos: true
+    damage: { min: 4, max: 11 }
+
+  - id: chance_d_ecaflip
+    name: Chance d'Ecaflip
+    description: "Un coup de chance, dit-on. Le chat appelle ça une expertise."
+    classId: ecaflip
+    kind: other
+    element: neutral
+    apCost: 2
+    minRange: 0
+    maxRange: 1
+    requiresLos: true
+    cooldown: 10
+    effect: { type: buff, duration: 2 }
+
+  - id: bond_du_felin
+    name: Bond du Félin
+    description: "Le félin bondit. Le félin atterrit. Le félin nie toute imprudence."
+    classId: ecaflip
+    kind: teleport
+    element: neutral
+    apCost: 2
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    castsPerTurn: 1
+
+  # Eniripsa
+  - id: mot_interdit
+    name: Mot Interdit
+    description: "Un mot si interdit que même le dictionnaire détourne le regard."
+    classId: eniripsa
+    kind: damage
+    element: fire
+    apCost: 6
+    minRange: 1
+    maxRange: 4
+    requiresLos: true
+    damage: { min: 3, max: 8 }
+
+  - id: mot_de_frayeur
+    name: Mot de Frayeur
+    description: "Un mot qui pousse à reculer. La grammaire a des effets secondaires."
+    classId: eniripsa
+    kind: other
+    element: neutral
+    apCost: 3
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    castsPerTarget: 3
+    effect: { type: push, value: 1 }
+
+  - id: mot_curatif
+    name: Mot Curatif
+    description: "Un mot gentil. Sur soi, c'est permis, et ça referme les plaies."
+    classId: eniripsa
+    kind: other
+    element: neutral
+    apCost: 6
+    minRange: 0
+    maxRange: 0
+    requiresLos: false
+    castsPerTurn: 1
+    effect: { type: heal, amount: { min: 5, max: 11 }, target: self }
+
+  # Crâ
+  - id: fleche_magique
+    name: Flèche Magique
+    description: "Une flèche magique qui trouve sa cible. Le magicien, lui, cherche encore ses clés."
+    classId: cra
+    kind: damage
+    element: fire
+    apCost: 4
+    minRange: 1
+    maxRange: 7
+    requiresLos: true
+    damage: { min: 9, max: 11 }
+    castsPerTarget: 2
+
+  - id: fleche_empoisonnee
+    name: Flèche Empoisonnée
+    description: "Une flèche enduite de mauvaises intentions. Le venin, lui, est très intentionné."
+    classId: cra
+    kind: other
+    element: neutral
+    apCost: 4
+    minRange: 2
+    maxRange: 5
+    requiresLos: true
+    castsPerTarget: 1
+    effect: { type: debuff, amount: { min: 2, max: 3 }, duration: 2 }
+
+  - id: fleche_de_recul
+    name: Flèche de Recul
+    description: "La flèche pousse trois cases. La cible recule, et reconsidère sa carrière."
+    classId: cra
+    kind: damage
+    element: air
+    apCost: 4
+    minRange: 1
+    maxRange: 3
+    requiresLos: true
+    damage: { min: 11, max: 14 }
+    pushCells: 3
+    castsPerTarget: 1
+
+  # Sadida
+  - id: ronce
+    name: Ronce
+    description: "Une ronce qui s'accroche. Comme un créancier, mais végétal."
+    classId: sadida
+    kind: damage
+    element: earth
+    apCost: 5
+    minRange: 1
+    maxRange: 6
+    requiresLos: true
+    damage: { min: 4, max: 6 }
+    castsPerTarget: 2
+
+  - id: poison_paralysant
+    name: Poison Paralysant
+    description: "Un poison qui paralyse sans tuer. Le sadique appelle ça de la pédagogie."
+    classId: sadida
+    kind: other
+    element: fire
+    apCost: 3
+    minRange: 1
+    maxRange: 2
+    requiresLos: true
+    cooldown: 6
+    castsPerTurn: 1
+    castsPerTarget: 1
+    effect: { type: debuff, value: 1, duration: 3 }
+
+  - id: la_bloqueuse
+    name: La Bloqueuse
+    description: "Une poupée de bois qui bloque. Elle ne parle pas, avantage considérable."
+    classId: sadida
+    kind: other
+    element: neutral
+    apCost: 6
+    minRange: 1
+    maxRange: 1
+    requiresLos: false
+    cooldown: 6
+    castsPerTurn: 1
+    effect: { type: summon }
+
+  # Sacrieur
+  - id: pied_du_sacrieur
+    name: Pied du Sacrieur
+    description: "Un coup de pied franc. La douleur est répartie équitablement, surtout chez l'autre."
+    classId: sacrieur
+    kind: damage
+    element: earth
+    apCost: 4
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    damage: { min: 5, max: 9 }
+
+  - id: chatiment_force
+    name: Châtiment Forcé
+    description: "Le châtiment de la force : 60 de détermination, et un petit mal de tête."
+    classId: sacrieur
+    kind: other
+    element: neutral
+    apCost: 3
+    minRange: 0
+    maxRange: 0
+    requiresLos: false
+    cooldown: 5
+    effect: { type: buff, value: 60, duration: 5, target: self }
+
+  - id: attirance
+    name: Attirance
+    description: "Une attirance irrésistible. Ça tire l'ennemi vers vous, charmant ou pas."
+    classId: sacrieur
+    kind: other
+    element: neutral
+    apCost: 3
+    minRange: 2
+    maxRange: 9
+    requiresLos: true
+    castsPerTarget: 1
+    effect: { type: push, value: -2 }
+
+  # Pandawa
+  - id: picole
+    name: Picole
+    description: "Boire pour oublier qu'on est le tank. L'alcool aide, le foie proteste."
+    classId: pandawa
+    kind: other
+    element: neutral
+    apCost: 5
+    minRange: 0
+    maxRange: 0
+    requiresLos: false
+    effect: { type: state, duration: 5, target: self }
+
+  - id: gueule_de_bois
+    name: Gueule de Bois
+    description: "La gueule de bois frappe fort, mais seulement une fois picole entamée."
+    classId: pandawa
+    kind: damage
+    element: earth
+    apCost: 6
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    damage: { min: 7, max: 11 }
+    requiresState: drunk
+
+  - id: poing_enflamme
+    name: Poing Enflammé
+    description: "Un poing en feu, une haleine en feu, un Pandawa en feu de joie."
+    classId: pandawa
+    kind: damage
+    element: fire
+    apCost: 5
+    minRange: 1
+    maxRange: 1
+    requiresLos: true
+    damage: { min: 7, max: 11 }
+    requiresState: drunk
+
