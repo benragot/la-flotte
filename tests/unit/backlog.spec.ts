@@ -1210,7 +1210,7 @@ interface GapRow {
 }
 
 /**
- * Vingt systèmes confrontés au code. Le verdict est figé ici : c'est la
+ * Quinze systèmes confrontés au code. Le verdict est figé ici : c'est la
  * conclusion de l'analyse, pas une case à cocher après coup.
  */
 const GAP_ROWS: readonly GapRow[] = [
@@ -1232,6 +1232,7 @@ const GAP_ROWS: readonly GapRow[] = [
 ];
 
 const DROPPED_SYSTEMS = [
+  "navires",
   "multi-joueurs",
   "guildes",
   "hôtels de vente",
@@ -1240,6 +1241,12 @@ const DROPPED_SYSTEMS = [
   "montures",
   "alignement",
   "quêtes de PNJ",
+  "échanges",
+  "amis",
+  "scaéroplanes",
+  "maisons",
+  "spectateurs",
+  "éventail",
 ];
 
 const PROOF_PATTERN = /\.(?:ts|tsx|yaml|md|jsonc):\d+/;
@@ -1368,6 +1375,11 @@ describe("backlog — suites ouvertes par l'analyse d'écart", () => {
   });
 });
 
+function limitsSection(): string {
+  const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
+  return text.split("## 12. Limites connues du rendu iso")[1] ?? "";
+}
+
 describe("backlog — limites assumées du rendu iso (PR #68)", () => {
   it("documente le flou au-delà de ×1 et les coins vides comme des choix mesurés", () => {
     const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
@@ -1377,8 +1389,45 @@ describe("backlog — limites assumées du rendu iso (PR #68)", () => {
     expect(text).toContain("1,33");
     expect(text).toContain("2,19");
     expect(text).toContain("nearest");
-    expect(text).toContain("les quatre coins");
-    expect(text).toContain("73 %");
+  });
+
+  it("démontre c ≥ 2 pour un losange de même rapport et ×2,5 pour un 4:3 en 2:1", () => {
+    const section = limitsSection();
+    expect(section).toContain("2/c");
+    expect(section).toContain("c ≥ 2");
+    expect(section).toContain("2,5");
+    expect(section).toContain("2:1");
+    expect(section).toContain("les quatre coins");
+    expect(section).toContain("moitié de sa boîte englobante");
+  });
+
+  it("n'affirme plus un facteur ×4 ni un remplissage de 73 %", () => {
+    const section = limitsSection();
+    expect(section).not.toContain("≥ ×4");
+    expect(section).not.toContain("73 %");
+    expect(section).not.toContain("4/c");
+  });
+});
+
+describe("backlog — corrections d'audit de l'analyse d'écart", () => {
+  it("compte 26 sorts non inertes sur 44 au lieu de 20", () => {
+    const text = gapSpecText();
+    expect(text).toContain("26 sorts non inertes sur 44");
+    expect(text).not.toContain("20 sorts castables");
+  });
+
+  it("écrit cinq cartes et l'impossibilité de quitter maps[0]", () => {
+    const row = gapCells(gapSpecText(), "3").join(" | ");
+    expect(row).toContain("5 cartes");
+    expect(row).toContain("maps[0]");
+    expect(gapSpecText()).not.toContain("une seule carte 12×12");
+  });
+
+  it("distingue le 1vN du donjon (un sort) du 1v1 d'exploration (12 emplacements)", () => {
+    const text = gapSpecText();
+    expect(text).toContain("heroDamageSpell");
+    expect(text).toContain("SPELL_SLOT_COUNT");
+    expect(text).toContain("12 emplacements");
   });
 });
 
@@ -1427,5 +1476,29 @@ describe("backlog — coins vides : une tâche de rendu, pas une dette", () => {
   it("inscrit la tâche décochée dans la roadmap", () => {
     const lines = uncheckedRoadmapLines();
     expect(lines.some((line) => line.startsWith("- [ ] 7A-arena-background"))).toBe(true);
+  });
+
+  it("note la démonstration corrigée : c ≥ 2, ×2,5 en 4:3, jamais ×4", () => {
+    const notes = taskById(readBacklog(), "7A-arena-background")?.notes ?? "";
+    expect(notes).toContain("c ≥ 2");
+    expect(notes).toContain("2,5");
+    expect(notes).toContain("2:1");
+    expect(notes).not.toContain("≥ ×4");
+  });
+});
+
+describe("backlog — corrections des tâches ouvertes par l'écart", () => {
+  it("écrit cinq cartes et maps[0] dans 5D-exits", () => {
+    const notes = taskById(readBacklog(), "5D-exits")?.notes ?? "";
+    expect(notes).toContain("5 cartes");
+    expect(notes).toContain("maps[0]");
+    expect(notes).not.toContain("une seule carte");
+  });
+
+  it("absorbe « équiper sans posséder » dans 5C-equip-requirements", () => {
+    const notes = taskById(readBacklog(), "5C-equip-requirements")?.notes ?? "";
+    expect(notes).toContain("takeFromBag");
+    expect(notes).toContain("sans posséder");
+    expect(notes).toContain("removeItem");
   });
 });
