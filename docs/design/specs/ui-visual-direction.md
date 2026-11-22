@@ -539,8 +539,12 @@ Formulés comme des **interdits**, pas des préférences. Dérivés de
   panneau.
 - **I12 — Police téléchargée.** Aucun `@font-face`, aucun lien de police, aucun
   paquet d'icônes.
-- **I13 — Barre de vie flottante, dégâts flottants, toast, combo circulaire,
-  réticule animé.** Interdits (§4 de la spec canvas, appliqué aussi au HUD).
+- **I13 — Barre de vie flottante permanente, toast, combo circulaire, réticule
+  animé.** Interdits (§4 de la spec canvas, appliqué aussi au HUD). En revanche,
+  sur le canvas, les **nombres de dégâts et de soins flottants sont autorisés** —
+  jamais permanents : ~1,5 s, au-dessus du jeton de la cible, Neutre `#E8DCC8`
+  (soin `#6AD06A`) cerclé de Pierre `#2B241D` (§1.1). Référence d'implémentation :
+  `src/renderer/floatingText.ts`, feature « nombres de dégâts flottants ».
 
 ---
 

@@ -28,6 +28,8 @@ export class FakeNode {
   children: FakeNode[] = [];
   position = new FakePoint();
   scale = { x: 1, y: 1 };
+  alpha = 1;
+  eventMode: string | undefined;
 
   addChild(child: FakeNode): FakeNode {
     this.children.push(child);

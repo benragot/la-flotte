@@ -1,6 +1,6 @@
 import type { Element, SpellDef } from "../../schemas/spellSchema";
 import type { DamageInput } from "../combat";
-import { computeDamage, computePushbackDamage, isSpellAvailable, recordSpellCast, spellUsageKey } from "../combat";
+import { computeDamage, computePushbackDamage, isSpellAvailable, recordSpellCast, spellUsageKey, appendFloat } from "../combat";
 import type { Position } from "../grid";
 import { samePosition } from "../grid";
 import { getActiveCombatant, getOpponent, isPlayablePhase, setCombatant } from "./active";
@@ -144,7 +144,8 @@ function applyHit(state: CombatState, hit: HitDetail): CombatState {
   const hp = Math.max(0, hit.victim.hp - hit.damage - hit.pushDamage);
   const victim = { ...hit.victim, hp };
   const next = setCombatant(state, victim);
-  return hp <= 0 ? { ...next, phase: outcomePhase(victim.kind) } : next;
+  const floated = appendFloat(next, { targetId: victim.id, amount: hit.victim.hp - hp, kind: "damage" });
+  return hp <= 0 ? { ...floated, phase: outcomePhase(victim.kind) } : floated;
 }
 
 function describeHit(state: CombatState, hit: HitDetail, spell: SpellDef): string {

@@ -4,6 +4,7 @@ import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import type { DecorView } from "./decor";
 import { drawDecor } from "./decorPaint";
+import { FloatingTextLayer } from "./floatingTextLayer";
 import type { LabelBounds, TokenLabel } from "./labels";
 import {
   LABEL_FILL,
@@ -35,6 +36,7 @@ interface SceneLayers {
   actors: ActorStage;
   hpBars: Graphics;
   labels: Container;
+  floats: FloatingTextLayer;
 }
 
 /** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
@@ -49,15 +51,16 @@ const LAYERS = new WeakMap<Application, SceneLayers>();
 function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const graphics = { grid: new Graphics(), decor: new Graphics(), decorAbove: new Graphics() };
   const moreGraphics = { highlights: new Graphics(), path: new Graphics(), exitMarks: new Graphics(), tokens: new Graphics(), hpBars: new Graphics() };
-  return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container() };
+  const floats = new FloatingTextLayer();
+  return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container(), floats };
 }
 
 function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const existing = LAYERS.get(app);
   if (existing !== undefined) return existing;
   const created = createLayers(sheets);
-  const { grid, decor, decorAbove, highlights, path, exitMarks, tokens, actors, hpBars, labels } = created;
-  app.stage.addChild(grid, decor, highlights, path, exitMarks, tokens, actors.container, decorAbove, hpBars, labels);
+  const { grid, decor, decorAbove, highlights, path, exitMarks, tokens, actors, hpBars, labels, floats } = created;
+  app.stage.addChild(grid, decor, highlights, path, exitMarks, tokens, actors.container, decorAbove, hpBars, labels, floats.container);
   LAYERS.set(app, created);
   return created;
 }
@@ -146,20 +149,27 @@ const ANIMATED = new WeakSet<Application>();
 
 /**
  * Une `AnimatedSprite` avance sur le ticker PixiJS : sans boucle de rendu, la
- * frame 0 resterait figée. La boucle n'est démarrée que si la scène contient
- * au moins un acteur à feuille, pour ne pas rendre en continu une scène statique.
+ * frame 0 resterait figée. La boucle n'est démarrée que si la scène a quelque
+ * chose à animer — un acteur à feuille ou un nombre de dégâts en vol.
  */
 function ensureAnimationLoop(app: Application, layers: SceneLayers, view: ViewModel): void {
-  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, layers.actors.sheetIds).length === view.tokens.length) return;
+  if (ANIMATED.has(app) || !animates(view, layers)) return;
   ANIMATED.add(app);
   app.ticker.add(() => renderFrame(app, layers));
   app.ticker.start();
 }
 
-/** Une image : glissements des acteurs puis rendu. Aucune horloge implicite n'est créée. */
+/** Acteur à feuille **ou** nombre en vol : les deux réclament une image par trame. */
+function animates(view: ViewModel, layers: SceneLayers): boolean {
+  const withSheet = view.tokens.length - tokensNeedingCircle(view.tokens, layers.actors.sheetIds).length;
+  return withSheet > 0 || layers.floats.busy();
+}
+
+/** Une image : glissements des acteurs, âge des nombres flottants, puis rendu. */
 function renderFrame(app: Application, layers: SceneLayers): void {
   if (!isApplicationAlive(app)) return;
   layers.actors.advance(app.ticker.lastTime);
+  layers.floats.advance(app.ticker.lastTime);
   app.render();
 }
 
@@ -200,24 +210,51 @@ function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: num
 /** Ce qu'un rendu doit connaître en plus de l'image : feuilles et identité de carte. */
 export interface RenderInput {
   sheets?: readonly SpriteSheetSpec[];
-  /** Carte dessinée : un changement invalide les trajets en cours. */
+  /** Carte dessinée : un changement invalide les trajets **et** les nombres en vol. */
   scene?: object | null;
 }
 
+/** Une seule identité de carte pour les deux animations : elles s'annulent ensemble. */
+function sceneOf(view: ViewModel, input: RenderInput): object | null | undefined {
+  return input.scene ?? view.sceneKey;
+}
+
 /** Demande de synchronisation des acteurs : centres de cases, carte et rappel de chargement. */
-function actorSyncInput(app: Application, view: ViewModel, input: RenderInput): ActorSyncInput {
+function actorSyncInput(paint: ScenePaint): ActorSyncInput {
+  const { app, view, input } = paint;
   const centers = cellCenters(view.scene.tiles);
   const onReady = (): void => renderScene(app, view, input);
-  return { tokens: view.tokens, onReady, centers, scene: input.scene };
+  return { tokens: view.tokens, onReady, centers, scene: sceneOf(view, input) };
+}
+
+/** Les nombres flottants arrivent du modèle tel quel : la couche ne recalcule rien. */
+function syncFloats(layers: SceneLayers, view: ViewModel, scene: object | null | undefined): void {
+  const { floats = [], tokens } = view;
+  layers.floats.sync({ events: floats, tokens, scene });
+}
+
+/** Ce qu'une image peint : l'application, ses couches, le modèle et l'identité de carte. */
+interface ScenePaint {
+  app: Application;
+  layers: SceneLayers;
+  view: ViewModel;
+  input: RenderInput;
+}
+
+/** Une image complète : plateau, acteurs puis nombres flottants, dans cet ordre. */
+function paintScene(paint: ScenePaint): void {
+  const { layers, view, input } = paint;
+  clearLayers(layers);
+  drawLayers(layers, view, paint.app.screen);
+  syncFloats(layers, view, sceneOf(view, input));
+  layers.actors.sync(actorSyncInput(paint));
 }
 
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
 export function renderScene(app: Application, view: ViewModel, input: RenderInput = {}): void {
   if (!isApplicationAlive(app)) return;
   const layers = layersFor(app, input.sheets ?? []);
-  clearLayers(layers);
-  drawLayers(layers, view, app.screen);
-  layers.actors.sync(actorSyncInput(app, view, input));
+  paintScene({ app, layers, view, input });
   ensureAnimationLoop(app, layers, view);
   app.render();
 }
