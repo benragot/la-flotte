@@ -26,7 +26,7 @@ import type { ExplorationState, MonsterGroup, MonsterSpawn, SpawnPick, SpawnZone
 import { attemptRoom, currentRoom, isDungeonComplete, roomMonsters } from "../engine/dungeon";
 import type { DungeonRoom, DungeonRunState } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
-import { combatantFromHero } from "../engine/hero/combatant";
+import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
@@ -421,12 +421,21 @@ function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLik
   return battleUpdate(state, next);
 }
 
-/** Reporte les PV du combattant héros vers le héros persistant, plafonnés à son max. */
+function heroStatsFor(hero: Hero) {
+  const { inventory } = useGameStore.getState();
+  return totalStatsFor({ hero, inventory, items: GAME_CATALOG.items, sets: GAME_CATALOG.sets });
+}
+
+/**
+ * Reporte les PV du combat (domaine effectif) vers le héros persisté (domaine
+ * de niveau), sans soin : le bonus d'objets/Vitalité est retiré, puis le
+ * maximum de niveau borne. `hpPool` le rajoute à la salle suivante.
+ */
 function carryOverBattleHp(hp: number): void {
   const game = useGameStore.getState();
   if (game.hero === null) return;
-  const clamped = Math.max(0, Math.min(hp, game.hero.maxHp));
-  useGameStore.setState({ hero: { ...game.hero, hp: clamped } });
+  const levelHp = heroHpFromCombat(hp, game.hero, heroStatsFor(game.hero));
+  useGameStore.setState({ hero: { ...game.hero, hp: levelHp } });
 }
 
 function battleHeroHp(state: BattleState): number | undefined {
