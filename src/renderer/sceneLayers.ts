@@ -20,6 +20,7 @@ import { ActorStage } from "./sprites/actorStage";
 import type { ActorSyncInput } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { cellCenters } from "./walkTrail";
+import { drawExitMarks } from "./exitPaint";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
@@ -30,6 +31,7 @@ interface SceneLayers {
   decorAbove: Graphics;
   highlights: Graphics;
   path: Graphics;
+  exitMarks: Graphics;
   tokens: Graphics;
   actors: ActorStage;
   hpBars: Graphics;
@@ -48,7 +50,7 @@ const LAYERS = new WeakMap<Application, SceneLayers>();
 
 function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const graphics = { grid: new Graphics(), decor: new Graphics(), decorAbove: new Graphics() };
-  const moreGraphics = { highlights: new Graphics(), path: new Graphics(), tokens: new Graphics(), hpBars: new Graphics() };
+  const moreGraphics = { highlights: new Graphics(), path: new Graphics(), exitMarks: new Graphics(), tokens: new Graphics(), hpBars: new Graphics() };
   const floats = new FloatingTextLayer();
   return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container(), floats };
 }
@@ -57,8 +59,8 @@ function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneL
   const existing = LAYERS.get(app);
   if (existing !== undefined) return existing;
   const created = createLayers(sheets);
-  const { grid, decor, decorAbove, highlights, path, tokens, actors, hpBars, labels, floats } = created;
-  app.stage.addChild(grid, decor, highlights, path, tokens, actors.container, decorAbove, hpBars, labels, floats.container);
+  const { grid, decor, decorAbove, highlights, path, exitMarks, tokens, actors, hpBars, labels, floats } = created;
+  app.stage.addChild(grid, decor, highlights, path, exitMarks, tokens, actors.container, decorAbove, hpBars, labels, floats.container);
   LAYERS.set(app, created);
   return created;
 }
@@ -126,12 +128,17 @@ function clearLabels(container: Container): void {
   container.removeChildren().forEach((child) => child.destroy());
 }
 
-function clearLayers(layers: SceneLayers): void {
+function clearBoardLayers(layers: SceneLayers): void {
   layers.grid.clear();
   layers.decor.clear();
   layers.decorAbove.clear();
   layers.highlights.clear();
   layers.path.clear();
+  layers.exitMarks.clear();
+}
+
+function clearLayers(layers: SceneLayers): void {
+  clearBoardLayers(layers);
   layers.tokens.clear();
   layers.hpBars.clear();
   clearLabels(layers.labels);
@@ -172,12 +179,15 @@ function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): Dec
 
 /**
  * Sol, décor opaque puis grille de cases : les contours restent visibles même
- * au-dessus de l'épave. Surbrillances et chemin ferment la couche plateau.
+ * au-dessus de l'épave. Soleils de sortie, surbrillances et chemin ferment la
+ * couche plateau — les soleils restent sous les jetons, donc ils ne masquent
+ * ni un nom, ni une barre de PV.
  */
 function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawGrid(layers.grid, view.scene.tiles);
   drawDecor(layers.decor, layerViews(view.scene.decor, "below"));
   drawOutlines(layers.grid, view.scene.outlines);
+  drawExitMarks(layers.exitMarks, view.scene.exitMarks);
   drawHighlights(layers.highlights, view.scene.highlights);
   drawPath(layers.path, view.path);
 }

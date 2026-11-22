@@ -177,7 +177,7 @@ export function sceneOrigin(map: GridSize, viewport: GridSize): IsoOrigin {
 }
 
 /** Sommets (haut, droite, bas, gauche) autour d'un centre. */
-function diamondPoints(center: PixelPoint, half: PixelPoint): number[] {
+export function diamondPoints(center: PixelPoint, half: PixelPoint): number[] {
   const top = [center.x, center.y - half.y];
   const right = [center.x + half.x, center.y];
   const bottom = [center.x, center.y + half.y];

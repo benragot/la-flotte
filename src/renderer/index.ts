@@ -101,6 +101,17 @@ export type { Edge, GroundShapeInput, NeighbourLand } from "./tileTexture";
 export { decorShapes } from "./decor";
 export type { DecorView } from "./decor";
 export { mapDecorSpecs } from "./mapDecor";
+export { mapDefinition, mapExitSpecs } from "./mapDefinition";
+export {
+  EXIT_MARK_FILL,
+  EXIT_MARK_RATIO,
+  EXIT_MARK_STROKE,
+  EXIT_MARK_STROKE_WIDTH,
+  exitMarkDiamond,
+  exitMarkViews,
+} from "./exitMarks";
+export { drawExitMarks } from "./exitPaint";
+export type { ExitMark } from "./exitMarks";
 export { paintShapes } from "./paintShapes";
 export { drawDecor } from "./decorPaint";
 export type { EllipseShape, LineShape, PolyShape, RingShape, Shape } from "./shapes";

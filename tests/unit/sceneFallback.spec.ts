@@ -20,8 +20,9 @@ vi.mock("pixi.js", async () => {
 const { FakeNode, graphicsOf } = await import("./support/fakePixi");
 const { renderScene } = await import("../../src/renderer/sceneLayers");
 
-/** La couche `tokens` est la 6ᵉ `Graphics` créée par `createLayers` (grille, décor, décor haut, surbrillances, chemin, jetons). */
-const TOKEN_LAYER_OFFSET = 5;
+/** `Graphics` créées par `createLayers`, dans l'ordre : grille, décor, décor haut, surbrillances, chemin, soleils, jetons. */
+const EXIT_MARK_LAYER_OFFSET = 5;
+const TOKEN_LAYER_OFFSET = 6;
 
 const ANIMATION = { row: 0, frames: 4, fps: 6, loop: true };
 
@@ -39,7 +40,12 @@ function token(spriteId: string | null): TokenView {
 }
 
 function view(tokens: TokenView[]): ViewModel {
-  return { scene: { tiles: [], highlights: [], decor: [], outlines: [] }, tokens, path: [], lastAction: null };
+  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [] }, tokens, path: [], lastAction: null };
+}
+
+function exitView(): ViewModel {
+  const mark = { cell: { x: 0, y: 0 }, center: { x: 100, y: 80 }, points: [100, 74, 106, 80, 100, 86, 94, 80], scale: 1 };
+  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [mark] }, tokens: [], path: [], lastAction: null };
 }
 
 function fakeApp(): Application {
@@ -54,6 +60,13 @@ function paint(tokens: TokenView[], sheets: readonly SpriteSheetSpec[]): number 
   const offset = graphicsOf.length;
   renderScene(fakeApp(), view(tokens), { sheets });
   return graphicsOf[offset + TOKEN_LAYER_OFFSET]?.circleCalls ?? 0;
+}
+
+/** Un losange doré = deux tracés : l'aplat, puis son contour sombre. */
+function paintExitMarks(): number {
+  const offset = graphicsOf.length;
+  renderScene(fakeApp(), exitView(), { sheets: [SHEET] });
+  return graphicsOf[offset + EXIT_MARK_LAYER_OFFSET]?.polyCalls ?? 0;
 }
 
 describe("couche de scène — un jeton sans feuille ne disparaît jamais", () => {
@@ -71,5 +84,11 @@ describe("couche de scène — un jeton sans feuille ne disparaît jamais", () =
 
   it("garde les deux jetons d'un combat mixte : feuille pour l'un, cercle pour l'autre", () => {
     expect(paint([token("iop"), token("fer_rat_de_cale")], [SHEET])).toBe(2);
+  });
+});
+
+describe("couche de scène — les soleils de sortie", () => {
+  it("trace l'aplat et le contour sombre du losange doré", () => {
+    expect(paintExitMarks()).toBe(2);
   });
 });
