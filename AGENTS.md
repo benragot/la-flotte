@@ -41,6 +41,7 @@
 7. L'apparence de l'interface appartient à `ui-designer` : tout changement visuel passe par lui.
 8. La conception des cartes appartient à `map-designer` : grilles, décor, sorties et zones de spawn passent par lui.
 9. Le rendu du canvas (matériaux, sprites, grille, animations) appartient à `render-designer` : les panneaux sont à `ui-designer`, les cartes à `map-designer`.
+10. GitHub Actions est désactivé (budget `$0`) : la vérification passe par `ci-runner` en local, et son verdict fait foi à la place de `gh pr checks`.
 
 ## Qualité
 
