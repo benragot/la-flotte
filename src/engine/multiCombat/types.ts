@@ -31,6 +31,8 @@ export interface CombatantLike {
   resistances: CombatResistances;
   /** Armure plate optionnelle, cumulée aux résistances fixes dans `computeDamage`. */
   armor?: number;
+  /** Sorts du combattant, recopiés depuis la donnée (`MonsterDef` / héros). */
+  spellIds?: readonly string[];
   /** Initiative déjà calculée par l'appelant via `computeInitiative`. */
   initiative: number;
 }
@@ -58,6 +60,8 @@ export interface AttackSpec {
   /** Valeur de dé de la poussée (voir `computePushbackDamage`). */
   roll?: number;
   apCost: number;
+  /** Nom du sort, pour un journal lisible ; absent = attaque nue. */
+  spellName?: string;
 }
 
 export type EnemyAction =

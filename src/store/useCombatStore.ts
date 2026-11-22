@@ -30,9 +30,9 @@ import { combatantFromHero } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { advanceTurn, buildTimeline, isVictory } from "../engine/multiCombat";
+import { advanceTurn, buildTimeline, isDefeat, isVictory } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat/timeline";
-import type { AttackSpec, BattleState, EnemyStrategy, Rng } from "../engine/multiCombat";
+import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
 import { mapsFileSchema } from "../schemas/mapSchema";
 import { monstersFileSchema } from "../schemas/monsterSchema";
@@ -45,8 +45,10 @@ import { spawnsFileSchema } from "../schemas/spawnSchema";
 import {
   battleAttack as resolveBattleAttack,
   battleEnemyTurn as resolveBattleEnemyTurn,
+  playEnemyTurns as resolveEnemyTurns,
   rollSpellBase,
   spellAttackSpec,
+  spellStrategy,
 } from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 
@@ -80,6 +82,12 @@ interface CombatStore {
   /** `rng` injectable (défaut `Math.random`) pour des combats déterministes en test. */
   battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) => void;
   battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) => void;
+  /**
+   * NOUVEAU (5C-c) : joue les tours ennemis jusqu'au retour de la main au
+   * héros, avec les sorts réels des monstres (`data/spells.yaml`). Si le héros
+   * tombe, aucun `hp: 0` n'est persisté (voir `restoreHeroHp`).
+   */
+  playEnemyTurns: (input?: { rng?: Rng }) => void;
   /** Fait tourner la timeline quand l'actif courant ne peut plus rien faire (aucun aléa). */
   advanceBattleTurn: () => void;
   /**
@@ -350,6 +358,30 @@ function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
   return battleUpdate(state, advanceTurn(state));
 }
 
+/** Sorts du combattant ennemi, résolus par id dans `data/spells.yaml`. */
+function enemySpells(enemy: CombatantLike): SpellDef[] {
+  const ids = enemy.spellIds ?? [];
+  return ids.flatMap((id) => spells.filter((spell) => spell.id === id));
+}
+
+function strategyForEnemy(enemy: CombatantLike, rng: Rng): EnemyStrategy {
+  return spellStrategy({ spells: enemySpells(enemy), rng });
+}
+
+function battleFinished(state: BattleState): boolean {
+  return isDefeat(state) || isVictory(state);
+}
+
+/** Les ennemis ripostent ; une défaite passe par `restoreHeroHp`, jamais par `hp: 0`. */
+function playEnemyTurnsUpdate(store: CombatStore, rng: Rng): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null || battleFinished(state)) return {};
+  const options = { state, strategyFor: (enemy: CombatantLike) => strategyForEnemy(enemy, rng), rng };
+  const next = resolveEnemyTurns(options);
+  if (isDefeat(next)) restoreHeroHp();
+  return battleUpdate(state, next);
+}
+
 /** Reporte les PV du combattant héros vers le héros persistant, plafonnés à son max. */
 function carryOverBattleHp(hp: number): void {
   const game = useGameStore.getState();
@@ -403,7 +435,7 @@ function mapActions(set: StoreSetter): MapActions {
 
 type BattleActions = Pick<
   CombatStore,
-  "startDungeonRoom" | "battleAttack" | "battleEnemyTurn" | "advanceBattleTurn" | "settleDungeonRoom" | "endBattle"
+  "startDungeonRoom" | "battleAttack" | "battleEnemyTurn" | "playEnemyTurns" | "advanceBattleTurn" | "settleDungeonRoom" | "endBattle"
 >;
 
 function battlePlayActions(set: StoreSetter) {
@@ -413,6 +445,12 @@ function battlePlayActions(set: StoreSetter) {
       set((store) => attackUpdate(store, input)),
     battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) =>
       set((store) => enemyTurnUpdate(store, input)),
+  };
+}
+
+function battleTurnActions(set: StoreSetter) {
+  return {
+    playEnemyTurns: (input?: { rng?: Rng }) => set((store) => playEnemyTurnsUpdate(store, input?.rng ?? Math.random)),
     advanceBattleTurn: () => set((store) => advanceTurnUpdate(store)),
   };
 }
@@ -432,7 +470,7 @@ function battleCloseActions(set: StoreSetter) {
 }
 
 function battleActions(set: StoreSetter): BattleActions {
-  return { ...battlePlayActions(set), ...battleCloseActions(set) };
+  return { ...battlePlayActions(set), ...battleTurnActions(set), ...battleCloseActions(set) };
 }
 
 const DEFAULT_STATE = {
@@ -458,6 +496,7 @@ const DEFAULT_STATE = {
   | "battleAttack"
   | "battleSpellAttack"
   | "battleEnemyTurn"
+  | "playEnemyTurns"
   | "advanceBattleTurn"
   | "settleDungeonRoom"
   | "endBattle"

@@ -99,7 +99,8 @@ function appendLog(state: BattleState, entry: string): BattleState {
 
 function describeHit(context: DamageContext, total: number): string {
   const suffix = context.critical ? " (critique)" : "";
-  return `${context.attacker.name} frappe ${context.target.name}${suffix} : ${total} dégâts.`;
+  const spell = context.attack.spellName === undefined ? "" : ` avec ${context.attack.spellName}`;
+  return `${context.attacker.name} frappe ${context.target.name}${spell}${suffix} : ${total} dégâts.`;
 }
 
 /** Applique les dégâts (plancher 0), relocalise la cible poussée et journalise. */

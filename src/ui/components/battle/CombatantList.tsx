@@ -8,7 +8,7 @@ export interface CombatantListProps {
 }
 
 function isHeroTurn(view: BattleCombatantView): boolean {
-  return view.isActive && view.side === "player";
+  return view.isActive && view.side === "player" && view.hp > 0;
 }
 
 /** Les N combattants de `battle` ; l'action d'attaque n'apparaît qu'au tour du héros. */

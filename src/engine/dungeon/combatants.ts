@@ -52,7 +52,7 @@ function withSide(source: BattleSource, side: Side, position: Position): Combata
 function monsterSource(monster: MonsterDef, index: number): BattleSource {
   const pools = { hp: monster.hp, maxHp: monster.hp, ap: monster.ap, maxAp: monster.ap, mp: monster.mp, maxMp: monster.mp };
   const identity = { id: `${monster.id}-${index}`, name: monster.name, level: monster.level };
-  return { ...identity, ...pools, stats: monster.stats, resistances: monster.resistances };
+  return { ...identity, ...pools, stats: monster.stats, resistances: monster.resistances, spellIds: [...monster.spellIds] };
 }
 
 /** Pont `MonsterDef` → `CombatantLike` : id déterministe, aucune donnée en dur. */
