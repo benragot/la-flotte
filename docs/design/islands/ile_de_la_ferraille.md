@@ -1162,7 +1162,7 @@ name: Vis-à-Vis avec Yvon
 giverNpcId: fer_npc_jean_marteau_bricole
 recommendedLevel: 15
 prerequisiteQuestId: fer_quest_plumes_au_beurre_noir
-summary: "Jean-Marteau veut une audience avec Yvon pour faire constater officiellement que le Boulon tient. Il lui faut donc qu'une escorte, une clef et des voiles — dans cet ordre administratif."
+summary: "Jean-Marteau veut une audience avec Yvon pour faire constater officiellement que le Boulon tient. Il lui faut donc une escorte, une clef et des voiles — dans cet ordre administratif."
 steps:
   - { type: clear_dungeon, dungeonId: fer_donjon_casse_vis_sans_fin }
   - { type: craft_item, itemId: fer_voiles_fortune_de_pot, quantity: 1 }
@@ -1193,27 +1193,37 @@ rewards:
 3. **`slot: ring` n'existe pas.** `EquipmentSlot` vaut `hat|cloak|weapon|amulet|ring1|ring2|belt|boots`. Deux pièces du dossier sont des bagues (`fer_anneau_mazoute`, `fer_anneau_rondelle_chance`). Lié à la dette **D06** (interdiction actuelle de porter deux bagues identiques, contraire à 1.29).
 4. **`setId: null`** n'est pas accepté par `itemSchema` (chaîne optionnelle). À trancher : clé absente plutôt que `null`.
 5. **Stats d'équipement en fourchettes `{min,max}`**, alors que `itemSchema` attend des entiers plats. Le modèle « jet aléatoire 1.29 » n'existe pas encore : c'est un chantier de schéma (et de calcul de stats) avant d'intégrer ce dossier.
-6. **Panoplies : `bonusesByCount` 2→5 et `itemIds`**, alors que `setSchema` attend `bonuses: [{pieces, stats}]` avec des paliers **2 à 4 maximum** et `pieceIds`. Les paliers 5 pièces et les bonus `pm: 1` / `pa: 1` n'ont pas de représentation.
+6. **Panoplies : structure et plafond de paliers.** Le dossier fournit bien `pieceIds` (le même nom que `setSchema`, bonne nouvelle) mais écrit ses bonus sous forme de map `bonusesByCount` 2→5 (une entrée par nombre de pièces), alors que `setSchema` attend une **liste ordonnée** `bonuses: [{ pieces, stats }]` dont `pieces` est plafonné à **4** (`MAX_TIER_PIECES`). Les paliers 5 pièces et les bonus `pm: 1` / `pa: 1` n'ont donc pas de représentation, et une map ne peut pas passer `bonusesIncrease` (qui exige des paliers strictement croissants sur un tableau).
 7. **Armes : modèle inexistant.** `weaponType`, `damageLines`, `critRate`, `critBonus`, `conditions` (ex. `agility >= 20`) n'ont ni schéma ni moteur. Les dégâts d'arme multi-lignes (terre + neutre) ne sont pas gérés par `computeDamage`.
-8. **Sorts de monstre : moteur d'effets absent.** `zone: cross|circle`, `kind: heal|buff|debuff|push_pull|summon`, `effects` (`pmLoss`, `apLoss`, `shield`, `pushCells`, `durationTurns`, `summonMonsterId`, `breakOnWallPush`, `wallBreakApLoss`), `cooldown`, `maxPerTurn`, `maxPerTarget` : rien de tout cela n'est implémenté. `spellSchema` accepte aujourd'hui `kind: damage|teleport|other` avec un `effect` **descriptif non consommé**. C'est le chantier de la Vague 6A (`advanced-spells`). Sans lui, le dossier n'est pas implémentable.
+8. **Sorts de monstre : schéma partiel, moteur d'effets absent.** Mise au point vérifiée dans `src/schemas/spellSchema.ts` : **`cooldown`, `castsPerTurn` et `castsPerTarget` existent déjà** dans le schéma — c'est le **moteur** qui ne les consomme pas. Le dossier reste non collable pour autant : les **16 blocs de sorts** n'ont **ni `description` ni `classId`** (tous deux requis), écrivent `minValue`/`maxValue` au lieu de `damage: { min, max }`, `maxPerTurn`/`maxPerTarget` au lieu de `castsPerTurn`/`castsPerTarget`, et `effects: []` au lieu de `effect`. Surtout, `zone: cross|circle`, `kind: heal|buff|debuff|push_pull|summon` et les effets (`pmLoss`, `apLoss`, `shield`, `pushCells`, `durationTurns`, `summonMonsterId`, `breakOnWallPush`, `wallBreakApLoss`) n'ont **aucune représentation** : `spellSchema` n'accepte que `kind: damage|teleport|other` et un `effect` unique **descriptif, non consommé** par le moteur. C'est le chantier de la Vague 6A (`advanced-spells`) ; il est **bloquant pour 13 des 16 sorts** (voir §11).
 9. **`ai` par monstre inexistant.** Le moteur actuel a une IA unique et codée (`runEnemyTurn` : rapprochement + attaque). Les 6 archétypes (`ranged_kiter`, `melee_rusher`, `tank_tackler`, `support_healer`, `pusher_control`, `boss_custom`) et `behaviorRules` exigent une IA paramétrable — chantier 5A (`multi-combat`) ou 6A.
-10. **`isBoss`, `kamasMin`, `kamasMax` absents** de `monsterSchema`. `drops` est compatible avec `loot` actuel (`itemId`/`baseDropRate`/`ppThreshold`), bonne nouvelle.
+10. **`isBoss`, `kamasMin`, `kamasMax` absents** de `monsterSchema`, et la clé de butin n'a pas le bon nom : les 6 blocs du dossier écrivent **`drops:`** alors que le schéma exige **`loot:`**. Le contenu de `lootEntrySchema` est en revanche compatible (`itemId`/`baseDropRate`/`ppThreshold`) — un simple renommage de clé suffit pour ce point.
 11. **Donjons, PNJ, quêtes : aucun schéma.** `dungeons.yaml`, `npcs.yaml`, `quests.yaml` sont à créer (`dungeonSchema`, `npcSchema`, `questSchema`) — chantier 5A (`dungeon-data`).
-12. **Les 2 grilles ASCII sont directement utilisables** : 12×12, `P` et `M` présents, `#` et `~` conformes à `mapSchema`. Il faudra leur donner des `id` snake_case et des `name`, et vérifier la connexité `P → M` (le test actuel ne l'exige pas mais le walkthrough pourrait).
+12. **Les 2 grilles ASCII sont directement utilisables** : 12 lignes de 12 caractères, `P` et `M` présents, `#` et `~` conformes à `cellTypeSchema`. Il reste à fournir un `id` snake_case, un `name`, **`width: 12` et `height: 12`** dans les futures entrées `maps` : `mapSchema` exige ces deux champs et vérifie que `grid.length === height` et que chaque ligne fait `width` caractères. La connexité `P → M` **est vérifiée** sur les deux grilles (4 `P` et 4 `M` chacune, tous les `M` atteignables en 4-voisinage à travers `.`, `P`, `M` et `~`).
 13. **`fer_ecrou_sacre_yvon` sert de monnaie de craft** (1 à 5 unités par recette) alors que c'est un drop rare à 0.80 : cohérent, mais à surveiller côté équilibrage.
 14. **`fer_fruit_coup_de_boulon` est à la fois un drop et un résultat de craft** : il devra exister dans une entité « fruit d'Écho » (Vague 6) **et** être référençable comme butin — deux schémas qui se croisent, à concevoir avant.
+15. **Champs d'item incompatibles.** Vérifié dans `src/schemas/itemSchema.ts` : les entrées du §4 et du §6 n'utilisent pas les noms de champs du schéma.
+    - `sellValue` (§4.1 à §4.4, **16 entrées**) alors que `itemCoreFields` exige **`sellPrice`** ;
+    - `healHp` (§4.2, 2 consommables) alors que `consumableItemSchema` exige **`heal`** ;
+    - **`description` obligatoire absente** des **13 pièces d'équipement** du §6 et des **2 panoplies** : `itemSchema` et `setSchema` la déclarent `z.string().min(1)` (elle est bien présente pour les ressources du §4) ;
+    - **`category` absent** de toutes les entrées d'équipement du §6 : sans lui, l'union discriminée `resource|consumable|equipment` ne peut pas résoudre le type (`category: equipment` à ajouter partout) ;
+    - `rarity` (`common`/`uncommon`/`rare`) **n'existe pas** dans `itemSchema` : soit on l'ajoute au schéma, soit on la déplace dans la doc de design ;
+    - `category: key` (`cle_donjon_ile_de_la_ferraille`) et `category: shipUpgrade` (`fer_voiles_fortune_de_pot`, avec `unlocksIsland`) sont **hors de l'union discriminée** : deux branches `key` et `shipUpgrade` à créer, avec `targetDungeonId` et `unlocksIslandId`.
+16. **Clés de stats inexistantes — et le pire mode de défaillance.** `crit`, `initiative`, `flatDamage` et `percentDamage` (**20 occurrences** en §5–§6 : 6 `crit`, 9 `flatDamage`, 4 `initiative`, 1 `percentDamage`) n'existent pas dans `itemStatsSchema`, qui connaît `percentDmg`, `flatRes`, `percentRes` — et aucune des quatre ci-dessus. Le lien avec la dette **D04** est critique : `itemStatsSchema` n'étant **pas `.strict()`**, ces clés seraient **silencieusement supprimées** par Zod. Les panoplies perdraient crit, initiative et dégâts plats **sans aucune erreur**, ni au parse, ni en CI, ni dans un test de données : le jeu tournerait avec des pièces vides. C'est le pire mode de défaillance pour du contenu. Prérequis avant intégration : `.strict()` + table de renommage explicite (`percentDamage` → `percentDmg` ; `flatDamage`, `crit`, `initiative` → clés moteur à créer, aucune n'existe aujourd'hui).
+17. **Résistances négatives interdites par `monsterSchema`.** `resistanceSchema` (`src/schemas/monsterSchema.ts`) est `.nonnegative()` sur `flat` **et** `percent`. Les valeurs du dossier invalident **les 6 monstres sur 6** — la revue QA en annonçait 5, mais `fer_crabe_cle_molette` porte lui aussi `percent.fire: -10` : piou `-10` feu, crabe `-10` feu, rat `-5` feu et `-5` air, marmite `-10` eau, boulon `-5` eau, boss `-10` eau. Or **la faiblesse Eau d'Yvon est sa mécanique centrale** : tant que Tôle Blindée n'est pas cassée, c'est par l'eau qu'on contourne ses résistances fixes. Sans assouplissement du schéma (borne ±100 et cohérence flat/percent via `superRefine`), le boss perd son point faible et les 6 blocs de bestiaire sont rejetés au parse.
+18. **Collision de contenu : `plume_mazoutee` et `bec_mazoute`.** `plume_mazoutee` **existe déjà** dans `data/items.yaml` (ressource, `sellPrice: 3`, description différente) : le dossier le redéfinit, donc `itemsFileSchema` → `checkUniqueIds` échouera au parse. C'est la **même classe de conflit que `piou_mazoute` (D18)**, non couverte jusqu'ici : trancher entre fusion (garder l'entrée existante), renommage, ou redéfinition assumée avec migration. Et remplacer les `spellIds` de `piou_mazoute` par `[fer_spell_crachat_mazout, fer_spell_coup_daile_gras]` rend **`bec_mazoute` orphelin** dans `data/spells.yaml` (plus référencé par aucun monstre) : à supprimer, réaffecter à une variante de piou, ou assumer comme sort hors bestiaire. La dette **D03** porte sur la fidélité des sorts Iop, pas sur ce nettoyage.
 
 ## 11. Ordre d'implémentation recommandé
 
 1. **Vague 5A** `dungeon-data` : schémas `dungeon`/`npc`/`quest` + les 2 grilles de ce dossier.
-2. **Vague 6A** `advanced-spells` : zones, statuts à durée, boucliers, cooldowns, quotas, `push_pull`, `summon`. **Bloquant** pour 10 des 16 sorts de monstre.
+2. **Vague 6A** `advanced-spells` : zones, statuts à durée, boucliers, consommation des cooldowns/quotas, `push_pull`, `summon`. **Bloquant pour 13 des 16 sorts de monstre** : seuls `fer_spell_morsure_tetanos`, `fer_spell_pince_de_douze` et `fer_spell_lancer_decrou` sont de purs `damage` mono-cible sans effet secondaire.
 3. **Vague 6A** `echo-fruits` : passif `onBeforeApplyPush`, `fer_fruit_coup_de_boulon`.
 4. **Vague 6B** : refonte du modèle d'équipement (fourchettes de stats, `ring`, paliers 5), des armes, et redéfinition de `piou_mazoute`.
 5. **Vague 7B** : remplissage complet du bestiaire, des 22 recettes, des 2 quêtes, du donjon 4 salles.
 
 ## 12. Tâches à reporter dans `docs/design/backlog.yaml`
 
-Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`). Le fichier appartient à une autre PR : rien n'est appliqué ici.
+Bloc prêt à coller. Le fichier appartient à une autre PR : rien n'est appliqué ici. Les 4 tâches suivent le **format tâche** de `docs/design/backlog.yaml` (`id`, `title`, `status`, `owner`, `priority`, `updated_at`, `depends_on`) et vont dans `waves[].phases[].tasks[]` ; les 11 dettes suivent le **format dette** (`id`, `title`, `severity`, `target`) et vont dans `debts[]`. Aucun id ne collisionne avec `D01`–`D17`, et chaque `target` pointe vers une phase existante (`5A`, `6A`, `6B`, `7B`).
 
 ```yaml
 # --- waves[wave-5].phases[5A].tasks ---
@@ -1222,30 +1232,24 @@ Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`)
   status: todo
   owner: tdd-coder
   priority: high
-  target: 5A
-  severity: high
+  updated_at: "2026-11-22"
   depends_on: [4A-harness]
-  notes: voir docs/design/islands/ile_de_la_ferraille.md §8
 
 # --- waves[wave-6].phases[6A].tasks ---
 - id: 6A-island-ferraille-spells
-  title: 16 sorts de monstre — zones cross/circle, statuts à durée, boucliers, cooldowns, quotas, push_pull, summon
+  title: 16 sorts de monstre — zones cross/circle, statuts à durée, boucliers, consommation des cooldowns et quotas, push_pull, summon
   status: todo
   owner: tdd-coder
   priority: high
-  target: 6A
-  severity: high
+  updated_at: "2026-11-22"
   depends_on: [5A-island-ferraille-dungeon-data]
-  notes: bloquant pour 10 des 16 sorts (§3, §10.8)
 - id: 6A-island-ferraille-fruit
-  title: Fruit du Coup-de-Boulon — passif onBeforeApplyPush + Pétage de Plomb
+  title: Fruit du Coup-de-Boulon — passif onBeforeApplyPush et Pétage de Plomb
   status: todo
   owner: tdd-coder
   priority: high
-  target: 6A
-  severity: medium
+  updated_at: "2026-11-22"
   depends_on: [6A-island-ferraille-spells]
-  notes: double nature drop/craft à trancher (§10.14)
 
 # --- waves[wave-6].phases[6B].tasks ---
 - id: 6B-island-ferraille-equipment
@@ -1253,10 +1257,8 @@ Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`)
   status: todo
   owner: tdd-coder
   priority: high
-  target: 6B
-  severity: high
+  updated_at: "2026-11-22"
   depends_on: [6A-island-ferraille-spells]
-  notes: inclut la redéfinition de piou_mazoute (§5, §6, §10.1-7)
 
 # --- waves[wave-7].phases[7B].tasks ---
 - id: 7B-island-ferraille-content
@@ -1264,14 +1266,12 @@ Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`)
   status: todo
   owner: tdd-coder
   priority: medium
-  target: 7B
-  severity: medium
+  updated_at: "2026-11-22"
   depends_on: [6B-island-ferraille-equipment, 6A-island-ferraille-fruit]
-  notes: données issues de docs/design/islands/ile_de_la_ferraille.md
 
 # --- debts ---
 - id: D18
-  title: piou_mazoute redéfini (niv. 3, 5/4 PA-PM, baseXp 120→28) casse le walkthrough « 120 XP ⇒ niveau 2 »
+  title: piou_mazoute redéfini (niv. 3, 5/4 PA-PM, baseXp 120→28) casse le walkthrough « 120 XP ⇒ niveau 2 » ; collisions de contenu associées tracées en D27 et D28
   severity: high
   target: 6B
 - id: D19
@@ -1283,7 +1283,7 @@ Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`)
   severity: medium
   target: 6B
 - id: D21
-  title: Stats d'équipement en fourchettes {min,max} alors qu'itemSchema attend des entiers plats
+  title: Stats d'équipement en fourchettes {min,max} alors qu'itemSchema attend des entiers plats ; clés crit/initiative/flatDamage/percentDamage supprimées en silence faute de .strict() (D04)
   severity: high
   target: 6B
 - id: D22
@@ -1295,7 +1295,7 @@ Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`)
   severity: high
   target: 6B
 - id: D24
-  title: IA par archétype absente (6 archétypes + behaviorRules)
+  title: IA par archétype absente (6 archétypes et behaviorRules)
   severity: high
   target: 6A
 - id: D25
@@ -1306,4 +1306,12 @@ Bloc prêt à coller (à répartir dans `waves[].phases[].tasks[]` et `debts[]`)
   title: fer_fruit_coup_de_boulon à la fois drop et craft — deux schémas qui se croisent
   severity: medium
   target: 6A
+- id: D27
+  title: plume_mazoutee redéfini alors qu'il existe déjà dans data/items.yaml (sellPrice 3) — checkUniqueIds cassera
+  severity: high
+  target: 6B
+- id: D28
+  title: bec_mazoute orphelin après remplacement des spellIds de piou_mazoute
+  severity: low
+  target: 6B
 ```
