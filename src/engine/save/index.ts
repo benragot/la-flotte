@@ -1,4 +1,5 @@
 export {
+  MAX_CHARACTERS,
   SAVE_ERROR_FUTURE_VERSION,
   SAVE_ERROR_INVALID_JSON,
   SAVE_ERROR_INVALID_SCHEMA,
@@ -7,6 +8,8 @@ export {
   SAVE_VERSION,
 } from "./types";
 export type {
+  CharacterPosition,
+  CharacterSnapshot,
   HeroSnapshot,
   HeroStatsSnapshot,
   InventorySnapshot,

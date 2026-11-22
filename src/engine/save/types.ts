@@ -1,5 +1,8 @@
 /** Version du format de sauvegarde (pas une donnée de jeu). */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+
+/** Un compte porte au plus huit personnages : le schéma lève au neuvième. */
+export const MAX_CHARACTERS = 8;
 
 /** Contrat minimal d'un stockage clé/valeur injecté par l'appelant. */
 export interface StorageLike {
@@ -42,12 +45,33 @@ export interface InventorySnapshot {
   equipment: Record<string, string>;
 }
 
+/** Dernière position connue d'un personnage : carte et case, jamais restaurée en PR A. */
+export interface CharacterPosition {
+  mapId: string;
+  x: number;
+  y: number;
+}
+
+/** Un personnage persistant : son héros, son sac et sa dernière position. */
+export interface CharacterSnapshot {
+  id: string;
+  hero: HeroSnapshot;
+  inventory: InventorySnapshot;
+  position: CharacterPosition | null;
+}
+
+/**
+ * Sauvegarde de compte : le roster (0 à `MAX_CHARACTERS`), la banque partagée
+ * et les drapeaux de progression communs. `lastPlayedCharacterId` désigne le
+ * personnage à recharger en priorité.
+ */
 export interface SaveData {
   saveVersion: number;
   savedAt: string;
-  hero: HeroSnapshot;
-  inventory: InventorySnapshot;
+  characters: CharacterSnapshot[];
+  bank: InventorySnapshot;
   flags: Record<string, boolean>;
+  lastPlayedCharacterId: string | null;
 }
 
 /** Sauvegarde fournie par l'application : la version et la date sont imposées. */

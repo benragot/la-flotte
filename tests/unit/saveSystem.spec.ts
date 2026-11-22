@@ -51,36 +51,48 @@ class FullStorage implements StorageLike {
   removeItem(): void {}
 }
 
+function makeHero() {
+  return {
+    name: "Anselme",
+    classId: "ecaflip",
+    level: 12,
+    xp: 3400,
+    kamas: 1250,
+    hp: 92,
+    maxHp: 120,
+    ap: 6,
+    mp: 3,
+    capitalPoints: 4,
+    spellPoints: 2,
+    stats: { vitality: 30, wisdom: 12, strength: 41, intelligence: 8, chance: 5, agility: 15 },
+  };
+}
+
 function makeInput(): SaveInput {
   return {
     savedAt: SAVED_AT,
-    hero: {
-      name: "Anselme",
-      classId: "ecaflip",
-      level: 12,
-      xp: 3400,
-      kamas: 1250,
-      hp: 92,
-      maxHp: 120,
-      ap: 6,
-      mp: 3,
-      capitalPoints: 4,
-      spellPoints: 2,
-      stats: {
-        vitality: 30,
-        wisdom: 12,
-        strength: 41,
-        intelligence: 8,
-        chance: 5,
-        agility: 15,
+    characters: [
+      {
+        id: "char-1",
+        hero: makeHero(),
+        inventory: {
+          stacks: [{ itemId: "potion_soin", quantity: 3 }],
+          equipment: { amulet: "amulette_boueuse" },
+        },
+        position: { mapId: "ile_de_la_coupure", x: 2, y: 5 },
       },
-    },
-    inventory: {
-      stacks: [{ itemId: "potion_soin", quantity: 3 }],
-      equipment: { amulet: "amulette_boueuse" },
-    },
+    ],
+    bank: { stacks: [], equipment: {} },
     flags: { donjon_boueux: true, ile_coupure: false },
+    lastPlayedCharacterId: "char-1",
   };
+}
+
+/** Le premier personnage du brouillon, pour cibler les mutations de schéma. */
+function firstCharacter(draft: SaveInput): SaveInput["characters"][number] {
+  const [character] = draft.characters;
+  if (character === undefined) throw new Error("personnage de test manquant");
+  return character;
 }
 
 function makeSave(): SaveData {
@@ -90,13 +102,23 @@ function makeSave(): SaveData {
 function makeSaveWithStacks(itemIds: readonly string[]): SaveData {
   const input = makeInput();
   const stacks = itemIds.map((itemId) => ({ itemId, quantity: 1 }));
-  return createSave({ ...input, inventory: { equipment: {}, stacks } });
+  const character = { ...firstCharacter(input), inventory: { equipment: {}, stacks } };
+  return createSave({ ...input, characters: [character] });
 }
 
 function deserializeInput(mutator: (draft: SaveInput) => void): SaveResult {
   const draft = makeInput();
   mutator(draft);
   return deserializeSave(JSON.stringify({ ...draft, saveVersion: SAVE_VERSION }));
+}
+
+/** Personnage au sac/équipement inversés alphabétiquement : vérifie le tri profond. */
+function makeNestedSave(): SaveData {
+  const input = makeInput();
+  const inventory = { stacks: [], equipment: { z_emplacement: "potion_soin", a_emplacement: "amulette_boueuse" } };
+  const character = { ...firstCharacter(input), inventory };
+  const flags = { z_derniere_ile: true, a_premier_donjon: false };
+  return createSave({ ...input, flags, characters: [character] });
 }
 
 describe("createSave", () => {
@@ -132,14 +154,7 @@ describe("serializeSave", () => {
     const backward = serializeSave(makeSaveWithStacks(["amulette_boueuse", "potion_soin"]));
     expect(forward.indexOf('"potion_soin"')).toBeLessThan(forward.indexOf('"amulette_boueuse"'));
     expect(backward.indexOf('"amulette_boueuse"')).toBeLessThan(backward.indexOf('"potion_soin"'));
-    const nested = createSave({
-      ...makeInput(),
-      flags: { z_derniere_ile: true, a_premier_donjon: false },
-      inventory: {
-        stacks: [],
-        equipment: { z_emplacement: "potion_soin", a_emplacement: "amulette_boueuse" },
-      },
-    });
+    const nested = makeNestedSave();
     const json = serializeSave(nested);
     expect(json.indexOf('"a_premier_donjon"')).toBeLessThan(json.indexOf('"z_derniere_ile"'));
     expect(json.indexOf('"a_emplacement"')).toBeLessThan(json.indexOf('"z_emplacement"'));
@@ -161,23 +176,23 @@ describe("deserializeSave", () => {
 });
 
 describe("deserializeSave — schéma invalide", () => {
-  it("retourne ok:false quand le héros est absent", () => {
+  it("retourne ok:false quand le roster est absent", () => {
     const result = deserializeInput((draft) => {
-      delete (draft as Partial<SaveInput>).hero;
+      delete (draft as Partial<SaveInput>).characters;
     });
     expect(result).toEqual({ ok: false, reason: expect.stringContaining(SAVE_ERROR_INVALID_SCHEMA) });
   });
 
   it("retourne ok:false quand le niveau est négatif", () => {
     const result = deserializeInput((draft) => {
-      draft.hero.level = -1;
+      firstCharacter(draft).hero.level = -1;
     });
     expect(result).toEqual({ ok: false, reason: expect.stringContaining(SAVE_ERROR_INVALID_SCHEMA) });
   });
 
   it("retourne ok:false quand classId est vide", () => {
     const result = deserializeInput((draft) => {
-      draft.hero.classId = "";
+      firstCharacter(draft).hero.classId = "";
     });
     expect(result).toEqual({ ok: false, reason: expect.stringContaining(SAVE_ERROR_INVALID_SCHEMA) });
   });
