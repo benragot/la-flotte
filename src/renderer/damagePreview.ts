@@ -18,7 +18,11 @@ export interface DamagePreviewInput {
   spell: { base: { min: number; max: number }; element: Element };
   attackerStats: AttackerStats;
   /** Résistances **de la cible** : elles sont lues côté cible, comme dans le combat. */
-  target: { resistances: ElementResistances };
+  target: {
+    resistances: ElementResistances;
+    /** Armure plate, cumulée aux résistances fixes par `computeDamage` (cf. `CombatantLike.armor`). */
+    armor?: number;
+  };
   casterLevel: number;
   /** Cases de poussée ; 0 ou absent = pas de poussée. */
   pushCells?: number;
@@ -45,6 +49,7 @@ export interface DamagePreview {
 /** Dé de poussée retenu pour l'aperçu : fourchette haute, « au mieux ». */
 const BEST_PUSHBACK_ROLL = 8;
 
+// TODO 5B : mutualiser avec multiCombat/strike.ts et combatLoop/cast.ts.
 const ELEMENT_STAT: Record<Element, keyof AttackerStats> = {
   earth: "strength",
   fire: "intelligence",
@@ -63,9 +68,12 @@ interface DamageShape {
   percentDmg: number;
 }
 
-function resistanceFields(input: DamagePreviewInput, element: Element): Pick<DamageInput, "flatRes" | "pctRes"> {
-  const resistances = input.target.resistances;
-  return { flatRes: resistances.flat[element], pctRes: resistances.percent[element] };
+function resistanceFields(
+  input: DamagePreviewInput,
+  element: Element,
+): Pick<DamageInput, "flatRes" | "pctRes" | "armor"> {
+  const { resistances, armor } = input.target;
+  return { flatRes: resistances.flat[element], pctRes: resistances.percent[element], armor };
 }
 
 function statOf(input: DamagePreviewInput, element: Element): number {
@@ -111,7 +119,14 @@ function critRateOf(input: DamagePreviewInput): number {
   });
 }
 
-/** Fourchette de dégâts : délègue intégralement à `computeDamage`, `computeCritRate` et `computePushbackDamage`. */
+/**
+ * Fourchette de dégâts : délègue intégralement à `computeDamage`, `computeCritRate`
+ * et `computePushbackDamage` (aucune formule recopiée).
+ *
+ * `critDamagePct` est une **convention maison** héritée de
+ * `multiCombat/strike.ts`, **hors 1.29** (où le CC prend le jet max).
+ * Défaut 0 = comportement 1.29. Dette à figer dans une fiche Spec (cible 5B).
+ */
 export function buildDamagePreview(input: DamagePreviewInput): DamagePreview {
   return { ...damageRange(input), pushDamage: pushDamageOf(input), critRate: critRateOf(input) };
 }
