@@ -9,6 +9,8 @@ import type { GridHighlight, SceneModel, TileView } from "./scene";
 import { buildSceneModel, cellKey } from "./scene";
 import { knownSpriteId } from "./spriteManifest";
 import type { Facing, SpriteAnimationName } from "./sprites/types";
+import type { TrailBatch } from "../store/trails";
+import { attachTrails } from "./walkTrail";
 import type { TokenSprite, TokenView } from "./tokens";
 import { facingToward, tokenView } from "./tokens";
 
@@ -17,6 +19,8 @@ export interface CombatSceneInput {
   selectedSpellId: string | null;
   hoveredCell: Position | null;
   viewport: GridSize;
+  /** Trajets reçus du store : distincts de l'aperçu `path`. */
+  trails?: TrailBatch;
 }
 
 /** Dernière action lisible dans `combat.log`, utilisée pour les animations. */
@@ -168,6 +172,7 @@ export function buildViewModel(input: CombatSceneInput): ViewModel {
   const action = lastActionFrom(combat);
   const origin = sceneOrigin(mapSize(combat), input.viewport);
   const scene = buildSceneModel({ map: combat.map, highlight: highlightFor(input), origin });
-  const tokens = combatTokens({ combat, origin, action });
-  return { scene, tokens, path: [], lastAction: action, floats: combat.floats ?? [], sceneKey: combat.map };
+  const tokens = attachTrails(combatTokens({ combat, origin, action }), input.trails);
+  const animations = { floats: combat.floats ?? [], sceneKey: combat.map };
+  return { ...animations, scene, tokens, path: [], lastAction: action };
 }

@@ -8,6 +8,8 @@ import type { GridHighlight, SceneModel, TileView } from "./scene";
 import { buildSceneModel } from "./scene";
 import { knownSpriteId, resolveSpriteId } from "./spriteManifest";
 import type { SpriteAnimationName } from "./sprites/types";
+import type { TrailBatch } from "../store/trails";
+import { attachTrails } from "./walkTrail";
 import type { TokenSprite, TokenView } from "./tokens";
 import { combatantTokenView } from "./tokens";
 
@@ -16,6 +18,8 @@ export interface BattleSceneInput {
   viewport: GridSize;
   /** `entityId` de la feuille du héros ; absent, le héros retombe sur un cercle. */
   heroSpriteId?: string | null;
+  /** Trajets reçus du store : un par combattant qui a bougé. */
+  trails?: TrailBatch;
 }
 
 /**
@@ -91,7 +95,7 @@ function battleScene(battle: BattleState, origin: IsoOrigin): SceneModel {
 export function buildBattleViewModel(input: BattleSceneInput): BattleSceneView {
   const origin = sceneOrigin(battleGridSize(input.battle), input.viewport);
   const context = { battle: input.battle, origin, heroSpriteId: input.heroSpriteId };
-  const tokens = input.battle.combatants.map((entry) => tokenFor(context, entry));
+  const tokens = attachTrails(input.battle.combatants.map((entry) => tokenFor(context, entry)), input.trails);
   const scene = battleScene(input.battle, origin);
   const activeId = activeIdOf(input.battle);
   const floats = input.battle.floats ?? [];

@@ -34,6 +34,7 @@ function counter(): PaintCounter {
 function token(overrides: Partial<TokenView> = {}): TokenView {
   const base: TokenView = {
     id: "t",
+    cell: { x: 0, y: 0 },
     center: { x: 32, y: 16 },
     radius: 12,
     scale: 1,

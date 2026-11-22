@@ -6,6 +6,8 @@ import type { GridHighlight, SceneModel } from "./scene";
 import { buildSceneModel } from "./scene";
 import { groupNameOf } from "./labels";
 import type { TokenSprite, TokenView } from "./tokens";
+import type { TrailBatch } from "../store/trails";
+import { attachTrails } from "./walkTrail";
 import { STATIC_TOKEN_SPRITE, groupTokenView, playerTokenView } from "./tokens";
 
 export interface ExplorationGroup {
@@ -29,6 +31,8 @@ export interface ExplorationView {
 export interface ExplorationModelInput {
   exploration: ExplorationView;
   viewport: GridSize;
+  /** Trajets reçus du store : ils voyagent sur les jetons, jamais dans `path`. */
+  trails?: TrailBatch;
 }
 
 const NO_HIGHLIGHT: GridHighlight = { move: new Set(), cast: new Set(), hover: null };
@@ -80,6 +84,8 @@ function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): Tok
 export function buildExplorationViewModel(input: ExplorationModelInput): ViewModel {
   const exploration = input.exploration;
   const origin = sceneOrigin(gridSizeOf(exploration), input.viewport);
-  const header = { floats: [], sceneKey: exploration.map ?? null };
-  return { ...header, scene: explorationScene(exploration, origin), tokens: explorationTokens(exploration, origin), path: [], lastAction: null };
+  const scene = explorationScene(exploration, origin);
+  const tokens = attachTrails(explorationTokens(exploration, origin), input.trails);
+  const animations = { floats: [], sceneKey: exploration.map ?? null };
+  return { ...animations, scene, tokens, path: [], lastAction: null };
 }

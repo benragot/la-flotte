@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactNode } from "react";
 import type { Hero } from "../../engine/createHero";
 import { useCombatStore } from "../../store/useCombatStore";
 import { GAME_CATALOG, useGameStore } from "../../store/useGameStore";
@@ -10,18 +11,18 @@ import HeroVitalsLine from "./HeroVitalsLine";
 import { InventoryPanel } from "./inventory";
 import { DungeonEntryPanel, DungeonNotice } from "./dungeon";
 import NewGameButton from "./NewGameButton";
-import { SECTION_HEADING } from "./hudTheme";
+import SpellbookPanel from "./spellbook/SpellbookPanel";
+import { OVERLAY_SHEET, SECTION_HEADING } from "./hudTheme";
 
 /** Panneaux superposés accessibles depuis l'arène en exploration. */
-type PanelId = "inventory" | "hero" | "dungeon";
+type PanelId = "inventory" | "hero" | "dungeon" | "spells";
 
 const ACCESS_BAR = "pointer-events-auto absolute right-2 top-2 z-30 flex gap-2";
 const ACCESS_BUTTON =
   "rounded border border-[#8c6d46] bg-[#2b241d]/90 px-2 py-1 text-xs text-[#e8dcc8] transition hover:bg-[#d4a537] hover:text-[#2b241d]";
 const LAYER =
   "pointer-events-auto absolute inset-0 z-40 flex items-center justify-center overflow-auto bg-[#2b241d]/70 p-4";
-const SHEET =
-  "flex max-h-full w-full max-w-xl flex-col gap-2 overflow-auto rounded border-2 border-[#8c6d46] bg-[#2b241d] p-3 text-[#e8dcc8]";
+const SHEET = OVERLAY_SHEET;
 
 interface AccessButtonProps {
   label: string;
@@ -55,6 +56,7 @@ function PanelButtons({ onOpen, blocked }: PanelButtonsProps) {
     <>
       <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} />
       <AccessButton label="Fiche perso" onClick={() => onOpen("hero")} />
+      <AccessButton label="Sorts" onClick={() => onOpen("spells")} />
       <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} disabled={blocked} />
     </>
   );
@@ -121,11 +123,17 @@ export function HeroSheet({ hero, onClose }: { hero: Hero; onClose: () => void }
   );
 }
 
+/** Panneaux sans données : une fabrique par identifiant, aucune cascade de `if`. */
+const PANEL_BODIES: Record<Exclude<PanelId, "hero">, (onClose: () => void) => ReactNode> = {
+  inventory: (onClose) => <InventoryPanel onClose={onClose} />,
+  dungeon: (onClose) => <DungeonEntryPanel onClose={onClose} />,
+  spells: (onClose) => <SpellbookPanel onClose={onClose} />,
+};
+
 function PanelContent({ active, onClose }: { active: PanelId; onClose: () => void }) {
   const hero = useGameStore((state) => state.hero);
-  if (active === "inventory") return <InventoryPanel onClose={onClose} />;
-  if (active === "dungeon") return <DungeonEntryPanel onClose={onClose} />;
-  return hero === null ? null : <HeroSheet hero={hero} onClose={onClose} />;
+  if (active === "hero") return hero === null ? null : <HeroSheet hero={hero} onClose={onClose} />;
+  return PANEL_BODIES[active](onClose);
 }
 
 /** Ouvre un panneau ; l'entrée de donjon purge sa notice périmée avant affichage. */

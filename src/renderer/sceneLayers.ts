@@ -17,7 +17,9 @@ import {
   viewportBounds,
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
+import type { ActorSyncInput } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
+import { cellCenters } from "./walkTrail";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
@@ -143,21 +145,23 @@ const ANIMATED = new WeakSet<Application>();
  * frame 0 resterait figée. La boucle n'est démarrée que si la scène a quelque
  * chose à animer — un acteur à feuille ou un nombre de dégâts en vol.
  */
-function ensureAnimationLoop(app: Application, view: ViewModel, layers: SceneLayers): void {
+function ensureAnimationLoop(app: Application, layers: SceneLayers, view: ViewModel): void {
   if (ANIMATED.has(app) || !animates(view, layers)) return;
   ANIMATED.add(app);
   app.ticker.add(() => renderFrame(app, layers));
   app.ticker.start();
 }
 
+/** Acteur à feuille **ou** nombre en vol : les deux réclament une image par trame. */
 function animates(view: ViewModel, layers: SceneLayers): boolean {
   const withSheet = view.tokens.length - tokensNeedingCircle(view.tokens, layers.actors.sheetIds).length;
   return withSheet > 0 || layers.floats.busy();
 }
 
-/** Une image : âge les nombres flottants puis rend. Aucune horloge implicite n'est créée. */
+/** Une image : glissements des acteurs, âge des nombres flottants, puis rendu. */
 function renderFrame(app: Application, layers: SceneLayers): void {
   if (!isApplicationAlive(app)) return;
+  layers.actors.advance(app.ticker.lastTime);
   layers.floats.advance(app.ticker.lastTime);
   app.render();
 }
@@ -193,20 +197,54 @@ function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: num
   drawActorLayers(layers, view, viewport);
 }
 
+/** Ce qu'un rendu doit connaître en plus de l'image : feuilles et identité de carte. */
+export interface RenderInput {
+  sheets?: readonly SpriteSheetSpec[];
+  /** Carte dessinée : un changement invalide les trajets **et** les nombres en vol. */
+  scene?: object | null;
+}
+
+/** Une seule identité de carte pour les deux animations : elles s'annulent ensemble. */
+function sceneOf(view: ViewModel, input: RenderInput): object | null | undefined {
+  return input.scene ?? view.sceneKey;
+}
+
+/** Demande de synchronisation des acteurs : centres de cases, carte et rappel de chargement. */
+function actorSyncInput(paint: ScenePaint): ActorSyncInput {
+  const { app, view, input } = paint;
+  const centers = cellCenters(view.scene.tiles);
+  const onReady = (): void => renderScene(app, view, input);
+  return { tokens: view.tokens, onReady, centers, scene: sceneOf(view, input) };
+}
+
 /** Les nombres flottants arrivent du modèle tel quel : la couche ne recalcule rien. */
-function syncFloats(layers: SceneLayers, view: ViewModel): void {
-  const { floats = [], sceneKey, tokens } = view;
-  layers.floats.sync({ events: floats, tokens, scene: sceneKey });
+function syncFloats(layers: SceneLayers, view: ViewModel, scene: object | null | undefined): void {
+  const { floats = [], tokens } = view;
+  layers.floats.sync({ events: floats, tokens, scene });
+}
+
+/** Ce qu'une image peint : l'application, ses couches, le modèle et l'identité de carte. */
+interface ScenePaint {
+  app: Application;
+  layers: SceneLayers;
+  view: ViewModel;
+  input: RenderInput;
+}
+
+/** Une image complète : plateau, acteurs puis nombres flottants, dans cet ordre. */
+function paintScene(paint: ScenePaint): void {
+  const { layers, view, input } = paint;
+  clearLayers(layers);
+  drawLayers(layers, view, paint.app.screen);
+  syncFloats(layers, view, sceneOf(view, input));
+  layers.actors.sync(actorSyncInput(paint));
 }
 
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
-export function renderScene(app: Application, view: ViewModel, sheets: readonly SpriteSheetSpec[] = []): void {
+export function renderScene(app: Application, view: ViewModel, input: RenderInput = {}): void {
   if (!isApplicationAlive(app)) return;
-  const layers = layersFor(app, sheets);
-  clearLayers(layers);
-  drawLayers(layers, view, app.screen);
-  syncFloats(layers, view);
-  layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
-  ensureAnimationLoop(app, view, layers);
+  const layers = layersFor(app, input.sheets ?? []);
+  paintScene({ app, layers, view, input });
+  ensureAnimationLoop(app, layers, view);
   app.render();
 }

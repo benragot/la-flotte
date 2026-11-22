@@ -3,6 +3,7 @@ import { useGameStore } from "../store/useGameStore";
 import type { Position } from "../engine/grid";
 import type { CombatState } from "../engine/combatLoop/types";
 import type { BattleState } from "../engine/multiCombat";
+import type { TrailBatch } from "../store/trails";
 
 export interface CombatView {
   combat: CombatState | null;
@@ -12,6 +13,8 @@ export interface CombatView {
   hoveredCell: Position | null;
   /** Classe du héros : l'`entityId` de sa feuille, comme en exploration. */
   heroSpriteId: string | null;
+  /** Trajets du dernier mouvement : le rendu les consomme, il ne les calcule pas. */
+  trails: TrailBatch;
 }
 
 /** Lecture figeable du store de combat, sans le modifier. */
@@ -21,5 +24,6 @@ export function useCombatView(): CombatView {
   const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
   const hoveredCell = useCombatStore((state) => state.hoveredCell);
   const heroSpriteId = useGameStore((state) => state.hero?.classId ?? null);
-  return { combat, battle, selectedSpellId, hoveredCell, heroSpriteId };
+  const trails = useCombatStore((state) => state.trails);
+  return { combat, battle, selectedSpellId, hoveredCell, heroSpriteId, trails };
 }

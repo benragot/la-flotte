@@ -29,6 +29,7 @@ type Token = Parameters<typeof floatOrigin>[0];
 function token(id: string, hp = 30): Token {
   return {
     id,
+    cell: { x: 0, y: 0 },
     center: { x: 100, y: 200 },
     radius: 12,
     scale: 1,
