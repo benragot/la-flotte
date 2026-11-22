@@ -610,7 +610,10 @@ describe("enemiesAct — bornes", () => {
   it("borne un tour ennemi à 10 actions", () => {
     const base = enemyTurnFixture();
     // Chaque pas consomme des PM (5C-e) : on en donne assez pour éprouver la borne.
-    const state = { ...base, combatants: base.combatants.map((entry) => (entry.side === "enemy" ? { ...entry, mp: 40 } : entry)) };
+    // La carte est requise pour facturer (DEC-10) : sans elle, aucun déplacement.
+    const map = parseAsciiMap(Array.from({ length: 12 }, () => "............"));
+    const combatants = base.combatants.map((entry) => (entry.side === "enemy" ? { ...entry, mp: 40 } : entry));
+    const state = { ...base, combatants, map };
     let calls = 0;
     const strategy = (current: BattleState): EnemyAction => {
       calls += 1;
@@ -704,6 +707,19 @@ describe("enemiesAct — facturation du chemin (DEC-10)", () => {
   });
 });
 
+/**
+ * DEC-10 / audit #108 (point 5) : la carte est **requise pour facturer**. Sans
+ * elle, aucun chemin réel n'existe, donc aucun déplacement n'est facturé — le
+ * repli Chebyshev a été supprimé plutôt que laissé joignable.
+ */
+describe("enemiesAct — carte requise pour facturer", () => {
+  it("sans carte, aucun déplacement : la facture exige un chemin réel (DEC-10)", () => {
+    const state = enemyTurnFixture();
+    const move = (): EnemyAction => ({ kind: "move", to: { x: 8, y: 9 } });
+    expect(enemiesAct({ state, rng: () => 0.99, strategy: move })).toBe(state);
+  });
+});
+
 describe("enemiesAct — arrêts", () => {
   it("s'arrête quand l'état ne change plus", () => {
     const state = enemyTurnFixture();
@@ -755,6 +771,43 @@ describe("enemiesAct — critique ennemi", () => {
     const next = enemiesAct({ state, rng: () => 0.99, strategy });
     const expected = computeDamage({ base: attack.base, stat: STATS.strength, percentDmg: 50, isPlayer: true });
     expect(next.combatants.find((entry) => entry.id === "p1")?.hp).toBe(200 - expected);
+  });
+});
+
+/**
+ * Audit de la PR #108 — contact en diagonale. `contactLanding` interroge les
+ * huit voisines de la cible **sans exclure les cases non libres**, dont celle du
+ * monstre lui-même : `pathTo` y rend un chemin de coût 0, `cheapest` le choisit,
+ * puis `paid.length < 2` rend `null`. Un monstre déjà au contact en diagonale
+ * reste donc figé.
+ *
+ * POURQUOI `it.fails` ET PAS UN CORRECTIF : le correctif (filtrer les cases non
+ * libres avant `cheapest`) rend aux monstres de mêlée leurs attaques, et la
+ * mesure du donjon bascule — `16 survie` passe de VICTOIRE (59 PV, marge 2,52)
+ * à DÉFAITE (salle 4, 48 PV de monstres restants), les cinq autres cellules
+ * perdent 14 à 22 PV finales. Cela viole DEC-03 (a) « au niveau recommandé, le
+ * joueur gagne » et exige un recalibrage `hpScale` de `data/dungeons.yaml`,
+ * hors périmètre (`data/**` interdit) et à l'arbitrage du propriétaire : dette
+ * `D104`. Ce test est rouge par conception et passera au vert le jour du
+ * recalibrage ; le dé-fails-er fait partie de la correction.
+ */
+describe("approachCell — contact adjacent en diagonale (D104, rouge attendu)", () => {
+  const CONTACT_MAP: AsciiMap = parseAsciiMap(Array.from({ length: 12 }, () => "............"));
+
+  /** Héros (5,5), monstre (6,6) : contact diagonal, une seule case de PM. */
+  function diagonalContact(mp: number): BattleState {
+    const hero = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 5, y: 5 } });
+    const enemy = makeCombatant({ id: "e1", name: "Piou", initiative: 500, position: { x: 6, y: 6 }, mp, maxMp: mp });
+    return makeState([hero, enemy], { map: CONTACT_MAP });
+  }
+
+  it.fails("rend une case d'approche adjacente à la cible, jamais null", () => {
+    const state = diagonalContact(1);
+    const cell = approachCell({ state, enemy: combatantOf(state, "e1"), target: combatantOf(state, "p1"), cells: 1 });
+    expect(cell).not.toBeNull();
+    if (cell === null) throw new Error("contact diagonal refusé");
+    expect(cell).not.toEqual({ x: 6, y: 6 });
+    expect(Math.max(Math.abs(cell.x - 5), Math.abs(cell.y - 5))).toBe(1);
   });
 });
 

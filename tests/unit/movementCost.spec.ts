@@ -117,6 +117,7 @@ describe("DEC-10 — la diagonale coûte deux orthogonaux", () => {
   it("ligne droite : trois pas orthogonaux coûtent 3 PM (inchangé)", () => {
     const path = route(OPEN, p(0, 0), p(0, 3), 3);
     expect(path).toEqual([p(0, 0), p(0, 1), p(0, 2), p(0, 3)]);
+    expect(pathCost(path ?? [])).toBe(3);
     expect(route(OPEN, p(0, 0), p(0, 3), 2)).toBeNull();
   });
 

@@ -7,7 +7,7 @@ import {
   parseAsciiMap,
 } from "../../src/engine/grid/asciiMap";
 import { hasLineOfSight } from "../../src/engine/grid/lineOfSight";
-import { findPath } from "../../src/engine/grid/pathfinding";
+import { findPath, pathCost } from "../../src/engine/grid/pathfinding";
 import { mapSchema, parseMapsYaml } from "../../src/schemas/mapSchema";
 
 const ISLAND = ["P..#", ".#..", "..M~", "~~~."];
@@ -105,7 +105,7 @@ describe("findPath", () => {
     // Mesure 8 directions : 5 cases — (0,0)→(1,1)→(2,2)→(3,1)→(4,0), soit quatre
     // pas diagonaux à 2 PM = 8 PM depuis DEC-10 (c'était 4 PM du temps où la
     // diagonale valait 1 PM). C'était 9 cases en 4 directions.
-    expect(path).toHaveLength(5);
+    expect({ cells: path?.length, cost: pathCost(path ?? []) }).toEqual({ cells: 5, cost: 8 });
     expect(path?.some((cell) => cell.x === 2 && cell.y === 0)).toBe(false);
   });
 
@@ -121,7 +121,7 @@ describe("findPath", () => {
     // Mesure 8 directions : 3 cases — (0,0)→(1,1)→(0,2) : deux pas diagonaux à
     // 2 PM = 4 PM depuis DEC-10. C'était 5 cases en 4 directions ; la case
     // occupée (0,1) reste hors du chemin.
-    expect(path).toHaveLength(3);
+    expect({ cells: path?.length, cost: pathCost(path ?? []) }).toEqual({ cells: 3, cost: 4 });
     expect(path?.some((cell) => cell.x === 0 && cell.y === 1)).toBe(false);
   });
 

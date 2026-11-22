@@ -60,6 +60,8 @@ interface Debt {
   severity: string;
   target: string;
   owner?: string;
+  /** `blocked` : dépend d'un arbitrage ou d'un recalibrage hors périmètre agent. */
+  status?: string;
   notes?: string;
 }
 
@@ -1076,8 +1078,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 26", () => {
-    expect(readBacklog().meta.version).toBe(26);
+  it("versionne le backlog en 27", () => {
+    expect(readBacklog().meta.version).toBe(27);
   });
 });
 
@@ -1964,5 +1966,42 @@ describe("backlog — dettes de déplacement recadrées par DEC-10 (v26)", () =>
     expect(text).toContain("dofus-129-combat");
     expect(text).toContain(".opencode/skills/");
     expect(text).toContain("DEC-10");
+  });
+});
+
+/**
+ * Audit de la PR #108 : la fenêtre DEC-03 n'a pas été élargie à 1-3, la régression
+ * mesurée est épinglée et la dette porte l'arbitrage. Le correctif du contact
+ * diagonal est, lui, mesuré comme destructeur pour la calibration : il est
+ * bloqué, pas oublié.
+ */
+describe("backlog — DEC-03 violée et contact diagonal bloqué (v27)", () => {
+  it("verse D103 : mesure 2,52 contre la fenêtre 1-2, arbitrage propriétaire", () => {
+    const debt = debtById(readBacklog(), "D103");
+    expect({ severity: debt?.severity, target: debt?.target, owner: debt?.owner, status: debt?.status }).toEqual({
+      severity: "medium",
+      target: "external",
+      owner: "user",
+      status: "blocked",
+    });
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("DEC-03");
+    expect(text).toContain("2,52");
+    expect(text).toContain("fenêtre 1-2");
+    expect(text).toContain("toBeCloseTo(2.52, 1)");
+  });
+
+  it("verse D104 : le contact diagonal reste figé, correctif refusé après mesure", () => {
+    const debt = debtById(readBacklog(), "D104");
+    expect({ severity: debt?.severity, target: debt?.target, owner: debt?.owner, status: debt?.status }).toEqual({
+      severity: "medium",
+      target: "external",
+      owner: "user",
+      status: "blocked",
+    });
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("src/engine/multiCombat/approach.ts:50-55");
+    expect(text).toContain("it.fails");
+    expect(text).toContain("DEC-03 (a)");
   });
 });
