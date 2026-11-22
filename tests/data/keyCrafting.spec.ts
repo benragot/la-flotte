@@ -18,8 +18,10 @@ const KEY_RECIPE_ID = "recette_cle_donjon_ile_de_la_ferraille";
 /**
  * Ressources et prix de vente du §4 de `docs/design/islands/ile_de_la_ferraille.md`.
  * Quantités : écart assumé vs §7 de la même fiche (pince×3, boulon×3), décision
- * propriétaire D07 — une clef doit coûter 5 à 10 rencontres, le calcul est écrit
- * dans `data/recipes.yaml` et rejoué par `tests/data/keyFarmBudget.spec.ts`.
+ * `DEC-07` — une clef doit coûter 5 à 10 rencontres. Le calcul et l'erratum sont
+ * écrits dans `data/recipes.yaml` et dans le §7 de la fiche ; le coût total est
+ * rejoué par `tests/data/keyFarmBudget.spec.ts`. La clef est en plus butin
+ * direct (`data/monsters.yaml`), la recette reste donc le chemin garanti.
  */
 const INGREDIENTS = [
   { id: "fer_pince_de_douze", quantity: 1, sellPrice: 8 },

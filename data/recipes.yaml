@@ -98,16 +98,19 @@ recipes:
   # fourni : 10 est provisoire et inerte (aucun code ne lit ce champ, seul
   # `recipeSchema` le borne) ; il sera fixé avec la table de spawn d'exploration.
   #
-  # ÉCART ASSUMÉ vs §7 (qui dit pince×3, boulon×3, goutte×2) : décision
-  # propriétaire D07 — une clef se ramasse en 5 à 10 rencontres. Les taux de drop
-  # du §2 sont conservés (pince 0,60 / boulon 0,65 / goutte 0,45) et les poids de
-  # `spawns.yaml` relevés ; il reste que 3 unités à ≈ 10,5 % par rencontre valent
-  # ≈ 29 rencontres, donc les deux quantités rares tombent à 1. Calcul :
-  #   pince  1 / (34/196 × 0,60)                                ≈  9,61 rencontres
-  #   boulon 1 / (32/196 × 0,65)                                ≈  9,42 rencontres
-  #   goutte 2 / [(100/196 × 0,45) + (30/196 × 0,40)]           ≈  6,88 rencontres
-  # Max ≈ 9,61 : dans la cible. Garde-fou générique :
-  # `tests/data/keyFarmBudget.spec.ts` rejoue ce calcul sur toutes les clefs.
+  # ERRATUM §7 (décision `DEC-07`) : la fiche dit pince×3, boulon×3, goutte×2.
+  # La recette livrée est 1/1/2 et la fiche porte l'erratum correspondant. Motif :
+  # `DEC-07` impose 5 à 10 rencontres par clef, or 3 boulons à 1,78 %/rencontre
+  # (poids 4/146 × 0,65) valaient 168 rencontres d'espérance.
+  # Les taux de drop du §2 sont INTACTS : le levier retenu est le BUTIN DIRECT,
+  # déclaré dans `data/monsters.yaml` (crabe 0,60 + rat 0,45 = 14,18 % par
+  # rencontre, soit 1/0,1418 ≈ 7,05 rencontres). Cette recette reste le chemin
+  # GARANTI (aucun aléa de butin) et demeure craftable, mais elle n'est plus le
+  # chemin le moins cher : son coût est la borne haute
+  # Σ 20,28 + 56,15 + 5,12 ≈ 81,55 rencontres, que `DEC-07` ne plafonne pas
+  # puisque le joueur prend le butin direct. Garde-fou générique :
+  # `tests/data/keyFarmBudget.spec.ts` rejoue ce calcul, tous chemins confondus,
+  # sur TOUTES les clefs.
   - id: recette_cle_donjon_ile_de_la_ferraille
     resultItemId: cle_donjon_ile_de_la_ferraille
     resultQuantity: 1

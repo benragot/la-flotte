@@ -116,11 +116,14 @@ const KEY_RECIPE: RecipeDef = recipes.find((recipe) => recipe.resultItemId === K
 const DEATH_ROOM = 2;
 
 /**
- * GARDE-FOU de farm, pas une mesure : le tirage réel en demande ~170 en
- * espérance (boulon 4/146), 324 avec la graine retenue. Le cap existe pour
- * qu'une régression de `computeDropChance` (chance nulle) échoue en un éclair.
+ * GARDE-FOU de farm, pas une mesure : depuis `DEC-07` la clef tombe en butin
+ * direct (crabe 0,60 + rat 0,45 = 14,18 %/rencontre, soit ≈ 7,05 en espérance) et
+ * 5 rencontres avec la graine retenue. Le cap existe pour qu'une régression de
+ * `computeDropChance` (chance nulle) échoue en un éclair.
  */
 const FARM_CAP = 600;
+/** Rencontres réellement mesurées sous `SPAWN_SEED` / `DROP_SEED` (`DEC-07`). */
+const FARM_ENCOUNTERS = 5;
 /** Garde-fou de salle : la salle 2 meurt en 12 actions, la 1 gagne en 16. */
 const ROOM_ACTION_CAP = 200;
 /** Graines du LCG : spawn et drop ne partagent pas leur flux d'aléa. */
@@ -287,7 +290,7 @@ function farmKey(): FarmReport {
   const byMonster: Record<string, number> = {};
   let inventory = useGameStore.getState().inventory;
   let encounters = 0;
-  while (missingIngredient(inventory) && encounters < FARM_CAP) {
+  while (!keyInBag(inventory) && missingIngredient(inventory) && encounters < FARM_CAP) {
     const encounter = fightSpawn({ rngSpawn, rngDrop });
     inventory = withDrops(inventory, encounter.drops);
     countMonster(byMonster, encounter.monsterId);
@@ -297,11 +300,20 @@ function farmKey(): FarmReport {
   return { encounters, byMonster };
 }
 
-function craftKey(): void {
-  const crafted = useGameStore.getState().craftRecipe({ recipeId: KEY_RECIPE.id }).crafted;
-  const { inventory } = useGameStore.getState();
-  expect(crafted).toBe(KEY_RECIPE.resultQuantity);
-  expect(countItem(inventory, KEY.id)).toBe(KEY_RECIPE.resultQuantity);
+/** La clef est au sac : arrivée par le butin direct ou par le craft, peu importe. */
+function keyInBag(inventory: InventoryState): boolean {
+  return countItem(inventory, KEY.id) > 0;
+}
+
+/**
+ * `DEC-07` : deux chemins, un seul résultat. Le farm s'arrête dès que la clef
+ * tombe en butin direct ; sinon on craft depuis les ingrédients, chemin garanti.
+ */
+function ensureKey(): void {
+  if (keyInBag(useGameStore.getState().inventory)) return;
+  expect(missingIngredient(useGameStore.getState().inventory)).toBe(false);
+  useGameStore.getState().craftRecipe({ recipeId: KEY_RECIPE.id });
+  expect(keyInBag(useGameStore.getState().inventory)).toBe(true);
 }
 
 /** Création → niveau du donjon → capital → kit de départ, assertions comprises. */
@@ -412,9 +424,10 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
   it("niveau 16 réel → farm → clef → salle 1 gagnée → défaite salle 2 → sortie propre", () => {
     prepareHero();
     const farm = farmKey();
+    expect(farm.encounters).toBe(FARM_ENCOUNTERS);
     expect(farm.encounters).toBeLessThan(FARM_CAP);
-    expect(missingIngredient(useGameStore.getState().inventory)).toBe(false);
-    craftKey();
+    expect(keyInBag(useGameStore.getState().inventory)).toBe(true);
+    ensureKey();
     expect(useCombatStore.getState().enterDungeonRun({ dungeonId: DUNGEON.id })).toBe(true);
     expect(currentRoomNumber()).toBe(1);
     const storage = new MemoryStorage();

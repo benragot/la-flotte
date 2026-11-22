@@ -36,8 +36,10 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
  * Les drops passent par `resolveCombatRewards` — la fonction exacte que le store
  * appelle en combat (`useCombatStore.ts`) — avec vraie prospection et vrai
  * `computeDropChance`. Aucun `Math.random`. Les `drops` rendus par le moteur sont
- * appliqués TELS QUELS via `addItem` : aucune quantité d'ingrédient n'est
- * inventée.
+ * appliqués TELS QUELS via `addItem`, **filtrés sur les ingrédients de la
+ * recette** : depuis `DEC-07` la clef est aussi butin direct et tomberait ici
+ * sans que ce chemin-là soit celui que ce fichier mesure. Aucune quantité
+ * d'ingrédient n'est inventée.
  *
  * LE TRAJET EXPLORATION, EN DEUX TEMPS DISTINCTS :
  *   - `pickSpawn` (sur `data/spawns.yaml`) prouve que CHAQUE monstre de la zone
@@ -47,20 +49,25 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
  *     spawn. Les rencontres affichées sont un coût de drop, pas un coût de jeu.
  *
  * CE QUE COÛTE CE FARM — TROIS CHIFFRES, TROIS STATUTS :
- *   1. 8 rencontres : PLANCHER DÉTERMINISTE, pas une mesure. Sous `DROP_RNG`,
+ *   1. 4 rencontres : PLANCHER DÉTERMINISTE, pas une mesure. Sous `DROP_RNG`,
  *      chaque combat lâche (`dropChance > rng`), donc il faut exactement
- *      3 pinces + 3 boulons + 2 gouttes = 8 combats. C'est le minimum absolu.
- *   2. ≈ 14 combats : ESPÉRANCE réelle, `2/0,45 + 3/0,60 + 3/0,65`
- *      (≈ 4,4 Piou + 5 crabes + 4,6 boulons), si le joueur ne combat que ce
- *      dont il a besoin.
- *   3. ≈ 170 tirages de spawn : coût NON MODÉLISÉ. Les tirages sont PARTAGÉS —
- *      chaque tirage donne UN monstre — donc ils ne s'additionnent pas par
- *      ingrédient. Le boulon (4/146, ≈ 2,7 %) domine : ≈ 169 tirages pour ses
- *      ≈ 4,6 combats, qui couvrent en chemin ≈ 13,9 crabes (5 suffisent) et
- *      ≈ 116 pious (4,4 suffisent). Coût de la chaîne entière : ≈ 170 tirages,
- *      pas la somme des trois chasses séparées.
- *      (Détail par chasse isolée : Piou ≈ 6,5 tirages pour 4,4 combats.)
+ *      1 pince + 1 boulon + 2 gouttes = 4 combats. C'est le minimum absolu de la
+ *      recette livrée (1/1/2, cf. `DEC-07`).
+ *   2. ≈ 7,7 combats : ESPÉRANCE de la CHAÎNE DE CRAFT, `2/0,45 + 1/0,60 +
+ *      1/0,65` (≈ 4,4 Piou + 1,7 crabe + 1,5 boulon), si le joueur ne combat que
+ *      ce dont il a besoin ET qu'il craft au lieu de compter sur le butin.
+ *   3. ≈ 170 tirages de spawn : coût NON MODÉLISÉ, et propre au CRAFT. Les
+ *      tirages sont PARTAGÉS — chaque tirage donne UN monstre — donc ils ne
+ *      s'additionnent pas par ingrédient. Le boulon (4/146, ≈ 2,7 %) domine :
+ *      ≈ 169 tirages pour son unique unité, qui couvrent en chemin ≈ 14 crabes
+ *      (1 suffit) et ≈ 116 pious (4,4 suffisent).
  *      Un vrai joueur paie ces tirages, ce walkthrough ne les paie pas.
+ *
+ * LA CLEF ELLE-MÊME — `DEC-07` : depuis la décision sur les clefs, la clef est
+ * aussi BUTIN DIRECT du `fer_crabe_cle_molette` (0,60) et du `fer_rat_de_cale`
+ * (0,45), soit 14,18 % par rencontre ⇒ ≈ 7,05 rencontres en moyenne. Ce fichier
+ * mesure donc le chemin GARANTI (craft), pas le chemin le moins cher ; le coût
+ * TOTAL des deux chemins est borné par `tests/data/keyFarmBudget.spec.ts`.
  *
  * CE QU'IL NE PROUVE PAS : qu'un JOUEUR peut déclencher cette chaîne depuis
  * l'écran. Aucun écran, aucun store, aucun événement d'UI n'est exercé ici : le
@@ -69,13 +76,14 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
  * ci-dessus, ni le niveau de zone (un héros de niveau 1 croise un niveau 15,
  * cf. DETTE de `data/spawns.yaml`).
  *
- * COHÉRENCE DES QUANTITÉS : `data/recipes.yaml` est fidèle au §7 « Recettes de
- * craft (22) » de `docs/design/islands/ile_de_la_ferraille.md` (ligne 953),
- * ligne à ligne : la ligne 956 dit mot pour mot
- * `cle_donjon_ile_de_la_ferraille ← fer_pince_de_douze×3, fer_boulon_sans_fin×3,
- * fer_goutte_mazout×2`. Le commentaire de la recette qui renvoie à ce §7 est
- * donc CORRECT. Aucune quantité n'est recopiée ici en dur : toutes viennent des
- * `quantity` du YAML.
+ * COHÉRENCE DES QUANTITÉS : `data/recipes.yaml` n'est PLUS fidèle au §7
+ * « Recettes de craft (22) » de `docs/design/islands/ile_de_la_ferraille.md`,
+ * qui dit encore `fer_pince_de_douze×3, fer_boulon_sans_fin×3,
+ * fer_goutte_mazout×2`. La recette livrée est 1/1/2, et le §7 de la fiche porte
+ * désormais l'ERRATUM correspondant, motivé par `DEC-07` (5 à 10 rencontres par
+ * clef). Aucune quantité n'est recopiée ici en dur : toutes viennent des
+ * `quantity` du YAML, la contradiction entre documents est donc levée côté
+ * données — seuls les chiffres de ce commentaire ont dû suivre.
  */
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const classes = parseClassesYaml(read("classes.yaml"));
@@ -105,9 +113,10 @@ const BARREN_SWEEP = 20;
 /**
  * PLANCHER DÉTERMINISTE, pas une mesure d'équilibrage : sous toutes les chances
  * calculées (0,45 / 0,60 / 0,65) chaque combat lâche, d'où exactement 1 combat
- * par unité. Les 8 rencontres du test sont le minimum absolu ; l'espérance
- * réelle est ≈ 14 combats, et le coût de spawn (≈ 170 tirages PARTAGÉS, dominés
- * par le boulon à 4/146) n'est pas modélisé du tout (cf. en-tête).
+ * par unité. Les 4 rencontres du test sont le minimum absolu de la recette
+ * 1/1/2 ; l'espérance de la chaîne de craft est ≈ 7,7 combats, et le coût de
+ * spawn (≈ 170 tirages PARTAGÉS, dominés par le boulon à 4/146) n'est pas
+ * modélisé du tout (cf. en-tête).
  */
 const DROP_RNG = 0.1;
 /** Au-dessus de toutes les chances de drop ⇒ aucun butin ne tombe jamais. */
@@ -177,8 +186,13 @@ function withDrops(inventory: InventoryState, drops: readonly string[]): Invento
   );
 }
 
+/** Ce fichier mesure la CHAÎNE DE CRAFT : les ingrédients, pas la clef elle-même. */
+function isKeyIngredient(itemId: string): boolean {
+  return neededQuantity(itemId) > 0;
+}
+
 function fightMonster(state: FarmState, monsterId: string, rng: Rng): FarmState {
-  const drops = fightOnce(monsterId, rng);
+  const drops = fightOnce(monsterId, rng).filter(isKeyIngredient);
   const encounters = { ...state.encounters, [monsterId]: encountersOf(state, monsterId) + 1 };
   return { inventory: withDrops(state.inventory, drops), encounters };
 }
@@ -291,7 +305,7 @@ function dropChance(itemId: string): number {
 
 /**
  * La chance doit être un VRAI tirage, pas un 0 de seuil de PP : elle doit
- * dépasser le plancher `DROP_RNG`, sinon les 8 rencontres ne tomberaient pas.
+ * dépasser le plancher `DROP_RNG`, sinon les 4 rencontres ne tomberaient pas.
  */
 function assertDroppable(itemId: string): void {
   expect(dropChance(itemId)).toBeGreaterThan(DROP_RNG);
@@ -311,8 +325,9 @@ function assertKeyContract(): void {
 /**
  * Plancher déterministe : sous `DROP_RNG` chaque combat lâche son ingrédient, il
  * faut donc exactement 1 combat par unité de la recette. C'est le MINIMUM, pas
- * une mesure : l'espérance est ≈ 14 combats et la rareté du spawn n'est pas
- * payée ici (cf. en-tête). Le garde-fou total reste une simple ceinture.
+ * une mesure : l'espérance de la chaîne de craft est ≈ 7,7 combats et la rareté
+ * du spawn n'est pas payée ici (cf. en-tête). Le garde-fou total reste une
+ * simple ceinture.
  */
 function assertDeterministicFloor(farm: FarmState): void {
   const total = Object.values(farm.encounters).reduce((sum, count) => sum + count, 0);
