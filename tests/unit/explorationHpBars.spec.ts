@@ -8,6 +8,7 @@ import { parseAsciiMap } from "../../src/engine/grid";
 import { buildBattleViewModel } from "../../src/renderer/battleSceneModel";
 import { buildViewModel } from "../../src/renderer/combatSceneModel";
 import { buildExplorationViewModel } from "../../src/renderer/explorationScene";
+import type { ExplorationViewModel } from "../../src/renderer/explorationScene";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
@@ -71,6 +72,20 @@ describe("barres de vie — l'exploration n'en produit aucune", () => {
     const view = buildExplorationViewModel({ exploration: EXPLORATION, viewport: VIEWPORT });
     const bars: readonly [] = view.hpBarTokens;
     expect(bars).toHaveLength(0);
+  });
+
+  it("refuse à la compilation d'y ranger une barre de vie", () => {
+    const view = buildExplorationViewModel({ exploration: EXPLORATION, viewport: VIEWPORT });
+    const token = view.tokens[0];
+    if (token === undefined) throw new Error("jeton d'exploration attendu");
+    // ⚠️ `hpBarTokens` vaut `readonly []` : y ranger une barre élargirait le type.
+    // Si le type s'élargit (par exemple `readonly TokenView[]`, celui de `ViewModel`),
+    // ce `@ts-expect-error` n'a plus de raison d'être et `tsc` échoue (TS2578) : les
+    // tests constatent une liste vide, ils ne l'imposent pas. Seul le type l'impose.
+    // @ts-expect-error — l'exploration ne porte aucune barre de vie.
+    const bars: ExplorationViewModel["hpBarTokens"] = [token];
+    expect(bars).toHaveLength(1);
+    expect(view.hpBarTokens).toHaveLength(0);
   });
 });
 
