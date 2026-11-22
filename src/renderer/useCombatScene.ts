@@ -4,11 +4,12 @@ import type { CombatState } from "../engine/combatLoop/types";
 import type { Position } from "../engine/grid";
 import type { BattleState } from "../engine/multiCombat";
 import type { ArenaMode } from "./arenaScene";
-import { arenaSceneView } from "./arenaScene";
+import { arenaSceneMap, arenaSceneView } from "./arenaScene";
 import { isApplicationAlive } from "./appLifecycle";
 import type { ExplorationView } from "./explorationScene";
 import type { GridSize } from "./gridProjection";
 import { renderScene } from "./sceneLayers";
+import type { TrailBatch } from "../store/trails";
 import { SPRITE_SHEETS } from "./spriteManifest";
 
 export interface CombatSceneInput {
@@ -23,15 +24,17 @@ export interface CombatSceneInput {
   exploration?: ExplorationView;
   /** `entityId` de la feuille du héros, prêté par la fiche du personnage. */
   heroSpriteId?: string | null;
+  /** Trajets reçus du store : aucun chemin n'est recalculé côté rendu. */
+  trails?: TrailBatch;
 }
 
 /** Redessine la scène à chaque changement d'état, jamais sur une application détruite. */
 export function useCombatScene(input: CombatSceneInput): void {
-  const { app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId } = input;
+  const { app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails } = input;
   useEffect(() => {
-    const scene = { combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId };
+    const scene = { combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails };
     const view = arenaSceneView(scene);
     if (view === null || !isApplicationAlive(app)) return;
-    renderScene(app, view, SPRITE_SHEETS);
-  }, [app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId]);
+    renderScene(app, view, { sheets: SPRITE_SHEETS, scene: arenaSceneMap(scene) });
+  }, [app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails]);
 }
