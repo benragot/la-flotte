@@ -40,6 +40,9 @@ pnpm-debug.log*
 
 # Vite
 .vite/
+# Cache de deps propre à chaque worktree (cf. cacheDir dans vite.config.ts) ;
+# `.vite/` ne le couvre pas : le motif ne matche que le nom exact `.vite`.
+.vite-cache/
 
 # macOS
 .DS_Store

@@ -17,6 +17,23 @@ npm run test:ui   # démarre vite sur :4173 puis joue tests/ui
 `npm run check` reste rapide et **n'inclut pas** Playwright : la suite navigateur
 est un job CI séparé (`ui-layout`, `needs: quality-gate`).
 
+### Plusieurs worktrees en parallèle : un port par suite
+
+Le port par défaut reste **4173**. Dès que deux worktrees lancent `test:ui` en
+même temps, ils se disputent ce port : une suite peut alors tester le serveur
+d'une **autre branche** (vert sur du mauvais code) ou refuser de mesurer. Donne
+donc à chaque suite son propre port :
+
+```bash
+PLAYWRIGHT_PORT=4210 npm run test:ui
+```
+
+Avec un port explicite, Playwright **ne réutilise jamais** un serveur existant
+(`reuseExistingServer: false`) : il démarre le sien, sur le code de ce dossier.
+Un `PLAYWRIGHT_PORT` illisible (`abc`, hors 1-65535) échoue bruyamment au lieu de
+retomber silencieusement sur 4173 — un repli silencieux rejouerait exactement le
+bug : mesurer un serveur qu'on n'a pas lancé.
+
 ⚠️ **Piège du `node_modules` partagé.** Un worktree n'a pas de `node_modules`
 propre : il pointe par symlink vers `la-flotte/node_modules`. `@playwright/test`
 doit donc être installé dans ce dossier **partagé**, depuis le **dépôt
@@ -30,6 +47,24 @@ npx playwright install chromium
 
 Ne lance **jamais `npm install` dans un worktree** : npm supprime le symlink,
 installe une copie locale, et `npm run test:ui` casse partout ailleurs.
+
+⚠️ **Chaque worktree a son propre cache Vite.** Le défaut Vite
+(`node_modules/.vite`) traverse le symlink `node_modules` : deux serveurs
+(`npm run dev`, `test:ui`, `npm run play`) partageaient donc le même cache et se
+ré-optimisaient mutuellement, ce qui invalidait les chunks de l'autre
+(`504 Outdated Optimize Dep` sur un chunk `pixi`) et affichait
+« Canvas indisponible ». `vite.config.ts` fixe `cacheDir: ".vite-cache"`,
+résolu depuis le `root` de chaque worktree, donc un cache par dossier.
+
+Si « Canvas indisponible » réapparaît (cache d'une version antérieure, ou
+`.vite-cache` corrompu après un arrêt brutal), purge le cache **du dossier
+courant** puis recharge à froid :
+
+```bash
+rm -rf .vite-cache            # un cache par worktree : le tien seulement
+rm -rf node_modules/.vite     # reliquat du cache partagé d'avant ce correctif
+# navigateur : DevTools ouvert → Cmd+Shift+R (hard reload)
+```
 
 ## Jouer une session automatiquement
 

@@ -4,6 +4,8 @@ export { computeCritRate } from "./crit";
 export type { CritRateInput } from "./crit";
 export { computeDamage } from "./damage";
 export type { DamageInput } from "./damage";
+export { FLOAT_BUFFER_SIZE, appendFloat, unseenFloats } from "./floating";
+export type { FloatDraft, FloatKind, FloatSource, FloatingEvent } from "./floating";
 export { computeInitiative } from "./initiative";
 export type { InitiativeInput } from "./initiative";
 export { computePushbackDamage } from "./pushback";
