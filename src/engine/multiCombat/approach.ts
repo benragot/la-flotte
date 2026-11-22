@@ -5,8 +5,10 @@ import type { BattleState, CombatantLike } from "./types";
 /**
  * Approche ennemie (5C-e). Le chemin vient de `grid/findPath`, la seule
  * convention de déplacement du projet (celle de `combatLoop/move.ts` et
- * `exploration/move.ts`) : quatre voisins praticables, pas de diagonale, pas de
- * mur, pas de case occupée.
+ * `exploration/move.ts`) : **huit voisins praticables** (4 orthogonaux + 4
+ * diagonaux), **diagonale à 1 PM**, **coin bloqué autorisé** (on passe de (1,1)
+ * à (2,2) même si (2,1) et (1,2) sont des murs), jamais un mur `#`, jamais de
+ * l'eau `~`, jamais une case occupée.
  */
 export interface ApproachInput {
   state: BattleState;

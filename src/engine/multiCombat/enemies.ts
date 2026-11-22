@@ -1,6 +1,5 @@
-import { manhattan } from "../combatLoop/cells";
 import type { Position } from "../grid";
-import { isWalkableCell, samePosition } from "../grid";
+import { isWalkableCell, samePosition, stepDistance } from "../grid";
 import { resolveAttack } from "./attack";
 import { appendLog, isAlive, isAliveById, withCombatant } from "./combatants";
 import { separateOccupants } from "./overlap";
@@ -43,9 +42,20 @@ function arrivalTaken(current: BattleState, enemy: CombatantLike, to: Position):
   return others.some((entry) => samePosition(entry.position, to));
 }
 
-/** Un pas coûte une case de PM par case parcourue, comme `combatLoop/move.ts`. */
+/**
+ * Un pas coûte une case de PM par case parcourue, comme `combatLoop/move.ts` :
+ * la facture est la **distance en pas** (`stepDistance`, Chebyshev, diagonale =
+ * 1), jamais l'écart orthogonal `manhattan`, qui surévalue tout atterrissage
+ * diagonal et figeait l'ennemi sur place (3 pas facturés 5).
+ *
+ * NUANCE : `stepDistance` vaut la longueur du chemin **en champ libre**. Autour
+ * d'un obstacle (mur, flaque), un atterrissage atteint par un détour est
+ * **sous-facturé** — jusqu'à ~2 PM. Impact mesuré : **aucun sur DEC-03**
+ * aujourd'hui, mais à corriger (facturation par la longueur réelle du chemin)
+ * avant d'ajouter des monstres qui contournent. Cf. dette dans la PR #86.
+ */
 function moveEnemy(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
-  const cost = manhattan(enemy.position, to);
+  const cost = stepDistance(enemy.position, to);
   if (!affordableStep(enemy, cost) || !walkableStep(current, to)) return current;
   if (arrivalTaken(current, enemy, to)) return current;
   const moved = withCombatant(current, { ...enemy, position: to, mp: enemy.mp - cost });

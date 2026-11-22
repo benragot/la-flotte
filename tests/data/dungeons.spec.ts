@@ -203,7 +203,7 @@ describe("dungeons.yaml — hpScale par salle (DEC-03, données)", () => {
 
   it("calibre les deux dernières salles uniquement, d'un facteur mesuré", () => {
     const [dungeon] = dungeons;
-    expect(dungeon?.rooms.map((room) => room.hpScale)).toEqual([1, 1, 0.35, 0.3]);
+    expect(dungeon?.rooms.map((room) => room.hpScale)).toEqual([1, 1, 0.29, 0.33]);
   });
 });
 

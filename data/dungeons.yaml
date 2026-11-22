@@ -34,7 +34,10 @@ dungeons:
         # DEC-03 : la salle alignait 370 PV de référence pour 32 dégâts/tour, un
         # mur qu'aucun héros de niveau 16 ne franchissait. Les monstres du monde
         # ouvert restent intacts ; seule la salle baisse ses PV (Math.floor).
-        hpScale: 0.35
+        # 0,29 : avec le déplacement en 8 directions, les monstres arrivent un
+        # tour plus tôt et 0,35/0,33 laissaient 0,80 tour de marge (sous la règle
+        # du tour de sécurité). 105 PV de salle au lieu de 127.
+        hpScale: 0.29
         monsters:
           - { monsterId: fer_crabe_cle_molette, count: 1 }
           - { monsterId: fer_marmite_fuyarde, count: 1 }
@@ -43,7 +46,11 @@ dungeons:
         name: "L'Atelier d'Yvon Rouiller"
         mapId: fer_salle_atelier_yvon
         isBossRoom: true
-        hpScale: 0.3
+        # DEC-03 : 0,33 (0,30 avant les diagonales). La marge du build contraignant
+        # est QUANTIFIÉE : à 0,32 la salle 4 rendait 2,70 tours, à 0,33 elle en rend
+        # 1,20 — et c'est elle qui doit être la salle contraignante, sinon la marge
+        # minimale retombe sur la salle 3 (0,80 ou 2,08, jamais entre les deux).
+        hpScale: 0.33
         monsters:
           - { monsterId: fer_boss_yvon_rouiller, count: 1 }
           - { monsterId: fer_crabe_cle_molette, count: 1 }
