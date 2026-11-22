@@ -1,6 +1,7 @@
 import { findCombatant, isActive, isAlive } from "./combatants";
 import { rollsCritical } from "./crit";
 import { castBlock, rangeOf } from "./range";
+import { isAttackAvailable, recordAttack } from "./spellUse";
 import { resolveHit, spendAp } from "./strike";
 import type { DamageContext } from "./strike";
 import type { AttackSpec, BattleState, CombatantLike, Rng } from "./types";
@@ -44,6 +45,16 @@ function reachable(input: AttackInput, pair: [CombatantLike, CombatantLike]): bo
   return castBlock(check) === null;
 }
 
+/** Quota du sort (`castsPerTurn`, `cooldown`) : refus tant que le sort recharge. */
+function withinQuota(input: AttackInput, attacker: CombatantLike): boolean {
+  return isAttackAvailable(input.state, attacker.id, input.attack);
+}
+
+/** Tous les refus qui précèdent le jet : budget, géométrie, quota du sort. */
+function isStrikeAllowed(input: AttackInput, pair: [CombatantLike, CombatantLike]): boolean {
+  return canStrike(input, pair[0], pair[1]) && reachable(input, pair) && withinQuota(input, pair[0]);
+}
+
 function hitContext(input: AttackInput, attacker: CombatantLike, target: CombatantLike): DamageContext {
   const critical = rollsCritical(attacker, input.attack, input.rng);
   const critDamagePct = input.attack.critDamagePct ?? 0;
@@ -63,9 +74,8 @@ function hitContext(input: AttackInput, attacker: CombatantLike, target: Combata
  */
 export function resolveAttack(input: AttackInput): BattleState {
   const pair = participants(input);
-  if (pair === null || !canStrike(input, pair[0], pair[1])) return input.state;
-  if (!reachable(input, pair)) return input.state;
+  if (pair === null || !isStrikeAllowed(input, pair)) return input.state;
   const context = hitContext(input, pair[0], pair[1]);
   const paid = spendAp(input.state, pair[0], input.attack.apCost);
-  return resolveHit({ ...context, state: paid });
+  return resolveHit({ ...context, state: recordAttack(paid, pair[0].id, input.attack) });
 }

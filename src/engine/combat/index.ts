@@ -8,5 +8,7 @@ export { computeInitiative } from "./initiative";
 export type { InitiativeInput } from "./initiative";
 export { computePushbackDamage } from "./pushback";
 export type { PushbackInput } from "./pushback";
+export { isSpellAvailable, recordSpellCast, spellUsageKey } from "./spellUsage";
+export type { SpellLimit, SpellUsage, SpellUsageInput, SpellUsageMap } from "./spellUsage";
 export { computeTackleEscapePercent } from "./tackle";
 export type { TackleInput } from "./tackle";

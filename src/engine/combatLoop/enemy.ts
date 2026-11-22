@@ -1,5 +1,7 @@
+import type { SpellDef } from "../../schemas/spellSchema";
 import type { Position } from "../grid";
 import { samePosition } from "../grid";
+import { isSpellAvailable, spellUsageKey } from "../combat";
 import { getActiveCombatant, getOpponent } from "./active";
 import { castSpell } from "./cast";
 import { getCastableCells } from "./castable";
@@ -9,10 +11,17 @@ import type { CombatantState, CombatState, Rng } from "./types";
 
 const MAX_ENEMY_ACTIONS = 12;
 
-/** Premier sort du monstre payable avec ses PA restants. */
+/** Un sort connu, payable ET hors recharge (`castsPerTurn`, `cooldown`). */
+function isUsable(state: CombatState, enemy: CombatantState, spell: SpellDef | undefined): spell is SpellDef {
+  if (spell === undefined || spell.apCost > enemy.ap) return false;
+  const key = spellUsageKey(enemy.id, spell.id);
+  return isSpellAvailable({ usage: state.spellUsage ?? {}, key, limit: spell, turn: state.turn });
+}
+
+/** Premier sort du monstre réellement lançable avec ses PA restants. */
 function findSpell(state: CombatState, enemy: CombatantState) {
   const spells = enemy.spellIds.map((id) => state.spellsById[id]);
-  return spells.find((spell) => spell !== undefined && spell.apCost <= enemy.ap);
+  return spells.find((spell) => isUsable(state, enemy, spell));
 }
 
 function canHitOpponent(state: CombatState, spellId: string): boolean {

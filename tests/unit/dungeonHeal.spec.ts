@@ -140,6 +140,20 @@ beforeEach(() => {
   });
 });
 
+describe("heroHpFromCombat — un héros vivant ne se persiste pas mort", () => {
+  it("rend au moins 1 PV de niveau quand les PV effectifs couvrent à peine le bonus d'équipement", () => {
+    prepareHero();
+    const hero = heroOrThrow();
+    expect(heroHpFromCombat(1, hero, statsFor(hero))).toBeGreaterThanOrEqual(1);
+  });
+
+  it("laisse 0 PV à un héros réellement tombé", () => {
+    prepareHero();
+    const hero = heroOrThrow();
+    expect(heroHpFromCombat(0, hero, statsFor(hero))).toBe(0);
+  });
+});
+
 describe("healBetweenRooms — fonction pure, ratio de données", () => {
   it("rend ceil(max × ratio) de PV sur le pool effectif", () => {
     expect(healBetweenRooms({ hp: 100, maxHp: 303, ratio: 0.35 })).toEqual({ hp: 100 + 107, healed: 107 });

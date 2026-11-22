@@ -52,51 +52,57 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * Force×100 + int×10 + Vita), départage alphabétique d'`id` ; aucun id d'objet
  * n'est écrit dans ce fichier.
  *
- * RÉSULTAT MESURÉ LE 22/11/2026, SOIN ENTRE LES SALLES ACTIF — six cellules,
- * aucune victoire, mais le mur a reculé :
- *   niv.  build    PV max  salles  dernière salle     PV de monstres restants  actions
- *   16    survie    303    2/4    3  (défaite)        267                      79
- *   16    offense   228    2/4    3  (défaite)        232                      57
- *   17    survie    343    2/4    3  (défaite)        180                      65
- *   17    offense   263    2/4    3  (défaite)        166                      55
- *   18    survie    433    2/4    3  (défaite)         36                      64
- *   18    offense   348    3/4    4  (défaite)        246                      64
+ * RÉSULTAT MESURÉ LE 22/11/2026, `castsPerTurn` ET `cooldown` HONORÉS (fix
+ * casts-per-turn), SOIN ENTRE LES SALLES ACTIF — six cellules, deux victoires :
+ *   niv.  build    PV max  issue      dernière salle  PV de monstres  actions
+ *   16    survie    303    défaite    3 (PV 0)        211             83
+ *   16    offense   228    défaite    3 (PV 0)        176             64
+ *   17    survie    343    défaite    3 (PV 0)         60             78
+ *   17    offense   263    défaite    3 (PV 0)         83             58
+ *   18    survie    433    VICTOIRE   4 (PV 105)        0             95
+ *   18    offense   348    VICTOIRE   4 (PV 119)        0             77
  *
- * AVANT LE SOIN (même fichier, mesure du 22/11/2026) : 16 survie mourait en
- * salle 2 avec 55 PV de monstres restants, les cinq autres cellules mouraient
- * en salle 3 et la salle 4 n'était jamais atteinte (148 à 274 PV restants).
- * Le soin de franchissement (`healBetweenRooms: 0.5`, DEC-03) fait donc passer
- * 16 survie de « défaite en salle 2 » à « salles 1-2 franches, défaite en
- * salle 3 », et 18 offense atteint la BOSS ROOM pour la première fois — mais y
- * meurt.
+ * AVANT LE CORRECTIF (même fichier, mesure du 22/11/2026, même soin) : aucune
+ * victoire. 16 survie 267 PV restants / 79 actions, 16 offense 232 / 57,
+ * 17 survie 180 / 65, 17 offense 166 / 55, 18 survie 36 / 64, 18 offense 246 / 64
+ * (seule cellule à atteindre la boss room, pour y mourir).
  *
- * RÉPONSE : règle (a) de DEC-03 NON satisfaite, et AUCUN ratio ne la satisfait.
- * Mesuré aussi à 0,35 / 0,65 / 0,8 / 1,0 : la salle 3 tue encore 18 survie à
- * 36 PV de monstres près, et 18 offense meurt dans la boss room même entré à
- * PV plein (348 PV, 128 PV de monstres restants à 1,0). La raison est
- * structurelle : le soin ne se déclenche qu'aux portes (« jamais en cours de
- * salle »), donc une salle qui inflige plus de dégâts que le pool effectif tue
- * de l'intérieur, sans que le ratio puisse intervenir. Baisser les dégâts des
- * monstres est INTERDIT par le brief DEC-03 : le levier restant est un
- * arbitrage du propriétaire (boss room, paliers de dégâts), pas une valeur de
- * ce fichier.
+ * POURQUOI TOUT CHANGE SANS TOUCHER UNE SEULE DONNÉE DE MONSTRE :
+ * `data/spells.yaml` déclare `castsPerTurn` et `cooldown` depuis la 5A. Le schéma
+ * les validait, puis le code les jetait : la stratégie ennemie ne regardait que
+ * les PA. Yvon Rouiller (6 PA, Clef à Choc 3 PA, `castsPerTurn: 1`,
+ * `cooldown: 1`) frappait donc DEUX fois par tour, 54 dégâts au lieu de 27, tous
+ * les tours. Il frappe maintenant une fois, et une fois sur deux. Aucun PV,
+ * dégât, drop ni `healBetweenRooms` n'a bougé : le mur du donjon était ce bug de
+ * fidélité, pas l'équilibrage (cf. DEC-03, qui interdit d'affaiblir les monstres).
+ *
+ * RÉPONSE DEC-03 : règle (a) — « au niveau recommandé avec un bon équipement, le
+ * joueur gagne » — TOUJOURS PAS satisfaite : 16 meurt encore en salle 3 (211 et
+ * 176 PV de monstres restants). Mais le mur est passé de 4 salles à 1 : 18 survie
+ * et 18 offense TERMINENT le donjon, ce qu'aucune cellule ne faisait avant. Le
+ * levier restant est un arbitrage de design (salle 3, boss room), pas une valeur
+ * de ce fichier. Règle (b) : le héros nu de `play.spec.ts` perd toujours, mais il
+ * meurt désormais en salle 3 au lieu de la salle 2.
+ *
+ * L'ÉTAT DES QUOTAS EST PORTÉ PAR LA BATAILLE (`BattleState.spellUsage`) : un
+ * compteur par lanceur et par sort, remis à zéro quand le tour change, jamais une
+ * variable de module. Deux salles, deux batailles, deux compteurs.
  *
  * LE PLAFOND D'ACTIONS RESTE LE DÉTECTEUR D'ENLISEMENT : il n'est ni contourné ni
  * calibré. S'il reparaît, c'est que le moteur gèle à nouveau.
  *
- * CE QUE ÇA DIT DE D71 : toujours pas résolue. Le héros nu (`play.spec.ts`) meurt
- * en salle 2 malgré le soin, l'équipé niveau 16 meurt en salle 3, l'équipé
- * niveau 17-18 y meurt aussi (18 survie à 36 PV près), et seul 18 offense
- * atteint la boss room pour y mourir. Les deux leviers brandis plus tôt ont été
- * mesurés : les panoplies sont là (5C-set) et le soin de salle est là (DEC-03).
- * Reste l'équilibrage des salles 3-4 et de la boss room.
+ * CE QUE ÇA DIT DE D71 : la cause racine du mur était un BUG DE FIDÉLITÉ, pas
+ * l'équilibrage. Trois des six cellules reculent d'une salle entière et deux
+ * gagnent, sans qu'aucun PV, dégât, drop ni ratio de soin n'ait bougé. Reste que
+ * 16 ne gagne pas encore : ce qui reste à arbitrer est la salle 3 et la boss
+ * room (design), plus un moteur qui ignore une donnée validée (corrigé ici).
  *
  * CE QU'IL NE PROUVE PAS : ni l'acquisition réelle de l'équipement (les pièces
  * sont ajoutées au sac puis équipées par l'action `equip` du store — la mesure
  * porte sur l'effet de l'équipement, pas sur son farm, contrairement à la clef
  * qui est, elle, réellement farmée), ni le déplacement en salle (aucune action de
  * mouvement : les monstres viennent au héros), ni l'équilibrage des salles 3-4
- * (la salle 3 n'est jamais nettoyée, la salle 4 jamais atteinte).
+ * (la salle 3 n'est jamais nettoyée à 16-17).
  */
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
@@ -505,12 +511,16 @@ function playDungeon(storage: StorageLike): RoomReport[] {
   return rooms;
 }
 
-/** Sortie propre vérifiée par `loadGame` : plus de bataille, plus de run, aucune sauvegarde à 0 PV. */
-function assertCleanExit(storage: StorageLike): void {
+/**
+ * Sortie propre vérifiée par `loadGame` : plus de bataille, plus de run, aucune
+ * sauvegarde à 0 PV. La notice dépend de l'issue — « Donjon terminé » quand la
+ * dernière salle est gagnée, « Donjon quitté » quand le héros tombe.
+ */
+function assertCleanExit(storage: StorageLike, victory: boolean): void {
   const combat = useCombatStore.getState();
   expect(combat.battle).toBeNull();
   expect(combat.dungeonRun).toBeNull();
-  expect(combat.dungeonNotice).toContain("Donjon quitté");
+  expect(combat.dungeonNotice).toContain(victory ? "Donjon terminé" : "Donjon quitté");
   const alive = heroOrThrow();
   expect(alive.hp).toBeGreaterThan(0);
   useGameStore.getState().resetGame();
@@ -525,7 +535,7 @@ function measureRun(input: { build: BuildId; level: number; encounters: number; 
   const rooms = playDungeon(storage);
   const last = rooms[rooms.length - 1];
   useCombatStore.getState().endBattle();
-  assertCleanExit(storage);
+  assertCleanExit(storage, last?.victory === true);
   expect(gear.map((item) => item.level).every((worn) => worn <= level)).toBe(true);
   const actions = rooms.reduce((total, room) => total + room.actions, 0);
   const stalled = last?.stalled === true;
@@ -586,20 +596,22 @@ interface Cell {
 
 /**
  * La table EST la mesure : chaque chiffre vient d'une exécution réelle, aucune
- * valeur n'a été calée pour que le test passe. Les six cellules finissent par une
- * défaite : `actions` est le total réellement joué, jamais un plafond atteint
- * (le plafond de 200 actions reste le détecteur d'enlisement, cf. en-tête).
- * Le soin de franchissement (DEC-03) est mesuré par `crossingHeal` ci-dessous :
- * chaque salle suivante démarre au-dessus des PV de fin de la précédente.
+ * valeur n'a été calée pour que le test passe. Quatre cellules finissent par une
+ * défaite, deux par la VICTOIRE : `actions` est le total réellement joué, jamais
+ * un plafond atteint (le plafond de 200 actions reste le détecteur d'enlisement,
+ * cf. en-tête). Le soin de franchissement (DEC-03) est mesuré par
+ * `crossingHeal` ci-dessous : chaque salle suivante démarre au-dessus des PV de
+ * fin de la précédente.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 3, enemyHpLeft: 267, actions: 79, turnsShort: 18.15, hpNeeded: 500.3 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 3, enemyHpLeft: 232, actions: 57, turnsShort: 8.41, hpNeeded: 279.07 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 180, actions: 65, turnsShort: 6.63, hpNeeded: 306 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "defaite", room: 3, enemyHpLeft: 166, actions: 55, turnsShort: 4.88, hpNeeded: 214.01 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "defaite", room: 3, enemyHpLeft: 36, actions: 64, turnsShort: 0.97, hpNeeded: 46.67 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "defaite", room: 4, enemyHpLeft: 246, actions: 64, turnsShort: 9.28, hpNeeded: 340.38 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 3, enemyHpLeft: 211, actions: 83, turnsShort: 10.62, hpNeeded: 343.7 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "defaite", room: 3, enemyHpLeft: 176, actions: 64, turnsShort: 6.35, hpNeeded: 201.4 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "defaite", room: 3, enemyHpLeft: 60, actions: 78, turnsShort: 2.13, hpNeeded: 66.39 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "defaite", room: 3, enemyHpLeft: 83, actions: 58, turnsShort: 2.31, hpNeeded: 76.06 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 95 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, actions: 77 },
 ];
+
 
 function lastRoomOf(rooms: readonly RoomReport[]): RoomReport {
   const last = rooms[rooms.length - 1];
@@ -635,9 +647,14 @@ describe("couverture de la mesure", () => {
     expect(CELLS).toHaveLength(LEVELS.length * 2);
   });
 
-  it("ne corrige pas `recommendedLevel` : aucun niveau mesuré ne gagne, même soigné", () => {
-    expect(CELLS.filter((cell) => cell.outcome === "victoire")).toEqual([]);
+  it("ne corrige pas `recommendedLevel` : 16 ne gagne pas, seul 18 gagne", () => {
     expect(DUNGEON.recommendedLevel).toBe(16);
+    expect(CELLS.filter((cell) => cell.level === 16 && cell.outcome === "victoire")).toEqual([]);
+  });
+
+  it("la victoire mesurée est bien un donjon complet, pas une salle", () => {
+    const winners = CELLS.filter((cell) => cell.outcome === "victoire");
+    expect(winners.map((cell) => cell.room)).toEqual([4, 4]);
   });
 });
 

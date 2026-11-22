@@ -1,6 +1,6 @@
 import type { Element, SpellDef } from "../../schemas/spellSchema";
 import type { DamageInput } from "../combat";
-import { computeDamage, computePushbackDamage } from "../combat";
+import { computeDamage, computePushbackDamage, isSpellAvailable, recordSpellCast, spellUsageKey } from "../combat";
 import type { Position } from "../grid";
 import { samePosition } from "../grid";
 import { getActiveCombatant, getOpponent, isPlayablePhase, setCombatant } from "./active";
@@ -62,8 +62,16 @@ function isTargetValid(plan: CastPlan): boolean {
   return getCastableCells(plan.state, plan.spell.id).some((cell) => samePosition(cell, plan.target));
 }
 
+/** Quota 1.29 du sort : `castsPerTurn` et `cooldown`, lus sur l'état du combat. */
+function withinQuota(plan: CastPlan): boolean {
+  const caster = getActiveCombatant(plan.state);
+  const key = spellUsageKey(caster.id, plan.spell.id);
+  return isSpellAvailable({ usage: plan.state.spellUsage ?? {}, key, limit: plan.spell, turn: plan.state.turn });
+}
+
 function isValidPlan(plan: CastPlan): boolean {
-  return isPlayablePhase(plan.state) && canAfford(plan.state, plan.spell) && isTargetValid(plan);
+  if (!isPlayablePhase(plan.state) || !canAfford(plan.state, plan.spell)) return false;
+  return withinQuota(plan) && isTargetValid(plan);
 }
 
 function planCast(input: CastInput): CastPlan | null {
@@ -76,6 +84,15 @@ function planCast(input: CastInput): CastPlan | null {
 function spendAp(state: CombatState, amount: number): CombatState {
   const caster = getActiveCombatant(state);
   return setCombatant(state, { ...caster, ap: Math.max(0, caster.ap - amount) });
+}
+
+/** Comptabilise le lancement ; identité conservée quand le sort n'a aucun quota. */
+function recordCast(state: CombatState, plan: CastPlan): CombatState {
+  const caster = getActiveCombatant(state);
+  const current = state.spellUsage ?? {};
+  const key = spellUsageKey(caster.id, plan.spell.id);
+  const usage = recordSpellCast({ usage: current, key, limit: plan.spell, turn: state.turn });
+  return usage === current ? state : { ...state, spellUsage: usage };
 }
 
 /** `roll = min + floor(rng() × (max - min + 1))`, tirage unique par cast. */
@@ -160,6 +177,6 @@ export function castSpell(input: CastInput): CombatState {
   if (isUtilitySpell(input.state, input.spellId)) return input.state;
   const plan = planCast(input);
   if (plan === null) return input.state;
-  const spent = spendAp(plan.state, plan.spell.apCost);
+  const spent = recordCast(spendAp(plan.state, plan.spell.apCost), plan);
   return plan.spell.kind === "teleport" ? teleport(spent, plan) : strike(spent, plan);
 }

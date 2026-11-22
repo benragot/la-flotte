@@ -36,9 +36,13 @@ function hpPool(hero: Hero, stats: TotalStats) {
 /**
  * Retour vers le domaine de niveau, celui que `saveSchema` persiste : on retire
  * le bonus d'objets/Vitalité sans jamais soigner ni dépasser `hero.maxHp`.
+ * Un héros encore vivant en combat garde **au moins 1 PV** : sans ce plancher,
+ * 10 PV effectifs face à un bonus de 200 devenaient 0, donc un héros mort à la
+ * sortie d'une salle (constaté en gagnant le donjon).
  */
 export function heroHpFromCombat(hp: number, hero: Hero, stats: TotalStats): number {
-  return Math.max(0, Math.min(hp - hpBonus(stats), hero.maxHp));
+  const floor = hp > 0 ? 1 : 0;
+  return Math.max(floor, Math.min(hp - hpBonus(stats), hero.maxHp));
 }
 
 function apPool(hero: Hero, stats: TotalStats) {
