@@ -1,5 +1,6 @@
 import type { ItemDef } from "../../../schemas/itemSchema";
 import { GAME_CATALOG } from "../../../store/useGameStore";
+import { useEscapeClose } from "../../useEscapeClose";
 import type { ItemDetailRow, ItemDetailSet, ItemDetailView } from "./itemDetailView";
 import { itemDetailView } from "./itemDetailView";
 import {
@@ -132,9 +133,11 @@ function DetailContent({ itemId, onClear }: ItemDetailPanelProps) {
 /**
  * Panneau en bas de l'inventaire. Région `aria-live="polite"` nommée :
  * l'ouverture est annoncée sans voler le focus de la liste en cours de
- * navigation clavier (le clavier reste sur l'objet, `Échap` referme).
+ * navigation clavier. Échap le referme **avant** l'inventaire qui le porte,
+ * puisqu'il est inscrit après lui dans la pile des panneaux.
  */
 export default function ItemDetailPanel({ itemId, onClear }: ItemDetailPanelProps) {
+  useEscapeClose(onClear, itemId !== null);
   return (
     <section aria-label="Détail de l’objet" aria-live="polite" className={DETAIL_PANEL}>
       <DetailContent itemId={itemId} onClear={onClear} />
