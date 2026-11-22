@@ -49,3 +49,25 @@ function explorationModel(input: ArenaSceneInput): ViewModel | null {
 export function arenaSceneView(input: ArenaSceneInput): ViewModel | null {
   return battleModel(input) ?? combatModel(input) ?? explorationModel(input);
 }
+
+/**
+ * Carte effectivement dessinée : son identité sert à invalider les trajets en
+ * cours. Les états du store remplacent leurs combattants mais gardent la même
+ * `AsciiMap`, donc changer de carte change forcément cette référence.
+ */
+export function arenaSceneMap(input: ArenaSceneInput): object | null {
+  return battleMap(input) ?? combatMap(input) ?? explorationMap(input);
+}
+
+function battleMap(input: ArenaSceneInput): object | null | undefined {
+  return input.battle === null ? undefined : (input.battle.map ?? null);
+}
+
+function combatMap(input: ArenaSceneInput): object | undefined {
+  if (input.combat === null) return undefined;
+  return input.mode === "exploration" ? undefined : input.combat.map;
+}
+
+function explorationMap(input: ArenaSceneInput): object | null {
+  return input.exploration?.map ?? null;
+}

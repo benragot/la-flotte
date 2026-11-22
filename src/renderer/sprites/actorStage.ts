@@ -13,6 +13,8 @@ export interface ActorSyncInput {
   onReady: () => void;
   /** Cases praticables de la scène : sans champ, aucun glissement n'est tenté. */
   field?: WalkField;
+  /** Identité de la carte affichée : un changement invalide tous les trajets en cours. */
+  scene?: object | null;
 }
 
 /** Tri peintre des acteurs : `x + y` croissant, comme les tuiles. */
@@ -52,6 +54,7 @@ export class ActorStage {
   /** Dernière case logique par acteur : `undefined` = jamais vu, donc aucun trajet. */
   private readonly cells = new Map<string, Position>();
   private field: WalkField = new Map();
+  private scene: object | null | undefined;
   private clock = 0;
   private notify: () => void = () => undefined;
 
@@ -64,9 +67,18 @@ export class ActorStage {
   sync(input: ActorSyncInput): void {
     this.notify = input.onReady;
     this.field = input.field ?? new Map();
+    this.switchScene(input.scene);
     input.tokens.forEach((token) => this.syncToken(token));
     this.orderChildren(input.tokens);
     this.forget(actorKeys(input.tokens));
+  }
+
+  /** Nouvelle carte : les cases vues appartiennent à l'ancienne, aucun trajet ne la traverse. */
+  private switchScene(scene: object | null | undefined): void {
+    if (scene === undefined) return;
+    if (scene === this.scene) return;
+    this.scene = scene;
+    this.cells.clear();
   }
 
   /** Avance les glissements ; `true` si un acteur bouge encore (il faut repeindre). */

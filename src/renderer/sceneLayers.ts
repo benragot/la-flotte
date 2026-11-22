@@ -16,6 +16,7 @@ import {
   viewportBounds,
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
+import type { ActorSyncInput } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { walkField } from "./sprites/walkPath";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
@@ -186,14 +187,27 @@ function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: num
   drawActorLayers(layers, view, viewport);
 }
 
+/** Ce qu'un rendu doit connaître en plus de l'image : feuilles et identité de carte. */
+export interface RenderInput {
+  sheets?: readonly SpriteSheetSpec[];
+  /** Carte dessinée : un changement invalide les trajets en cours. */
+  scene?: object | null;
+}
+
+/** Demande de synchronisation des acteurs : cases praticables, carte et rappel de chargement. */
+function actorSyncInput(app: Application, view: ViewModel, input: RenderInput): ActorSyncInput {
+  const field = walkField(view.scene.tiles, view.scene.outlines);
+  const onReady = (): void => renderScene(app, view, input);
+  return { tokens: view.tokens, onReady, field, scene: input.scene };
+}
+
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
-export function renderScene(app: Application, view: ViewModel, sheets: readonly SpriteSheetSpec[] = []): void {
+export function renderScene(app: Application, view: ViewModel, input: RenderInput = {}): void {
   if (!isApplicationAlive(app)) return;
-  const layers = layersFor(app, sheets);
+  const layers = layersFor(app, input.sheets ?? []);
   clearLayers(layers);
   drawLayers(layers, view, app.screen);
-  const field = walkField(view.scene.tiles, view.scene.outlines);
-  layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets), field });
+  layers.actors.sync(actorSyncInput(app, view, input));
   ensureAnimationLoop(app, layers, view);
   app.render();
 }

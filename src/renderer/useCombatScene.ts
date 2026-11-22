@@ -4,7 +4,7 @@ import type { CombatState } from "../engine/combatLoop/types";
 import type { Position } from "../engine/grid";
 import type { BattleState } from "../engine/multiCombat";
 import type { ArenaMode } from "./arenaScene";
-import { arenaSceneView } from "./arenaScene";
+import { arenaSceneMap, arenaSceneView } from "./arenaScene";
 import { isApplicationAlive } from "./appLifecycle";
 import type { ExplorationView } from "./explorationScene";
 import type { GridSize } from "./gridProjection";
@@ -32,6 +32,6 @@ export function useCombatScene(input: CombatSceneInput): void {
     const scene = { combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId };
     const view = arenaSceneView(scene);
     if (view === null || !isApplicationAlive(app)) return;
-    renderScene(app, view, SPRITE_SHEETS);
+    renderScene(app, view, { sheets: SPRITE_SHEETS, scene: arenaSceneMap(scene) });
   }, [app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId]);
 }
