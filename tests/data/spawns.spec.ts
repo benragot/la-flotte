@@ -144,3 +144,23 @@ describe("data/spawns.yaml — les cartes d'extérieur déclarent le compte", ()
     });
   });
 });
+
+/**
+ * GARDE-FOU de récidive (QA PR #90) : le combat 1v1 ne fait entrer QUE
+ * `monsterIds[0]` — `buildGroupCombat` et `monsterIdFor`
+ * (`src/store/useCombatStore.ts`) résolvent le premier membre. Tant que c'est
+ * vrai, une zone ne doit pas annoncer plus d'un monstre par groupe, sinon le
+ * badge de niveau, l'XP et le butin comptent des monstres absents du combat.
+ * L'éventail est une feature distincte (`docs/design/specs/dofus-1.29-gaps.md`,
+ * à rouvrir en 7B) : c'est la DONNÉE qui montera, pas ce test qui s'assouplira.
+ */
+const MONSTERS_HONOURED_BY_1V1 = 1;
+
+describe("data/spawns.yaml — pas plus de monstres annoncés que combattus", () => {
+  it("n'annonce pas plus de monstres que le combat n'en fait entrer", () => {
+    loadSpawns().forEach((zone) => {
+      const detail = `${zone.mapId} annonce ${zone.members.max} monstre(s) par groupe, le 1v1 n'en fait entrer qu'un`;
+      expect(zone.members.max, detail).toBeLessThanOrEqual(MONSTERS_HONOURED_BY_1V1);
+    });
+  });
+});

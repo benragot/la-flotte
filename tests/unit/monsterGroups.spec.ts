@@ -231,3 +231,27 @@ describe("store — l'exploration réelle pose trois à quatre groupes", () => {
     expect(useCombatStore.getState().exploration?.monsterGroups).toEqual(first);
   });
 });
+
+describe("combat 1v1 — seul le monstre annoncé entre en scène", () => {
+  const DOUBLE_IDS = ["piou_mazoute", "fer_rat_de_cale"];
+
+  /** Groupe fabriqué à la main : le 1v1 doit ignorer tout membre au-delà du premier. */
+  function engage(monsterIds: string[]): { enemyName: string; log: string | undefined } {
+    const { exploration } = useCombatStore.getState();
+    if (exploration === null) throw new Error("exploration attendue");
+    const pos = { x: 4, y: 3 };
+    const label = `${monsterIds.length} monstres · Niv. 4`;
+    const group = { id: "group-99", pos, monsterIds, totalLevel: 4, label };
+    useCombatStore.setState({ exploration: { ...exploration, monsterGroups: [group] } });
+    useCombatStore.getState().clickCell(pos);
+    const { combat } = useCombatStore.getState();
+    if (combat === null) throw new Error("combat attendu");
+    return { enemyName: combat.enemy.name, log: combat.log.at(-1) };
+  }
+
+  it("ne journalise que le monstre qui entre en combat, jamais les autres membres", () => {
+    const { enemyName, log } = engage(DOUBLE_IDS);
+    expect(enemyName).toBe("Piou Mazouté");
+    expect(log).toBe("Le groupe group-99 entre en scène : Piou Mazouté.");
+  });
+});
