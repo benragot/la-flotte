@@ -41,27 +41,36 @@ npm run play -- --headed                       # voir la partie se jouer
 
 Un script Playwright **hors** de la suite (`scripts/play/`) crée un héros Iop,
 explore la carte, joue un combat 1v1 (`?demo=combat`) jusqu'à la fin de tour,
-ouvre une salle de donjon (`?demo=dungeon`) et l'inventaire. Il démarre **son
-propre** serveur vite sur un port éphémère : il refuse de démarrer si le port
-est déjà pris et vérifie, via un jeton servi par `/@fs`, que l'application
+ouvre la **vraie fiche `Donjons`** (constate le refus sans clef), puis bascule
+sur `?demo=dungeon` pour la salle, et termine par l'inventaire. Il démarre
+**son propre** serveur vite sur un port éphémère : il refuse de démarrer si le
+port est déjà pris et vérifie, via un jeton servi par `/@fs`, que l'application
 répondant est bien **ce** worktree (le piège du port 4173 codé en dur dans
 `playwright.config.ts`, qui peut jouer le code d'un autre dossier).
 
 `play-report/` (gitignoré) contient :
 
-- `NN-<étape>.png` : une capture par étape, plus la fin de tour et le détail d'objet ;
-- `report.json` : par étape `{ step, ok, durationMs, url, notices, boxes, missing }` — `boxes` mesure les zones clés, `missing` liste celles qui n'ont pas été trouvées ;
+- `NN-<étape>.png` : une capture par étape, plus la fin de tour, la fiche Donjons, la salle et le détail d'objet ;
+- `report.json` : par étape `{ step, ok, durationMs, url, notices, boxes, missing }` — `boxes` mesure les zones clés (y compris la fiche Donjons refermée depuis), `missing` liste celles qui n'ont pas été trouvées ;
 - `console.log` : **toutes** les entrées console (`debug`, `info`, `warning`, `error`) avec l'étape courante ;
-- `errors.json` : `pageerror` avec pile complète, `console.error`, requêtes `status ≥ 400` et `requestfailed`, plus les exceptions explicitement documentées.
+- `errors.json` : `pageerror` avec pile complète, `console.error`, requêtes `status ≥ 400` et `requestfailed`, les exceptions explicitement documentées, et les `warnings` (comptés, non bloquants).
 
-### Lire `errors.json`
+### Lire `errors.json` et l'exit code
 
-Chaque entrée porte `step` : l'étape où l'erreur est apparue. `pageErrors` et
-`failedRequests` sont toujours bloquants ; `consoleErrors` aussi, sauf les
-règles listées dans `documentedConsoleErrors` (court, justifié, commenté dans
-`scripts/play/verdict.mjs`). Le script sort en `1` dès qu'une de ces catégories
-est non vide, `0` sinon — le résumé final rappelle les compteurs et le chemin
-des captures.
+Chaque entrée porte `step` : l'étape où l'erreur est apparue. `pageErrors`,
+`failedRequests` et les étapes `failed` sont toujours bloquants ;
+`consoleErrors` aussi, sauf les règles listées dans `documentedConsoleErrors`
+(court, justifié, commenté dans `scripts/play/verdict.mjs`). Un `skipped` n'est
+toléré que s'il est déclaré dans `DOCUMENTED_SKIPS` — table vide aujourd'hui,
+donc tout skip fait échouer le run. Les `warnings` sont comptés et résumés mais
+ne bloquent pas : un `console.warn` (contexte WebGL perdu) doit se voir, pas
+arrêter la session.
+
+- **`0`** : les six étapes se sont jouées, zéro `pageerror`, zéro requête en échec, zéro `console.error` non documenté ;
+- **`1`** : le rapport a trouvé quelque chose (une erreur console, un asset en 404, une étape `failed`, un skip non documenté) ;
+- **`2`** : panne du harnais, aucun verdict rendu (port occupé, vite mort, identité de l'app refusée, option invalide).
+
+Le résumé final rappelle les compteurs, les raisons et le chemin des captures.
 
 ### Ce que ce n'est pas
 
