@@ -86,6 +86,7 @@ waves:
       - id: 4B
         title: Intégration — useGameStore, combat câblé, walkthrough niv. 5
         status: done
+        pr: 21
         depends_on: [4A-hero-prog, 4A-inventory, 4A-save, 4A-items-sets, 4A-harness]
         updated_at: "2026-11-22"
         notes: store persistant câblé, dettes D01/D10/D11/D17 soldées
