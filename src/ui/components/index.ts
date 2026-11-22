@@ -1,5 +1,9 @@
 export { default as CombatHud } from "./CombatHud";
 export type { CombatHudProps } from "./CombatHud";
+export { HeroCreation } from "./hero";
+export type { HeroCreationProps } from "./hero";
+export { InventoryPanel } from "./inventory";
+export type { InventoryPanelProps } from "./inventory";
 export { default as Timeline } from "./Timeline";
 export { default as TimelineCard } from "./TimelineCard";
 export { default as SpellSlots } from "./SpellSlots";
