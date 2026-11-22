@@ -507,3 +507,13 @@ describe("backlog — pointeur de reprise", () => {
     expect(target?.status).not.toBe("done");
   });
 });
+
+describe("backlog — dette D48", () => {
+  it("enregistre la clef de donjon manquante, cible 5B", () => {
+    const debt = readBacklog().debts.find((entry) => entry.id === "D48");
+    expect(debt).toBeDefined();
+    expect(debt?.severity).toBe("high");
+    expect(debt?.target).toBe("5B");
+    expect(debt?.title).toContain("cle_donjon_ile_de_la_ferraille");
+  });
+});
