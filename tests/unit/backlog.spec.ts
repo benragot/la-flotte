@@ -31,7 +31,6 @@ interface Task {
   priority?: string;
   updated_at?: string;
   pr?: number;
-  blocked_by?: string[];
   depends_on?: string[];
 }
 
@@ -40,7 +39,6 @@ interface Phase {
   title?: string;
   status?: string;
   tasks?: Task[];
-  blocked_by?: string[];
   depends_on?: string[];
 }
 
@@ -74,9 +72,12 @@ interface Backlog {
   debts: Debt[];
 }
 
+function rawBacklog(): string {
+  return readFileSync(join(process.cwd(), BACKLOG_PATH), "utf8");
+}
+
 function readBacklog(): Backlog {
-  const raw = readFileSync(join(process.cwd(), BACKLOG_PATH), "utf8");
-  return load(raw) as Backlog;
+  return load(rawBacklog()) as Backlog;
 }
 
 function allPhases(backlog: Backlog): Phase[] {
@@ -114,18 +115,16 @@ function isFilled(value: string | undefined): boolean {
   return typeof value === "string" && value.trim() !== "";
 }
 
+function dependencyRefs(entry: { id: string; depends_on?: string[] }): string[] {
+  return (entry.depends_on ?? []).map((ref) => `${entry.id} -> ${ref}`);
+}
+
 function phaseRefEntries(backlog: Backlog): string[] {
-  return allPhases(backlog).flatMap((phase) => {
-    const refs = [...(phase.blocked_by ?? []), ...(phase.depends_on ?? [])];
-    return refs.map((ref) => `${phase.id} -> ${ref}`);
-  });
+  return allPhases(backlog).flatMap((phase) => dependencyRefs(phase));
 }
 
 function taskRefEntries(backlog: Backlog): string[] {
-  return allTasks(backlog).flatMap((task) => {
-    const refs = [...(task.blocked_by ?? []), ...(task.depends_on ?? [])];
-    return refs.map((ref) => `${task.id} -> ${ref}`);
-  });
+  return allTasks(backlog).flatMap((task) => dependencyRefs(task));
 }
 
 function debtRefEntries(backlog: Backlog): string[] {
@@ -148,6 +147,30 @@ function danglingTaskRefs(backlog: Backlog): string[] {
   return filterDangling(taskRefEntries(backlog), new Set(knownRefs(backlog)));
 }
 
+function taskStatuses(backlog: Backlog): Map<string, string> {
+  return new Map(allTasks(backlog).map((task) => [task.id, task.status]));
+}
+
+function unsatisfiedRefs(phase: Phase, statuses: Map<string, string>): string[] {
+  return (phase.depends_on ?? []).filter((ref) => statuses.get(ref) !== "done");
+}
+
+function blockedWithoutGap(backlog: Backlog): string[] {
+  const statuses = taskStatuses(backlog);
+  return allPhases(backlog)
+    .filter((phase) => phase.status === "blocked")
+    .filter((phase) => unsatisfiedRefs(phase, statuses).length === 0)
+    .map((phase) => phase.id);
+}
+
+function prematurePhases(backlog: Backlog): string[] {
+  const statuses = taskStatuses(backlog);
+  return allPhases(backlog)
+    .filter((phase) => phase.status !== "blocked")
+    .filter((phase) => unsatisfiedRefs(phase, statuses).length > 0)
+    .map((phase) => `${phase.id}:${phase.status ?? "?"}`);
+}
+
 function taskKeyGaps(backlog: Backlog): string[] {
   return allTasks(backlog).flatMap((task) => {
     const values: Record<string, string | undefined> = {
@@ -167,12 +190,18 @@ function invalidPriorities(backlog: Backlog): string[] {
   return allTasks(backlog).filter((task) => !valid.has(task.priority ?? "")).map((task) => task.id);
 }
 
-function unsatisfiedDependencies(backlog: Backlog): string[] {
-  const statusById = new Map(allTasks(backlog).map((task) => [task.id, task.status]));
-  return allPhases(backlog)
-    .filter((phase) => (phase.blocked_by ?? []).some((ref) => statusById.get(ref) !== "done"))
-    .filter((phase) => phase.status !== "blocked")
-    .map((phase) => `${phase.id}:${phase.status ?? "?"}`);
+function missingPrTasks(backlog: Backlog, statuses: string[]): string[] {
+  const tracked = new Set(statuses);
+  return allTasks(backlog)
+    .filter((task) => tracked.has(task.status))
+    .filter((task) => !Number.isInteger(task.pr))
+    .map((task) => `${task.id}:${task.status}`);
+}
+
+function inProgressWithPr(backlog: Backlog): string[] {
+  return allTasks(backlog)
+    .filter((task) => task.status === "in_progress" && task.pr !== undefined)
+    .map((task) => task.id);
 }
 
 function isInboxEntry(entry: unknown): boolean {
@@ -204,7 +233,7 @@ describe("backlog — fichier et métadonnées", () => {
   it("versionne le format et date la dernière mise à jour", () => {
     const { version, updated_at } = readBacklog().meta;
     expect(Number.isInteger(version)).toBe(true);
-    expect(version).toBeGreaterThanOrEqual(2);
+    expect(version).toBeGreaterThanOrEqual(3);
     expect(updated_at).toMatch(DATE_PATTERN);
   });
 
@@ -225,10 +254,15 @@ describe("backlog — sémantique des statuts", () => {
     expect(rules.length).toBeGreaterThanOrEqual(3);
     expect(rules.join(" ")).toContain("integrator");
     expect(rules.join(" ")).toContain("updated_at");
+    expect(rules.join(" ")).toContain("depends_on");
   });
 
   it("n'attribue jamais l'écriture à l'orchestrateur", () => {
     expect(readBacklog().meta.updated_by).not.toBe("orchestrator");
+  });
+
+  it("n'attache aucune PR ouverte à une tâche in_progress", () => {
+    expect(inProgressWithPr(readBacklog())).toEqual([]);
   });
 });
 
@@ -253,9 +287,15 @@ describe("backlog — vagues et phases", () => {
     const unknown = collectedStatuses(backlog).filter((status) => !allowed.has(status));
     expect(unknown).toEqual([]);
   });
+});
 
-  it("marque blocked toute phase dont une dépendance n'est pas done", () => {
-    expect(unsatisfiedDependencies(readBacklog())).toEqual([]);
+describe("backlog — invariant blocked", () => {
+  it("n'a aucune phase blocked sans dépendance non satisfaite", () => {
+    expect(blockedWithoutGap(readBacklog())).toEqual([]);
+  });
+
+  it("n'a aucune phase non blocked avec une dépendance non satisfaite", () => {
+    expect(prematurePhases(readBacklog())).toEqual([]);
   });
 });
 
@@ -289,6 +329,14 @@ describe("backlog — références", () => {
   });
 });
 
+describe("backlog — clé de dépendance unifiée", () => {
+  it("n'utilise plus la clé blocked_by, ni en texte ni en objet", () => {
+    const entries = [...allPhases(readBacklog()), ...allTasks(readBacklog())];
+    expect(rawBacklog()).not.toContain("blocked_by");
+    expect(entries.filter((entry) => Object.hasOwn(entry, "blocked_by"))).toEqual([]);
+  });
+});
+
 describe("backlog — propriété et fraîcheur des tâches", () => {
   it("renseigne id, titre, statut, owner, priority et updated_at", () => {
     const backlog = readBacklog();
@@ -300,6 +348,16 @@ describe("backlog — propriété et fraîcheur des tâches", () => {
 
   it("n'utilise que les priorités high, medium ou low", () => {
     expect(invalidPriorities(readBacklog())).toEqual([]);
+  });
+});
+
+describe("backlog — traçabilité des PR", () => {
+  it("cite la PR qui a livré chaque tâche done", () => {
+    expect(missingPrTasks(readBacklog(), ["done"])).toEqual([]);
+  });
+
+  it("cite une PR ouverte pour chaque tâche approved ou needs_review", () => {
+    expect(missingPrTasks(readBacklog(), ["approved", "needs_review"])).toEqual([]);
   });
 
   it("référence les PR par des entiers positifs", () => {
