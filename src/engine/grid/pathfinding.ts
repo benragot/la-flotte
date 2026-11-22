@@ -37,12 +37,17 @@ function cellKey(position: Position): string {
   return `${position.x},${position.y}`;
 }
 
-function chebyshev(a: Position, b: Position): number {
+/**
+ * Distance en pas sur une grille à huit directions : la diagonale coûte 1,
+ * donc `max(|dx|, |dy|)` (Chebyshev) et jamais `manhattan`. C'est la mesure
+ * de référence pour facturer un déplacement, pas seulement pour l'heuristique.
+ */
+export function stepDistance(a: Position, b: Position): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 function score(node: Node, target: Position): number {
-  return node.g + chebyshev(node.pos, target);
+  return node.g + stepDistance(node.pos, target);
 }
 
 /** Décalages des huit voisins, dans un ordre figé (déterminisme du chemin). */
