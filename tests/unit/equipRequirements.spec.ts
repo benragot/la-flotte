@@ -1,12 +1,15 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addItem, countItem, equipItem, equippable } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import type { EquipmentDef, ItemDef } from "../../src/schemas/itemSchema";
 import { useGameStore } from "../../src/store/useGameStore";
-import { equipRefusalLabel } from "../../src/ui/inventoryHudHelpers";
+import { BagRow } from "../../src/ui/components/inventory/BackpackList";
+import { bagEquipHints, equipRefusalLabel } from "../../src/ui/inventoryHudHelpers";
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 
@@ -19,11 +22,13 @@ function catalogItem(itemId: string): ItemDef {
   return found;
 }
 
+function emptyBag(): InventoryState {
+  return { stacks: [], equipment: {} };
+}
+
 function bagWith(...itemIds: readonly string[]): InventoryState {
-  return itemIds.reduce(
-    (inventory, itemId) => addItem({ inventory, itemId, quantity: 1 }),
-    { stacks: [], equipment: {} },
-  );
+  const options = (inventory: InventoryState, itemId: string) => ({ inventory, itemId, quantity: 1 });
+  return itemIds.reduce<InventoryState>((inventory, itemId) => addItem(options(inventory, itemId)), emptyBag());
 }
 
 const LEVEL_18_HAT = "fer_casque_chantier_cabosse";
@@ -116,8 +121,7 @@ describe("kit de départ — non-régression", () => {
   });
 });
 
-describe("useGameStore.equip — garde de partie", () => {
-  beforeEach(() => {
+describe("useGameStore.equip — garde de partie", () => {  beforeEach(() => {
     useGameStore.getState().resetGame();
     useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
   });
@@ -137,5 +141,28 @@ describe("useGameStore.equip — garde de partie", () => {
     useGameStore.getState().equip({ itemId: LEVEL_18_HAT });
     expect(useGameStore.getState().inventory).toBe(before);
     expect(useGameStore.getState().hero?.level).toBe(1);
+  });
+});
+
+describe("inventaire — refus visible dans le sac", () => {
+  const LEVEL_18_NAME = "Casque de chantier cabossé";
+
+  it("affiche « Niveau 18 requis » et désactive l'action", () => {
+    const hints = bagEquipHints({ inventory: bagWith(LEVEL_18_HAT), items: ITEMS, heroLevel: 1 });
+    expect(hints[LEVEL_18_HAT]).toBe("Niveau 18 requis");
+    const entry = { itemId: LEVEL_18_HAT, name: LEVEL_18_NAME, quantity: 1, category: "equipment" as const };
+    const props = { entry, selected: false, onSelect: () => undefined, hint: hints[LEVEL_18_HAT] ?? null };
+    const html = renderToStaticMarkup(createElement(BagRow, props));
+    expect(html).toContain("Niveau 18 requis");
+    expect(html).toContain('disabled=""');
+  });
+
+  it("laisse l'action active et sans badge pour un objet équipable", () => {
+    const hints = bagEquipHints({ inventory: bagWith(LEVEL_1_HAT), items: ITEMS, heroLevel: 1 });
+    expect(hints[LEVEL_1_HAT]).toBeUndefined();
+    const entry = { itemId: LEVEL_1_HAT, name: "Chapeau piou mazouté", quantity: 1, category: "equipment" as const };
+    const html = renderToStaticMarkup(createElement(BagRow, { entry, selected: false, onSelect: () => undefined }));
+    expect(html).toContain("Équiper");
+    expect(html).not.toContain('disabled=""');
   });
 });
