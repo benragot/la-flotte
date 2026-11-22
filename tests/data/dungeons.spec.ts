@@ -14,13 +14,8 @@ const dungeons = parseDungeonsYaml(read("dungeons.yaml"));
 const maps = parseMapsYaml(read("maps.yaml"));
 const mapIds = new Set(maps.map((map) => map.id));
 const monsterIds = new Set(parseMonstersYaml(read("monsters.yaml")).map((monster) => monster.id));
-const itemIds = new Set(parseItemsYaml(read("items.yaml")).map((item) => item.id));
-
-// D48 (2026-11-22) : `itemSchema` n'a pas de catégorie `key`, donc
-// `cle_donjon_ile_de_la_ferraille` ne peut pas encore vivre dans items.yaml.
-// Allowlist fail-closed : un seul id, absent des items, et ce test casse
-// dès que la clef est réellement livrée (il faudra supprimer l'allowlist).
-const PENDING_KEY_ITEM_IDS = ["cle_donjon_ile_de_la_ferraille"];
+const items = parseItemsYaml(read("items.yaml"));
+const itemIds = new Set(items.map((item) => item.id));
 
 const baseRoom = {
   roomNumber: 1,
@@ -88,18 +83,38 @@ describe("dungeons.yaml — références et praticabilité", () => {
     });
   });
 
-  it("référence une clef de donjon connue ou déclarée en attente", () => {
+  it("référence une clef de donjon réellement présente dans items.yaml", () => {
     dungeons.forEach((dungeon) => {
-      const known = itemIds.has(dungeon.keyItemId) || PENDING_KEY_ITEM_IDS.includes(dungeon.keyItemId);
+      const known = itemIds.has(dungeon.keyItemId);
       expect(known, `${dungeon.keyItemId} absent d'items.yaml`).toBe(true);
     });
   });
+});
 
-  it("garde l'allowlist de clefs fail-closed (D48)", () => {
-    expect(PENDING_KEY_ITEM_IDS).toHaveLength(1);
-    PENDING_KEY_ITEM_IDS.forEach((id) => expect(itemIds.has(id), `${id} est livré : retire l'allowlist`).toBe(false));
+describe("dungeons.yaml — cohérence de la clef", () => {
+  const keyOf = (dungeon: (typeof dungeons)[number]) => {
+    const key = items.find((item) => item.id === dungeon.keyItemId);
+    expect(key, `${dungeon.keyItemId} absent d'items.yaml`).toBeDefined();
+    if (key?.category !== "key") throw new Error(`${dungeon.keyItemId} n'est pas une clef`);
+    return key;
+  };
+
+  it("donne à la clef la catégorie key et le donjon ciblé", () => {
+    dungeons.forEach((dungeon) => {
+      expect(keyOf(dungeon).targetDungeonId).toBe(dungeon.id);
+    });
   });
 
+  it("relie la clef et son donjon dans les deux sens", () => {
+    dungeons.forEach((dungeon) => {
+      const key = keyOf(dungeon);
+      const target = dungeons.find((entry) => entry.id === key.targetDungeonId);
+      expect(target?.keyItemId, `${key.targetDungeonId} ne référence pas ${key.id}`).toBe(key.id);
+    });
+  });
+});
+
+describe("dungeons.yaml — praticabilité", () => {
   it("garde chaque salle praticable du placement joueur au placement monstre", () => {
     allRooms().forEach((room) => {
       const map = maps.find((entry) => entry.id === room.mapId);

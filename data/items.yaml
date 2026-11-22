@@ -1,5 +1,6 @@
 # Objets de l'Île de la Ferraille (Vague 4).
-# Familles : resource (butin), consumable (soin hors combat), equipment (panoplie + arme).
+# Familles : resource (butin), consumable (soin hors combat), equipment (panoplie + arme),
+# key (clef de donjon, liée à `targetDungeonId`).
 # stats : objet partiel, entiers, tous les champs sont optionnels.
 items:
   - id: plume_mazoutee
@@ -104,3 +105,11 @@ items:
     stats: { strength: 3 }
     starting: true
     sellPrice: 8
+
+  # --- Clé de donjon ---
+  - id: cle_donjon_ile_de_la_ferraille
+    name: "Clef de la Casse aux Vis-Sans-Fin"
+    description: "Une clef à molette géante, tordue à la main. Elle n'ouvre aucune porte de la Casse, mais tout le monde la présente à l'entrée par respect pour la coutume."
+    category: key
+    targetDungeonId: fer_donjon_casse_vis_sans_fin
+    sellPrice: 40

@@ -69,10 +69,17 @@ const equipmentItemSchema = z.object({
   starting: z.boolean().optional().default(false),
 });
 
+const keyItemSchema = z.object({
+  ...itemCoreFields,
+  category: z.literal("key"),
+  targetDungeonId: itemIdSchema,
+});
+
 const itemUnionSchema = z.discriminatedUnion("category", [
   resourceItemSchema,
   consumableItemSchema,
   equipmentItemSchema,
+  keyItemSchema,
 ]);
 
 export type ItemDef = z.infer<typeof itemUnionSchema>;
@@ -81,6 +88,7 @@ export type EquipmentSlot = z.infer<typeof equipmentSlotSchema>;
 export type ResourceDef = z.infer<typeof resourceItemSchema>;
 export type ConsumableDef = z.infer<typeof consumableItemSchema>;
 export type EquipmentDef = z.infer<typeof equipmentItemSchema>;
+export type KeyDef = z.infer<typeof keyItemSchema>;
 
 type IssueSink = z.RefinementCtx;
 type IssuePath = (string | number)[];

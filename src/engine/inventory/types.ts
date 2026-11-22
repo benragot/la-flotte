@@ -33,7 +33,7 @@ export type EquipmentSlot =
   | "belt"
   | "boots";
 
-export type ItemCategory = "resource" | "consumable" | "equipment";
+export type ItemCategory = "resource" | "consumable" | "equipment" | "key";
 
 export interface ItemLike {
   id: string;

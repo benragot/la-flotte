@@ -538,13 +538,14 @@ describe("backlog — pointeur de reprise", () => {
   });
 });
 
-describe("backlog — dette D48", () => {
-  it("enregistre la clef de donjon manquante, cible 5B", () => {
+describe("backlog — dette D48 soldée", () => {
+  it("ne trouve plus la dette de clef de donjon, livrée en 5B", () => {
     const debt = readBacklog().debts.find((entry) => entry.id === "D48");
-    expect(debt).toBeDefined();
-    expect(debt?.severity).toBe("high");
-    expect(debt?.target).toBe("5B");
-    expect(debt?.title).toContain("cle_donjon_ile_de_la_ferraille");
+    expect(debt).toBeUndefined();
+  });
+
+  it("ne cite plus la clef comme manquante dans les dettes", () => {
+    expect(rawBacklog()).not.toContain("cle_donjon_ile_de_la_ferraille");
   });
 });
 
