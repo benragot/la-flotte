@@ -15,10 +15,15 @@ const DATA_DIR = join(process.cwd(), "data");
 const KEY_ID = "cle_donjon_ile_de_la_ferraille";
 const KEY_RECIPE_ID = "recette_cle_donjon_ile_de_la_ferraille";
 
-/** Valeurs du §4 de `docs/design/islands/ile_de_la_ferraille.md`. */
+/**
+ * Ressources et prix de vente du §4 de `docs/design/islands/ile_de_la_ferraille.md`.
+ * Quantités : écart assumé vs §7 de la même fiche (pince×3, boulon×3), décision
+ * propriétaire D07 — une clef doit coûter 5 à 10 rencontres, le calcul est écrit
+ * dans `data/recipes.yaml` et rejoué par `tests/data/keyFarmBudget.spec.ts`.
+ */
 const INGREDIENTS = [
-  { id: "fer_pince_de_douze", quantity: 3, sellPrice: 8 },
-  { id: "fer_boulon_sans_fin", quantity: 3, sellPrice: 12 },
+  { id: "fer_pince_de_douze", quantity: 1, sellPrice: 8 },
+  { id: "fer_boulon_sans_fin", quantity: 1, sellPrice: 12 },
   { id: "fer_goutte_mazout", quantity: 2, sellPrice: 4 },
 ] as const;
 
@@ -79,7 +84,7 @@ describe("clef du donjon de la Ferraille — recette du §7", () => {
     expect(recipe.resultQuantity).toBe(1);
   });
 
-  it("consomme exactement pince×3, boulon×3 et goutte×2", () => {
+  it("consomme exactement pince×1, boulon×1 et goutte×2", () => {
     expect(sortedPairs(recipeOfKey(loadRecipes()).ingredients)).toEqual(expectedPairs);
   });
 

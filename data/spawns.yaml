@@ -10,6 +10,8 @@
 # DETTE : le modèle n'a aucune notion de niveau de zone. Le filtrage par niveau
 # (un héros de niveau 1 ne doit pas croiser un niveau 15) viendra avec les
 # prochaines maps d'extérieur ; d'ici là c'est le poids qui limite l'exposition.
+# D07 a relevé ce poids pour le Boulon Sans Fin : l'exposition d'un niveau 15
+# reste donc une dette OUVERTE, pas une dette refermée.
 zones:
   - id: fer_plage_des_ancres
     mapId: ferraille_plage_01
@@ -17,13 +19,20 @@ zones:
       # ORDRE SIGNIFICATIF : `rng() === 0` (défaut déterministe de la démo et des
       # walkthroughs) prend la **première entrée**, pas la plus lourde. Le Piou
       # doit rester en tête, verrouillé par tests/data/spawns.spec.ts.
-      # 100 / 30 / 12 / 4 sur 146 : le Piou reste l'ordinaire de la plage.
+      # 100 / 30 / 34 / 32 sur 196 : le Piou reste l'ordinaire de la plage.
       - { monsterId: piou_mazoute, weight: 100 }
       # Le rat est « de cale » : les cales des épaves échouées sur la plage sont
       # son terroir, d'où sa présence en surface portuaire.
       - { monsterId: fer_rat_de_cale, weight: 30 }
-      # Le crabe sort à marée basse, entre deux épaves.
-      - { monsterId: fer_crabe_cle_molette, weight: 12 }
-      # Niveau 15 exposé dès le niveau 1 (cf. DETTE ci-dessus) : poids minimal,
-      # ≈ 2,7 % des rencontres, pour que la plage le lâche sans le rendre banal.
-      - { monsterId: fer_boulon_pousseur, weight: 4 }
+      # Le crabe sort à marée basse, entre deux épaves. Poids relevé de 12 à 34
+      # par D07 : la Pince de Douze est un ingrédient de la clef du donjon, et la
+      # décision propriétaire impose 5 à 10 rencontres par clef. Ses pinces
+      # tombent à 0,60 : 34/196 × 0,60 = 10,41 % par rencontre, soit ≈ 9,61
+      # rencontres pour la pince de la recette (1 unité).
+      - { monsterId: fer_crabe_cle_molette, weight: 34 }
+      # Niveau 15 exposé dès le niveau 1 (cf. DETTE ci-dessus) : poids relevé de 4
+      # à 32 par D07. Le Boulon Sans Fin n'a aucun autre lâcheur, donc SON POIDS
+      # est le seul levier de spawn : 32/196 × 0,65 = 10,61 % par rencontre, soit
+      # ≈ 9,42 rencontres pour le boulon de la recette (1 unité). C'est ce poids
+      # — et non la fiche §2 — qui portait le farm à 168 rencontres.
+      - { monsterId: fer_boulon_pousseur, weight: 32 }
