@@ -54,6 +54,10 @@ monsters:
         - "Ne recule jamais, même à 1 PV."
     loot:
       - { itemId: fer_goutte_mazout, baseDropRate: 0.40, ppThreshold: 100 }
+      # DEC-07 : il a déjà rongé trois câbles, un contrat de fret et un traité de
+      # paix ; la clef du donjon est la quatrième chose qu'il ne rendra pas.
+      # 30/146 × 0,45 = 9,25 % par rencontre.
+      - { itemId: cle_donjon_ile_de_la_ferraille, baseDropRate: 0.45, ppThreshold: 100 }
 
   - id: fer_crabe_cle_molette
     name: Crabe à Clé-à-Molette
@@ -80,6 +84,12 @@ monsters:
         - "Préfère bloquer un couloir plutôt que frapper fort."
     loot:
       - { itemId: fer_pince_de_douze, baseDropRate: 0.60, ppThreshold: 100 }
+      # DEC-07 : la clef du donjon est aussi BUTIN DIRECT, accrochée à la clef à
+      # molette qui lui sert de seconde pince. Les taux de la fiche §2 ne bougent
+      # pas ; c'est ce chemin-là qui porte la cible 5-10 rencontres :
+      # crabe 12/146 × 0,60 = 4,93 % + rat 30/146 × 0,45 = 9,25 %,
+      # soit 1 / 14,18 % ≈ 7,05 rencontres, clef craftable en parallèle.
+      - { itemId: cle_donjon_ile_de_la_ferraille, baseDropRate: 0.60, ppThreshold: 100 }
 
   - id: fer_marmite_fuyarde
     name: Marmite qui Fuit

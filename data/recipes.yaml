@@ -97,12 +97,26 @@ recipes:
   # §7 de `docs/design/islands/ile_de_la_ferraille.md`. `craftLevel` n'y est pas
   # fourni : 10 est provisoire et inerte (aucun code ne lit ce champ, seul
   # `recipeSchema` le borne) ; il sera fixé avec la table de spawn d'exploration.
+  #
+  # ERRATUM §7 (décision `DEC-07`) : la fiche dit pince×3, boulon×3, goutte×2.
+  # La recette livrée est 1/1/2 et la fiche porte l'erratum correspondant. Motif :
+  # `DEC-07` impose 5 à 10 rencontres par clef, or 3 boulons à 1,78 %/rencontre
+  # (poids 4/146 × 0,65) valaient 168 rencontres d'espérance.
+  # Les taux de drop du §2 sont INTACTS : le levier retenu est le BUTIN DIRECT,
+  # déclaré dans `data/monsters.yaml` (crabe 0,60 + rat 0,45 = 14,18 % par
+  # rencontre, soit 1/0,1418 ≈ 7,05 rencontres). Cette recette reste le chemin
+  # GARANTI (aucun aléa de butin) et demeure craftable, mais elle n'est plus le
+  # chemin le moins cher : son coût est la borne haute
+  # Σ 20,28 + 56,15 + 5,12 ≈ 81,55 rencontres, que `DEC-07` ne plafonne pas
+  # puisque le joueur prend le butin direct. Garde-fou générique :
+  # `tests/data/keyFarmBudget.spec.ts` rejoue ce calcul, tous chemins confondus,
+  # sur TOUTES les clefs.
   - id: recette_cle_donjon_ile_de_la_ferraille
     resultItemId: cle_donjon_ile_de_la_ferraille
     resultQuantity: 1
     ingredients:
-      - { itemId: fer_pince_de_douze, quantity: 3 }
-      - { itemId: fer_boulon_sans_fin, quantity: 3 }
+      - { itemId: fer_pince_de_douze, quantity: 1 }
+      - { itemId: fer_boulon_sans_fin, quantity: 1 }
       - { itemId: fer_goutte_mazout, quantity: 2 }
     craftLevel: 10
-    description: "Trois pinces, trois boulons et deux gouttes de mazout durci : la clef n'ouvre rien, mais la Confrérie exige qu'on la présente à l'entrée. Le comité a voté, il y a onze ans, et il vote encore."
+    description: "Une pince, un boulon et deux gouttes de mazout durci : la clef n'ouvre rien, mais la Confrérie exige qu'on la présente à l'entrée. Le comité a voté, il y a onze ans, et il vote encore."
