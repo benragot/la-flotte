@@ -382,7 +382,10 @@ describe("walkthrough : exploration, combat et respawn", () => {
     expect(back.mode).toBe("exploration");
     expect(back.combat).toBeNull();
     expect(back.rewards).toBeNull();
-    expect(back.exploration?.monsterGroups).toHaveLength(1);
+    // MESURÉ : trois groupes au départ ; le vaincu est remplacé par un respawn,
+    // donc la carte en porte toujours trois à quatre.
+    expect(back.exploration?.monsterGroups.length).toBeGreaterThanOrEqual(3);
+    expect(back.exploration?.monsterGroups.length).toBeLessThanOrEqual(4);
     expect(back.exploration?.monsterGroups[0]?.id).not.toBe(group.id);
     expect(heroState().xp).toBeGreaterThan(xpBefore);
   });
@@ -424,7 +427,11 @@ describe("walkthrough : défaite et retour sur la carte", () => {
     expect(back.mode).toBe("exploration");
     expect(back.combat).toBeNull();
     expect(back.rewards).toBeNull();
-    expect(back.exploration?.monsterGroups.map((entry) => entry.id)).toEqual([group.id]);
+    // MESURÉ : la défaite ne retire aucun groupe — les trois de la carte restent,
+    // et le groupe engagé garde son id.
+    const ids = back.exploration?.monsterGroups.map((entry) => entry.id) ?? [];
+    expect(ids.length).toBeGreaterThanOrEqual(3);
+    expect(ids).toContain(group.id);
     expect(heroState().hp).toBe(maxHp);
   });
 });
