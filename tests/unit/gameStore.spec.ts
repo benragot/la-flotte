@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Hero } from "../../src/engine/createHero";
 import { createHero } from "../../src/engine/createHero";
 import { gainXp } from "../../src/engine/hero";
@@ -13,10 +13,12 @@ import { createSave, serializeSave } from "../../src/engine/save";
 import type { StorageLike } from "../../src/engine/save";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import type { ClassDef } from "../../src/schemas/classSchema";
-import { parseItemsYaml } from "../../src/schemas/itemSchema";
+import { computeProspection } from "../../src/engine/economy";
+import { EQUIPMENT_SLOTS, parseItemsYaml } from "../../src/schemas/itemSchema";
 import { parseProgressionYaml } from "../../src/schemas/progressionSchema";
 import { parseSetsYaml } from "../../src/schemas/setSchema";
-import { emptyInventory } from "../../src/store/gameSelectors";
+import { emptyInventory, inventoryFromSnapshot } from "../../src/store/gameSelectors";
+import { useCombatStore } from "../../src/store/useCombatStore";
 import { useGameStore } from "../../src/store/useGameStore";
 
 const SAVE_KEY = "la-flotte-test-slot";
@@ -97,6 +99,11 @@ function addToBag(itemId: string, quantity: number): void {
 beforeEach(() => {
   useGameStore.getState().resetGame();
   useGameStore.setState({ saveKey: SAVE_KEY });
+  useCombatStore.setState({ combat: null, selectedSpellId: null, rewards: null });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("useGameStore — création de personnage", () => {
@@ -338,5 +345,64 @@ describe("hero — PV courants bornés", () => {
     const stats = totalStatsFor({ hero, inventory: emptyInventory(), items, sets });
     const combatant = combatantFromHero({ hero, stats, position: { x: 0, y: 0 }, spellIds: [] });
     expect([combatant.hp, combatant.maxHp]).toEqual([40, 50]);
+  });
+});
+
+describe("inventaire — slots canoniques du schéma", () => {
+  it("accepte chacun des slots du tuple EQUIPMENT_SLOTS", () => {
+    const stacks = [{ itemId: "chapeau_piou_mazoute", quantity: 1 }];
+    EQUIPMENT_SLOTS.forEach((slot) => {
+      const equipment = { [slot]: "chapeau_piou_mazoute" };
+      expect(inventoryFromSnapshot({ stacks, equipment }, items).equipment).toEqual(equipment);
+    });
+  });
+
+  it("rejette un slot absent du tuple et un item inconnu", () => {
+    const equipment = { gouffre: "chapeau_piou_mazoute", hat: "objet_fantome" };
+    expect(inventoryFromSnapshot({ stacks: [], equipment }, items).equipment).toEqual({});
+  });
+});
+
+describe("arène — câblage du héros persistant", () => {
+  it("construit le joueur depuis le héros équipé, pas depuis le héros de démo", () => {
+    const hero = createHeroInStore("Anselme");
+    SET_PIECES.forEach((itemId) => {
+      addToBag(itemId, 1);
+      useGameStore.getState().equip({ itemId });
+    });
+    useCombatStore.getState().startDemoCombat();
+    const player = useCombatStore.getState().combat?.player;
+    if (player === undefined) throw new Error("combat de démonstration attendu");
+    expect(player.name).toBe("Anselme");
+    expect(player.ap).toBe(hero.ap + 1);
+    expect(player.maxHp).toBe(hero.maxHp + weaponHpBonus());
+    expect(player.pp).toBe(expectedProspection(hero));
+  });
+});
+
+function weaponHpBonus(): number {
+  const hp = SET_PIECES.map((itemId) => mustFind(items, itemId).stats?.hp ?? 0);
+  return hp.reduce((total, value) => total + value, 0);
+}
+
+function expectedProspection(hero: Hero): number {
+  const amulet = mustFind(items, "amulette_de_la_coupure");
+  const set = mustFind(sets, "panoplie_piou_mazoute");
+  const tier = set.bonuses.find((bonus) => bonus.pieces === 4);
+  const bonusPp = (amulet.stats?.prospection ?? 0) + (tier?.stats.prospection ?? 0);
+  return computeProspection({ basePp: hero.pp, chance: hero.chance, bonusPp });
+}
+
+describe("sauvegarde — localStorage inaccessible", () => {
+  it("renvoie false quand l'accès à window.localStorage jette", () => {
+    createHeroInStore();
+    vi.stubGlobal("window", {
+      get localStorage(): never {
+        throw new Error("SecurityError: localStorage interdit");
+      },
+    });
+    expect(() => useGameStore.getState().saveGame()).not.toThrow();
+    expect(useGameStore.getState().saveGame()).toBe(false);
+    expect(useGameStore.getState().loadGame()).toBe(false);
   });
 });
