@@ -125,6 +125,51 @@ describe("findPath", () => {
   });
 });
 
+describe("findPath — diagonales ouvertes", () => {
+  it("marche en diagonale pour 1 PM", () => {
+    const map = parseAsciiMap(OPEN);
+    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 });
+    expect(path).toEqual([
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+    ]);
+  });
+
+  it("autorise la diagonale même avec les deux coins bloqués", () => {
+    const map = parseAsciiMap(["...", ".P#", ".#."]);
+    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 });
+    expect(path).toHaveLength(2);
+    expect(path?.[1]).toEqual({ x: 2, y: 2 });
+  });
+
+  it("refuse la diagonale dont la cible est un mur", () => {
+    const map = parseAsciiMap(["...", ".P#", "..#"]);
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 })).toBeNull();
+  });
+});
+
+describe("findPath — contours et déterminisme", () => {
+  it("contourne un mur sans traverser une case occupée", () => {
+    const map = parseAsciiMap(["P....", "####.", ".....", ".....", "....."]);
+    const occupied = [{ x: 1, y: 2 }];
+    const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 0, y: 2 }, maxPm: 12, occupied });
+    expect(path).not.toBeNull();
+    expect((path?.length ?? 0) - 1).toBeGreaterThan(2);
+    expect(path?.some((cell) => cell.x === 1 && cell.y === 2)).toBe(false);
+  });
+
+  it("refuse une diagonale quand le budget de PM est dépassé", () => {
+    const map = parseAsciiMap(OPEN);
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 3, y: 3 }, maxPm: 1 })).toBeNull();
+  });
+
+  it("rend le même chemin à chaque appel", () => {
+    const map = parseAsciiMap(["..#..", "..#..", ".....", "..#..", "..#.."]);
+    const input = { map, from: { x: 0, y: 0 }, to: { x: 4, y: 4 }, maxPm: 12 };
+    expect(findPath(input)).toEqual(findPath(input));
+  });
+});
+
 describe("hasLineOfSight", () => {
   it("voit à travers un couloir dégagé", () => {
     const map = parseAsciiMap(OPEN);

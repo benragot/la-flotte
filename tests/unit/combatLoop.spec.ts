@@ -12,6 +12,7 @@ import { endPlayerTurn } from "../../src/engine/combatLoop/turn";
 import type { CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import { isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
+import { findPath } from "../../src/engine/grid/pathfinding";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -173,6 +174,13 @@ describe("getCastableCells : sorts de dégâts", () => {
   it("laisse passer la ligne de vue au-dessus de l'eau", () => {
     const state = buildState(["P~M."]);
     expect(getCastableCells(state, "pression")).toEqual([{ x: 2, y: 0 }]);
+  });
+
+  it("garde la portée en losange, jamais en carré", () => {
+    const state = buildState(["P...", "....", "..M.", "...."]);
+    const walk = findPath({ map: state.map, from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, maxPm: 2 });
+    expect(walk).toHaveLength(3);
+    expect(getCastableCells(state, "pression")).toEqual([]);
   });
 
   it("respecte la portée 1 du Bec Mazouté", () => {
