@@ -21,8 +21,8 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const WAVE_ID_PATTERN = /^wave-\d+(?:\.\d+)?$/;
 const PHASE_ID_PATTERN = /^\d(?:\.\d)?[A-D]$/;
 const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[a-z0-9-]+$/;
-/** D96→D99 épuisent les deux chiffres : le motif accepte trois chiffres (D100…). */
-const DEBT_ID_PATTERN = /^D\d{2,3}$/;
+/** `D96`→`D99` épuisent les deux chiffres ; trois chiffres dès `D100`, sans zéro de tête. */
+const DEBT_ID_PATTERN = /^D(?:0[1-9]|[1-9]\d{1,2})$/;
 
 interface Task {
   id: string;
