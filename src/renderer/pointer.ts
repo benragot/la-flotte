@@ -1,18 +1,25 @@
 import type { Application, Container, FederatedPointerEvent } from "pixi.js";
 import type { Position } from "../engine/grid";
 import { isApplicationAlive } from "./appLifecycle";
-import type { GridSize, PixelPoint } from "./gridProjection";
-import { pixelToGrid } from "./gridProjection";
+import type { IsoOrigin, PixelPoint } from "./gridProjection";
+import { isoToGrid } from "./gridProjection";
 import { cellKey } from "./scene";
+
+/** Grille + origine de projection : l'inverse exact de `gridToIso`. */
+export interface BoardLayout {
+  width: number;
+  height: number;
+  origin: IsoOrigin;
+}
 
 export interface PointerHandlers {
   setHoveredCell: (position: Position | null) => void;
   clickCell: (position: Position) => void;
 }
 
-/** Case sous le curseur, `null` hors de la grille. */
-export function cellFromPointer(global: PixelPoint, size: GridSize): Position | null {
-  return pixelToGrid(global, size);
+/** Case sous le curseur, `null` hors du losange de la carte. */
+export function cellFromPointer(global: PixelPoint, layout: BoardLayout): Position | null {
+  return isoToGrid({ px: global.x, py: global.y, origin: layout.origin, width: layout.width, height: layout.height });
 }
 
 function createHoverTracker(onMove: PointerHandlers["setHoveredCell"]): (cell: Position | null) => void {
@@ -25,19 +32,19 @@ function createHoverTracker(onMove: PointerHandlers["setHoveredCell"]): (cell: P
   };
 }
 
-function attachMove(stage: Container, size: GridSize, onMove: PointerHandlers["setHoveredCell"]): void {
+function attachMove(stage: Container, layout: BoardLayout, onMove: PointerHandlers["setHoveredCell"]): void {
   const track = createHoverTracker(onMove);
-  stage.on("pointermove", (event: FederatedPointerEvent) => track(cellFromPointer(event.global, size)));
+  stage.on("pointermove", (event: FederatedPointerEvent) => track(cellFromPointer(event.global, layout)));
 }
 
-function tapCell(event: FederatedPointerEvent, size: GridSize, onClick: PointerHandlers["clickCell"]): void {
-  const cell = cellFromPointer(event.global, size);
+function tapCell(event: FederatedPointerEvent, layout: BoardLayout, onClick: PointerHandlers["clickCell"]): void {
+  const cell = cellFromPointer(event.global, layout);
   if (cell === null) return;
   onClick(cell);
 }
 
-function attachTap(stage: Container, size: GridSize, onClick: PointerHandlers["clickCell"]): void {
-  stage.on("pointertap", (event: FederatedPointerEvent) => tapCell(event, size, onClick));
+function attachTap(stage: Container, layout: BoardLayout, onClick: PointerHandlers["clickCell"]): void {
+  stage.on("pointertap", (event: FederatedPointerEvent) => tapCell(event, layout, onClick));
 }
 
 function attachLeave(stage: Container, onLeave: PointerHandlers["setHoveredCell"]): void {
@@ -58,11 +65,11 @@ function detach(stage: Container): void {
 }
 
 /** Branche survol, sortie et clic sur la scène PixiJS, retourne la fonction de détachement. */
-export function bindPointer(app: Application, size: GridSize, handlers: PointerHandlers): () => void {
+export function bindPointer(app: Application, layout: BoardLayout, handlers: PointerHandlers): () => void {
   if (!isApplicationAlive(app)) return () => undefined;
   const stage = prepareStage(app);
-  attachMove(stage, size, handlers.setHoveredCell);
-  attachTap(stage, size, handlers.clickCell);
+  attachMove(stage, layout, handlers.setHoveredCell);
+  attachTap(stage, layout, handlers.clickCell);
   attachLeave(stage, handlers.setHoveredCell);
   return () => detach(stage);
 }
