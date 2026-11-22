@@ -206,9 +206,9 @@ export function statApplicationStatus(key: keyof StatBlock): StatApplication {
 /** Suffixe affiché à côté d'une statistique inerte en combat. */
 export const STAT_PENDING_LABEL = "non appliqué (5B)";
 
-/** Explication du `title` d'une statistique inerte (dette D45b, résistances). */
+/** Explication du `title` d'une statistique inerte (dettes D45b / D30). */
 export const STAT_PENDING_HINT =
-  "Affichée mais non appliquée en combat : seule la projection des résistances reste à faire (dette D45b).";
+  "Affichée mais non appliquée en combat : projection des résistances (dette D45b) et transport du % Dégâts (dette D30) restent à faire.";
 
 function withApplication(line: StatLine): PanelStatLine {
   return { ...line, application: statApplicationStatus(line.key) };
