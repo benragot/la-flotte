@@ -1225,7 +1225,7 @@ const GAP_ROWS: readonly GapRow[] = [
   { id: "9", system: "Tacle", verdict: "partiel" },
   { id: "10", system: "Poussée", verdict: "partiel" },
   { id: "11", system: "Timeline", verdict: "partiel" },
-  { id: "12", system: "création", verdict: "absent" },
+  { id: "12", system: "création", verdict: "présent" },
   { id: "13", system: "Envoûtements", verdict: "partiel" },
   { id: "14", system: "Compte à rebours", verdict: "absent" },
   { id: "15", system: "Sorts de classe", verdict: "partiel" },
@@ -1317,7 +1317,6 @@ describe("backlog — analyse d'écart Dofus 1.29 contre le code réel (v20)", (
 
 const GAP_TASKS: Array<[string, string, string]> = [
   ["5C-equip-requirements", "5C", "itemSchema"],
-  ["5D-new-game", "5D", "resetGame"],
   ["5D-exits", "5D", "maps[0]"],
 ];
 
@@ -1361,7 +1360,7 @@ describe("backlog — suites ouvertes par l'analyse d'écart", () => {
     expect(gapDebtGaps(readBacklog())).toEqual([]);
   });
 
-  it("inscrit les trois tâches décochées dans la roadmap", () => {
+  it("inscrit les deux tâches restantes décochées dans la roadmap", () => {
     const lines = uncheckedRoadmapLines();
     const missing = GAP_TASKS.filter(([id]) => !lines.some((line) => line.startsWith(`- [ ] ${id}`)));
     expect(missing.map(([id]) => id)).toEqual([]);
@@ -1369,9 +1368,11 @@ describe("backlog — suites ouvertes par l'analyse d'écart", () => {
   });
 
   it("ne rouvre pas deux fois le même système : une tâche par blocage, le reste en dette", () => {
-    const tasks = allTasks(readBacklog()).map((task) => task.id);
-    const gapTasks = tasks.filter((id) => id === "5C-equip-requirements" || id === "5D-new-game" || id === "5D-exits");
-    expect(gapTasks).toEqual(["5C-equip-requirements", "5D-new-game", "5D-exits"]);
+    const open = allTasks(readBacklog())
+      .filter((task) => task.status !== "done")
+      .map((task) => task.id)
+      .filter((id) => id === "5C-equip-requirements" || id === "5D-new-game" || id === "5D-exits");
+    expect(open).toEqual(["5C-equip-requirements", "5D-exits"]);
   });
 });
 
@@ -1502,3 +1503,87 @@ describe("backlog — corrections des tâches ouvertes par l'écart", () => {
     expect(notes).toContain("removeItem");
   });
 });
+
+const GAP_METHOD_PINS = [
+  "Vérifié sur `main` @ ",
+  "Cette analyse est un instantané",
+  "figé par un test",
+];
+
+describe("backlog — verdict 12 livré par #69", () => {
+  it("passe l'écran de création de absent à présent, avec la preuve du code livré", () => {
+    const row = gapCells(gapSpecText(), "12").join(" | ");
+    expect(row).toContain("présent");
+    expect(row).toContain("newGame.ts");
+    expect(row).toContain("NewGameButton.tsx");
+    expect(row).not.toContain("resetGame` sans appelant");
+  });
+
+  it("retire la création des écarts sans solution et n'ouvre plus 5D-new-game", () => {
+    const text = gapSpecText();
+    expect(text).not.toContain("l'impossibilité de revenir à la création");
+    expect(text).not.toContain("resetGame` n'a aucun appelant");
+    const task = taskById(readBacklog(), "5D-new-game");
+    expect(task?.status).toBe("done");
+  });
+
+  it("acte 5D-new-game done, PR #69, squash 0676a46, et la coche dans la roadmap", () => {
+    const task = taskById(readBacklog(), "5D-new-game");
+    expect(task?.pr).toBe(69);
+    expect(task?.notes ?? "").toContain("0676a46");
+    const lines = uncheckedRoadmapLines();
+    expect(lines.some((line) => line.startsWith("- [x] 5D-new-game"))).toBe(true);
+    expect(lines.some((line) => line.startsWith("- [ ] 5D-new-game"))).toBe(false);
+  });
+
+});
+
+describe("backlog — méthode d'instantané et garde-fous du tableau", () => {
+  it("écrit la note de méthode : instantané vérifié sur un sha de main", () => {
+    const text = gapSpecText();
+    expect(GAP_METHOD_PINS.filter((pin) => !text.includes(pin))).toEqual([]);
+    expect(text).toMatch(/Vérifié sur `main` @ [0-9a-f]{7,40}/);
+  });
+
+  it("ne cite que des fichiers qui existent sur l'arbre", () => {
+    expect(unknownCitations(gapSpecText())).toEqual([]);
+  });
+
+  it("n'écrit plus « une seule carte » ni dans §2 ni dans §4", () => {
+    const text = gapSpecText();
+    expect(text).not.toContain("une seule carte");
+  });
+
+  it("exprime ×2,5 sans ambiguïté : 1,25 × la largeur du viewport", () => {
+    const section = limitsSection();
+    expect(section).toContain("1,25 × la largeur du viewport");
+    expect(section).not.toContain("l'échelle d'inscription");
+    const notes = taskById(readBacklog(), "7A-arena-background")?.notes ?? "";
+    expect(notes).toContain("1,25 × la largeur du viewport");
+    expect(notes).not.toContain("l'échelle d'inscription");
+  });
+
+  it("compte huit absent, six partiel et un présent", () => {
+    const counts = GAP_ROWS.reduce<Record<string, number>>((acc, row) => {
+      acc[row.verdict] = (acc[row.verdict] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(counts).toEqual({ absent: 8, partiel: 6, "présent": 1 });
+    const roadmap = uncheckedRoadmapLines().join("\n");
+    expect(roadmap).toContain("six `partiel`, huit `absent`");
+    expect(roadmap).toContain("un `présent`");
+  });
+});
+
+const CITED_PATH = /([A-Za-z0-9_./-]+\.(?:ts|tsx|yaml|md)):\d+/g;
+
+/** Toute preuve doit citer un fichier qui existe : un renommage casse le test. */
+function unknownCitations(text: string): string[] {
+  return GAP_ROWS.flatMap(({ id }) => {
+    const cell = gapCells(text, id)[3] ?? "";
+    return [...cell.matchAll(CITED_PATH)]
+      .map((match) => match[1] ?? "")
+      .filter((path) => !existsSync(join(process.cwd(), path)))
+      .map((path) => `${id}:${path}`);
+  });
+}
