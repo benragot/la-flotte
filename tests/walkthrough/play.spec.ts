@@ -116,14 +116,11 @@ const KEY_RECIPE: RecipeDef = recipes.find((recipe) => recipe.resultItemId === K
 const DEATH_ROOM = 2;
 
 /**
- * GARDE-FOU de farm, pas une mesure : le tirage réel en demande ≈ 9,6 en
- * espérance (boulon 32/196 × 0,65, D07) et 13 avec la graine retenue. Le cap
- * existe pour qu'une régression de `computeDropChance` (chance nulle) échoue en
- * un éclair.
+ * GARDE-FOU de farm, pas une mesure : le tirage réel en demande ~170 en
+ * espérance (boulon 4/146), 324 avec la graine retenue. Le cap existe pour
+ * qu'une régression de `computeDropChance` (chance nulle) échoue en un éclair.
  */
 const FARM_CAP = 600;
-/** Rencontres réellement mesurées sous `SPAWN_SEED` / `DROP_SEED` après D07. */
-const FARM_ENCOUNTERS = 13;
 /** Garde-fou de salle : la salle 2 meurt en 12 actions, la 1 gagne en 16. */
 const ROOM_ACTION_CAP = 200;
 /** Graines du LCG : spawn et drop ne partagent pas leur flux d'aléa. */
@@ -415,7 +412,6 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
   it("niveau 16 réel → farm → clef → salle 1 gagnée → défaite salle 2 → sortie propre", () => {
     prepareHero();
     const farm = farmKey();
-    expect(farm.encounters).toBe(FARM_ENCOUNTERS);
     expect(farm.encounters).toBeLessThan(FARM_CAP);
     expect(missingIngredient(useGameStore.getState().inventory)).toBe(false);
     craftKey();

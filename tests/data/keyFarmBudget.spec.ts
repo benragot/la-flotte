@@ -10,37 +10,51 @@ import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
 import type { SpawnZoneDef } from "../../src/schemas/spawnSchema";
 
 /**
- * BUDGET DE FARM DES CLEFS — décision propriétaire D07.
+ * COÛT DES CLEFS DE DONJON — décision `DEC-07` : une clef se ramasse en
+ * **5 à 10 rencontres**, en moyenne. Ce fichier est le garde-fou de la décision
+ * et il parcourt TOUTES les recettes dont le résultat a `category: key` : aucun
+ * id de clef n'est écrit ici, une nouvelle clef est mesurée automatiquement.
  *
- * Une clef de donjon doit coûter **entre 5 et 10 rencontres en moyenne**. Ce test
- * est le garde-fou de la décision : il parcourt TOUTES les recettes dont le
- * résultat a `category: key` (aucun id de clef écrit ici), lit les poids de
- * `spawns.yaml`, les taux de `monsters.yaml` et les quantités de `recipes.yaml`,
- * puis calcule pour chaque ingrédient :
+ * CE QUI EST BORNÉ — LE COÛT TOTAL, PAS LE MAX PAR INGRÉDIENT.
+ * La première version de ce test assertait `max_i(E_i)`. C'était une BORNE
+ * INFÉRIEURE : une clef exigeant tous ses ingrédients sur un même flux de
+ * rencontres coûte `E[max_i]`, pas `max_i`. Sur deux chasses à 9,61 et 9,42,
+ * `E[max] ≈ 9,61 + 9,42 − 5,02 ≈ 14,0` (formule `E[max] = E_a + E_b − E[min]`,
+ * `E[min] = 1/(1 − (1 − p_a)(1 − p_b))`). Le max reste calculé, mais seulement
+ * comme DIAGNOSTIC : il localise le goulot dans le message d'échec.
  *
- *     espérance_i = quantité_i / (part_de_spawn_i × taux_de_drop_i)
+ * COÛT RETENU = LE MOINS CHER DES DEUX CHEMINS, comme un joueur.
+ *   - `craft` : borne HAUTE `Σ quantité_i / chance_i`. On majore `E[max]` en
+ *     ignorant les termes négatifs de l'inclusion–exclusion (`− E[min]`,
+ *     `+ E[min de 3]`…). C'est conservateur : le test ne peut pas laisser
+ *     passer un craft plus long que la réalité.
+ *   - `drop` : si la clef est BUTIN DIRECT d'un monstre de la zone, `1 / p` est
+ *     EXACT (loi géométrique, une rencontre = un tirage indépendant).
+ *   - `total = min(craft, drop)` : le joueur farme un seul flux de rencontres,
+ *     il obtient la clef au premier des deux chemins complété. Une clef qui n'a
+ *     qu'une recette est jugée sur sa recette ; une clef droppable ET craftable
+ *     est jugée sur le chemin le moins cher.
  *
- * APPROXIMATIONS ASSUMÉES (elles vont dans le sens du joueur, et c'est voulu :
- * le test ne doit jamais laisser passer un farm plus long que mesuré) :
- *   1. On prend le **max des espérances par ingrédient**, jamais leur somme : les
- *      rencontres sont PARTAGÉES (un combat ne donne qu'un monstre), donc
- *      additionner les chasses compterait plusieurs fois les mêmes combats.
- *   2. On prend la **meilleure zone** pour chaque ingrédient : c'est le
- *      comportement d'un joueur qui choisit sa plage, pas d'un joueur qui insiste
- *      sur la mauvaise (`spawns.yaml` déclare une zone par map).
- *   3. On prend l'**espérance**, pas la distribution : la variance d'une loi
- *      géométrique rend la malchance invisible ici. Une graine malheureuse coûte
- *      plus cher, c'est `tests/walkthrough/play.spec.ts` qui mesure ce tirage-là.
- *   4. La prospection vaut la valeur de fiche (100) : `computeDropChance` rend
- *      donc exactement `baseDropRate`. Un héros mieux équipé farme moins.
- *   5. Un ingrédient sans lâcheur dans une zone de spawn a une chance nulle, donc
- *      une espérance infinie : le test échoue, ce qui est le but (une ressource
- *      non farmable n'a pas sa place dans une recette de clef).
+ * AUTRES APPROXIMATIONS ASSUMÉES :
+ *   1. La meilleure zone par ingrédient (`spawns.yaml` en déclare une par map) :
+ *      le joueur choisit sa plage, il n'insiste pas sur la mauvaise.
+ *   2. Espérance et non distribution : la variance d'une géométrique reste
+ *      mesurée par `tests/walkthrough/play.spec.ts`, ce test ne la modélise pas.
+ *   3. Prospection = valeur de fiche (100) : `computeDropChance` rend donc
+ *      exactement `baseDropRate`. Un héros mieux équipé farme moins.
+ *   4. Un ingrédient sans lâcheur dans une zone de spawn a une chance nulle, donc
+ *      un coût de craft infini : la clef doit alors être droppable, sinon le
+ *      test échoue — ce qui est le but.
+ *   5. LIMITE CONNUE, non bloquante : un ingrédient dont `ppThreshold` dépasse
+ *      100 serait mesuré à chance nulle (donc « infini ») alors qu'un héros de
+ *      fiche ne pourrait simplement pas le dropper. Fail-safe assumé : le test
+ *      signalera la clef comme infarmable plutôt que de la laisser passer.
  */
 
 const DATA_DIR = join(process.cwd(), "data");
-const MIN_ENCOUNTERS = 5;
-const MAX_ENCOUNTERS = 10;
+/** `DEC-07` : bornes du coût d'obtention d'une clef, en rencontres. */
+const KEY_FIGHTS_MIN = 5;
+const KEY_FIGHTS_MAX = 10;
 /** Prospection de référence : celle des taux de la fiche (§2). */
 const FICHE_PP = 100;
 
@@ -81,7 +95,7 @@ const chancePerFight = (zone: SpawnZoneDef, itemId: string): number =>
     0,
   );
 
-/** Meilleure zone pour cet ingrédient : le joueur choisit sa plage. */
+/** Meilleure zone pour cet item : le joueur choisit sa plage. */
 const bestChancePerFight = (itemId: string): number =>
   zones.reduce((best, zone) => Math.max(best, chancePerFight(zone, itemId)), 0);
 
@@ -102,39 +116,74 @@ const farmRow = (ingredient: RecipeIngredient): FarmRow => {
 
 const farmRows = (recipe: RecipeDef): readonly FarmRow[] => recipe.ingredients.map(farmRow);
 
+/** Diagnostic seulement : le goulot du chemin de craft, jamais la borne. */
 const costliest = (rows: readonly FarmRow[]): FarmRow =>
   rows.reduce((worst, row) => (row.encounters > worst.encounters ? row : worst));
 
+/** Borne haute du craft : Σ E_i majore `E[max]` (intersections retranchées ignorées). */
+const craftCost = (rows: readonly FarmRow[]): number =>
+  rows.reduce((total, row) => total + row.encounters, 0);
+
+/** Chemin direct : loi géométrique de paramètre `p`, donc `E = 1/p` exactement. */
+const dropCost = (itemId: string): number => 1 / bestChancePerFight(itemId);
+
+type Path = "craft" | "drop";
+
+interface CheapestPath {
+  cost: number;
+  path: Path;
+}
+
+/** Le joueur prend le chemin le moins cher : craft (Σ) ou butin direct (1/p). */
+const cheapestPath = (recipe: RecipeDef, rows: readonly FarmRow[]): CheapestPath => {
+  const craft = craftCost(rows);
+  const drop = dropCost(recipe.resultItemId);
+  return drop < craft ? { cost: drop, path: "drop" } : { cost: craft, path: "craft" };
+};
+
+const formatCost = (cost: number): string => (Number.isFinite(cost) ? cost.toFixed(2) : "infini");
+
 const formatRow = (row: FarmRow): string =>
-  `${row.itemId} x${row.quantity} : ${(row.chance * 100).toFixed(2)} %/rencontre → ${row.encounters.toFixed(2)} rencontres`;
+  `${row.itemId} x${row.quantity} : ${(row.chance * 100).toFixed(2)} %/rencontre → ${formatCost(row.encounters)}`;
 
-const tableOf = (recipe: RecipeDef): string =>
-  [`${recipe.id} (${recipe.resultItemId})`, ...farmRows(recipe).map(formatRow)].join("\n  ");
+const summaryOf = (recipe: RecipeDef, rows: readonly FarmRow[]): string => {
+  const best = cheapestPath(recipe, rows);
+  const craft = craftCost(rows);
+  const drop = dropCost(recipe.resultItemId);
+  return `craft (Σ) ${formatCost(craft)} | drop direct ${formatCost(drop)} | retenu ${best.path} ${formatCost(best.cost)}`;
+};
 
-describe("budget de farm des clefs (D07) — le catalogue est bien lu", () => {
+const tableOf = (recipe: RecipeDef): string => {
+  const rows = farmRows(recipe);
+  const lines = [recipe.id, ...rows.map(formatRow), summaryOf(recipe, rows)];
+  return lines.join("\n  ");
+};
+
+describe("coût des clefs (DEC-07) — le catalogue est bien lu", () => {
   it("mesure au moins une recette de clef", () => {
     expect(keyRecipes.map((recipe) => recipe.resultItemId)).not.toEqual([]);
   });
 });
 
 for (const recipe of keyRecipes) {
-  describe(`budget de farm : ${recipe.id}`, () => {
-    it("colle le tableau des espérances par ingrédient", () => {
+  describe(`coût de la clef : ${recipe.id}`, () => {
+    it("colle le tableau des espérances et du coût total", () => {
       // Ce `log` EST le tableau collé dans la PR : une ligne par ingrédient.
       console.log(`\n  ${tableOf(recipe)}`);
-      farmRows(recipe).forEach((row) => expect(row.chance).toBeGreaterThan(0));
+      expect(cheapestPath(recipe, farmRows(recipe)).cost).not.toBeNaN();
     });
 
-    it("n'exige pas plus de 10 rencontres pour son ingrédient le plus cher", () => {
-      const worst = costliest(farmRows(recipe));
-      const message = `la clef demande trop de farm : ${formatRow(worst)} (plafond ${MAX_ENCOUNTERS})`;
-      expect(worst.encounters, message).toBeLessThanOrEqual(MAX_ENCOUNTERS);
+    it("ne coûte pas plus de 10 rencontres, chemin le moins cher compris", () => {
+      const rows = farmRows(recipe);
+      const best = cheapestPath(recipe, rows);
+      const message = `la clef demande trop de farm : ${formatCost(best.cost)} rencontres par « ${best.path} » (goulot du craft : ${formatRow(costliest(rows))} ; plafond ${KEY_FIGHTS_MAX})`;
+      expect(best.cost, message).toBeLessThanOrEqual(KEY_FIGHTS_MAX);
     });
 
-    it("n'est pas donnée : l'ingrédient le plus cher coûte au moins 5 rencontres", () => {
-      const worst = costliest(farmRows(recipe));
-      const message = `la clef est donnée : ${formatRow(worst)} (plancher ${MIN_ENCOUNTERS})`;
-      expect(worst.encounters, message).toBeGreaterThanOrEqual(MIN_ENCOUNTERS);
+    it("n'est pas donnée : au moins 5 rencontres par le meilleur chemin", () => {
+      const best = cheapestPath(recipe, farmRows(recipe));
+      const message = `la clef est donnée : ${formatCost(best.cost)} rencontres par « ${best.path} » (plancher ${KEY_FIGHTS_MIN})`;
+      expect(best.cost, message).toBeGreaterThanOrEqual(KEY_FIGHTS_MIN);
     });
   });
 }
