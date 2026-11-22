@@ -80,12 +80,23 @@ function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): Tok
   return [playerTokenView(exploration.playerPos, origin, heroSprite(exploration)), ...groups];
 }
 
+/**
+ * View model d'exploration : décor iso, héros puis groupes badgés, aucun chemin
+ * et **aucune barre de vie**. En exploration il n'y a pas de combat : la barre
+ * ne dit rien et pollue la carte (retour de playtest). Le champ est un tableau
+ * vide *typé* — un producteur ne peut pas y glisser un jeton sans casser la
+ * compilation.
+ */
+export interface ExplorationViewModel extends ViewModel {
+  hpBarTokens: readonly [];
+}
+
 /** View model d'exploration : décor iso, héros puis groupes badgés, aucun chemin. */
-export function buildExplorationViewModel(input: ExplorationModelInput): ViewModel {
+export function buildExplorationViewModel(input: ExplorationModelInput): ExplorationViewModel {
   const exploration = input.exploration;
   const origin = sceneOrigin(gridSizeOf(exploration), input.viewport);
   const scene = explorationScene(exploration, origin);
   const tokens = attachTrails(explorationTokens(exploration, origin), input.trails);
   const animations = { floats: [], sceneKey: exploration.map ?? null };
-  return { ...animations, scene, tokens, path: [], lastAction: null };
+  return { ...animations, scene, tokens, path: [], lastAction: null, hpBarTokens: [] };
 }

@@ -34,6 +34,12 @@ export interface LastAction {
 export interface ViewModel {
   scene: SceneModel;
   tokens: TokenView[];
+  /**
+   * Jetons qui portent une barre de vie : **seul** le combat en déclare. La
+   * couche de rendu ne lit que ce champ, jamais `tokens` : une scène sans
+   * combat ne peut donc pas faire réapparaître une barre par accident.
+   */
+  hpBarTokens: readonly TokenView[];
   path: TileView[];
   lastAction: LastAction | null;
   /** Nombres flottants produits par le moteur : le rendu ne les recalcule jamais. */
@@ -174,5 +180,5 @@ export function buildViewModel(input: CombatSceneInput): ViewModel {
   const scene = buildSceneModel({ map: combat.map, highlight: highlightFor(input), origin });
   const tokens = attachTrails(combatTokens({ combat, origin, action }), input.trails);
   const animations = { floats: combat.floats ?? [], sceneKey: combat.map };
-  return { ...animations, scene, tokens, path: [], lastAction: action };
+  return { ...animations, scene, tokens, hpBarTokens: tokens, path: [], lastAction: action };
 }
