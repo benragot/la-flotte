@@ -1616,13 +1616,19 @@ function decisionInterdits(): string[] {
   return readFileSync(path, "utf8").split("\n").filter((line) => line.startsWith("**Interdit**"));
 }
 
-/** Le sens de la clause : une double négation dirait le contraire de la décision. */
+/** Le sens de la clause : une double négation dirait le contraire de la décision.
+ * Limite assumée : ce garde-fou attrape la négation littérale (`ne pas`), **pas**
+ * l'inversion par le verbe (« interdire les binaires » est une méta-prohibition qui
+ * dit l'inverse de « tout binaire » interdit). Il ne remplace donc pas la relecture ;
+ * la règle de rédaction est de **nommer l'objet interdit, pas l'acte d'interdire**.
+ * On ne durcit pas la regex : elle produirait des faux positifs sur des tournures
+ * légitimes (`ne peut pas quitter sa carte`, DEC-04). */
 function negatedInterdits(): string[] {
   return decisionInterdits().filter((line) => /\bne pas\b/.test(line));
 }
 
 describe("backlog — décisions du propriétaire (v21)", () => {
-  it("garde le fichier normatif et numérote D01 à D09", () => {
+  it("garde le fichier normatif et numérote DEC-01 à DEC-09", () => {
     expect(existsSync(join(process.cwd(), DECISIONS_PATH))).toBe(true);
     expect(decisionHeadings()).toEqual(DECISION_NUMBERS);
   });

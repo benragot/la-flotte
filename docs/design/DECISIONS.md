@@ -40,7 +40,7 @@
 ## DEC-05 — Sprites procéduraux, pas de binaires (2026-11-22)
 
 **Décision** : les sprites restent **procéduraux**, avec des feuilles **générées à 2×** pour corriger le flou.
-**Interdit** : **Aseprite**, tout éditeur de pixels externe, et **interdire tout binaire** dans le dépôt (pas de `.png`, `.ase`, `.psd` commité).
+**Interdit** : **Aseprite**, tout éditeur de pixels externe, **tout binaire** dans le dépôt (`.png`, `.ase`, `.psd`).
 **Conséquence** : le flou se corrige par la génération à 2× et le rendu `nearest`, jamais par un asset importé.
 
 ## DEC-06 — Mort gratuite (2026-11-22)
