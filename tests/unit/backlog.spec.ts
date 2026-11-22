@@ -1039,8 +1039,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 21", () => {
-    expect(readBacklog().meta.version).toBe(21);
+  it("versionne le backlog en 22", () => {
+    expect(readBacklog().meta.version).toBe(22);
   });
 });
 
