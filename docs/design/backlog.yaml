@@ -387,7 +387,7 @@ waves:
             depends_on: [6A-apmp-retrait, 6A-heal-armor, 6B-zone-geometry]
             notes: docs/design/specs/effects-engine.md §2.5 et PR6 — Crachat, Grignotage, Serrage, Tôle, Graissage, Jet, Pluie
       - id: 6C
-        title: UI archipel et Fruits d'Écho
+        title: Moteur de poussée, liste de combattants et UI archipel
         status: todo
         tasks:
           - id: 6C-push-fidelity

@@ -19,6 +19,7 @@ unlocks: 9 sorts de monstres refusés (§3)
 | `L###` | `docs/design/islands/ile_de_la_ferraille.md`, ligne |
 | `SCH###` | `src/schemas/spellSchema.ts`, ligne |
 | `CAST###` | `src/engine/combatLoop/cast.ts`, ligne |
+| `CASTABLE###` | `src/engine/combatLoop/castable.ts`, ligne |
 | `PUSH###` | `src/engine/combatLoop/push.ts`, ligne |
 | `DMG###` | `src/engine/combat/damage.ts`, ligne |
 | `APMP###` | `src/engine/combat/apMpLoss.ts`, ligne |
@@ -62,7 +63,7 @@ unlocks: 9 sorts de monstres refusés (§3)
 | `soupe_a_lhuile` | soin 12–18 | `L269`, `L393-409` | PR8b |
 | `jet_de_vapeur` | dégâts croix 1 | `L270`, `L412-427` | PR6 |
 | `pluie_de_rivets` | dégâts cercle 1 | `L276`, `L524-539` | PR6 |
-| `graissage` | +1 PM, 2 tours | `L274`, `L486-502`, `L200` | PR6 |
+| `graissage` | +1 PM, 2 tours | `L274`, `L486-502`, `L199` | PR6 |
 | `appel_a_la_casse` | invoque `fer_rat_de_cale`, max 2 | `L278`, `L561-577` | PR8b |
 
 ### 0.4 Valeurs manquantes / décisions à trancher (aucune n'est inventée)
@@ -100,10 +101,10 @@ p = clamp(0.5 * (retrait / esquive) * (restants / max), 0.10, 0.90);
 
 | Mécanique 1.29 | Durée | Implémentation | Utilisée par les 9 ? |
 |---|---|---|---|
-| **Retrait** (ex. Flèche Glacée) | définitif pour le combat | `durationTurns` **absent** | Non |
-| **Réduction** | N tours | `durationTurns: N` | Oui : `durationTurns: 1` (`L296`, `L352`) |
+| **Retrait** (ex. Flèche Glacée) | définitif pour le combat | **hors périmètre** : non représentable, le schéma exige `durationTurns` | Non |
+| **Réduction** | N tours | `durationTurns: N` (requis, §2.4) | Oui : `durationTurns: 1` (`L296`, `L352`) |
 
-> La fiche écrit `durationTurns: 1` : on implémente donc une **réduction temporaire**, pas un retrait définitif. Si le design veut un retrait définitif, retirer `durationTurns` (une ligne de données), le moteur ne change pas.
+> La fiche écrit `durationTurns: 1` : on implémente donc une **réduction temporaire**, pas un retrait définitif. `durationTurns` est **requis** pour `apLoss`/`mpLoss`/`apGain`/`mpGain`/`shield` (§2.4) : aucun des 9 sorts n'étant un retrait définitif, on n'ajoute pas de variante « sans durée » — une règle sans cas d'usage et sans test divergerait.
 
 #### Ordre de résolution
 
@@ -182,7 +183,7 @@ pv = Math.min(maxHp, hp + soin);
 - `base` = jet tiré dans `[min, max]` (ex. `12–18`, `L269`).
 - C'est **multiplicatif**, pas `base + intelligence`.
 - `bonusSoins` = équipement (0 pour les monstres) ; ajouté **après** l'arrondi (`JOL-SOIN`).
-- **Sagesse : aucun effet** sur les soins (`JOL-SOIN`, `DOFUSX`).
+- **Sagesse : aucun effet** sur les soins (`JOL-SOIN`).
 - **Critique** : possible en 1.29 (les sorts de soin ont des valeurs CC), mais la fiche ne donne **aucune valeur** ⇒ pas de critique (Q4).
 - **Mort** : un soin ne ressuscite jamais ; `hp === 0` ⇒ cible inchangée.
 - **Surplus** : perdu (cap `maxHp`).
@@ -192,7 +193,7 @@ pv = Math.min(maxHp, hp + soin);
 
 | Cas | base | Int | Cible | Calcul | Résultat |
 |---|---|---|---|---|---|
-| Marmite (`L148` int 40) | 12 | 40 | 50/85 | `floor(12×140/100)=16` | **66/85** |
+| Marmite (`L149` int 40) | 12 | 40 | 50/85 | `floor(12×140/100)=16` | **66/85** |
 | Marmite, jet max | 18 | 40 | 50/85 | `floor(18×140/100)=25` | **75/85** |
 | Soin capé | 18 | 40 | 70/85 | `70+25=95` ⇒ cap | **85/85** |
 | Sans Intelligence | 12 | 0 | 50/85 | `12` | **62/85** |
@@ -202,7 +203,7 @@ pv = Math.min(maxHp, hp + soin);
 
 ### 1.4 Zones de sorts
 
-`size` = **rayon** autour de la case ciblée. Preuve interne : la fiche utilise `zone: {type: target, size: 0}` pour « Cible » (une case) sur 13 sorts (`L290`, `L309`, etc.), donc `size` n'est pas un nombre de cases total.
+`size` = **rayon** autour de la case ciblée. Preuve interne : la fiche utilise `zone: {type: target, size: 0}` pour « Cible » (une case) sur 14 sorts (`L290, 309, 328, 346, 365, 383, 402, 439, 458, 477, 495, 514, 551, 570`), donc `size` n'est pas un nombre de cases total.
 
 ```ts
 target(0) = {(0,0)}
@@ -229,7 +230,7 @@ croix 1          cercle 1        croix 2          cercle 2
 
 | Question | Règle |
 |---|---|
-| LoS requise ? | **Case ciblée uniquement** ; les cases de la zone ne sont pas testées (`CAST:21-26` teste le centre) |
+| LoS requise ? | **Case ciblée uniquement** ; les cases de la zone ne sont pas testées (`CASTABLE:21-30` : `hasSight` + `isDamageCell` ne regardent que la case ciblée) |
 | Mur `#` dans la zone | case géométrique sans combattant ; **ne tronque pas** les autres branches |
 | Case hors carte | ignorée, pas d'erreur |
 | Centre `#` ou `~` | **invalide** (case non praticable) |
@@ -260,7 +261,7 @@ croix 1          cercle 1        croix 2          cercle 2
 | Début de tour | `ap = maxApEffectif`, `mp = maxMpEffectif` (`TURN:5-7` à adapter) |
 | Durée | source : expire au début du tour du lanceur |
 | Cumul | additif entre sources ; même source = refresh |
-| Cible | `self` / `ally` ; `Graissage` cible un allié (`L200`) mais la portée 0–3 autorise soi-même |
+| Cible | `self` / `ally` ; `Graissage` cible un allié (`L199`) mais la portée 0–3 autorise soi-même |
 
 #### Cas chiffrés
 
@@ -283,7 +284,7 @@ croix 1          cercle 1        croix 2          cercle 2
 | Durée de vie | jusqu'à 0 PV ou fin de combat ; pas de limite de tours dans la fiche |
 | Initiative | `floor((force+intelligence+chance+agilité) × hp/maxHp)` ; à l'apparition PV pleins ⇒ somme des 4 stats |
 | PV | `floor(PdV_monstre × (100 + niveau_invocateur) / 100)` (`JOL-SUMMON`, Q5) |
-| PA/PM | ceux du monstre (`L70-72` pour le rat : 5/3) |
+| PA/PM | ceux du monstre (`L69-70` pour le rat : 5/3) |
 | Placement | case libre et praticable ; sinon cast refusé, PA non dépensés |
 | Mort de l'invocateur | persiste (Q6) ; la victoire exige tous les ennemis morts, invocation incluse |
 | Mort de l'invocation | retirée de l'ordre ; sa case libérée |
@@ -296,7 +297,7 @@ croix 1          cercle 1        croix 2          cercle 2
 | PV à Yvon niv. 20 | 52 PV, `L20` niv. 20 | `floor(52×1.2)=` **62** |
 | Max invocations | `maxSummons: 2` | 3e cast refusé, PA non dépensés |
 | Mort de l'invocateur | rat encore vivant | rat **reste** (Q6) |
-| Victoire | boss mort, rat vivant | **pas** victoire (`outcome.ts:10-12`) |
+| Victoire | boss mort, rat vivant | **pas** victoire (`src/engine/multiCombat/outcome.ts:10-12`) |
 
 ### 1.7 Push / pull — notre modèle est-il fidèle ?
 
@@ -306,7 +307,7 @@ dégâts = Math.floor((8 + roll * niveauLanceur / 50) * distance) + DoPou - RéP
 secondaire = Math.max(0, Math.floor(dégâts / 2) - RéPouSecondaire);
 ```
 
-- `roll` ∈ `[1..8]`, injecté (`JOL-PUSH`, `PB:8-15`).
+- `roll` attendu ∈ `[1..8]` (`JOL-PUSH`), mais **aucun code ne le tire aujourd'hui** : en 1v1 `cast.ts:108` réutilise le jet de dégâts (`cast.ts:81-86`) ; en 1vN `strike.ts:76` lit `attack.roll ?? 0` alors que `battleSelectors.ts:72-74` (`spellAttackSpec`) ne renseigne jamais `roll` ⇒ **`roll` vaut toujours 0** et les dégâts de poussée se réduisent à `floor(8 × distance)`. **PR7 doit injecter un vrai jet 1..8 dans les deux chemins.**
 - `distance` = cases que la cible **aurait dû** parcourir, pas celles réellement parcourues (`JOL-PUSH`, `JOL-RETRAIT` 2021).
 - Cible secondaire : moitié **puis** soustraction de `RéPou`, chaîne possible (`JOL-PUSH`).
 - Diagonale : la distance n'est **pas** doublée (`JOL-PUSH`).
@@ -321,7 +322,7 @@ secondaire = Math.max(0, Math.floor(dégâts / 2) - RéPouSecondaire);
 | Résistance poussée | absente | `RéPou` | **non fidèle** |
 | Formule de base | `(8+roll×niv/50)×distance` | identique | **fidèle** |
 | Armure | non appliquée | non appliquée | **fidèle** |
-| Aléa | `roll` injecté | 1..8 aléatoire | **fidèle** (déterminisme) |
+| Aléa | jet de dégâts réutilisé (`CAST:108`, 1v1) ou `0` (`strike.ts:76`, 1vN) | 1..8 aléatoire | **non fidèle** |
 
 #### Cas chiffrés — niveau 20, roll 4, poussée 3
 
@@ -485,7 +486,7 @@ Schéma seul + migration `effect.duration` → `durationTurns` (11 occurrences).
 Intégration dans `cast.ts` : `damage + riders`, `heal` self, `buff` self, `debuff`, `shield`, `zone`. Ajout de **7 sorts** : Crachat, Grignotage, Serrage, Tôle, Graissage, Jet, Pluie.
 
 ### PR7 — `feat/push-fidelity`
-Diagonale, `cells - travelled`, bloqueurs combattants, `RéPou`, chaîne secondaire.
+Diagonale, `cells - travelled`, bloqueurs combattants, `RéPou`, chaîne secondaire, et **jet 1..8 réellement tiré** dans les deux chemins (1v1 et 1vN), au lieu du jet de dégâts réutilisé ou du `0` constant.
 
 ### PR8a — `feat/combatants-list`
 `CombatState` : `player`/`enemy` → `combatants: CombatantState[]` (adaptateur 1v1 conservé). Aucun changement de comportement ; tous les tests `combatLoop` passent **sans modification d'assertion**.
@@ -542,7 +543,7 @@ Trigger `breakOnWallPush` : si la cible a un shield actif et que la poussée est
 4. **PR4** `feat/heal-armor` — soin + absorption.
 5. **PR5** `feat/zone-geometry` — formes, murs, LoS, falloff.
 6. **PR6** `feat/cast-riders` — intégration 1v1 + 7 sorts.
-7. **PR7** `feat/push-fidelity` — diagonale, distance non parcourue, RéPou.
+7. **PR7** `feat/push-fidelity` — diagonale, distance non parcourue, RéPou, jet 1..8.
 8. **PR8a** `feat/combatants-list` — migration N combattants.
 9. **PR8b** `feat/summon` — Soupe + Appel.
 10. **PR9** `feat/boss-carapace` — cassure du bouclier + −2 PA.

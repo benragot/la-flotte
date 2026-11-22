@@ -760,7 +760,7 @@ describe("backlog — dettes des audits #44/#45", () => {
     });
   }
 
-  it("verse les six dettes avec leur sévérité et leur cible", () => {
+  it("verse les cinq dettes avec leur sévérité et leur cible", () => {
     expect(auditGaps(readBacklog())).toEqual([]);
   });
 
