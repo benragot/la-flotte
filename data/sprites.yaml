@@ -1,0 +1,134 @@
+# Manifeste des feuilles de sprites animées.
+# Format : 256 × 256, grille 4 × 4 de cellules 64 × 64.
+#   ligne 0 = idle, ligne 1 = walk, ligne 2 = attack, ligne 3 = hit
+# Les SVG sont générés par `node scripts/generate-sprites.mjs` (déterministe).
+sprites:
+  - entityId: iop
+    path: /assets/sprites/iop.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: cra
+    path: /assets/sprites/cra.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: feca
+    path: /assets/sprites/feca.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: sram
+    path: /assets/sprites/sram.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: eniripsa
+    path: /assets/sprites/eniripsa.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: enutrof
+    path: /assets/sprites/enutrof.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: osamodas
+    path: /assets/sprites/osamodas.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: xelor
+    path: /assets/sprites/xelor.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: ecaflip
+    path: /assets/sprites/ecaflip.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: sadida
+    path: /assets/sprites/sadida.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: sacrieur
+    path: /assets/sprites/sacrieur.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: pandawa
+    path: /assets/sprites/pandawa.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: piou_mazoute
+    path: /assets/sprites/piou_mazoute.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
