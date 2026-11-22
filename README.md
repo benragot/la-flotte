@@ -48,6 +48,24 @@ npx playwright install chromium
 Ne lance **jamais `npm install` dans un worktree** : npm supprime le symlink,
 installe une copie locale, et `npm run test:ui` casse partout ailleurs.
 
+⚠️ **Chaque worktree a son propre cache Vite.** Le défaut Vite
+(`node_modules/.vite`) traverse le symlink `node_modules` : deux serveurs
+(`npm run dev`, `test:ui`, `npm run play`) partageaient donc le même cache et se
+ré-optimisaient mutuellement, ce qui invalidait les chunks de l'autre
+(`504 Outdated Optimize Dep` sur un chunk `pixi`) et affichait
+« Canvas indisponible ». `vite.config.ts` fixe `cacheDir: ".vite-cache"`,
+résolu depuis le `root` de chaque worktree, donc un cache par dossier.
+
+Si « Canvas indisponible » réapparaît (cache d'une version antérieure, ou
+`.vite-cache` corrompu après un arrêt brutal), purge le cache **du dossier
+courant** puis recharge à froid :
+
+```bash
+rm -rf .vite-cache            # un cache par worktree : le tien seulement
+rm -rf node_modules/.vite     # reliquat du cache partagé d'avant ce correctif
+# navigateur : DevTools ouvert → Cmd+Shift+R (hard reload)
+```
+
 ## Jouer une session automatiquement
 
 ```bash

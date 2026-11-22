@@ -40,6 +40,15 @@ export function seedForMap(mapId: string): number {
   return hash >>> 0;
 }
 
+/**
+ * Graine d'un respawn : `(mapId, rang du respawn)` hachés par la même FNV-1a que
+ * `seedForMap`. La carte rechargée repart à `respawns = 0` et **rejoue la même
+ * suite** ; deux respawns successifs ne tirent jamais la même graine.
+ */
+export function seedForRespawn(mapId: string, respawns: number): number {
+  return seedForMap(`${mapId}#respawn#${respawns}`);
+}
+
 export interface PlacementInput {
   map: AsciiMap;
   /**

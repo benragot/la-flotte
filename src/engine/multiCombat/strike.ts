@@ -1,4 +1,4 @@
-import { computeDamage, computePushbackDamage } from "../combat";
+import { computeDamage, computePushbackDamage, appendFloat } from "../combat";
 import { applyPush } from "../combatLoop";
 import type { CombatantState, PushInput, PushResult } from "../combatLoop";
 import type { Element } from "../../schemas/spellSchema";
@@ -122,7 +122,12 @@ export function applyHit(context: DamageContext, damage: number, push: PushOutco
   const target = { ...context.target, position: push.position };
   const hp = Math.max(0, target.hp - damage - push.damage);
   const next = withCombatant(context.state, { ...target, hp });
-  return appendLog(next, describeHit(context, damage + push.damage));
+  return appendLog(floatHit(next, target, hp), describeHit(context, damage + push.damage));
+}
+
+/** Le nombre flottant porte la **cible** et la valeur réellement retirée aux PV. */
+function floatHit(state: BattleState, target: CombatantLike, hpAfter: number): BattleState {
+  return appendFloat(state, { targetId: target.id, amount: target.hp - hpAfter, kind: "damage" });
 }
 
 /** Coup complet : poussée calculée avant les dégâts pour connaître la position finale. */

@@ -16,6 +16,10 @@ export interface ExplorationState {
   playerPos: Position;
   monsterGroups: MonsterGroup[];
   log: string[];
+  /** Cases d'entrée : départ `P` + sorties. Le respawn les traite comme le héros. */
+  entries: Position[];
+  /** Respawns déjà effectués sur cette carte : dérive la graine du tirage. */
+  respawns: number;
 }
 
 export interface MoveResult {
@@ -72,8 +76,14 @@ export interface SpawnPlan {
   readonly roster: readonly RosterEntry[];
 }
 
+/**
+ * Un groupe vaincu est remplacé **immédiatement** : la carte remonte au `min` de
+ * sa zone. `rng` vient de l'appelant, seedé par `seedForRespawn(mapId, respawns)`.
+ */
 export interface RespawnInput {
   state: ExplorationState;
   spawn: MonsterSpawn;
+  /** `groups.min` de la zone : cible du repeuplement. */
+  minGroups: number;
   rng: Rng;
 }

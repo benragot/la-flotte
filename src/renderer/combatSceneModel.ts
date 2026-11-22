@@ -1,4 +1,5 @@
 import type { Position } from "../engine/grid";
+import type { FloatingEvent } from "../engine/combat";
 import type { CombatantKind, CombatState } from "../engine/combatLoop/types";
 import { getCastableCells } from "../engine/combatLoop/castable";
 import { getReachableCells } from "../engine/combatLoop/cells";
@@ -35,6 +36,10 @@ export interface ViewModel {
   tokens: TokenView[];
   path: TileView[];
   lastAction: LastAction | null;
+  /** Nombres flottants produits par le moteur : le rendu ne les recalcule jamais. */
+  floats?: readonly FloatingEvent[];
+  /** Identité de la carte dessinée : une carte neuve annule les animations en vol. */
+  sceneKey?: object | null;
 }
 
 const MOVE_MARKERS = [" se déplace"];
@@ -168,5 +173,6 @@ export function buildViewModel(input: CombatSceneInput): ViewModel {
   const origin = sceneOrigin(mapSize(combat), input.viewport);
   const scene = buildSceneModel({ map: combat.map, highlight: highlightFor(input), origin });
   const tokens = attachTrails(combatTokens({ combat, origin, action }), input.trails);
-  return { scene, tokens, path: [], lastAction: action };
+  const animations = { floats: combat.floats ?? [], sceneKey: combat.map };
+  return { ...animations, scene, tokens, path: [], lastAction: action };
 }
