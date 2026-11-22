@@ -2,15 +2,18 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
+import { equipItem } from "../../src/engine/inventory";
 import { itemStatsSchema, parseItemsYaml } from "../../src/schemas/itemSchema";
-import type { ItemDef } from "../../src/schemas/itemSchema";
+import type { EquipmentDef, ItemDef } from "../../src/schemas/itemSchema";
 import { parseSetsYaml } from "../../src/schemas/setSchema";
 import type { SetDef } from "../../src/schemas/setSchema";
+import { itemDetailView } from "../../src/ui/components/inventory/itemDetailView";
 
 /**
  * Garde-fou de la fiche d'île : le YAML est confronté **directement** au
  * document `docs/design/islands/ile_de_la_ferraille.md` (§5 et §6). Aucune
  * valeur n'est recopiée ici : la fiche est la source, `data/` est le miroir.
+ * Les **13** pièces du §6 sont exigées, sans exception de slot.
  */
 const DATA_DIR = join(process.cwd(), "data");
 const DOC_PATH = join(process.cwd(), "docs", "design", "islands", "ile_de_la_ferraille.md");
@@ -22,10 +25,12 @@ const SET_SLOTS = ["hat", "cloak", "amulet", "boots"];
 const SLOT_ALIASES: Record<string, string> = { ring: "ring1" };
 /** Clés du §5/§6 sans équivalent dans `itemStatsSchema` : omises, jamais réécrites. */
 const OMITTED_STATS = ["crit", "initiative", "flatDamage"];
-/** Renommage explicitement acté par le §10.16 de la fiche. */
+/** Renommage explicitement acté par le §16 de la fiche. */
 const RENAMED_STATS: Record<string, string> = { percentDamage: "percentDmg" };
 /** Plafond du schéma (`MAX_TIER_PIECES` / plafond de 4 pièces). */
 const MAX_PIECES = 4;
+/** Les deux ceintures du §6 : slot légitime de `EQUIPMENT_SLOTS`, jamais en panoplie. */
+const CEINTURES = ["fer_ceinture_goudron", "fer_ceinture_outils_rouilles"];
 
 interface FicheRange {
   min: number;
@@ -82,6 +87,12 @@ function equipById(id: string): Equipment | undefined {
 
 const slotOf = (id: string): string | undefined => equipById(id)?.slot;
 
+function mustEquip(id: string): Equipment {
+  const item = equipById(id);
+  if (item === undefined) throw new Error(`${id} absent de data/items.yaml`);
+  return item;
+}
+
 function ficheSet(id: string): FicheSet {
   const entry = FICHE_SETS.find((candidate) => candidate.id === id);
   if (entry === undefined) throw new Error(`${id} absent de la fiche §6`);
@@ -99,15 +110,6 @@ function expectedTier(stats: Record<string, number> | undefined): Record<string,
   const kept = Object.entries(stats ?? {}).filter(([key]) => !OMITTED_STATS.includes(key));
   return Object.fromEntries(kept.map(([key, value]) => [RENAMED_STATS[key] ?? key, value]));
 }
-
-/**
- * Pièces du §6 livrables en données : tout sauf le slot `belt`, que
- * `tests/unit/itemDetailView.spec.ts` rend inutilisable (il mute `slot` vers
- * `belt`, donc une pièce déjà en `belt` ne change pas de vue et échoue au
- * contrôle d'exhaustivité). Blocage hors `data/`, signalé dans la PR.
- */
-const BLOCKED_SLOTS = ["belt"];
-const desservies = (): FicheEntry[] => FICHE_PIECES.filter((piece) => !BLOCKED_SLOTS.includes(piece.slot ?? ""));
 
 describe("fiche §5 — armes de la Ferraille", () => {
   it("décrit quatre armes dans la fiche", () => {
@@ -134,14 +136,14 @@ describe("fiche §5 — armes de la Ferraille", () => {
   });
 });
 
-describe("fiche §6 — pièces d'équipement", () => {
-  it("décrit treize pièces dans la fiche, dont onze livrables", () => {
+describe("fiche §6 — les treize pièces d'équipement", () => {
+  it("décrit treize pièces dans la fiche, toutes livrées", () => {
     expect(FICHE_PIECES).toHaveLength(13);
-    expect(desservies()).toHaveLength(11);
+    FICHE_PIECES.forEach((piece) => expect(itemById(piece.id), piece.id).toBeDefined());
   });
 
-  it("expose chaque pièce jouable avec son nom, son niveau et son slot", () => {
-    desservies().forEach((piece) => {
+  it("expose chaque pièce avec son nom, son niveau et son slot", () => {
+    FICHE_PIECES.forEach((piece) => {
       const item = equipById(piece.id);
       expect(item, piece.id).toBeDefined();
       expect(item?.category, piece.id).toBe("equipment");
@@ -153,9 +155,8 @@ describe("fiche §6 — pièces d'équipement", () => {
   });
 
   it("porte les stats de la fiche au jet maximum, clés hors schéma exclues", () => {
-    [...FICHE_WEAPONS, ...desservies()].forEach((entry) => {
-      const stats = equipById(entry.id)?.stats;
-      expect(stats, entry.id).toEqual(expectedStats(entry.stats));
+    [...FICHE_WEAPONS, ...FICHE_PIECES].forEach((entry) => {
+      expect(equipById(entry.id)?.stats, entry.id).toEqual(expectedStats(entry.stats));
     });
   });
 
@@ -166,6 +167,33 @@ describe("fiche §6 — pièces d'équipement", () => {
       Object.keys(item.stats ?? {}).forEach((key) => {
         expect(allowed.has(key), `${item.id}.${key} serait supprimé sans erreur`).toBe(true);
       });
+    });
+  });
+});
+
+describe("fiche §6 — les deux ceintures (slot `belt`)", () => {
+  it("les livre en equipement `belt`, sans setId : `checkSetSlot` l'interdit", () => {
+    CEINTURES.forEach((id) => {
+      const item = equipById(id);
+      expect(item, id).toBeDefined();
+      expect(item?.slot, id).toBe("belt");
+      expect(item?.setId, id).toBeUndefined();
+    });
+  });
+
+  it("les équipe réellement dans le slot belt de l'inventaire", () => {
+    CEINTURES.forEach((id) => {
+      const inventory = { stacks: [{ itemId: id, quantity: 1 }], equipment: {} };
+      expect(equipItem({ inventory, item: mustEquip(id) }).equipment.belt, id).toBe(id);
+    });
+  });
+
+  it("rend `slot` discriminant : muter le slot change la vue, même depuis belt", () => {
+    const sets = loadSets();
+    CEINTURES.forEach((id) => {
+      const item = mustEquip(id);
+      const mutated = { ...item, slot: "hat" as EquipmentDef["slot"] };
+      expect(itemDetailView(mutated, { sets }).slot, id).not.toBe(itemDetailView(item, { sets }).slot);
     });
   });
 });
@@ -193,7 +221,6 @@ describe("panoplies de la fiche — ce que le schéma peut représenter", () => 
         .forEach((item) => expect(set.pieceIds, item.id).toContain(item.id));
     });
   });
-
 });
 
 describe("panoplies de la fiche — fidélité aux paliers", () => {
@@ -213,6 +240,16 @@ describe("panoplies de la fiche — fidélité aux paliers", () => {
     expect(setById(fiche.id)?.bonuses).toEqual(tiers);
   });
 
+  it("garde les pièces écartées du plafond comme équipements sans panoplie", () => {
+    const fiche = ficheSet("fer_set_brico_lourd");
+    const horsPlafond = fiche.pieceIds.filter((id) => !SET_SLOTS.includes(slotOf(id) ?? ""));
+    expect(horsPlafond).toEqual(["fer_ceinture_outils_rouilles"]);
+    horsPlafond.forEach((id) => {
+      expect(equipById(id), id).toBeDefined();
+      expect(equipById(id)?.setId, id).toBeUndefined();
+    });
+  });
+
   it("laisse Goudron-et-Plumes hors de sets.yaml : trois slots légaux pour quatre exigés", () => {
     const fiche = ficheSet("fer_set_goudron_plumes");
     const legal = fiche.pieceIds.filter((id) => SET_SLOTS.includes(slotOf(id) ?? ""));
@@ -220,9 +257,10 @@ describe("panoplies de la fiche — fidélité aux paliers", () => {
     expect(setById(fiche.id), "D33 : SET_SLOTS + MIN_TIERS interdisent 3 pièces").toBeUndefined();
   });
 
-  it("ne livre aucune pièce du slot `belt` : mutation `slot → belt` du test UI", () => {
-    const blocked = FICHE_PIECES.filter((piece) => BLOCKED_SLOTS.includes(piece.slot ?? ""));
-    expect(blocked.map((piece) => piece.id)).toEqual(["fer_ceinture_goudron", "fer_ceinture_outils_rouilles"]);
-    blocked.forEach((piece) => expect(itemById(piece.id), piece.id).toBeUndefined());
+  it("livre les cinq pièces Goudron-et-Plumes en équipements autonomes", () => {
+    ficheSet("fer_set_goudron_plumes").pieceIds.forEach((id) => {
+      expect(equipById(id), id).toBeDefined();
+      expect(equipById(id)?.setId, id).toBeUndefined();
+    });
   });
 });

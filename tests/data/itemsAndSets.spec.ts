@@ -85,12 +85,12 @@ describe("items.yaml", () => {
     ids.forEach((id) => expect(id).toMatch(SNAKE_CASE));
   });
 
-  it("déclare neuf ressources, deux consommables, vingt équipements et une clef", () => {
+  it("déclare neuf ressources, deux consommables, vingt-deux équipements et une clef", () => {
     const items = loadItems();
     expect(items.filter((item) => item.category === "resource").length).toBe(9);
     expect(items.filter((item) => item.category === "consumable").length).toBe(2);
-    // 5 historiques + 4 armes (§5) + 11 pièces (§6) de la fiche de la Ferraille.
-    expect(equipmentOf(items).length).toBe(20);
+    // 5 historiques + 4 armes (§5) + 13 pièces (§6) de la fiche de la Ferraille.
+    expect(equipmentOf(items).length).toBe(22);
     expect(items.filter((item) => item.category === "key").length).toBe(1);
   });
 
