@@ -2,13 +2,15 @@ import { create } from "zustand";
 import classesYaml from "../../data/classes.yaml";
 import itemsYaml from "../../data/items.yaml";
 import progressionYaml from "../../data/progression.yaml";
+import recipesYaml from "../../data/recipes.yaml";
 import setsYaml from "../../data/sets.yaml";
 import type { CombatRewards } from "../engine/combatLoop/types";
 import type { Hero } from "../engine/createHero";
 import { createHero } from "../engine/createHero";
+import { craftMany, findRecipe, isRecipeKnown } from "../engine/craft";
 import { findItem, creditDrops, emptyInventory, inventoryFromSnapshot, toInventorySnapshot } from "./gameSelectors";
 import { gainXp, heroFromSnapshot, heroToSnapshot, spendCapitalPoints } from "../engine/hero";
-import { addItem, equipItem, unequipItem, useConsumable } from "../engine/inventory";
+import { addItem, countItem, equipItem, removeItem, unequipItem, useConsumable } from "../engine/inventory";
 import type { EquipmentSlot, InventoryState, ItemLike } from "../engine/inventory";
 import {
   createSave,
@@ -22,12 +24,30 @@ import { classesFileSchema } from "../schemas/classSchema";
 import type { ClassDef, StatKey } from "../schemas/classSchema";
 import { itemsFileSchema } from "../schemas/itemSchema";
 import { progressionFileSchema } from "../schemas/progressionSchema";
+import { recipesFileSchema } from "../schemas/recipeSchema";
 import { setsFileSchema } from "../schemas/setSchema";
+
+export interface BankMoveInput {
+  itemId: string;
+  quantity: number;
+}
+
+export interface CraftRecipeInput {
+  recipeId: string;
+  times?: number;
+}
+
+export interface CraftRecipeResult {
+  crafted: number;
+}
 
 export interface GameStore {
   hero: Hero | null;
   inventory: InventoryState;
+  bank: InventoryState;
   flags: Record<string, boolean>;
+  /** En V1, toutes les recettes du catalogue sont connues ; la découverte viendra en 6B. */
+  knownRecipeIds: string[];
   /** Clé de stockage, injectable par les tests via `setState`. */
   saveKey: string;
   createCharacter: (input: { name: string; classId: string }) => void;
@@ -36,6 +56,10 @@ export interface GameStore {
   unequip: (input: { slot: EquipmentSlot }) => void;
   drinkConsumable: (input: { itemId: string }) => void;
   creditCombatRewards: (rewards: CombatRewards) => void;
+  depositToBank: (input: BankMoveInput) => void;
+  withdrawFromBank: (input: BankMoveInput) => void;
+  /** Aucun XP de craft en V1 : le métier viendra avec la découverte de recettes. */
+  craftRecipe: (input: CraftRecipeInput) => CraftRecipeResult;
   saveGame: (storage?: StorageLike) => boolean;
   loadGame: (storage?: StorageLike) => boolean;
   exportJson: () => string | null;
@@ -56,11 +80,15 @@ type StoreSetter = (partial: StoreUpdate) => void;
 const classes = classesFileSchema.parse(classesYaml).classes;
 const itemDefs = itemsFileSchema.parse(itemsYaml).items;
 const items: readonly ItemLike[] = itemDefs;
+const recipes = recipesFileSchema.parse(recipesYaml).recipes;
 const sets = setsFileSchema.parse(setsYaml).sets;
 const progression = progressionFileSchema.parse(progressionYaml);
 
 /** Catalogue validé, partagé avec l'arène (aucune donnée métier en dur). */
-export const GAME_CATALOG = { classes, items, sets, progression } as const;
+export const GAME_CATALOG = { classes, items, recipes, sets, progression } as const;
+
+/** En V1, toutes les recettes du catalogue sont connues ; la découverte viendra en 6B. */
+const KNOWN_RECIPE_IDS = recipes.map((recipe) => recipe.id);
 
 export const DEFAULT_SAVE_KEY = "la-flotte-save-slot-1";
 
@@ -87,6 +115,11 @@ function emptyGame(): GameState {
   return { hero: null, inventory: emptyInventory(), flags: {} };
 }
 
+/** État complet hors persistance : le coffre n'est pas encore sauvegardé (dette D55). */
+function emptyStore(): GameState & { bank: InventoryState } {
+  return { ...emptyGame(), bank: emptyInventory() };
+}
+
 function startingInventory(): InventoryState {
   return STARTING_ITEM_IDS.reduce(
     (inventory, itemId) => addItem({ inventory, itemId, quantity: 1 }),
@@ -94,11 +127,11 @@ function startingInventory(): InventoryState {
   );
 }
 
-function createdGame(input: { name: string; classId: string }): Partial<GameState> {
+function createdGame(input: { name: string; classId: string }): Partial<GameStore> {
   const classDef = classDefFor(input.classId);
   if (classDef === undefined) return {};
   const hero = createHero(input.name, classDef);
-  return { ...emptyGame(), hero, inventory: startingInventory() };
+  return { ...emptyStore(), hero, inventory: startingInventory() };
 }
 
 function allocatedGame(hero: Hero | null, input: { stat: StatKey; points: number }): Partial<GameState> {
@@ -135,6 +168,61 @@ function creditedGame(
   const options = { hero, amount: rewards.xpGained, apRules: progression.apRules };
   const leveled = gainXp({ ...options, tiers: progression.xpThresholds, gainRules: progression.gainRules });
   return { hero: leveled.hero, inventory: creditDrops({ inventory, drops: rewards.drops, items }) };
+}
+
+interface TransferInput {
+  from: InventoryState;
+  to: InventoryState;
+  itemId: string;
+  quantity: number;
+}
+
+interface TransferResult {
+  from: InventoryState;
+  to: InventoryState;
+}
+
+/** Refus total : les deux inventaires sont rendus par identité, aucun transfert partiel. */
+function refusedTransfer(input: TransferInput): TransferResult {
+  return { from: input.from, to: input.to };
+}
+
+/** Déplace `quantity` unités, tout-ou-rien : le stock est vérifié avant tout retrait. */
+function transferStack(input: TransferInput): TransferResult {
+  const owned = countItem(input.from, input.itemId);
+  if (input.quantity <= 0 || owned < input.quantity) return refusedTransfer(input);
+  const from = removeItem({ inventory: input.from, itemId: input.itemId, quantity: input.quantity });
+  const to = addItem({ inventory: input.to, itemId: input.itemId, quantity: input.quantity });
+  return { from, to };
+}
+
+function depositedGame(state: GameStore, input: BankMoveInput): Partial<GameStore> {
+  const result = transferStack({ from: state.inventory, to: state.bank, ...input });
+  return { inventory: result.from, bank: result.to };
+}
+
+function withdrawnGame(state: GameStore, input: BankMoveInput): Partial<GameStore> {
+  const result = transferStack({ from: state.bank, to: state.inventory, ...input });
+  return { inventory: result.to, bank: result.from };
+}
+
+interface CraftOutcome {
+  inventory: InventoryState;
+  crafted: number;
+}
+
+function failedCraft(inventory: InventoryState): CraftOutcome {
+  return { inventory, crafted: 0 };
+}
+
+/** Délègue au moteur de craft ; recette absente ou inconnue ⇒ aucun changement. */
+function craftInStore(state: GameStore, input: CraftRecipeInput): CraftOutcome {
+  const recipe = findRecipe(recipes, input.recipeId);
+  if (recipe === null) return failedCraft(state.inventory);
+  if (!isRecipeKnown({ recipe, knownRecipeIds: state.knownRecipeIds })) return failedCraft(state.inventory);
+  const options = { recipe, inventory: state.inventory, times: input.times ?? 1 };
+  const result = craftMany(options);
+  return { inventory: result.inventory, crafted: result.craftedCount };
 }
 
 function currentSave(game: GameState): SaveData | null {
@@ -206,13 +294,37 @@ function saveActions(set: StoreSetter, get: () => GameStore): SaveActions {
     loadGame: (storage) => applySave(set, readSave(storage, get().saveKey)),
     exportJson: () => exportState(get()),
     importJson: (raw) => importState(set, raw),
-    resetGame: () => set(emptyGame()),
+    resetGame: () => set(emptyStore()),
+  };
+}
+
+type BankActions = Pick<GameStore, "depositToBank" | "withdrawFromBank">;
+
+function bankActions(set: StoreSetter): BankActions {
+  return {
+    depositToBank: (input) => set((state) => depositedGame(state, input)),
+    withdrawFromBank: (input) => set((state) => withdrawnGame(state, input)),
+  };
+}
+
+type CraftActions = Pick<GameStore, "craftRecipe">;
+
+function craftActions(set: StoreSetter, get: () => GameStore): CraftActions {
+  return {
+    craftRecipe: (input) => {
+      const outcome = craftInStore(get(), input);
+      if (outcome.crafted > 0) set({ inventory: outcome.inventory });
+      return { crafted: outcome.crafted };
+    },
   };
 }
 
 export const useGameStore = create<GameStore>((set, get) => ({
-  ...emptyGame(),
+  ...emptyStore(),
+  knownRecipeIds: KNOWN_RECIPE_IDS,
   saveKey: DEFAULT_SAVE_KEY,
   ...characterActions(set),
+  ...bankActions(set),
+  ...craftActions(set, get),
   ...saveActions(set, get),
 }));
