@@ -18,10 +18,16 @@ function hasSprite(token: TokenView): boolean {
   return token.spriteId !== null;
 }
 
+/** Clé d'acteur : l'identité du **jeton**, jamais la feuille. Deux Pious = deux acteurs. */
+function actorKey(token: TokenView): string {
+  return `${token.id}|${token.spriteId ?? ""}`;
+}
+
 /**
- * Couche des acteurs animés : un `EntitySprite` par `spriteId`, créé une fois
- * puis réutilisé. Les jetons sans feuille (groupes d'exploration) restent
- * dessinés en géométrique par la couche `tokens`.
+ * Couche des acteurs animés : un `EntitySprite` par **jeton**, créé une fois puis
+ * réutilisé. Indexer par `spriteId` faisait disparaître le second monstre d'une
+ * meute partageant la même feuille. Les jetons sans feuille (groupes
+ * d'exploration) restent dessinés en géométrique par la couche `tokens`.
  */
 export class ActorStage {
   readonly container = new Container();
@@ -57,15 +63,16 @@ export class ActorStage {
   private actorFor(token: TokenView): EntitySprite | null {
     const spec = this.specFor(token.spriteId);
     if (spec === undefined) return null;
-    const actor = this.actors.get(spec.entityId) ?? this.createActor(spec, token.fill);
+    const key = actorKey(token);
+    const actor = this.actors.get(key) ?? this.createActor(spec, token.fill, key);
     const frames = ensureSpriteSheet(spec, () => this.notify());
     if (frames !== null) actor.setFrames(frames);
     return actor;
   }
 
-  private createActor(spec: SpriteSheetSpec, tint: number): EntitySprite {
+  private createActor(spec: SpriteSheetSpec, tint: number, key: string): EntitySprite {
     const actor = new EntitySprite({ spec, frames: null, tint });
-    this.actors.set(spec.entityId, actor);
+    this.actors.set(key, actor);
     return actor;
   }
 
@@ -75,7 +82,7 @@ export class ActorStage {
   }
 
   private stack(token: TokenView): void {
-    const actor = token.spriteId === null ? undefined : this.actors.get(token.spriteId);
+    const actor = token.spriteId === null ? undefined : this.actors.get(actorKey(token));
     if (actor !== undefined) this.container.addChild(actor.node);
   }
 }

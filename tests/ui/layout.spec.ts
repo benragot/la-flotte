@@ -82,6 +82,11 @@ test.describe("exploration", () => {
     await expectInsideViewport(page, EXPLORATION_BANNER);
   });
 
+  test("le bandeau d'exploration et le panneau de salle ne coexistent jamais", async ({ page }) => {
+    await expect(page.locator(EXPLORATION_BANNER)).toBeVisible();
+    await expect(page.locator(BATTLE_PANEL)).toHaveCount(0);
+  });
+
   test("la fiche d'entrée de donjon tient dans le viewport avec son bouton Entrer", async ({ page }) => {
     await page.locator(DUNGEON_ENTRY_BUTTON).click();
     await expect(page.locator(DUNGEON_ENTRY_SHEET)).toBeVisible();
@@ -156,5 +161,10 @@ test.describe("combat de salle (donjon)", () => {
   test("le panneau de salle et ses combattants tiennent dans le viewport", async ({ page }) => {
     await expectInsideViewport(page, BATTLE_PANEL);
     await expectInsideViewport(page, `${BATTLE_PANEL} li:last-child`);
+  });
+
+  test("le bandeau d'exploration ne peut plus être recouvert par le panneau de salle", async ({ page }) => {
+    await expect(page.locator(BATTLE_PANEL)).toBeVisible();
+    await expect(page.locator(EXPLORATION_BANNER)).toHaveCount(0);
   });
 });

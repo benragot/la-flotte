@@ -7,8 +7,9 @@ import { getReachableCells } from "../../src/engine/combatLoop/cells";
 import { initCombat } from "../../src/engine/combatLoop/init";
 import { moveActiveEntity } from "../../src/engine/combatLoop/move";
 import type { CombatState } from "../../src/engine/combatLoop/types";
+import { allPositions } from "../../src/engine/combatLoop/cells";
 import { createHero } from "../../src/engine/createHero";
-import { parseAsciiMap, samePosition } from "../../src/engine/grid";
+import { isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
 import { isApplicationAlive } from "../../src/renderer/appLifecycle";
 import { buildViewModel, lastActionFrom } from "../../src/renderer/combatSceneModel";
 import { buildExplorationViewModel, explorationMapSize } from "../../src/renderer/explorationScene";
@@ -77,6 +78,28 @@ describe("buildSceneModel — tuiles", () => {
     expect(indexOf({ x: 0, y: 0 })).toBeLessThan(indexOf({ x: 1, y: 0 }));
     expect(indexOf({ x: 1, y: 0 })).toBeLessThan(indexOf({ x: 1, y: 1 }));
     expect(indexOf({ x: 0, y: 11 })).toBeLessThan(indexOf({ x: 11, y: 11 }));
+  });
+});
+
+describe("buildSceneModel — contours de cases", () => {
+  /** Cases praticables de la carte réelle : la grille se découpe là où on peut cliquer. */
+  function walkableCount(): number {
+    const map = demoMap();
+    return allPositions(map).filter((cell) => isWalkableCell(map, cell)).length;
+  }
+
+  it("produit un contour de losange par case praticable", () => {
+    const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT, origin: ORIGIN });
+    expect(walkableCount()).toBeGreaterThan(0);
+    expect(model.outlines).toHaveLength(walkableCount());
+    model.outlines.forEach((outline) => expect(outline.points).toHaveLength(8));
+  });
+
+  it("ne dessine jamais de contour sur un mur", () => {
+    const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT, origin: ORIGIN });
+    const walls = model.tiles.filter((tile) => tile.cell === "#").length;
+    expect(walls).toBeGreaterThan(0);
+    model.outlines.forEach((outline) => expect(isWalkableCell(demoMap(), outline.cell)).toBe(true));
   });
 });
 

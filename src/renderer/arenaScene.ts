@@ -1,0 +1,51 @@
+import type { CombatState } from "../engine/combatLoop/types";
+import type { Position } from "../engine/grid";
+import type { BattleState } from "../engine/multiCombat";
+import type { ViewModel } from "./combatSceneModel";
+import { buildViewModel } from "./combatSceneModel";
+import { buildBattleViewModel } from "./battleSceneModel";
+import type { ExplorationView } from "./explorationScene";
+import { buildExplorationViewModel } from "./explorationScene";
+import type { GridSize } from "./gridProjection";
+
+export type ArenaMode = "combat" | "exploration";
+
+/** Tout ce qu'une image de l'arène peut lire : aucune fonction de ce fichier n'écrit. */
+export interface ArenaSceneInput {
+  combat: CombatState | null;
+  battle: BattleState | null;
+  selectedSpellId: string | null;
+  hoveredCell: Position | null;
+  viewport: GridSize;
+  mode: ArenaMode;
+  exploration?: ExplorationView;
+  heroSpriteId?: string | null;
+}
+
+function battleModel(input: ArenaSceneInput): ViewModel | null {
+  if (input.battle === null) return null;
+  const view = { battle: input.battle, viewport: input.viewport, heroSpriteId: input.heroSpriteId };
+  return buildBattleViewModel(view);
+}
+
+/** Le 1v1 ne se dessine qu'en mode combat : en exploration, la carte est celle du héros. */
+function combatModel(input: ArenaSceneInput): ViewModel | null {
+  if (input.combat === null || input.mode === "exploration") return null;
+  const { combat, selectedSpellId, hoveredCell, viewport } = input;
+  return buildViewModel({ combat, selectedSpellId, hoveredCell, viewport });
+}
+
+function explorationModel(input: ArenaSceneInput): ViewModel | null {
+  if (input.exploration === undefined) return null;
+  return buildExplorationViewModel({ exploration: input.exploration, viewport: input.viewport });
+}
+
+/**
+ * Une **salle ouverte prime** sur tout le reste : c'est le portillon qui
+ * manquait, `mode` restant `"exploration"` quand `battle` arrivait par la fiche
+ * Donjons. Le canvas dessinait donc le héros d'exploration et un groupe, jamais
+ * les combattants de la salle.
+ */
+export function arenaSceneView(input: ArenaSceneInput): ViewModel | null {
+  return battleModel(input) ?? combatModel(input) ?? explorationModel(input);
+}

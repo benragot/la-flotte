@@ -40,7 +40,9 @@ function bindClick(element: HTMLElement, click: (event: PointerEvent) => void): 
 /**
  * En exploration, le renderer ne branche pas son pointeur (pas de combat) :
  * l'UI traduit le clic en case via la même projection iso. Aucun survol n'est
- * suivi : le déplacement se décide au clic, sans aperçu de chemin.
+ * suivi depuis #51 : pas d'aperçu de chemin, et le seul retour au clic est la
+ * ligne de journal écrite par `clickCell` (« Le chemin est bloqué » ou
+ * « Le héros se déplace »). La grille visible appartient à la PR décor.
  */
 export function useExplorationPointer(host: RefObject<HTMLElement>): void {
   const mode = useCombatStore((state) => state.mode);
