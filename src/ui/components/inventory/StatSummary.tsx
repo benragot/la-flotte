@@ -2,25 +2,32 @@ import type { Hero } from "../../../engine/createHero";
 import type { InventoryState, StatBlock } from "../../../engine/inventory";
 import { computeTotalStats } from "../../../engine/inventory";
 import { GAME_CATALOG, useGameStore } from "../../../store/useGameStore";
-import { buildStatLines } from "../../inventoryHudHelpers";
+import type { StatLine } from "../../inventoryHudHelpers";
+import { buildStatLines, effectiveProspection, statApplicationStatus } from "../../inventoryHudHelpers";
 import StatBadge from "./StatBadge";
 import { HEADING, ROW } from "./inventoryTheme";
 
-/** Base du héros : stats de capital + ressources (aucun point temporaire). */
+/** Base du héros : stats de capital et ressources, sans PP (calculée à part). */
 function heroBase(hero: Hero): StatBlock {
   const stats = { vitality: hero.vitality, wisdom: hero.wisdom, strength: hero.strength, intelligence: hero.intelligence, chance: hero.chance, agility: hero.agility };
-  return { ...stats, hp: hero.maxHp, ap: hero.ap, mp: hero.mp, prospection: hero.pp };
+  return { ...stats, hp: hero.maxHp, ap: hero.ap, mp: hero.mp };
 }
 
-function totalFor(hero: Hero, inventory: InventoryState): StatBlock {
-  const options = { base: heroBase(hero), capital: {}, inventory };
-  return computeTotalStats({ ...options, items: GAME_CATALOG.items, sets: GAME_CATALOG.sets });
+/** Total items + panoplies, puis PP effective via `computeProspection` (D46). */
+function totalWithProspection(hero: Hero, inventory: InventoryState): StatBlock {
+  const total = computeTotalStats({ base: heroBase(hero), capital: {}, inventory, items: GAME_CATALOG.items, sets: GAME_CATALOG.sets });
+  return { ...total, prospection: effectiveProspection({ basePp: hero.pp, total }) };
+}
+
+function StatRow({ line }: { line: StatLine }) {
+  const pending = statApplicationStatus(line.key) === "pending";
+  return <li><StatBadge label={line.label} value={line.value} pending={pending} /></li>;
 }
 
 function StatList({ total }: { total: StatBlock }) {
   return (
     <ul className={ROW}>
-      {buildStatLines(total).map((line) => <li key={line.key}><StatBadge label={line.label} value={line.value} /></li>)}
+      {buildStatLines(total).map((line) => <StatRow key={line.key} line={line} />)}
     </ul>
   );
 }
@@ -29,10 +36,10 @@ function useHeroStats(): StatBlock | null {
   const hero = useGameStore((state) => state.hero);
   const inventory = useGameStore((state) => state.inventory);
   if (hero === null) return null;
-  return totalFor(hero, inventory);
+  return totalWithProspection(hero, inventory);
 }
 
-/** Total base + items équipés + bonus de panoplie active. */
+/** Total base + items + panoplies, PP effective incluse, stats inertes annotées. */
 export default function StatSummary() {
   const total = useHeroStats();
   if (total === null) return null;

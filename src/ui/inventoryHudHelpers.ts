@@ -1,3 +1,4 @@
+import { computeProspection } from "../engine/economy";
 import { equippedItems, STAT_FIELDS, isDefined } from "../engine/inventory";
 import type {
   EquipmentSlot,
@@ -43,6 +44,14 @@ export interface BackpackEntry {
   name: string;
   quantity: number;
   category: ItemCategory;
+}
+
+/** Une statistique est « appliquée » en combat ou encore « en attente » (D45). */
+export type StatApplication = "applied" | "pending";
+
+/** Ligne de statistique annotée du statut d'application. */
+export interface PanelStatLine extends StatLine {
+  application: StatApplication;
 }
 
 export interface InventoryItemsInput {
@@ -180,6 +189,45 @@ function isZero(line: StatLine): boolean {
 export function buildStatLines(total: StatBlock): StatLine[] {
   const lines = STAT_FIELDS.map((key) => statLine(total, key));
   return [...lines.filter(isNonZero), ...lines.filter(isZero)];
+}
+
+/**
+ * Stats encore inertes en combat : `combatantFromHero` jette `vitality` et
+ * force des résistances nulles (dettes D30 / D45, mapping prévu en 5B).
+ */
+const PENDING_STATS: readonly StatField[] = ["vitality", "flatRes", "percentRes"];
+
+/** `pending` = affichée mais non appliquée par le moteur de combat. */
+export function statApplicationStatus(key: keyof StatBlock): StatApplication {
+  return PENDING_STATS.includes(key) ? "pending" : "applied";
+}
+
+/** Suffixe affiché à côté d'une statistique inerte en combat. */
+export const STAT_PENDING_LABEL = "non appliqué (5B)";
+
+/** Explication du `title` d'une statistique inerte (dette D45). */
+export const STAT_PENDING_HINT =
+  "Affichée mais non appliquée en combat : mapping vitality → PV et résistances prévu en 5B (dette D45).";
+
+function withApplication(line: StatLine): PanelStatLine {
+  return { ...line, application: statApplicationStatus(line.key) };
+}
+
+/** Lignes non nulles d'un bloc (total ou palier), annotées appliqué/pending. */
+export function buildAppliedStatLines(total: StatBlock): PanelStatLine[] {
+  return buildStatLines(total).filter(isNonZero).map(withApplication);
+}
+
+export interface ProspectionViewInput {
+  basePp: number;
+  total: StatBlock;
+}
+
+/** PP effective : base + tranches de Chance totale + bonus PP des items. */
+export function effectiveProspection(input: ProspectionViewInput): number {
+  const chance = input.total.chance ?? 0;
+  const bonusPp = input.total.prospection ?? 0;
+  return computeProspection({ basePp: input.basePp, chance, bonusPp });
 }
 
 /** Consommables réellement présents dans le sac (quantité > 0). */

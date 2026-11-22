@@ -1,18 +1,37 @@
-import type { SetBonusTier, StatBlock } from "../../../engine/inventory";
+import type { SetBonusTier } from "../../../engine/inventory";
 import { GAME_CATALOG, useGameStore } from "../../../store/useGameStore";
-import type { SetView, SetViewSet } from "../../inventoryHudHelpers";
-import { buildSetViews, buildStatLines, formatStatValue } from "../../inventoryHudHelpers";
+import type { PanelStatLine, SetView, SetViewSet } from "../../inventoryHudHelpers";
+import {
+  STAT_PENDING_HINT,
+  STAT_PENDING_LABEL,
+  buildAppliedStatLines,
+  buildSetViews,
+  formatStatValue,
+} from "../../inventoryHudHelpers";
 import { CHIP, HEADING, LIST, ROW, TEXT_GOLD, TEXT_MUTED } from "./inventoryTheme";
 
-function tierSummary(stats: StatBlock): string {
-  const lines = buildStatLines(stats).filter((line) => line.value !== 0);
-  return lines.map((line) => `${line.label} ${formatStatValue(line.value)}`).join(" · ");
+function statText(line: PanelStatLine): string {
+  return `${line.label} ${formatStatValue(line.value)}`;
+}
+
+/** Stat inerte : grisée + annotée, sans prétendre qu'elle s'applique (D45). */
+function TierStat({ line }: { line: PanelStatLine }) {
+  if (line.application === "applied") return <span>{statText(line)}</span>;
+  return <span className="opacity-60" title={STAT_PENDING_HINT}>{statText(line)} · {STAT_PENDING_LABEL}</span>;
+}
+
+function tierTone(isActive: boolean): string {
+  return isActive ? TEXT_GOLD : TEXT_MUTED;
 }
 
 /** Palier doré s'il est atteint, grisé s'il reste à débloquer. */
 function TierChip({ tier, isActive }: { tier: SetBonusTier; isActive: boolean }) {
-  const tone = isActive ? TEXT_GOLD : TEXT_MUTED;
-  return <li className={`${CHIP} ${tone}`}>{tier.pieces} pièces · {tierSummary(tier.stats)}</li>;
+  return (
+    <li className={`${CHIP} ${tierTone(isActive)}`}>
+      <span className="font-bold">{tier.pieces} pièces</span>
+      {buildAppliedStatLines(tier.stats).map((line) => <TierStat key={line.key} line={line} />)}
+    </li>
+  );
 }
 
 function tierChips(set: SetViewSet, view: SetView) {
@@ -60,7 +79,7 @@ function useSetViews(): SetView[] {
   return buildSetViews({ inventory, items: GAME_CATALOG.items, sets });
 }
 
-/** Panoplies possédées : pièces équipées et paliers atteints. */
+/** Panoplies possédées : pièces équipées, paliers atteints et stats inertes. */
 export default function SetBonusPanel() {
   const views = useSetViews();
   if (views.length === 0) return null;
