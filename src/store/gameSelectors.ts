@@ -1,4 +1,4 @@
-import { addItem } from "../engine/inventory";
+import { addItem, equippable } from "../engine/inventory";
 import type { EquipmentSlot, EquipmentState, InventoryState, ItemLike } from "../engine/inventory";
 import type { InventorySnapshot } from "../engine/save";
 import { EQUIPMENT_SLOTS } from "../schemas/itemSchema";
@@ -51,6 +51,48 @@ function knownEquipment(snapshot: InventorySnapshot, items: readonly ItemLike[])
 export function inventoryFromSnapshot(
   snapshot: InventorySnapshot,
   items: readonly ItemLike[],
+  heroLevel: number,
 ): InventoryState {
-  return { stacks: knownStacks(snapshot, items), equipment: knownEquipment(snapshot, items) };
+  const inventory = { stacks: knownStacks(snapshot, items), equipment: knownEquipment(snapshot, items) };
+  return legalizeEquipment({ inventory, items, heroLevel });
+}
+
+interface EquipmentAudit {
+  inventory: InventoryState;
+  items: readonly ItemLike[];
+  heroLevel: number;
+}
+
+function equipmentEntries(inventory: InventoryState): [EquipmentSlot, string][] {
+  return Object.entries(inventory.equipment) as [EquipmentSlot, string][];
+}
+
+/** Slot chargé jugé par le **même** verdict que l'équipement en jeu. */
+function isLegalSlot(audit: EquipmentAudit, [slot, itemId]: [EquipmentSlot, string]): boolean {
+  const item = findItem(audit.items, itemId);
+  if (item === undefined) return false;
+  const options = { inventory: audit.inventory, item, slot, heroLevel: audit.heroLevel };
+  return equippable(options).refusal === null;
+}
+
+function withoutPieces(
+  equipment: EquipmentState,
+  illegal: readonly [EquipmentSlot, string][],
+): EquipmentState {
+  const next: EquipmentState = { ...equipment };
+  illegal.forEach(([slot]) => delete next[slot]);
+  return next;
+}
+
+/**
+ * Un chargement ne peut pas produire d'équipement illégal : chaque pièce hors
+ * niveau est **rendue au sac** (aucune destruction), les pièces légales restent
+ * en place et rien d'autre n'est modifié. Pas de capacité de sac dans le
+ * modèle, donc le retour est toujours possible.
+ */
+function legalizeEquipment(audit: EquipmentAudit): InventoryState {
+  const illegal = equipmentEntries(audit.inventory).filter((entry) => !isLegalSlot(audit, entry));
+  const equipment = withoutPieces(audit.inventory.equipment, illegal);
+  const stripped: InventoryState = { ...audit.inventory, equipment };
+  return illegal.reduce((inventory, [, itemId]) => addItem({ inventory, itemId, quantity: 1 }), stripped);
 }
