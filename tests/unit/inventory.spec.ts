@@ -199,6 +199,9 @@ describe("equipItem", () => {
     expect(result.stacks).toEqual([{ itemId: HAT.id, quantity: 1 }]);
   });
 
+});
+
+describe("equipItem — refus et immuabilité", () => {
   it("refuse un item non équipement", () => {
     const inventory = withStacks({ itemId: ALGAE.id, quantity: 1 });
     expect(equipItem({ inventory, item: ALGAE, slot: "hat" })).toBe(inventory);
@@ -299,7 +302,9 @@ describe("getActiveSetBonuses", () => {
     const result = getActiveSetBonuses({ inventory, items: ITEMS, sets: SETS });
     expect(result).toEqual([]);
   });
+});
 
+describe("getActiveSetBonuses — paliers", () => {
   it("n'accorde aucun bonus avec une seule pièce équipée", () => {
     const inventory = equipped(["hat", HAT.id]);
     const result = getActiveSetBonuses({ inventory, items: ITEMS, sets: SETS });
@@ -361,7 +366,9 @@ describe("computeTotalStats", () => {
       prospection: 0,
     });
   });
+});
 
+describe("computeTotalStats — capital", () => {
   it("ajoute le capital investi", () => {
     const total = computeTotalStats({
       base: BASE,
@@ -374,7 +381,9 @@ describe("computeTotalStats", () => {
     expect(total.agility).toBe(5);
     expect(total.vitality).toBe(100);
   });
+});
 
+describe("computeTotalStats — équipement et panoplies", () => {
   it("ajoute les stats des items équipés et les bonus de panoplie", () => {
     const inventory: InventoryState = {
       stacks: [],
@@ -389,7 +398,9 @@ describe("computeTotalStats", () => {
     expect(total.hp).toBe(200);
     expect(total.prospection).toBe(0);
   });
+});
 
+describe("computeTotalStats — commutativité et immuabilité", () => {
   it("est commutative sur l'ordre des items et de base/capital", () => {
     const inventory: InventoryState = {
       stacks: [],
