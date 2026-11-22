@@ -529,6 +529,7 @@ function checkSheet(entity) {
   const bytes = Buffer.byteLength(svg, "utf8");
   const frames = svg.match(/class="frame"/g)?.length ?? 0;
   const problems = [];
+  if (svg !== svgFor(entity)) problems.push("feuille désynchronisée du générateur");
   if (!svg.includes('width="256"') || !svg.includes('height="256"')) problems.push("dimensions ≠ 256×256");
   if (frames !== 16) problems.push(`frames = ${frames}`);
   if (!isWellFormed(svg)) problems.push("XML mal formé");
@@ -536,16 +537,36 @@ function checkSheet(entity) {
   return { id: entity.id, ok: problems.length === 0, reason: problems.join(", "), bytes };
 }
 
-function report(results) {
-  const total = results.reduce((sum, result) => sum + result.bytes, 0);
+/** Tout `.svg` présent sur disque qui ne sort pas du générateur est un vestige. */
+function findUnexpected() {
+  return found
+    .filter((file) => !expected.includes(file.replace(/\.svg$/, "")))
+    .map((file) => ({ id: file, ok: false, reason: "SVG surnuméraire (hors générateur)", bytes: 0 }));
+}
+
+function printResults(results) {
   results.forEach((result) => {
     const status = result.ok ? "OK  " : "FAIL";
     const detail = result.ok ? `${result.bytes} o, 16 frames` : result.reason;
     console.log(`${status} ${result.id.padEnd(14)} ${detail}`);
   });
-  const failures = results.filter((result) => !result.ok).length;
-  console.log(`\n${results.length} feuilles, ${total} octets au total, ${failures} échec(s).`);
+}
+
+function countFailures(results) {
+  return results.filter((result) => !result.ok).length;
+}
+
+function report(results, extraFailures = 0) {
+  printResults(results);
+  const total = results.reduce((sum, result) => sum + result.bytes, 0);
+  const failures = countFailures(results) + extraFailures;
+  console.log(`\n${ENTITIES.length} feuilles, ${total} octets au total, ${failures} échec(s).`);
   return failures;
+}
+
+function reportUnexpected(extras) {
+  printResults(extras);
+  return extras.length;
 }
 
 const expected = ENTITIES.map((entity) => entity.id).sort();
@@ -554,7 +575,10 @@ const found = existsSync(OUT_DIR) ? readdirSync(OUT_DIR).filter((file) => file.e
 if (process.argv.includes("--check")) {
   const missing = expected.filter((id) => !found.includes(`${id}.svg`));
   if (missing.length > 0) console.log(`Manquantes : ${missing.join(", ")}`);
-  process.exit(report(ENTITIES.map(checkSheet)) === 0 ? 0 : 1);
+  const extras = findUnexpected();
+  const failures = report(ENTITIES.map(checkSheet), extras.length + missing.length);
+  reportUnexpected(extras);
+  process.exit(failures === 0 ? 0 : 1);
 }
 
 const written = writeSheets();
