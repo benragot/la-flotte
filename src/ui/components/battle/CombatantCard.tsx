@@ -1,7 +1,9 @@
 import type { BattleCombatantView } from "../../../renderer/battleViewModel";
+import type { CastBlock } from "../../../engine/multiCombat";
 import {
   ACTION_BUTTON,
   ACTIVE_CARD,
+  BLOCKED_HINT,
   CARD_HEAD,
   COLOR_DOT,
   COMBATANT_CARD,
@@ -17,6 +19,12 @@ export interface CombatantCardProps {
   canAttack: boolean;
   onAttack: (targetId: string) => void;
 }
+
+/** Libellés des refus géométriques : le joueur voit la même raison que le journal. */
+const BLOCK_LABEL: Record<CastBlock, string> = {
+  "out-of-range": "Hors portée",
+  "no-los": "Ligne de vue bloquée",
+};
 
 /** Actif (contour doré) et ciblable (anneau rouge) se cumulent sans se masquer. */
 function cardClass(view: BattleCombatantView): string {
@@ -60,13 +68,28 @@ function AttackButton({ view, onAttack }: { view: BattleCombatantView; onAttack:
   );
 }
 
+/** Cible présente mais hors portée / sans LoS : la raison remplace le bouton. */
+function BlockedHint({ view }: { view: BattleCombatantView }) {
+  if (view.blockedReason === null) return null;
+  return <p className={BLOCKED_HINT}>{BLOCK_LABEL[view.blockedReason]}</p>;
+}
+
+function Actions({ view, onAttack }: { view: BattleCombatantView; onAttack: (targetId: string) => void }) {
+  return (
+    <>
+      <BlockedHint view={view} />
+      <AttackButton view={view} onAttack={onAttack} />
+    </>
+  );
+}
+
 function CardBody({ view, canAttack, onAttack }: CombatantCardProps) {
   return (
     <>
       <CardHead view={view} />
       <StatsLine view={view} />
       <HpBar ratio={view.hpRatio} color={view.color} />
-      {canAttack ? <AttackButton view={view} onAttack={onAttack} /> : null}
+      {canAttack ? <Actions view={view} onAttack={onAttack} /> : null}
     </>
   );
 }

@@ -32,3 +32,6 @@ export const FOOT = "mt-1 flex flex-col gap-1";
 export const LOG_LINE = "truncate text-[10px] opacity-80";
 
 export const HINT = "text-[10px] opacity-80";
+
+/** Refus géométrique : gris, discret, mais lisible à côté de la cible. */
+export const BLOCKED_HINT = "text-[10px] italic opacity-70";

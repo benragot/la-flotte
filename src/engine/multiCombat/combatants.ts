@@ -23,6 +23,11 @@ export function isActive(state: BattleState, id: string): boolean {
   return state.order[state.activeIndex] === id;
 }
 
+/** Ajoute une entrée au journal du combat, sans muter l'état d'entrée. */
+export function appendLog(state: BattleState, entry: string): BattleState {
+  return { ...state, log: [...state.log, entry] };
+}
+
 /** Remplace un combattant par son identifiant, sans muter l'état d'entrée. */
 export function withCombatant(state: BattleState, updated: CombatantLike): BattleState {
   const combatants = state.combatants.map((entry) => (entry.id === updated.id ? updated : entry));

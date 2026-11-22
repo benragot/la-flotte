@@ -501,7 +501,9 @@ describe("isVictory / isDefeat", () => {
 
 describe("enemiesAct — bornes", () => {
   it("borne un tour ennemi à 10 actions", () => {
-    const state = enemyTurnFixture();
+    const base = enemyTurnFixture();
+    // Chaque pas consomme des PM (5C-e) : on en donne assez pour éprouver la borne.
+    const state = { ...base, combatants: base.combatants.map((entry) => (entry.side === "enemy" ? { ...entry, mp: 40 } : entry)) };
     let calls = 0;
     const strategy = (current: BattleState): EnemyAction => {
       calls += 1;
