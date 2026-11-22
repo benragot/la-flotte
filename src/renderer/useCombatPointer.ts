@@ -3,25 +3,30 @@ import type { Application } from "pixi.js";
 import type { CombatState } from "../engine/combatLoop/types";
 import { useCombatStore } from "../store/useCombatStore";
 import { isApplicationAlive } from "./appLifecycle";
-import type { PointerHandlers } from "./pointer";
+import type { GridSize } from "./gridProjection";
+import { sceneOrigin } from "./gridProjection";
+import type { BoardLayout, PointerHandlers } from "./pointer";
 import { bindPointer } from "./pointer";
 
 export interface CombatPointerInput {
   app: Application | null;
   combat: CombatState | null;
+  viewport: GridSize;
 }
 
-function bindCombat(app: Application, combat: CombatState, handlers: PointerHandlers): () => void {
-  return bindPointer(app, { width: combat.map.width, height: combat.map.height }, handlers);
+function boardLayout(combat: CombatState, viewport: GridSize): BoardLayout {
+  const map = { width: combat.map.width, height: combat.map.height };
+  return { ...map, origin: sceneOrigin(map, viewport) };
 }
 
 /** Relie les événements pointeur PixiJS aux actions du store de combat. */
 export function useCombatPointer(input: CombatPointerInput): void {
   const setHoveredCell = useCombatStore((state) => state.setHoveredCell);
   const clickCell = useCombatStore((state) => state.clickCell);
-  const { app, combat } = input;
+  const { app, combat, viewport } = input;
   useEffect(() => {
     if (combat === null || !isApplicationAlive(app)) return undefined;
-    return bindCombat(app, combat, { setHoveredCell, clickCell });
-  }, [app, combat, setHoveredCell, clickCell]);
+    const handlers: PointerHandlers = { setHoveredCell, clickCell };
+    return bindPointer(app, boardLayout(combat, viewport), handlers);
+  }, [app, combat, viewport, setHoveredCell, clickCell]);
 }

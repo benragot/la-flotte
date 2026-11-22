@@ -14,22 +14,38 @@ export interface TileStyleInput {
   isHovered: boolean;
 }
 
+/** Palette rétro : pierre/ardoise, sol olive, eau bleu-vert désaturée, ocre. */
 export const TILE_COLORS: Record<CellType, number> = {
-  ".": 0x4f6b52,
-  "#": 0x4a5260,
-  "~": 0x2c6c93,
-  "P": 0x6a8f6a,
-  "M": 0x7a4b4b,
+  ".": 0x4a5c41,
+  "#": 0x545a63,
+  "~": 0x2f6f6a,
+  "P": 0x7d6a35,
+  "M": 0x6b3f36,
 };
 
 export const MOVE_HIGHLIGHT = 0x3fae6a;
 export const CAST_HIGHLIGHT = 0x3f7fd6;
 export const HOVER_STROKE = 0xf2d64b;
+export const PATH_HIGHLIGHT = 0xf0b429;
 
 export const HIGHLIGHT_ALPHA = 0.5;
+export const PATH_ALPHA = 0.32;
 export const BASE_ALPHA = 1;
-export const GRID_LINE = 0x101820;
-export const GRID_LINE_ALPHA = 0.25;
+export const GRID_LINE = 0x6b6257;
+export const GRID_LINE_ALPHA = 0.55;
+
+/** Faces du relief des murs : dessus éclairé, flanc dans l'ombre. */
+export const WALL_TOP = 0x79828c;
+export const WALL_SIDE = 0x3c424a;
+export const WALL_HEIGHT = 14;
+
+/** Style d'une étape du chemin A* en exploration. */
+export const PATH_STYLE: TileStyle = {
+  fill: PATH_HIGHLIGHT,
+  alpha: PATH_ALPHA,
+  stroke: null,
+  strokeAlpha: 0,
+};
 
 /** Couleur de base d'une cellule de la carte. */
 export function getTileColor(cell: CellType): number {
