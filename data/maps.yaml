@@ -19,3 +19,79 @@ maps:
       - "..#..M..#..."
       - "..#.....#..."
       - "............"
+
+  # Donjon « La Casse aux Vis-Sans-Fin » — salle 1.
+  - id: fer_salle_cour_volatiles
+    name: La Cour aux Volatiles Gras
+    width: 12
+    height: 12
+    grid:
+      - "############"
+      - "#P........P#"
+      - "#..........#"
+      - "#..#....#..#"
+      - "#..........#"
+      - "#....MM....#"
+      - "#....MM....#"
+      - "#..........#"
+      - "#..#....#..#"
+      - "#..........#"
+      - "#P........P#"
+      - "############"
+
+  # Donjon — salle 2, grille reprise telle quelle de la fiche §8.
+  - id: fer_salle_hangar_mazout
+    name: Le Hangar à Mazout
+    width: 12
+    height: 12
+    grid:
+      - "############"
+      - "#..P....M..#"
+      - "#.P..##..M.#"
+      - "#...~##~...#"
+      - "#..~~..~~..#"
+      - "#...#..#...#"
+      - "#...#..#...#"
+      - "#..~~..~~..#"
+      - "#...~##~...#"
+      - "#.P..##..M.#"
+      - "#..P....M..#"
+      - "############"
+
+  # Donjon — salle 3.
+  - id: fer_salle_allee_boulons
+    name: L'Allée des Boulons Perdus
+    width: 12
+    height: 12
+    grid:
+      - "############"
+      - "#P..#..#..P#"
+      - "#...#..#...#"
+      - "#...#..#...#"
+      - "#..........#"
+      - "#.MM....MM.#"
+      - "#..........#"
+      - "#...#..#...#"
+      - "#...#..#...#"
+      - "#P..#..#..P#"
+      - "#..........#"
+      - "############"
+
+  # Donjon — salle 4 (boss), grille reprise telle quelle de la fiche §8.
+  - id: fer_salle_atelier_yvon
+    name: L'Atelier d'Yvon Rouiller
+    width: 12
+    height: 12
+    grid:
+      - "############"
+      - "#..#....#..#"
+      - "#P...~~...M#"
+      - "#.P..~~..M.#"
+      - "#..#....#..#"
+      - "#....##....#"
+      - "#....##....#"
+      - "#..#....#..#"
+      - "#.P..~~..M.#"
+      - "#P...~~...M#"
+      - "#..#....#..#"
+      - "############"

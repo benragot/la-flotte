@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 10
+  version: 11
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -298,3 +298,7 @@ debts:
     title: "Restaurer et corriger `D07` : `App.tsx` porte `aria-label` sur un `<div>` sans rôle (ignoré par les AT) — à faire en 4D avec la réécriture d'App"
     severity: low
     target: 4D
+  - id: D48
+    title: La clé de donjon `cle_donjon_ile_de_la_ferraille` n'existe pas dans data/items.yaml et itemSchema n'a pas de catégorie key — l'entrée du donjon est impossible tant que ce n'est pas fait
+    severity: high
+    target: 5B

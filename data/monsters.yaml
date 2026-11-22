@@ -1,5 +1,9 @@
-# Monstres de l'île de la Ferraille (Vague 1).
-# resistances.flat / percent : dégâts fixes et pourcentage par élément.
+# Monstres de l'île de la Ferraille (Vague 1, bestiaire étendu en 5A).
+# resistances.flat / percent : dégâts fixes et pourcentage par élément ; une
+# valeur négative est une faiblesse (bornes ±100, cf. `resistanceSchema`).
+# `spellIds` et `loot` sont différés : les sorts `fer_spell_*` arrivent en 6A avec
+# le moteur d'effets, les butins de la fiche en 7B avec les items correspondants.
+# Mieux vaut un monstre sans sort qu'un monstre pointant vers un sort inexistant.
 monsters:
   - id: piou_mazoute
     name: Piou Mazouté
@@ -16,3 +20,123 @@ monsters:
     spellIds: [bec_mazoute]
     loot:
       - { itemId: plume_mazoutee, baseDropRate: 0.4, ppThreshold: 100 }
+
+  # La Cour aux Volatiles Gras.
+  - id: fer_rat_de_cale
+    name: Rat d'Égoût-dron
+    description: "Rat de cale nourri au mazout et à la rancune. Il a déjà rongé trois câbles, un contrat de fret et un traité de paix."
+    level: 6
+    hp: 52
+    ap: 5
+    mp: 3
+    stats: { strength: 22, intelligence: 5, chance: 10, agility: 15, wisdom: 10 }
+    resistances:
+      flat: { neutral: 1, earth: 1, fire: 0, water: 0, air: 0 }
+      percent: { neutral: 5, earth: 5, fire: -5, water: 0, air: -5 }
+    baseXp: 55
+    isBoss: false
+    kamasMin: 8
+    kamasMax: 18
+    ai:
+      archetype: melee_rusher
+      preferredDistance: 1
+      behaviorRules:
+        - "Fonce sur la cible la plus faible en PV qu'il peut atteindre ce tour."
+        - "Réserve Grignotage de Câble pour un ennemi qui n'a plus que 2 PA."
+        - "Ne recule jamais, même à 1 PV."
+
+  - id: fer_crabe_cle_molette
+    name: Crabe à Clé-à-Molette
+    description: "Crabe dont une pince a été remplacée par une clef à molette. Personne ne sait par qui, et personne ne tient à demander."
+    level: 9
+    hp: 75
+    ap: 5
+    mp: 3
+    stats: { strength: 32, intelligence: 5, chance: 15, agility: 22, wisdom: 10 }
+    resistances:
+      flat: { neutral: 2, earth: 2, fire: 0, water: 1, air: 0 }
+      percent: { neutral: 10, earth: 10, fire: -10, water: 5, air: 0 }
+    baseXp: 90
+    isBoss: false
+    kamasMin: 12
+    kamasMax: 26
+    ai:
+      archetype: tank_tackler
+      preferredDistance: 1
+      behaviorRules:
+        - "Avance vers la cible la plus proche et se colle à elle pour la tacler."
+        - "Garde Serrage de Boulon pour lui-même sous 50 % de PV."
+        - "Préfère bloquer un couloir plutôt que frapper fort."
+
+  - id: fer_marmite_fuyarde
+    name: Marmite qui Fuit
+    description: "Marmite de cantine ayant pris la fuite après un procès en empoisonnement. Elle fuit toujours, et elle cuisine toujours."
+    level: 12
+    hp: 85
+    ap: 6
+    mp: 3
+    stats: { strength: 10, intelligence: 40, chance: 15, agility: 10, wisdom: 15 }
+    resistances:
+      flat: { neutral: 1, earth: 0, fire: 2, water: 0, air: 0 }
+      percent: { neutral: 0, earth: 0, fire: 15, water: -10, air: 0 }
+    baseXp: 130
+    isBoss: false
+    kamasMin: 18
+    kamasMax: 35
+    ai:
+      archetype: support_healer
+      preferredDistance: 4
+      behaviorRules:
+        - "Reste à 3–4 cases derrière la première ligne alliée."
+        - "Soigne l'allié le plus blessé en priorité, sans exigence de ligne de vue."
+        - "Lance Jet de Vapeur dès que deux ennemis sont adjacents."
+
+  # L'Allée des Boulons Perdus.
+  - id: fer_boulon_pousseur
+    name: Écrou-Baton
+    description: "Un écrou de la taille d'un homme, doué de parole syndicale et d'un sens très développé de l'injustice salariale."
+    level: 15
+    hp: 105
+    ap: 6
+    mp: 3
+    stats: { strength: 45, intelligence: 10, chance: 10, agility: 18, wisdom: 15 }
+    resistances:
+      flat: { neutral: 2, earth: 2, fire: 0, water: 0, air: 1 }
+      percent: { neutral: 5, earth: 10, fire: 0, water: -5, air: 5 }
+    baseXp: 185
+    isBoss: false
+    kamasMin: 24
+    kamasMax: 45
+    ai:
+      archetype: pusher_control
+      preferredDistance: 1
+      behaviorRules:
+        - "Cherche une cible dos à un mur `#` avant de pousser."
+        - "Graisse un allié de première ligne avant de frapper."
+        - "Priorise les cibles déjà collées à un obstacle."
+
+  # L'Atelier d'Yvon Rouiller — boss de la Casse aux Vis-Sans-Fin.
+  - id: fer_boss_yvon_rouiller
+    name: Yvon Rouiller
+    description: "Chef de chantier autoproclamé de La Ferraille. Persuadé qu'un boulon géant retient l'océan, il refuse de le desserrer, même pour dormir."
+    level: 20
+    hp: 140
+    ap: 6
+    mp: 4
+    stats: { strength: 60, intelligence: 35, chance: 20, agility: 25, wisdom: 25 }
+    resistances:
+      flat: { neutral: 3, earth: 3, fire: 2, water: 0, air: 1 }
+      percent: { neutral: 10, earth: 15, fire: 10, water: -10, air: 5 }
+    baseXp: 480
+    isBoss: true
+    kamasMin: 85
+    kamasMax: 140
+    ai:
+      archetype: boss_custom
+      preferredDistance: 2
+      behaviorRules:
+        - "Ouvre par Tôle Blindée au tour 1, puis avance vers la cible la plus proche."
+        - "Clef à Choc sert à projeter une cible contre un mur `#` tant que le bouclier est actif : bouclier dissipé et −2 PA au prochain tour."
+        - "Appel à la Casse dès qu'il tombe sous 50 % de PV ou qu'il reste au plus deux assaillants."
+        - "Ne s'éloigne jamais de plus de 2 cases de l'enclume ; sans poussée, son point faible est l'Eau (−10 % de résistance)."
+      bossMechanic: "Carapace Oxydée : Tôle Blindée (+20 bouclier, 2 tours). Dégâts de poussée contre un mur `#` pendant que le bouclier est actif ⇒ bouclier dissipé + perte de 2 PA au prochain tour. Sans poussée, −10 % résistance Eau = point faible."

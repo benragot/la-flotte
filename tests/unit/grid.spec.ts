@@ -163,14 +163,15 @@ describe("data/maps.yaml", () => {
   const maps = parseMapsYaml(raw);
 
   it("contient la plage de la Ferraille en 12x12", () => {
-    expect(maps).toHaveLength(1);
-    expect(maps[0]?.id).toBe("ferraille_plage_01");
-    expect(maps[0]?.width).toBe(12);
-    expect(maps[0]?.height).toBe(12);
+    const plage = maps.find((map) => map.id === "ferraille_plage_01");
+    expect(plage, "ferraille_plage_01 absente").toBeDefined();
+    expect(plage?.width).toBe(12);
+    expect(plage?.height).toBe(12);
   });
 
   it("relie le placement joueur au placement monstre", () => {
-    const map = parseAsciiMap(maps[0]?.grid ?? []);
+    const grid = maps.find((map) => map.id === "ferraille_plage_01")?.grid ?? [];
+    const map = parseAsciiMap(grid);
     expect(map.playerSpawns.length).toBeGreaterThan(0);
     expect(map.monsterSpawns.length).toBeGreaterThan(0);
     const from = map.playerSpawns[0] ?? { x: 0, y: 0 };
