@@ -12,7 +12,7 @@
 #     qui les fonde.
 
 meta:
-  version: 24
+  version: 25
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -846,11 +846,6 @@ debts:
     target: external
     owner: user
     notes: ".opencode/agents/pr-merger.md:124-126 : l'étape « synchronise le local » fait `git checkout main` puis `git pull`, puis supprime le worktree, sur le checkout principal **partagé**. Deux mergeurs lancés en parallèle se marchent dessus : le 22/11 deux ont tourné de front et le résultat n'a tenu que par chance de timing — un `git checkout` concurrent peut emporter le commit de l'autre (pièce perdue, arbre incohérent). Aucun verrou n'existe : ni fichier de lock, ni `flock`, ni règle « un merge à la fois » vérifiable. Correctif attendu : verrou (`.git/flotte-merge.lock` tenu par `flock`) ou rendez-vous explicite d'orchestration, plus une ligne de garde dans pr-merger.md (« verrou pris ⇒ arrêt + rapport »). Fichier hors périmètre d'écriture des agents (`.opencode/**`), d'où `external`."
-  - id: D84
-    title: "`boxOf` mesure une seule fois, avant que Pixi n'ait redimensionné le canvas monté en 1×1 ⇒ faux négatifs aléatoires"
-    severity: medium
-    target: 5C-actor-ring
-    notes: "tests/ui/helpers.ts:60-68 : `boxOf` fait un seul `locator.boundingBox()` ; or src/renderer/usePixiApp.ts:111 redimensionne le renderer après le montage et src/renderer/usePixiApp.ts:18 part de `INITIAL_CANVAS_SIZE = { width: 1, height: 1 }` — la mesure peut tomber sur le canvas 1×1. Constaté deux fois sur tests/ui/layout.spec.ts:112 (« le canvas remplit la surface de la zone jouable »). Correctif : double `requestAnimationFrame` + `document.fonts.ready`, ou `expect.poll`/`toPass`. Sévérité moyenne : aucun risque de perte de données, mais un garde-fou qui rougit au hasard apprend à relancer la CI. Cible 5C-actor-ring : première tâche UI de la file, toute tâche qui touche tests/ui peut solder la dette. **Signature précise relevée par la QA le 22/11 (PR #92)** : la mesure n'est pas dégénérée mais **transitoire** — `readSettledBox` accepte toute boîte > 1,5 px (tests/ui/helpers.ts:79-84) alors que Pixi n'a pas fini son resize ; l'échec tombe **par projet** (1024×768 **ou** 1280×720, jamais les deux) ; `expectCoverage` fait **deux lectures indépendantes** (canvas puis section, tests/ui/helpers.ts:180-181) qui peuvent décrire **deux layouts différents** ; et le vert CI est un **masque** : playwright.config.ts:24 → `retries: CI ? 1 : 0`. Correctif : lire les deux boîtes dans la **même** frame (mesure atomique) et attendre la stabilisation, pas seulement le non-dégénéré."
   - id: D85
     title: "`scripts/**` n'est pas linté : `eslint src tests` laisse passer une fonction de 13 instructions"
     severity: medium
