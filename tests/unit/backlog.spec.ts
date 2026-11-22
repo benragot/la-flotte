@@ -63,6 +63,8 @@ interface Meta {
   statuses: string[];
   status_definitions: Record<string, string>;
   update_rules: string[];
+  /** Phase réellement suivante ; sert de pointeur de reprise à l'orchestrateur. */
+  next?: string;
 }
 
 interface Backlog {
@@ -147,8 +149,12 @@ function danglingTaskRefs(backlog: Backlog): string[] {
   return filterDangling(taskRefEntries(backlog), new Set(knownRefs(backlog)));
 }
 
-function taskStatuses(backlog: Backlog): Map<string, string> {
-  return new Map(allTasks(backlog).map((task) => [task.id, task.status]));
+/** Statuts de TOUTES les entités référençables : vagues, phases et tâches. */
+function statusById(backlog: Backlog): Map<string, string> {
+  const waves = backlog.waves.map((wave) => [wave.id, wave.status] as const);
+  const phases = allPhases(backlog).map((phase) => [phase.id, phase.status ?? ""] as const);
+  const tasks = allTasks(backlog).map((task) => [task.id, task.status] as const);
+  return new Map([...waves, ...phases, ...tasks]);
 }
 
 function unsatisfiedRefs(phase: Phase, statuses: Map<string, string>): string[] {
@@ -156,7 +162,7 @@ function unsatisfiedRefs(phase: Phase, statuses: Map<string, string>): string[] 
 }
 
 function blockedWithoutGap(backlog: Backlog): string[] {
-  const statuses = taskStatuses(backlog);
+  const statuses = statusById(backlog);
   return allPhases(backlog)
     .filter((phase) => phase.status === "blocked")
     .filter((phase) => unsatisfiedRefs(phase, statuses).length === 0)
@@ -164,7 +170,7 @@ function blockedWithoutGap(backlog: Backlog): string[] {
 }
 
 function prematurePhases(backlog: Backlog): string[] {
-  const statuses = taskStatuses(backlog);
+  const statuses = statusById(backlog);
   return allPhases(backlog)
     .filter((phase) => phase.status !== "blocked")
     .filter((phase) => unsatisfiedRefs(phase, statuses).length > 0)
@@ -202,6 +208,31 @@ function inProgressWithPr(backlog: Backlog): string[] {
   return allTasks(backlog)
     .filter((task) => task.status === "in_progress" && task.pr !== undefined)
     .map((task) => task.id);
+}
+
+function isWaveInconsistent(wave: Wave): boolean {
+  const open = wave.phases.filter((phase) => phase.status !== "done");
+  return wave.status === "done" ? open.length > 0 : open.length === 0;
+}
+
+/** Une vague `done` n'a que des phases `done` ; une vague `in_progress` en garde une ouverte. */
+function wavePhaseMismatches(backlog: Backlog): string[] {
+  const tracked = backlog.waves.filter((wave) => wave.status === "done" || wave.status === "in_progress");
+  return tracked.filter(isWaveInconsistent).map((wave) => wave.id);
+}
+
+function fixturePhase(id: string, status: string, extra: Partial<Phase> = {}): Phase {
+  return { id, title: `Phase ${id}`, status, ...extra };
+}
+
+function fixtureTask(id: string, status: string, pr?: number): Task {
+  return { id, title: `Tâche ${id}`, status, owner: "tdd-coder", priority: "medium", updated_at: "2026-11-22", pr };
+}
+
+function fixtureBacklog(phases: Phase[], waveStatus = "todo"): Backlog {
+  const meta = { version: 3, updated_at: "2026-11-22", updated_by: "integrator", statuses: REQUIRED_STATUSES };
+  const wave: Wave = { id: "wave-1", title: "Fixture", status: waveStatus, phases };
+  return { meta: { ...meta, status_definitions: {}, update_rules: [] }, inbox: [], waves: [wave], debts: [] };
 }
 
 function isInboxEntry(entry: unknown): boolean {
@@ -379,5 +410,87 @@ describe("backlog — inbox", () => {
 
   it("valide chaque entrée réelle de l'inbox", () => {
     expect(invalidInboxEntries(readBacklog().inbox)).toEqual([]);
+  });
+});
+
+describe("backlog — garde-fous sur fixtures synthétiques", () => {
+  it("détecte une phase non blocked dont la dépendance n'est pas done", () => {
+    const done = fixtureBacklog([
+      fixturePhase("4A", "done", { tasks: [fixtureTask("4A-a", "done", 3)] }),
+      fixturePhase("4B", "todo", { depends_on: ["4A-a"] }),
+    ]);
+    expect(prematurePhases(done)).toEqual([]);
+    const early = fixtureBacklog([
+      fixturePhase("4A", "todo", { tasks: [fixtureTask("4A-a", "todo")] }),
+      fixturePhase("4B", "todo", { depends_on: ["4A-a"] }),
+    ]);
+    expect(prematurePhases(early)).toEqual(["4B:todo"]);
+  });
+
+  it("résout aussi une dépendance pointant vers une phase", () => {
+    const satisfied = fixtureBacklog([
+      fixturePhase("4A", "done"),
+      fixturePhase("4B", "todo", { depends_on: ["4A"] }),
+    ]);
+    expect(prematurePhases(satisfied)).toEqual([]);
+    const gap = fixtureBacklog([
+      fixturePhase("4A", "todo"),
+      fixturePhase("4B", "todo", { depends_on: ["4A"] }),
+    ]);
+    expect(prematurePhases(gap)).toEqual(["4B:todo"]);
+  });
+
+  it("exige une PR sur les tâches done, approved et needs_review", () => {
+    const ok = fixtureBacklog([
+      fixturePhase("4A", "done", {
+        tasks: [fixtureTask("4A-a", "done", 3), fixtureTask("4A-b", "approved", 4)],
+      }),
+    ]);
+    expect(missingPrTasks(ok, ["done"])).toEqual([]);
+    expect(missingPrTasks(ok, ["approved", "needs_review"])).toEqual([]);
+    const gap = fixtureBacklog([
+      fixturePhase("4A", "done", {
+        tasks: [fixtureTask("4A-a", "done"), fixtureTask("4A-b", "needs_review")],
+      }),
+    ]);
+    expect(missingPrTasks(gap, ["done"])).toEqual(["4A-a:done"]);
+    expect(missingPrTasks(gap, ["approved", "needs_review"])).toEqual(["4A-b:needs_review"]);
+  });
+
+  it("interdit de citer une PR sur une tâche in_progress", () => {
+    const ok = fixtureBacklog([fixturePhase("4A", "todo", { tasks: [fixtureTask("4A-a", "in_progress")] })]);
+    expect(inProgressWithPr(ok)).toEqual([]);
+    const bad = fixtureBacklog([fixturePhase("4A", "todo", { tasks: [fixtureTask("4A-a", "in_progress", 9)] })]);
+    expect(inProgressWithPr(bad)).toEqual(["4A-a"]);
+  });
+
+  it("détecte une vague done avec une phase non done", () => {
+    expect(wavePhaseMismatches(fixtureBacklog([fixturePhase("4A", "done")], "done"))).toEqual([]);
+    const bad = fixtureBacklog([fixturePhase("4A", "done"), fixturePhase("4B", "todo")], "done");
+    expect(wavePhaseMismatches(bad)).toEqual(["wave-1"]);
+  });
+
+  it("exige une phase ouverte dans une vague in_progress", () => {
+    const ok = fixtureBacklog([fixturePhase("4A", "done"), fixturePhase("4B", "todo")], "in_progress");
+    expect(wavePhaseMismatches(ok)).toEqual([]);
+    const bad = fixtureBacklog([fixturePhase("4A", "done")], "in_progress");
+    expect(wavePhaseMismatches(bad)).toEqual(["wave-1"]);
+  });
+});
+
+describe("backlog — cohérence vagues / phases", () => {
+  it("garde chaque vague alignée sur l'état de ses phases", () => {
+    expect(wavePhaseMismatches(readBacklog())).toEqual([]);
+  });
+});
+
+describe("backlog — pointeur de reprise", () => {
+  it("pointe vers une phase existante et non terminée", () => {
+    const backlog = readBacklog();
+    const next = backlog.meta.next;
+    expect(typeof next).toBe("string");
+    const target = allPhases(backlog).find((phase) => phase.id === next);
+    expect(target).toBeDefined();
+    expect(target?.status).not.toBe("done");
   });
 });
