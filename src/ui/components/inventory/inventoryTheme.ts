@@ -45,3 +45,21 @@ export const TEXT_KO = "text-[#b83b3b]";
 
 export const FIELD =
   "h-12 w-full resize-none rounded border border-[#8c6d46] bg-[#2b241d] p-1 text-[10px] text-[#e8dcc8]";
+
+/** Bandeau de détail ancré en bas de l'inventaire (place laissée libre par la grille). */
+export const DETAIL_PANEL =
+  "flex min-h-[96px] shrink-0 flex-col gap-1 overflow-y-auto border-t border-[#8c6d46]/60 pt-1";
+
+export const DETAIL_HINT = "text-[10px] italic opacity-60";
+
+export const DETAIL_META = "text-[10px] leading-3 text-[#e8dcc8]/70";
+
+export const DETAIL_DESCRIPTION = "text-[10px] leading-3 italic text-[#e8dcc8]/80";
+
+/** Ligne d'objet sélectionnable : bouton focusable dans une liste `role="listbox"`. */
+export const ITEM_ROW =
+  "flex items-center gap-1 rounded border border-transparent px-1 py-0.5 text-[11px]";
+
+export const ITEM_ROW_SELECTED = `${ITEM_ROW} border-[#d4a537] bg-[#d4a537]/15`;
+
+export const ITEM_BUTTON = "min-w-0 flex-1 truncate text-left transition hover:text-[#d4a537]";
