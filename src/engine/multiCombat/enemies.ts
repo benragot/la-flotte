@@ -1,5 +1,5 @@
 import type { Position } from "../grid";
-import { isWalkableCell, samePosition, stepDistance } from "../grid";
+import { findPath, mapPathBudget, pathCost, pathWithinBudget, samePosition, stepDistance } from "../grid";
 import { resolveAttack } from "./attack";
 import { appendLog, isAlive, isAliveById, withCombatant } from "./combatants";
 import { separateOccupants } from "./overlap";
@@ -27,39 +27,68 @@ interface StepResult {
   stop: boolean;
 }
 
+/** Facture d'un déplacement : où l'on arrive et ce que l'on paie. */
+interface Bill {
+  enemy: CombatantLike;
+  landing: Position;
+  cost: number;
+}
+
 function affordableStep(enemy: CombatantLike, cost: number): boolean {
   return cost > 0 && cost <= enemy.mp;
 }
 
-/** Sans carte (combat de test sans grille), aucun mur ne peut s'opposer au pas. */
-function walkableStep(current: BattleState, to: Position): boolean {
-  return current.map === undefined || isWalkableCell(current.map, to);
+/** Vivants autres que `enemy` : ils bloquent le passage comme dans `findPath`. */
+function livingOthers(current: BattleState, enemy: CombatantLike): CombatantLike[] {
+  return current.combatants.filter((entry) => entry.id !== enemy.id && entry.hp > 0);
 }
 
 /** Invariant « aucune case partagée » : la case d'arrivée doit être libre. */
 function arrivalTaken(current: BattleState, enemy: CombatantLike, to: Position): boolean {
-  const others = current.combatants.filter((entry) => entry.id !== enemy.id && entry.hp > 0);
-  return others.some((entry) => samePosition(entry.position, to));
+  return livingOthers(current, enemy).some((entry) => samePosition(entry.position, to));
+}
+
+function billMove(current: BattleState, bill: Bill): BattleState {
+  const moved = withCombatant(current, { ...bill.enemy, position: bill.landing, mp: bill.enemy.mp - bill.cost });
+  return appendLog(moved, `${bill.enemy.name} se déplace de ${bill.cost} case(s).`);
+}
+
+/** Chemin réel vers `to`, cases occupées exclues ; `null` si injoignable ou arrivée prise. */
+function enemyPath(current: BattleState, enemy: CombatantLike, to: Position): Position[] | null {
+  const map = current.map;
+  if (map === undefined || arrivalTaken(current, enemy, to)) return null;
+  const occupied = livingOthers(current, enemy).map((entry) => entry.position);
+  return findPath({ map, from: enemy.position, to, maxPm: mapPathBudget(map), occupied });
 }
 
 /**
- * Un pas coûte une case de PM par case parcourue, comme `combatLoop/move.ts` :
- * la facture est la **distance en pas** (`stepDistance`, Chebyshev, diagonale =
- * 1), jamais l'écart orthogonal `manhattan`, qui surévalue tout atterrissage
- * diagonal et figeait l'ennemi sur place (3 pas facturés 5).
- *
- * NUANCE : `stepDistance` vaut la longueur du chemin **en champ libre**. Autour
- * d'un obstacle (mur, flaque), un atterrissage atteint par un détour est
- * **sous-facturé** — jusqu'à ~2 PM. Impact mesuré : **aucun sur DEC-03**
- * aujourd'hui, mais à corriger (facturation par la longueur réelle du chemin)
- * avant d'ajouter des monstres qui contournent. Cf. dette dans la PR #86.
+ * Mappe fournie : la facture est la **somme des pas du chemin réellement
+ * trouvé** (DEC-10 : 1 PM orthogonal, 2 PM diagonal), jamais `stepDistance`.
+ * Un détour autour d'un mur n'est donc plus offert. Si les PM ne couvrent pas
+ * tout le chemin, l'ennemi s'arrête sur la dernière case payée, sans reculer.
  */
-function moveEnemy(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
+function commitMove(current: BattleState, enemy: CombatantLike, path: Position[]): BattleState {
+  const paid = pathWithinBudget(path, enemy.mp);
+  const landing = paid.at(-1);
+  if (paid.length < 2 || landing === undefined) return current;
+  return billMove(current, { enemy, landing, cost: pathCost(paid) });
+}
+
+/**
+ * Sans carte (fixture héritée 5C-c), il n'y a aucun chemin à mesurer : on garde
+ * la facture Chebyshev d'origine. Les batailles de production fournissent
+ * toujours une carte, donc ce repli ne contourne pas la règle DEC-10.
+ */
+function legacyMove(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
   const cost = stepDistance(enemy.position, to);
-  if (!affordableStep(enemy, cost) || !walkableStep(current, to)) return current;
-  if (arrivalTaken(current, enemy, to)) return current;
-  const moved = withCombatant(current, { ...enemy, position: to, mp: enemy.mp - cost });
-  return appendLog(moved, `${enemy.name} se déplace de ${cost} case(s).`);
+  if (!affordableStep(enemy, cost) || arrivalTaken(current, enemy, to)) return current;
+  return billMove(current, { enemy, landing: to, cost });
+}
+
+function moveEnemy(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
+  if (current.map === undefined) return legacyMove(current, enemy, to);
+  const path = enemyPath(current, enemy, to);
+  return path === null ? current : commitMove(current, enemy, path);
 }
 
 /** Ni approche ni attaque : le joueur lit la raison au lieu d'un tour vide. */
