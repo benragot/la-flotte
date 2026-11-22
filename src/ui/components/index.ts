@@ -1,5 +1,7 @@
 export { default as CombatHud } from "./CombatHud";
 export type { CombatHudProps } from "./CombatHud";
+export { BattlePanel } from "./battle";
+export type { BattleCombatantView } from "./battle";
 export { HeroCreation } from "./hero";
 export type { HeroCreationProps } from "./hero";
 export { InventoryPanel } from "./inventory";

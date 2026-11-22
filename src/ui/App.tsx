@@ -5,7 +5,7 @@ import { CombatCanvas } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
 import { useGameStore } from "../store/useGameStore";
 import { appScreen, shouldStartExploration } from "./appRouting";
-import { CombatHud, HeroCreation } from "./components";
+import { CombatHud, BattlePanel, HeroCreation } from "./components";
 import OverlayPanels from "./components/OverlayPanels";
 import { explorationView } from "./explorationView";
 import { useExplorationPointer } from "./useExplorationPointer";
@@ -110,14 +110,24 @@ function CreationScreen() {
   );
 }
 
-/** Arène + dock en colonne, plus les panneaux superposés (sac, fiche perso). */
+/** Couche d'overlays : combat 1vN puis panneaux superposés, hors zone de clic carte. */
+function OverlayLayer() {
+  return (
+    <>
+      <BattlePanel />
+      <OverlayPanels />
+    </>
+  );
+}
+
+/** Arène + dock en colonne, plus la couche d'overlays (sac, fiche perso, combat 1vN). */
 function PlayableArena() {
   const { mode, view, returnToMap } = useArenaView();
   return (
     <div className={ARENA_SHELL}>
       <ArenaSection mode={mode} exploration={view} />
       <Dock mode={mode} onReturnToMap={returnToMap} />
-      <OverlayPanels />
+      <OverlayLayer />
     </div>
   );
 }

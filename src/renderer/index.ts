@@ -32,6 +32,8 @@ export { buildExplorationViewModel, explorationMapSize } from "./explorationScen
 export type { ExplorationGroup, ExplorationView } from "./explorationScene";
 export { buildViewModel, lastActionFrom } from "./combatSceneModel";
 export type { CombatSceneInput, LastAction, ViewModel } from "./combatSceneModel";
+export { battleViewModel, colorForId, shouldRenderBattle } from "./battleViewModel";
+export type { BattleCombatantView } from "./battleViewModel";
 export { SPRITE_SHEETS } from "./spriteManifest";
 export {
   ActorStage,
