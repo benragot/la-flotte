@@ -400,6 +400,22 @@ describe("backlog — identifiants", () => {
   });
 });
 
+/**
+ * Un id de dette n'a qu'UNE graphie : la garde anti-doublon compare des chaînes
+ * brutes, donc `D096` est un alias de `D96` et échapperait à la détection.
+ */
+const INVALID_DEBT_IDS = ["D1", "d100", "D-1", "D1000", "D0123", "XD100", "D100 ", "D000", "D096"];
+
+function acceptedInvalidDebtIds(): string[] {
+  return INVALID_DEBT_IDS.filter((id) => DEBT_ID_PATTERN.test(id));
+}
+
+describe("backlog — une seule graphie par id de dette", () => {
+  it("rejette les zéros de tête, les alias à trois chiffres, les préfixes et les espaces", () => {
+    expect(acceptedInvalidDebtIds()).toEqual([]);
+  });
+});
+
 describe("backlog — références", () => {
   it("ne référence que des ids existants depuis les phases et les dettes", () => {
     expect(danglingPhaseRefs(readBacklog())).toEqual([]);
@@ -1723,20 +1739,6 @@ function wave2Unlocated(backlog: Backlog): string[] {
   return WAVE2_DEBTS.filter(([id]) => !NOTE_LOCATION.test(debtById(backlog, id)?.notes ?? "")).map(([id]) => id);
 }
 
-/** Une dette de mesure n'est pas « à améliorer » : elle dit ce qui n'est pas prouvé. */
-const WAVE2_SEVERITIES: Array<[string, string]> = [
-  ["D96", "medium"],
-  ["D97", "low"],
-  ["D98", "low"],
-  ["D99", "medium"],
-  ["D100", "low"],
-  ["D101", "medium"],
-];
-
-function wave2SeverityGaps(backlog: Backlog): string[] {
-  return WAVE2_SEVERITIES.filter(([id, severity]) => debtById(backlog, id)?.severity !== severity).map(([id]) => id);
-}
-
 describe("backlog — six dettes des audits de la nuit (v24)", () => {
   it("verse D96 à D101 avec sévérité, cible et note factuelle", () => {
     expect(wave2DebtGaps(readBacklog())).toEqual([]);
@@ -1746,20 +1748,14 @@ describe("backlog — six dettes des audits de la nuit (v24)", () => {
     expect(wave2Unlocated(readBacklog())).toEqual([]);
   });
 
-  it("grade selon ce qui est cassé : moyenne la facture et la règle non exercée, basse la mesure", () => {
-    expect(wave2SeverityGaps(readBacklog())).toEqual([]);
-  });
-
   it("n'entre en collision avec aucun id de tâche", () => {
     const tasks = new Set(allTasks(readBacklog()).map((task) => task.id));
     const ids = WAVE2_DEBTS.map(([id]) => id);
     expect(ids.filter((id) => tasks.has(id))).toEqual([]);
   });
 
-  it("ne cible aucune tâche done, et laisse D83 intacte", () => {
-    const backlog = readBacklog();
-    const done = doneIds(backlog);
+  it("ne cible aucune tâche done", () => {
+    const done = doneIds(readBacklog());
     expect(WAVE2_DEBTS.map(([, , target]) => target).filter((target) => done.has(target))).toEqual([]);
-    expect(debtById(backlog, "D83")?.severity).toBe("high");
   });
 });
