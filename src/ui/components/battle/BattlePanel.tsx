@@ -3,6 +3,7 @@ import type { BattleCombatantView } from "../../../renderer/battleViewModel";
 import { battleViewModel, shouldRenderBattle } from "../../../renderer/battleViewModel";
 import { useCombatStore } from "../../../store/useCombatStore";
 import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
+import { closeBattle } from "./closeBattle";
 import { CombatantList } from "./CombatantList";
 import { ACTION_BUTTON, BATTLE_PANEL, CARD_HEAD, FOOT, HINT, LOG_LINE } from "./battleTheme";
 
@@ -10,7 +11,8 @@ import { ACTION_BUTTON, BATTLE_PANEL, CARD_HEAD, FOOT, HINT, LOG_LINE } from "./
 interface BattleHandlers {
   attack: (targetId: string) => void;
   endTurn: () => void;
-  close: () => void;
+  /** Ferme la salle : report sur victoire, abandon sinon (`closeBattle`). */
+  close: (battle: BattleState) => void;
 }
 
 interface BattleChromeProps {
@@ -33,7 +35,9 @@ interface PanelFootProps {
 function useBattleHandlers(): BattleHandlers {
   const attack = useCombatStore((state) => state.battleSpellAttack);
   const endTurn = useCombatStore((state) => state.advanceBattleTurn);
-  const close = useCombatStore((state) => state.endBattle);
+  const settle = useCombatStore((state) => state.settleDungeonRoom);
+  const abandon = useCombatStore((state) => state.endBattle);
+  const close = (battle: BattleState) => closeBattle(battle, { settle, abandon });
   return { attack: (targetId) => attack({ targetId }), endTurn, close };
 }
 
@@ -63,7 +67,7 @@ function PanelFoot({ log, onEndTurn }: PanelFootProps) {
 function BattleChrome({ battle, views, handlers }: BattleChromeProps) {
   return (
     <section aria-label="Combat de salle" className={BATTLE_PANEL}>
-      <PanelHead battle={battle} views={views} onClose={handlers.close} />
+      <PanelHead battle={battle} views={views} onClose={() => handlers.close(battle)} />
       <CombatantList views={views} onAttack={handlers.attack} />
       <PanelFoot log={battle.log} onEndTurn={handlers.endTurn} />
     </section>
