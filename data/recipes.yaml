@@ -93,3 +93,16 @@ recipes:
       - { itemId: boulon_qui_prie, quantity: 1 }
     craftLevel: 2
     description: "Trois ferrailles martyrisées autour d'un boulon qui prie pour qu'on arrête. Le résultat se dévisse tout seul, la malédiction est donc bien conservée."
+
+  # §7 de `docs/design/islands/ile_de_la_ferraille.md`. `craftLevel` n'y est pas
+  # fourni : 10 est une valeur provisoire (niveau du plus haut ingrédient farmable,
+  # celui du donjon étant 16), à trancher en 7B.
+  - id: recette_cle_donjon_ile_de_la_ferraille
+    resultItemId: cle_donjon_ile_de_la_ferraille
+    resultQuantity: 1
+    ingredients:
+      - { itemId: fer_pince_de_douze, quantity: 3 }
+      - { itemId: fer_boulon_sans_fin, quantity: 3 }
+      - { itemId: fer_goutte_mazout, quantity: 2 }
+    craftLevel: 10
+    description: "Trois pinces, trois boulons et deux gouttes de mazout durci : la clef n'ouvre rien, mais la Confrérie exige qu'on la présente à l'entrée. Le comité a voté, il y a onze ans, et il vote encore."

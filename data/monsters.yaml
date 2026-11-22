@@ -4,6 +4,9 @@
 # `spellIds` et `loot` sont différés : les sorts `fer_spell_*` arrivent en 6A avec
 # le moteur d'effets, les butins de la fiche en 7B avec les items correspondants.
 # Mieux vaut un monstre sans sort qu'un monstre pointant vers un sort inexistant.
+# Vague 5B : seules les entrées de butin dont l'item existe déjà dans items.yaml
+# sont appliquées (taux et seuils PP du §2 de la fiche, non retouchés) ; le reste
+# attend la 7B.
 monsters:
   - id: piou_mazoute
     name: Piou Mazouté
@@ -44,6 +47,8 @@ monsters:
         - "Fonce sur la cible la plus faible en PV qu'il peut atteindre ce tour."
         - "Réserve Grignotage de Câble pour un ennemi qui n'a plus que 2 PA."
         - "Ne recule jamais, même à 1 PV."
+    loot:
+      - { itemId: fer_goutte_mazout, baseDropRate: 0.40, ppThreshold: 100 }
 
   - id: fer_crabe_cle_molette
     name: Crabe à Clé-à-Molette
@@ -67,6 +72,8 @@ monsters:
         - "Avance vers la cible la plus proche et se colle à elle pour la tacler."
         - "Garde Serrage de Boulon pour lui-même sous 50 % de PV."
         - "Préfère bloquer un couloir plutôt que frapper fort."
+    loot:
+      - { itemId: fer_pince_de_douze, baseDropRate: 0.60, ppThreshold: 100 }
 
   - id: fer_marmite_fuyarde
     name: Marmite qui Fuit
@@ -114,6 +121,8 @@ monsters:
         - "Cherche une cible dos à un mur `#` avant de pousser."
         - "Graisse un allié de première ligne avant de frapper."
         - "Priorise les cibles déjà collées à un obstacle."
+    loot:
+      - { itemId: fer_boulon_sans_fin, baseDropRate: 0.65, ppThreshold: 100 }
 
   # L'Atelier d'Yvon Rouiller — boss de la Casse aux Vis-Sans-Fin.
   - id: fer_boss_yvon_rouiller

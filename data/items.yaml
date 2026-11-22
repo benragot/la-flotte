@@ -106,6 +106,27 @@ items:
     starting: true
     sellPrice: 8
 
+  # --- Ingrédients de la clef du donjon (fiche de l'île, §4.1) ---
+  # `rarity` et `level` du §4 ne sont pas des champs de `itemSchema` : omis
+  # plutôt que silencieusement supprimés par Zod. `sellValue` du §4 → `sellPrice`.
+  - id: fer_pince_de_douze
+    name: Pince de Douze
+    description: "Pince sectionnée sur un crabe. Elle serre encore toute seule quand on la pose sur l'établi, par habitude professionnelle."
+    category: resource
+    sellPrice: 8
+
+  - id: fer_boulon_sans_fin
+    name: Boulon Sans Fin
+    description: "Boulon fileté sans tête ni écrou. La Confrérie en a fait son emblème, puis son dieu, puis son tarif."
+    category: resource
+    sellPrice: 12
+
+  - id: fer_goutte_mazout
+    name: Goutte de Mazout Durcie
+    description: "Une larme de mazout assez vieille pour être devenue solide. On la brûle, on la boit, on la marchande : jamais dans cet ordre."
+    category: resource
+    sellPrice: 4
+
   # --- Clé de donjon ---
   - id: cle_donjon_ile_de_la_ferraille
     name: "Clef de la Casse aux Vis-Sans-Fin"

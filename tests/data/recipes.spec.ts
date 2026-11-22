@@ -12,7 +12,7 @@ import type { RecipeDef } from "../../src/schemas/recipeSchema";
 const DATA_DIR = join(process.cwd(), "data");
 const SNAKE_CASE = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
 const MIN_RECIPES = 8;
-const MAX_RECIPES = 10;
+const MAX_RECIPES = 11;
 
 const read = (file: string): string => readFileSync(join(DATA_DIR, file), "utf8");
 const loadRecipes = (): RecipeDef[] => parseRecipesYaml(read("recipes.yaml"));
@@ -29,7 +29,7 @@ const itemById = (items: readonly ItemDef[], id: string): ItemDef | undefined =>
   items.find((item) => item.id === id);
 
 describe("recipes.yaml — structure", () => {
-  it("contient entre 8 et 10 recettes aux ids uniques en snake_case", () => {
+  it("contient entre 8 et 11 recettes aux ids uniques en snake_case", () => {
     const recipes = loadRecipes();
     expect(recipes.length).toBeGreaterThanOrEqual(MIN_RECIPES);
     expect(recipes.length).toBeLessThanOrEqual(MAX_RECIPES);
