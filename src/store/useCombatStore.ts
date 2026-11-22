@@ -26,6 +26,7 @@ import {
   pickSpawn,
   respawnMonsterGroup,
   seedForMap,
+  seedForRespawn,
   zoneForMap,
 } from "../engine/exploration";
 import type {
@@ -425,12 +426,29 @@ function explorationReturn(exploration: ExplorationState | null): Partial<Combat
   return { ...base, rewards: null, activeGroup: null, selectedSpellId: null, hoveredCell: null, trails: NO_TRAILS };
 }
 
+/**
+ * Un groupe vaincu en exploration est remplacé **au retour sur la carte**, jamais
+ * pendant un combat, jamais dans un donjon (les salles viennent de
+ * `data/dungeons.yaml`). Une défaite ne remplace rien : le groupe est toujours là.
+ */
+export function canRespawnAfterVictory(store: Pick<CombatStore, "combat" | "dungeonRun">): boolean {
+  return store.combat?.phase === "victory" && store.dungeonRun === null;
+}
+
+/** Tirage seedé par `(mapId, respawns)`, jamais `Math.random` : rejouable. */
+function respawnOnVictory(store: CombatStore, defeated: ExplorationState): ExplorationState {
+  if (!canRespawnAfterVictory(store)) return defeated;
+  const spawn = spawnForGroup(store.activeGroup, store.mapId);
+  const minGroups = spawnPlanFor(store.mapId).groups.min;
+  const rng = createSeededRng(seedForRespawn(store.mapId, defeated.respawns));
+  return respawnMonsterGroup({ state: defeated, spawn, minGroups, rng });
+}
+
 function victoryReturn(store: CombatStore): Partial<CombatStore> {
-  const { exploration, activeGroup } = store;
+  const { exploration } = store;
   if (exploration === null || store.rewards === null) return {};
-  const defeated = defeatGroup(exploration, groupId(activeGroup));
-  const spawn = spawnForGroup(activeGroup, store.mapId);
-  return explorationReturn(respawnMonsterGroup({ state: defeated, spawn, rng: Math.random }));
+  const defeated = defeatGroup(exploration, groupId(store.activeGroup));
+  return explorationReturn(respawnOnVictory(store, defeated));
 }
 
 /** Défaite : PV restaurés au max (D29) pour ne pas enchaîner sur un héros à 0 PV. */
