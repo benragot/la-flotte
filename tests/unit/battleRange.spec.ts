@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { roomMonsters } from "../../src/engine/dungeon";
 import type { DungeonRoom } from "../../src/engine/dungeon";
 import { setupDungeonBattle } from "../../src/engine/dungeon/combatants";
-import { getCell, isWalkableCell, parseAsciiMap } from "../../src/engine/grid";
+import { getCell, isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
 import type { Position } from "../../src/engine/grid";
-import { buildTimeline, resolveAttack } from "../../src/engine/multiCombat";
+import { buildTimeline, isDefeat, isVictory, livingOf, resolveAttack } from "../../src/engine/multiCombat";
 import type { BattleState, CombatantLike } from "../../src/engine/multiCombat";
 import { battleViewModel } from "../../src/renderer/battleViewModel";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
@@ -41,6 +41,8 @@ function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
 
 const MAP = parseAsciiMap(mustFind(maps, MAP_ID).grid);
 const PRESSION = mustFind(spells, "pression");
+/** Sort de jet à `minRange: 2` : sert à prouver la borne basse sans empiler deux combattants. */
+const JET_DECROU = mustFind(spells, "fer_spell_lancer_decrou");
 
 const HERO: CombatantLike = {
   id: "player",
@@ -146,6 +148,17 @@ describe("setupDungeonBattle — la carte entre dans la bataille", () => {
     expect(first).toEqual(second);
   });
 
+  it("pose le héros sur une case P et chaque monstre sur une case M de la carte", () => {
+    const combatants = placeWithMap().combatants;
+    const hero = combatants.find((entry) => entry.side === "player");
+    if (hero === undefined) throw new Error("héros absent");
+    expect(MAP.playerSpawns.some((cell) => samePosition(cell, hero.position))).toBe(true);
+    const enemies = combatants.filter((entry) => entry.side === "enemy");
+    for (const enemy of enemies) {
+      expect(MAP.monsterSpawns.some((cell) => samePosition(cell, enemy.position))).toBe(true);
+    }
+  });
+
   it("n'occupe jamais la case d'un autre combattant ni un mur", () => {
     const cells = placeWithMap().combatants.map((entry) => entry.position);
     cells.forEach((cell) => {
@@ -163,11 +176,12 @@ describe("useCombatStore.startDungeonRoom — carte et portée du sort", () => {
     expect(state.castRange).toEqual({ min: PRESSION.minRange, max: PRESSION.maxRange, requiresLos: PRESSION.requiresLos });
   });
 
-  it("place le héros au contact du groupe, sur une case libre", () => {
+  it("place le héros sur une case P de la carte, libre et praticable", () => {
     useCombatStore.getState().startDungeonRoom({ room: roomOne() });
     const state = battleOrThrow();
     const hero = combatantIn(state, "player");
     expect(isWalkableCell(MAP, hero.position)).toBe(true);
+    expect(MAP.playerSpawns.some((cell) => samePosition(cell, hero.position))).toBe(true);
     const occupied = state.combatants.filter((entry) => entry.id !== hero.id).map((entry) => entry.position);
     expect(occupied.some((cell) => cellKey(cell) === cellKey(hero.position))).toBe(false);
   });
@@ -191,10 +205,18 @@ describe("portée — refus avant tout PA", () => {
     expect(combatantIn(next, "piou_mazoute-0").hp).toBeLessThan(combatantIn(state, "piou_mazoute-0").hp);
   });
 
-  it("refuse une cible trop proche quand minRange l'interdit", () => {
-    const state = heroTurn(moved(placedBattle(), { player: { x: 1, y: 1 }, "piou_mazoute-0": { x: 1, y: 1 } }));
-    expect(castRefusal(state, "piou_mazoute-0", spellCastSpec(PRESSION, 8))).toContain("hors portée");
-    expect(attackOn(state, "piou_mazoute-0")).toBe(state);
+  it("refuse une cible sous minRange pour un sort à minRange 2", () => {
+    const state = heroTurn(moved(placedBattle(), { player: { x: 1, y: 1 }, "piou_mazoute-0": { x: 2, y: 1 } }));
+    const attack = spellCastSpec(JET_DECROU, 8);
+    expect(JET_DECROU.minRange).toBe(2);
+    expect(castRefusal(state, "piou_mazoute-0", attack)).toContain("hors portée");
+    expect(attackOn(state, "piou_mazoute-0", attack)).toBe(state);
+  });
+
+  it("accepte la même cible à minRange exactement", () => {
+    const state = heroTurn(moved(placedBattle(), { player: { x: 1, y: 1 }, "piou_mazoute-0": { x: 3, y: 1 } }));
+    const attack = spellCastSpec(JET_DECROU, 8);
+    expect(attackOn(state, "piou_mazoute-0", attack)).not.toBe(state);
   });
 });
 
@@ -257,7 +279,7 @@ describe("useCombatStore.battleSpellAttack — le joueur comprend le refus", () 
 
   it("dépense exactement le coût du sort sur un cast accepté", () => {
     useCombatStore.getState().startDungeonRoom({ room: roomOne() });
-    const base = heroTurn(battleOrThrow());
+    const base = heroTurn(moved(battleOrThrow(), { player: { x: 1, y: 1 }, "piou_mazoute-0": { x: 2, y: 1 } }));
     useCombatStore.setState({ battle: base });
     const next = castStore("piou_mazoute-0");
     expect(combatantIn(next, "player").ap).toBe(combatantIn(base, "player").ap - PRESSION.apCost);
@@ -289,4 +311,88 @@ describe("battleViewModel — la cible invalide est visible", () => {
     expect(view?.isTargetable).toBe(true);
     expect(view?.blockedReason).toBeNull();
   });
+});
+
+const MAX_ACTIONS = 300;
+
+function roomAt(roomNumber: number): DungeonRoom {
+  const room = mustFind(dungeons, DUNGEON_ID).rooms[roomNumber - 1];
+  if (room === undefined) throw new Error(`salle ${roomNumber} absente`);
+  return room;
+}
+
+/** Héros de test endurant : on mesure la géométrie et l'IA, pas l'équilibrage du donjon. */
+function durableHero(): void {
+  const { hero } = useGameStore.getState();
+  if (hero === null) throw new Error("héros absent");
+  useGameStore.setState({ hero: { ...hero, level: 16, hp: 400, maxHp: 400, strength: 120 } });
+}
+
+function battleOver(state: BattleState): boolean {
+  return isVictory(state) || isDefeat(state);
+}
+
+function anyMonsterMoved(initial: BattleState, current: BattleState): boolean {
+  const enemies = current.combatants.filter((entry) => entry.side === "enemy");
+  return enemies.some((enemy) => {
+    const start = initial.combatants.find((entry) => entry.id === enemy.id);
+    return start !== undefined && !samePosition(start.position, enemy.position);
+  });
+}
+
+function castableEnemies(state: BattleState): CombatantLike[] {
+  const attack = spellCastSpec(PRESSION, 0);
+  return livingOf(state, "enemy").filter((enemy) => castRefusal(state, enemy.id, attack) === null);
+}
+
+function weakestEnemy(state: BattleState): CombatantLike | null {
+  const rank = (best: CombatantLike | null, enemy: CombatantLike) => (best === null || enemy.hp < best.hp ? enemy : best);
+  return castableEnemies(state).reduce<CombatantLike | null>(rank, null);
+}
+
+function castAtWeakest(): void {
+  const target = weakestEnemy(battleOrThrow());
+  if (target !== null) useCombatStore.getState().battleSpellAttack({ targetId: target.id, rng: () => 0.5 });
+}
+
+/** Deux casts par tour au plus : c'est ce que paient les 6 PA du héros de test. */
+function castPhase(): void {
+  castAtWeakest();
+  castAtWeakest();
+}
+
+interface RoomRun {
+  battle: BattleState;
+  actions: number;
+  moved: boolean;
+  heroStart: number;
+}
+
+function playRoomToEnd(room: DungeonRoom): RoomRun {
+  useCombatStore.getState().startDungeonRoom({ room });
+  const initial = battleOrThrow();
+  const heroStart = combatantIn(initial, "player").hp;
+  let actions = 0;
+  while (actions < MAX_ACTIONS && !battleOver(battleOrThrow())) {
+    castPhase();
+    useCombatStore.getState().playEnemyTurns({ rng: () => 0.5 });
+    actions += 1;
+  }
+  const battle = battleOrThrow();
+  return { battle, actions, moved: anyMonsterMoved(initial, battle), heroStart };
+}
+
+describe("viabilité — les 4 salles se terminent par le chemin de production", () => {
+  beforeEach(durableHero);
+
+  for (const roomNumber of [1, 2, 3, 4]) {
+    it(`salle ${roomNumber} : victoire, approche ennemie et riposte subie`, () => {
+      const run = playRoomToEnd(roomAt(roomNumber));
+      expect(run.actions).toBeLessThan(MAX_ACTIONS);
+      expect(isVictory(run.battle)).toBe(true);
+      expect(run.moved).toBe(true);
+      expect(run.battle.log.some((line) => line.includes("se déplace de"))).toBe(true);
+      expect(combatantIn(run.battle, "player").hp).toBeLessThan(run.heroStart);
+    });
+  }
 });
