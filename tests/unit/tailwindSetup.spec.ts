@@ -38,8 +38,8 @@ describe("assemblage jouable de App", () => {
     expect(source).toMatch(/CombatHud[^;]*from\s+"\.\/components"/);
   });
 
-  it("démarre automatiquement le combat de démonstration", () => {
-    expect(readSource(APP_PATH)).toContain("startDemoCombat");
+  it("démarre automatiquement l'exploration de la carte", () => {
+    expect(readSource(APP_PATH)).toContain("startExploration");
   });
 
   it("reste sans échappement lint ni style inline", () => {

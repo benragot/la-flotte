@@ -90,7 +90,7 @@ describe("walkthrough : économie — câblage du store", () => {
     if (hero === null) throw new Error("héros non créé");
     const base = initCombat({ map: tinyArena(), hero, monster: piou(), spells });
     const weakened = { ...base, enemy: { ...base.enemy, hp: 1 } };
-    useCombatStore.setState({ combat: weakened, selectedSpellId: "pression" });
+    useCombatStore.setState({ mode: "combat", combat: weakened, selectedSpellId: "pression" });
     useCombatStore.getState().clickCell({ x: 2, y: 0 });
     expect(useCombatStore.getState().combat?.phase).toBe("victory");
     expect(useCombatStore.getState().rewards?.xpGained).toBe(120);

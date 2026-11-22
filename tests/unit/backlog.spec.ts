@@ -18,9 +18,9 @@ const PRIORITIES = ["high", "medium", "low"];
 const TASK_KEYS = ["id", "title", "status", "owner", "priority", "updated_at"];
 const INBOX_KEYS = ["id", "title", "created_at"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-const WAVE_ID_PATTERN = /^wave-\d+$/;
-const PHASE_ID_PATTERN = /^\d[A-D]$/;
-const TASK_ID_PATTERN = /^\d[A-D]-[a-z0-9-]+$/;
+const WAVE_ID_PATTERN = /^wave-\d+(?:\.\d+)?$/;
+const PHASE_ID_PATTERN = /^\d(?:\.\d)?[A-D]$/;
+const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[a-z0-9-]+$/;
 const DEBT_ID_PATTERN = /^D\d{2}$/;
 
 interface Task {
@@ -484,6 +484,16 @@ describe("backlog — garde-fous de traçabilité sur fixtures", () => {
 describe("backlog — cohérence vagues / phases", () => {
   it("garde chaque vague alignée sur l'état de ses phases", () => {
     expect(wavePhaseMismatches(readBacklog())).toEqual([]);
+  });
+});
+
+describe("backlog — vague 3.5 look & feel", () => {
+  it("enregistre les quatre livraisons et le câblage final", () => {
+    const wave = readBacklog().waves.find((entry) => entry.id === "wave-3.5");
+    expect(wave?.title).toBe("Look & Feel Dofus 1.29");
+    const tasks = (wave?.phases ?? []).flatMap((phase) => phase.tasks ?? []);
+    const expected = ["3.5A-exploration", "3.5A-iso-grid", "3.5A-dofus-hud", "3.5B-wiring"];
+    expect(tasks.map((task) => task.id)).toEqual(expect.arrayContaining(expected));
   });
 });
 
