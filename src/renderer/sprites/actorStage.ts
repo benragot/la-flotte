@@ -46,8 +46,8 @@ export class ActorStage {
   private syncToken(token: TokenView): void {
     const actor = this.actorFor(token);
     if (actor === null) return;
-    const { center, facing, animation, animationKey } = token;
-    actor.update({ point: center, facing, animation, signature: animationKey });
+    const { center, facing, animation, animationKey, scale } = token;
+    actor.update({ point: center, facing, animation, signature: animationKey, scale });
   }
 
   private specFor(spriteId: string | null): SpriteSheetSpec | undefined {
