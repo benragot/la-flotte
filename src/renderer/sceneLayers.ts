@@ -192,12 +192,12 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawPath(layers.path, view.path);
 }
 
-/** Anneau doré **sous** les acteurs, puis jetons géométriques, PV et badges. */
+/** Anneau doré **sous** les acteurs, puis jetons géométriques, PV déclarés et badges. */
 function drawActorLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
-  drawHpBars(layers.hpBars, view.tokens);
+  drawHpBars(layers.hpBars, view.hpBarTokens);
   drawLabels(layers.labels, view, viewport);
 }
 

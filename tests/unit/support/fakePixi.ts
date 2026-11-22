@@ -53,6 +53,7 @@ export const graphicsOf: FakeGraphics[] = [];
 export class FakeGraphics extends FakeNode {
   circleCalls = 0;
   polyCalls = 0;
+  rectCalls = 0;
 
   constructor() {
     super();
@@ -70,6 +71,7 @@ export class FakeGraphics extends FakeNode {
   }
 
   rect(): this {
+    this.rectCalls += 1;
     return this;
   }
 
@@ -96,6 +98,7 @@ export class FakeGraphics extends FakeNode {
   clear(): this {
     this.circleCalls = 0;
     this.polyCalls = 0;
+    this.rectCalls = 0;
     return this;
   }
 }

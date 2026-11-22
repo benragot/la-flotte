@@ -31,6 +31,8 @@ export interface BattleSceneInput {
 export interface BattleSceneView {
   scene: SceneModel;
   tokens: TokenView[];
+  /** Salle = combat : une barre de vie par combattant, exactement comme avant. */
+  hpBarTokens: readonly TokenView[];
   path: TileView[];
   lastAction: null;
   /** Combattant dont c'est le tour, tel que `activeCombatant` le désigne. */
@@ -99,5 +101,5 @@ export function buildBattleViewModel(input: BattleSceneInput): BattleSceneView {
   const scene = battleScene(input.battle, origin);
   const activeId = activeIdOf(input.battle);
   const floats = input.battle.floats ?? [];
-  return { scene, tokens, path: [], lastAction: null, activeId, floats, sceneKey: input.battle.map ?? null };
+  return { scene, tokens, hpBarTokens: tokens, path: [], lastAction: null, activeId, floats, sceneKey: input.battle.map ?? null };
 }

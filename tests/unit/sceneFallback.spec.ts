@@ -39,13 +39,14 @@ function token(spriteId: string | null): TokenView {
   return { ...base, fill: 0x3f7fd6, spriteId, facing: "right", animation: "idle", animationKey: "static" };
 }
 
-function view(tokens: TokenView[]): ViewModel {
-  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [] }, tokens, path: [], lastAction: null };
+function view(tokens: TokenView[], hpBarTokens: TokenView[] = tokens): ViewModel {
+  const scene = { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [] };
+  return { scene, tokens, hpBarTokens, path: [], lastAction: null };
 }
 
 function exitView(): ViewModel {
   const mark = { cell: { x: 0, y: 0 }, center: { x: 100, y: 80 }, points: [100, 74, 106, 80, 100, 86, 94, 80], scale: 1 };
-  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [mark] }, tokens: [], path: [], lastAction: null };
+  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [mark] }, tokens: [], hpBarTokens: [], path: [], lastAction: null };
 }
 
 function fakeApp(): Application {
@@ -90,5 +91,22 @@ describe("couche de scène — un jeton sans feuille ne disparaît jamais", () =
 describe("couche de scène — les soleils de sortie", () => {
   it("trace l'aplat et le contour sombre du losange doré", () => {
     expect(paintExitMarks()).toBe(2);
+  });
+});
+
+/** Barres de PV peintes : deux `rect` par barre, le fond puis le remplissage. */
+function paintedBars(tokens: TokenView[], bars: TokenView[]): number {
+  const offset = graphicsOf.length;
+  renderScene(fakeApp(), view(tokens, bars), { sheets: [SHEET] });
+  return graphicsOf.slice(offset).reduce((total, graphics) => total + graphics.rectCalls, 0);
+}
+
+describe("couche de scène — les barres de vie suivent le modèle", () => {
+  it("n'en peint aucune quand le modèle n'en déclare pas (exploration)", () => {
+    expect(paintedBars([token(null)], [])).toBe(0);
+  });
+
+  it("peint celles que le modèle déclare (combat)", () => {
+    expect(paintedBars([token("iop")], [token("iop")])).toBe(2);
   });
 });
