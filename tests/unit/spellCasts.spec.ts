@@ -1,16 +1,22 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { parseAsciiMap } from "../../src/engine/grid";
+import { addItem } from "../../src/engine/inventory";
 import { buildTimeline, enemiesAct } from "../../src/engine/multiCombat";
 import type { BattleState, CombatantLike, EnemyStrategy } from "../../src/engine/multiCombat";
+import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import type { SpellDef } from "../../src/schemas/spellSchema";
 import { parseSpellsYaml } from "../../src/schemas/spellSchema";
 import { playEnemyTurns, spellStrategy } from "../../src/store/battleSelectors";
+import { useCombatStore } from "../../src/store/useCombatStore";
+import { useGameStore } from "../../src/store/useGameStore";
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const spells = parseSpellsYaml(read("spells.yaml"));
+const DUNGEON = first(parseDungeonsYaml(read("dungeons.yaml")), "donjon");
 const YVON_SPELL = mustFind(spells, "fer_spell_clef_a_choc");
+const RAT_SPELL = mustFind(spells, "fer_spell_morsure_tetanos");
 
 const ZERO = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
 const STATS = { strength: 0, intelligence: 0, chance: 0, agility: 0, wisdom: 0 };
@@ -21,6 +27,12 @@ function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   const found = list.find((entry) => entry.id === id);
   if (found === undefined) throw new Error(`${id} absent de data/`);
   return found;
+}
+
+function first<T>(list: readonly T[], label: string): T {
+  const value = list[0];
+  if (value === undefined) throw new Error(`data/ ne déclare aucun ${label}`);
+  return value;
 }
 
 /** Sort de test : 3 PA, 10 dégâts fixes, quota déclaré par l'appelant. */
@@ -91,6 +103,61 @@ function usageCasts(state: BattleState): number[] {
   return Object.values(state.spellUsage ?? {}).map((usage) => usage.casts);
 }
 
+function battleOrThrow(): BattleState {
+  const { battle } = useCombatStore.getState();
+  if (battle === null) throw new Error("battle absent du store");
+  return battle;
+}
+
+/** Entrée de donjon par le vrai store : héros créé, clef consommée, salle 1 ouverte. */
+function enterDungeon(): void {
+  useGameStore.getState().resetGame();
+  useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
+  const { inventory } = useGameStore.getState();
+  useGameStore.setState({ inventory: addItem({ inventory, itemId: DUNGEON.keyItemId, quantity: 1 }) });
+  expect(useCombatStore.getState().enterDungeonRun({ dungeonId: DUNGEON.id })).toBe(true);
+}
+
+/** Amène la timeline sur un ennemi : `battleEnemyTurn` joue l'actif. */
+function toEnemyTurn(): void {
+  for (let step = 0; step <= battleOrThrow().order.length; step += 1) {
+    const state = battleOrThrow();
+    const active = state.combatants.find((entry) => entry.id === state.order[state.activeIndex]);
+    if (active?.side === "enemy") return;
+    useCombatStore.getState().advanceBattleTurn();
+  }
+  throw new Error("aucun ennemi n'a pu devenir actif");
+}
+
+/**
+ * Consomme un vrai quota par `battleEnemyTurn` (le store + `resolveAttack`),
+ * avec un sort de `data/spells.yaml` qui déclare `castsPerTurn`. L'attaque est
+ * portée par le moteur, pas écrite à la main dans l'état.
+ */
+function consumeQuotaThroughEngine(): BattleState {
+  toEnemyTurn();
+  const target = battleOrThrow().combatants.find((entry) => entry.side === "player");
+  if (target === undefined) throw new Error("héros absent de la bataille");
+  const attack = {
+    base: 1,
+    element: "neutral" as const,
+    baseCrit: 0,
+    apCost: RAT_SPELL.apCost,
+    spellId: RAT_SPELL.id,
+    castsPerTurn: RAT_SPELL.castsPerTurn,
+    cooldown: RAT_SPELL.cooldown,
+  };
+  const strategy: EnemyStrategy = () => ({ kind: "attack", targetId: target.id, attack });
+  useCombatStore.getState().battleEnemyTurn({ strategy, rng: RNG });
+  return battleOrThrow();
+}
+
+function winRoom(): void {
+  const state = battleOrThrow();
+  const combatants = state.combatants.map((entry) => (entry.side === "enemy" ? { ...entry, hp: 0 } : entry));
+  useCombatStore.setState({ battle: { ...state, combatants } });
+}
+
 describe("castsPerTurn — quota par tour honoré", () => {
   it("un monstre 6 PA avec un sort 3 PA et castsPerTurn: 1 ne frappe qu'UNE fois", () => {
     const spell = testSpell();
@@ -137,14 +204,33 @@ describe("état remis à zéro au nouveau tour", () => {
     expect([hits(turn1), hits(turn2)]).toEqual([1, 2]);
     expect(usageCasts(turn2)).toEqual([1]);
   });
+});
 
-  it("un combat neuf (salle suivante) ne récupère aucun compteur", () => {
-    const spell = testSpell({ cooldown: 2 });
-    const played = enemyTurn(stateOf([hero(), enemy()]), spell);
-    const fresh = stateOf([hero(), enemy()]);
-    expect(played.spellUsage).toBeDefined();
-    expect(fresh.spellUsage).toBeUndefined();
-    expect(hits(enemyTurn(fresh, spell))).toBe(1);
+describe("aucune fuite entre deux salles — vrai chemin du store", () => {
+  beforeEach(() => {
+    useCombatStore.setState({
+      battle: null,
+      combat: null,
+      mode: "exploration",
+      exploration: null,
+      dungeonRun: null,
+      dungeonNotice: null,
+      rewards: null,
+    });
+  });
+
+  it("la salle suivante repart avec un `spellUsage` vide malgré des quotas consommés", () => {
+    expect(RAT_SPELL.castsPerTurn).toBeDefined();
+    enterDungeon();
+    const consumed = consumeQuotaThroughEngine();
+    expect(Object.keys(consumed.spellUsage ?? {})).not.toHaveLength(0);
+    winRoom();
+    useCombatStore.getState().settleDungeonRoom();
+    expect(useCombatStore.getState().dungeonRun?.roomIndex).toBe(1);
+    const next = battleOrThrow();
+    expect(next.log.join(" ")).toContain(DUNGEON.rooms[1]?.name ?? "");
+    expect(next.turn).toBe(1);
+    expect(next.spellUsage).toBeUndefined();
   });
 });
 
