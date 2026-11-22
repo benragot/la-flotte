@@ -16,6 +16,7 @@ import type { Hero } from "../engine/createHero";
 import { createHero } from "../engine/createHero";
 import {
   arrivalLine,
+  createSeededRng,
   defeatGroup,
   exitAt,
   getMonsterGroupAt,
@@ -24,8 +25,17 @@ import {
   moveHeroOnMap,
   pickSpawn,
   respawnMonsterGroup,
+  seedForMap,
+  zoneForMap,
 } from "../engine/exploration";
-import type { ExplorationState, MonsterGroup, MonsterSpawn, SpawnPick, SpawnZone } from "../engine/exploration";
+import type {
+  ExplorationState,
+  MonsterGroup,
+  MonsterSpawn,
+  SpawnPick,
+  SpawnPlan,
+  SpawnZone,
+} from "../engine/exploration";
 import { attemptRoom, currentRoom, healBetweenRooms, isDungeonComplete, roomMonsters } from "../engine/dungeon";
 import type { DungeonRoom, DungeonRunState, RoomHeal } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
@@ -84,7 +94,11 @@ interface CombatStore {
   hoveredCell: Position | null;
   rewards: CombatRewards | null;
   startDemoCombat: () => void;
-  /** Entrée en exploration : monstre tiré de `data/spawns.yaml` (rng injectable). */
+  /**
+   * Entrée en exploration : groupes tirés de `data/spawns.yaml`. `rng` est
+   * injectable (tests) ; par défaut la graine de la carte (`seedForMap`) rend
+   * la disposition stable d'une visite à l'autre.
+   */
   startExploration: (rng?: Rng) => void;
   returnToMap: () => void;
   selectSpell: (spellId: string | null) => void;
@@ -194,6 +208,22 @@ function spawnPick(input: { mapId: string; rng?: Rng }): SpawnPick {
 /** Monstre de la première entrée de la zone de `mapId` : repli déterministe. */
 function defaultSpawn(mapId: string): MonsterSpawn {
   return spawnOf(spawnPick({ mapId, rng: FIRST_ENTRY_RNG }).monsterId);
+}
+
+/**
+ * Plan de peuplement de la zone de `mapId` : combien de groupes, combien de
+ * monstres par groupe, dans quel vivier pondéré. Tout vient de
+ * `data/spawns.yaml` ; les cases interdites viennent de `data/maps.yaml`.
+ */
+function spawnPlanFor(mapId: string): SpawnPlan {
+  const { zone } = zoneForMap(spawnZones, mapId);
+  const roster = zone.monsters.map((entry) => ({ ...spawnOf(entry.monsterId), weight: entry.weight }));
+  return { groups: zone.groups, members: zone.members, roster };
+}
+
+/** Même carte ⇒ même graine ⇒ même disposition, à chaque `initExploration`. */
+function placementRng(mapId: string): Rng {
+  return createSeededRng(seedForMap(mapId));
 }
 
 /** Zone absente : le joueur reste sur la carte, le repli est journalisé. */
@@ -306,12 +336,20 @@ function refusalUpdate(exploration: ExplorationState): Partial<CombatStore> {
   return { exploration: { ...exploration, log: [...exploration.log, EXIT_REFUSED] } };
 }
 
+/** Carte neuve : même plan de zone ET même graine que sur place, donc stable. */
+function arrivalExploration(input: { mapId: string; map: AsciiMap }): ExplorationState {
+  const plan = spawnPlanFor(input.mapId);
+  const spawn = spawnOf(defaultSpawn(input.mapId).monsterId);
+  const options = { map: input.map, ...spawn, plan, rng: placementRng(input.mapId) };
+  return initExploration({ ...options, safeCells: exitsOf(input.mapId) });
+}
+
 /** Carte neuve : la scène est reconstruite sur la destination, journal remplacé. */
 function travelUpdate(state: ExplorationState, exit: ExitSpec): Partial<CombatStore> {
   const destination = mustFind(maps, exit.to);
   const map = mapById(destination.id);
   const landing = landingFor({ size: state.map, pos: exit, to: map, at: exit.at });
-  const fresh = initExploration({ map, ...spawnOf(defaultSpawn(destination.id).monsterId) });
+  const fresh = arrivalExploration({ mapId: destination.id, map });
   const log = [arrivalLine(destination.name, landing)];
   const exploration = { ...fresh, playerPos: landing.position, log };
   return { mapId: destination.id, exploration, hoveredCell: null };
@@ -781,11 +819,20 @@ function demoUpdate(mapId: string): Partial<CombatStore> {
 }
 
 /** Zone de spawn choisie par le `mapId` courant du store, jamais par une constante. */
-function explorationStartUpdate(input: { mapId: string; rng?: Rng }): Partial<CombatStore> {
+/** Exploration d'ouverture : 3-4 groupes lus en donnée, placement déterministe. */
+function startExplorationState(input: { mapId: string; rng?: Rng }): ExplorationState {
   const pick = spawnPick(input);
-  const base = initExploration({ map: mapById(input.mapId), ...spawnOf(pick.monsterId) });
+  const map = mapById(input.mapId);
+  const plan = spawnPlanFor(input.mapId);
+  const rng = input.rng ?? placementRng(input.mapId);
+  const options = { map, ...spawnOf(pick.monsterId), plan, rng };
+  const base = initExploration({ ...options, safeCells: exitsOf(input.mapId) });
   const context = { mapId: input.mapId, zoneId: pick.zoneId };
-  const exploration = pick.fallback ? fallbackLog(base, context) : base;
+  return pick.fallback ? fallbackLog(base, context) : base;
+}
+
+function explorationStartUpdate(input: { mapId: string; rng?: Rng }): Partial<CombatStore> {
+  const exploration = startExplorationState(input);
   const header = { mode: "exploration" as const, exploration, combat: null, activeGroup: null };
   return { ...header, mapId: input.mapId, selectedSpellId: null, hoveredCell: null, rewards: null };
 }

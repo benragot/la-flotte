@@ -99,9 +99,13 @@ describe("initExploration", () => {
     expect(() => initExploration({ map, ...SPAWN })).toThrow(/joueur/i);
   });
 
-  it("accepte une carte sans placement monstre : les monstres viennent des spawns", () => {
+  // Depuis la donnée `groups`, l'absence de `M` n'est plus une carte vide : le
+  // placement vient des cases libres de la grille, le vivier de spawns.yaml.
+  it("pose un groupe même sans placement monstre : il vient des spawns", () => {
     const map = parseAsciiMap(["..P.", "...."]);
-    expect(initExploration({ map, ...SPAWN }).monsterGroups).toEqual([]);
+    const [group] = initExploration({ map, ...SPAWN }).monsterGroups;
+    expect(group?.monsterIds).toEqual(["piou_mazoute"]);
+    expect(group?.pos).not.toEqual({ x: 2, y: 0 });
   });
 });
 

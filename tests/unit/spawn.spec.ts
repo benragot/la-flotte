@@ -15,9 +15,11 @@ const ALPHA: readonly WeightedMonster[] = [
 ];
 const BETA: readonly WeightedMonster[] = [{ monsterId: "monstre_beta", weight: 7 }];
 
+const ONE_OF_EACH = { groups: { min: 1, max: 1 }, members: { min: 1, max: 1 } } as const;
+
 const ZONES: readonly SpawnZone[] = [
-  { id: "zone_alpha", mapId: "map_alpha", monsters: ALPHA },
-  { id: "zone_beta", mapId: "map_beta", monsters: BETA },
+  { id: "zone_alpha", mapId: "map_alpha", monsters: ALPHA, ...ONE_OF_EACH },
+  { id: "zone_beta", mapId: "map_beta", monsters: BETA, ...ONE_OF_EACH },
 ];
 
 const rngOf = (value: number) => () => value;
@@ -93,8 +95,12 @@ describe("useCombatStore — exploration branchée sur data/spawns.yaml", () => 
     expect(useCombatStore.getState().exploration?.monsterGroups[0]?.monsterIds).toEqual(["piou_mazoute"]);
   });
 
+  // Un tirage haut ouvre trois monstres (borne `members.max` de la donnée) :
+  // c'est le premier membre qui prouve le câblage sur la zone, pas la taille.
   it("atteint l'Écrou-Baton sur un tirage haut, sans dépendre du donjon", () => {
     useCombatStore.getState().startExploration(rngOf(0.999));
-    expect(useCombatStore.getState().exploration?.monsterGroups[0]?.monsterIds).toEqual(["fer_boulon_pousseur"]);
+    const group = useCombatStore.getState().exploration?.monsterGroups[0];
+    expect(group?.monsterIds[0]).toBe("fer_boulon_pousseur");
+    expect(group?.monsterIds).toEqual(["fer_boulon_pousseur", "fer_boulon_pousseur", "fer_boulon_pousseur"]);
   });
 });
