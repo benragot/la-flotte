@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addItem, countItem, equipItem, equippable } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
+import type { SaveData, StorageLike } from "../../src/engine/save";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import type { EquipmentDef, ItemDef } from "../../src/schemas/itemSchema";
 import { useGameStore } from "../../src/store/useGameStore";
@@ -121,7 +122,8 @@ describe("kit de départ — non-régression", () => {
   });
 });
 
-describe("useGameStore.equip — garde de partie", () => {  beforeEach(() => {
+describe("useGameStore.equip — garde de partie", () => {
+  beforeEach(() => {
     useGameStore.getState().resetGame();
     useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
   });
@@ -164,5 +166,76 @@ describe("inventaire — refus visible dans le sac", () => {
     const html = renderToStaticMarkup(createElement(BagRow, { entry, selected: false, onSelect: () => undefined }));
     expect(html).toContain("Équiper");
     expect(html).not.toContain('disabled=""');
+  });
+});
+
+class MemoryStorage implements StorageLike {
+  private readonly entries = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.entries.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.entries.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.entries.delete(key);
+  }
+}
+
+/** Sauvegarde exportée par le store puis éditée à la main : le cas de l'attaque. */
+function editedSave(edit: (save: SaveData) => void): string {
+  const raw = useGameStore.getState().exportJson();
+  if (raw === null) throw new Error("sauvegarde attendue pour un héros créé");
+  const save = JSON.parse(raw) as SaveData;
+  edit(save);
+  return JSON.stringify(save);
+}
+
+function equipHighLevelHat(): string {
+  return editedSave((save) => {
+    save.inventory.equipment = { hat: LEVEL_18_HAT };
+  });
+}
+
+describe("chargement — re-validation de l'équipement", () => {
+  beforeEach(() => {
+    useGameStore.getState().resetGame();
+    useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
+  });
+
+  it("déséquipe une pièce de niveau 18 et la rend au sac, sans rien détruire", () => {
+    expect(useGameStore.getState().importJson(equipHighLevelHat())).toBe(true);
+    const { inventory } = useGameStore.getState();
+    expect(inventory.equipment.hat).toBeUndefined();
+    expect(countItem(inventory, LEVEL_18_HAT)).toBe(1);
+  });
+
+  it("ne touche ni aux PV, ni à l'XP, ni aux kamas, ni aux autres objets", () => {
+    const { hero, inventory } = useGameStore.getState();
+    expect(useGameStore.getState().importJson(equipHighLevelHat())).toBe(true);
+    const after = useGameStore.getState();
+    expect(after.hero).toEqual(hero);
+    const others = after.inventory.stacks.filter((stack) => stack.itemId !== LEVEL_18_HAT);
+    expect(others).toEqual(inventory.stacks);
+  });
+
+  it("conserve un équipement légal tel quel", () => {
+    const raw = editedSave((save) => {
+      save.inventory.equipment = { hat: LEVEL_1_HAT, weapon: "gourdin_du_matelot" };
+    });
+    expect(useGameStore.getState().importJson(raw)).toBe(true);
+    const equipment = useGameStore.getState().inventory.equipment;
+    expect(equipment).toEqual({ hat: LEVEL_1_HAT, weapon: "gourdin_du_matelot" });
+  });
+
+  it("applique la même règle via loadGame : un seul chemin d'application", () => {
+    const storage = new MemoryStorage();
+    storage.setItem(useGameStore.getState().saveKey, equipHighLevelHat());
+    expect(useGameStore.getState().loadGame(storage)).toBe(true);
+    expect(useGameStore.getState().inventory.equipment.hat).toBeUndefined();
+    expect(countItem(useGameStore.getState().inventory, LEVEL_18_HAT)).toBe(1);
   });
 });
