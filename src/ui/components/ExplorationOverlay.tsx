@@ -1,4 +1,6 @@
 import { useCombatStore } from "../../store/useCombatStore";
+import type { CombatMode } from "../../store/useCombatStore";
+import type { BattleState } from "../../engine/multiCombat";
 import { visibleExplorationLog } from "../explorationLog";
 import {
   JOURNAL_ENTRIES,
@@ -54,7 +56,28 @@ export function ExplorationJournalPanel() {
   return <ExplorationJournal lines={visibleExplorationLog(log, import.meta.env.DEV)} />;
 }
 
+/** Le bandeau ne s'affiche qu'en exploration pure : ni salle ouverte, ni mode combat. */
+export interface ExplorationStatusSectionProps {
+  mapId: string;
+  mode: CombatMode;
+  battle: BattleState | null;
+}
+
+/** Corps pur du portillon, testable en rendu statique. */
+export function ExplorationStatusSection({ mapId, mode, battle }: ExplorationStatusSectionProps) {
+  if (battle !== null || mode !== "exploration") return null;
+  return <ExplorationStatusOverlay mapId={mapId} />;
+}
+
+/**
+ * Connexion au store. **Portillon** : une salle ouverte (`battle`) ou un mode
+ * non-exploratoire supprime le bandeau. C'était le défaut vu en capture : le
+ * donjon laissait `mode = "exploration"`, le bandeau s'affichait donc au-dessus
+ * de la grille de salle et se faisait recouvrir par le panneau de combat.
+ */
 export function ExplorationStatus() {
   const mapId = useCombatStore((state) => state.mapId);
-  return <ExplorationStatusOverlay mapId={mapId} />;
+  const mode = useCombatStore((state) => state.mode);
+  const battle = useCombatStore((state) => state.battle);
+  return <ExplorationStatusSection mapId={mapId} mode={mode} battle={battle} />;
 }

@@ -30,7 +30,8 @@ const ENTITY_IDS = [
   "xelor",
 ] as const;
 
-const CELL_OFFSETS = [0, 64, 128, 192];
+/** Grille 4 × 4 de cellules de 128 px : les 16 coins de frame attendus dans le SVG. */
+const CELL_OFFSETS = [0, 128, 256, 384];
 
 const TAG = /<(\/?)([a-zA-Z][\w:-]*)([^>]*?)(\/?)>/g;
 
@@ -110,18 +111,19 @@ describe("frameMath — animationFrames", () => {
   it("produit quatre rectangles sur la ligne demandée", () => {
     const frames = animationFrames({ row: 1, frames: 4 });
     expect(frames).toHaveLength(4);
-    expect(frames.map((frame) => frame.y)).toEqual([64, 64, 64, 64]);
+    expect(frames.map((frame) => frame.y)).toEqual([SPRITE_FRAME_SIZE, SPRITE_FRAME_SIZE, SPRITE_FRAME_SIZE, SPRITE_FRAME_SIZE]);
   });
 
-  it("incrémente x de 64 et garde la taille de cellule", () => {
+  it("incrémente x de la taille de cellule", () => {
     const frames = animationFrames({ row: 2, frames: 4 });
-    expect(frames.map((frame) => frame.x)).toEqual([0, 64, 128, 192]);
+    expect(frames.map((frame) => frame.x)).toEqual([0, SPRITE_FRAME_SIZE, 2 * SPRITE_FRAME_SIZE, 3 * SPRITE_FRAME_SIZE]);
     frames.forEach((frame) => expect(frame.width).toBe(SPRITE_FRAME_SIZE));
     expect(frames[0]?.y).toBe(2 * SPRITE_FRAME_SIZE);
   });
 
   it("accepte une animation à une seule frame", () => {
-    expect(animationFrames({ row: 3, frames: 1 })).toEqual([{ x: 0, y: 192, width: 64, height: 64 }]);
+    const size = SPRITE_FRAME_SIZE;
+    expect(animationFrames({ row: 3, frames: 1 })).toEqual([{ x: 0, y: 3 * size, width: size, height: size }]);
   });
 
   it("ne produit aucun rectangle pour zéro frame", () => {
@@ -153,8 +155,9 @@ describe("frameMath — bornes circulaires", () => {
 
 describe("frameMath — frameAt", () => {
   it("retourne la frame demandée sur la bonne ligne", () => {
-    expect(frameAt({ row: 2, frames: 4 }, 0)).toEqual({ x: 0, y: 128, width: 64, height: 64 });
-    expect(frameAt({ row: 2, frames: 4 }, 3)).toEqual({ x: 192, y: 128, width: 64, height: 64 });
+    const size = SPRITE_FRAME_SIZE;
+    expect(frameAt({ row: 2, frames: 4 }, 0)).toEqual({ x: 0, y: 2 * size, width: size, height: size });
+    expect(frameAt({ row: 2, frames: 4 }, 3)).toEqual({ x: 3 * size, y: 2 * size, width: size, height: size });
   });
 
   it("boucle modulo sur un index hors bornes", () => {
@@ -169,11 +172,11 @@ describe("feuilles SVG générées", () => {
     expect(files.sort()).toEqual(ENTITY_IDS.map((id) => `${id}.svg`).sort());
   });
 
-  it.each(ENTITY_IDS)("déclare %s en 256×256 avec un titre", (id) => {
+  it.each(ENTITY_IDS)("déclare %s en 512×512 avec un titre", (id) => {
     const svg = svgOf(id);
-    expect(svg).toContain('width="256"');
-    expect(svg).toContain('height="256"');
-    expect(svg).toContain('viewBox="0 0 256 256"');
+    expect(svg).toContain('width="512"');
+    expect(svg).toContain('height="512"');
+    expect(svg).toContain('viewBox="0 0 512 512"');
     expect(svg).toContain("<title>");
   });
 
