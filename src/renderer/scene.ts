@@ -41,7 +41,8 @@ export function cellKey(position: Position): string {
   return `${position.x}:${position.y}`;
 }
 
-function depthOf(position: Position): number {
+/** Profondeur isométrique d'une case : c'est elle qui ordonne le rendu peintre. */
+export function depthOf(position: Position): number {
   return position.x + position.y;
 }
 

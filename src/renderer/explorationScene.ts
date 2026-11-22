@@ -5,7 +5,7 @@ import { gridDiamond, sceneOrigin } from "./gridProjection";
 import type { GridHighlight, SceneModel, TileView } from "./scene";
 import { buildSceneModel } from "./scene";
 import { PATH_STYLE } from "./tileStyle";
-import type { TokenView } from "./tokens";
+import type { TokenSprite, TokenView } from "./tokens";
 import { groupTokenView, playerTokenView } from "./tokens";
 
 export interface ExplorationGroup {
@@ -21,6 +21,8 @@ export interface ExplorationView {
   /** Carte réelle : fige l'origine et permet de dessiner le décor. */
   map?: AsciiMap;
   path?: Position[];
+  /** `entityId` de la feuille du héros ; absent, le héros garde un jeton géométrique. */
+  heroSpriteId?: string;
 }
 
 export interface ExplorationModelInput {
@@ -74,9 +76,16 @@ function pathTiles(path: readonly Position[], origin: IsoOrigin): TileView[] {
   return path.map((position) => pathTile(position, origin));
 }
 
+/** Le héros marche quand un chemin est tracé, sinon il respire. */
+function heroSprite(exploration: ExplorationView): TokenSprite {
+  const moving = (exploration.path ?? []).length > 0;
+  const animation = moving ? "walk" : "idle";
+  return { spriteId: exploration.heroSpriteId ?? null, facing: "right", animation, animationKey: `${animation}-explore` };
+}
+
 function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): TokenView[] {
   const groups = exploration.groups.map((group) => groupTokenView(group, origin));
-  return [playerTokenView(exploration.playerPos, origin), ...groups];
+  return [playerTokenView(exploration.playerPos, origin, heroSprite(exploration)), ...groups];
 }
 
 /** View model d'exploration : décor iso, chemin A* translucide, héros puis groupes badgés. */
@@ -87,5 +96,6 @@ export function buildExplorationViewModel(input: ExplorationModelInput): ViewMod
     scene: explorationScene(exploration, origin),
     tokens: explorationTokens(exploration, origin),
     path: pathTiles(exploration.path ?? [], origin),
+    lastAction: null,
   };
 }

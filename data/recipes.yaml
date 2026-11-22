@@ -1,0 +1,95 @@
+# Recettes d'artisanat de la Flotte (Vague 5).
+# Contrainte : chaque resultItemId et chaque ingrédient existe déjà dans items.yaml.
+# craftLevel : 1..50, quantités >= 1, un ingrédient au plus par itemId.
+recipes:
+  - id: recette_gourdin_du_matelot
+    resultItemId: gourdin_du_matelot
+    resultQuantity: 1
+    ingredients:
+      - { itemId: ferraille_rouillee, quantity: 2 }
+      - { itemId: corde_grasse_du_quai, quantity: 1 }
+    craftLevel: 1
+    description: "Un bout de mât, deux plaques de ferraille et beaucoup d'engueulades. L'arme de celui qui n'avait rien d'autre, mais qui l'a maintenant deux fois."
+
+  - id: recette_chapeau_piou_mazoute
+    resultItemId: chapeau_piou_mazoute
+    resultQuantity: 1
+    ingredients:
+      - { itemId: plume_mazoutee, quantity: 3 }
+      - { itemId: corde_grasse_du_quai, quantity: 1 }
+    craftLevel: 2
+    description: "Trois plumes cousues serré pour faire un tricorne qui ne vole pas. Le Piou Mazouté trouve ça insultant, ce qui confirme la qualité."
+
+  - id: recette_cape_graisseuse
+    resultItemId: cape_graisseuse
+    resultQuantity: 1
+    ingredients:
+      - { itemId: corde_grasse_du_quai, quantity: 2 }
+      - { itemId: plume_mazoutee, quantity: 2 }
+      - { itemId: ecrou_maudit, quantity: 1 }
+    craftLevel: 3
+    description: "Deux cordes grasses, quelques plumes et un écrou qui se dévisse la nuit pour tenir le tout. La cape crisse quand on fuit, c'est prévu au cahier des charges."
+
+  - id: recette_amulette_de_la_coupure
+    resultItemId: amulette_de_la_coupure
+    resultQuantity: 1
+    ingredients:
+      - { itemId: boulon_qui_prie, quantity: 2 }
+      - { itemId: dent_de_piou_mazoute, quantity: 1 }
+    craftLevel: 4
+    description: "Un bout de coque, deux boulons qui prient et une dent rancunière. Portée au cou, elle ne protège de rien : c'est exactement l'argument de vente."
+
+  - id: recette_bottes_de_fond_de_cale
+    resultItemId: bottes_de_fond_de_cale
+    resultQuantity: 1
+    ingredients:
+      - { itemId: ferraille_rouillee, quantity: 2 }
+      - { itemId: corde_grasse_du_quai, quantity: 2 }
+    craftLevel: 2
+    description: "Semelles en ferraille, lacets en corde grasse. Elles prennent l'eau de partout mais elles ne glissent pas dans le mazout, et c'est déjà un métier."
+
+  - id: recette_soupe_de_baleine_tiede
+    resultItemId: soupe_de_baleine_tiede
+    resultQuantity: 2
+    ingredients:
+      - { itemId: dent_de_piou_mazoute, quantity: 1 }
+      - { itemId: plume_mazoutee, quantity: 1 }
+    craftLevel: 1
+    description: "On fait bouillir ce qui traîne : une dent pour le goût, une plume pour la texture. Deux bols tièdes, aucun regret avant le troisième."
+
+  - id: recette_ragout_de_quartier_maitre
+    resultItemId: ragout_de_quartier_maitre
+    resultQuantity: 1
+    ingredients:
+      - { itemId: soupe_de_baleine_tiede, quantity: 1 }
+      - { itemId: dent_de_piou_mazoute, quantity: 2 }
+      - { itemId: boulon_qui_prie, quantity: 1 }
+    craftLevel: 3
+    description: "On reprend la soupe tiède, on l'épaissit de deux dents et on laisse le boulon prier dans la marmite. Trois jours de regrets, comme la tradition l'exige."
+
+  - id: recette_boulon_ressoude
+    resultItemId: boulon_qui_prie
+    resultQuantity: 1
+    ingredients:
+      - { itemId: ecrou_maudit, quantity: 2 }
+      - { itemId: ferraille_rouillee, quantity: 1 }
+    craftLevel: 1
+    description: "Un écrou maudit limé jusqu'à ce qu'il arrête de se plaindre, soudé sur une ferraille. Il ne prie plus, mais il tient."
+
+  - id: recette_plume_replumee
+    resultItemId: plume_mazoutee
+    resultQuantity: 1
+    ingredients:
+      - { itemId: dent_de_piou_mazoute, quantity: 1 }
+      - { itemId: corde_grasse_du_quai, quantity: 1 }
+    craftLevel: 1
+    description: "On recolle les barbes de la plume avec de la corde grasse et beaucoup de mauvaise foi. Le Piou Mazouté ne reconnaît pas la sienne, ce qui est le but."
+
+  - id: recette_ecrou_demaudit
+    resultItemId: ecrou_maudit
+    resultQuantity: 1
+    ingredients:
+      - { itemId: ferraille_rouillee, quantity: 3 }
+      - { itemId: boulon_qui_prie, quantity: 1 }
+    craftLevel: 2
+    description: "Trois ferrailles martyrisées autour d'un boulon qui prie pour qu'on arrête. Le résultat se dévisse tout seul, la malédiction est donc bien conservée."
