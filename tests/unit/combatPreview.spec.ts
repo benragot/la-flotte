@@ -89,6 +89,40 @@ describe("buildPathPreview — refus", () => {
   });
 });
 
+describe("buildPathPreview — priorité de blockedBy", () => {
+  it("cible occupée ET mur : l'occupation prime sur le relief", () => {
+    expect(previewTo({ x: 6, y: 2 }, 12, [{ x: 6, y: 2 }]).blockedBy).toBe("occupied");
+  });
+
+  it("cible occupée ET eau : l'occupation prime sur l'eau", () => {
+    expect(previewTo({ x: 4, y: 5 }, 12, [{ x: 4, y: 5 }]).blockedBy).toBe("occupied");
+  });
+});
+
+describe("buildPathPreview — départ invalide", () => {
+  it("from hors carte : refus sans throw, aucun PM consommé", () => {
+    const preview = buildPathPreview({ map: MAP, from: { x: -1, y: 0 }, to: { x: 3, y: 0 }, maxPm: 6 });
+    expect(preview.reachable).toBe(false);
+    expect(preview.cost).toBe(0);
+    expect(preview.remainingPm).toBe(6);
+    expect(preview.path).toEqual([]);
+  });
+
+  it("from sur un mur : refus symétrique", () => {
+    const preview = buildPathPreview({ map: MAP, from: { x: 6, y: 1 }, to: { x: 7, y: 2 }, maxPm: 4 });
+    expect(preview.reachable).toBe(false);
+    expect(preview.cost).toBe(0);
+    expect(preview.remainingPm).toBe(4);
+  });
+
+  it("chemin long : les PM restants ne deviennent jamais négatifs", () => {
+    const preview = buildPathPreview({ map: MAP, from: { x: 0, y: 0 }, to: { x: 11, y: 11 }, maxPm: 22 });
+    expect(preview.reachable).toBe(true);
+    expect(preview.cost).toBe(22);
+    expect(preview.remainingPm).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe("pathIsoCenters", () => {
   it("un centre par case, projeté par gridToIso (aucune formule recopiée)", () => {
     const path: Position[] = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }];
@@ -133,6 +167,23 @@ describe("buildDamagePreview — aucun écart avec computeDamage", () => {
     const direct = { base: 18, stat: 120, flatRes: 5, pctRes: 20, percentDmg: 50, isPlayer: false };
     expect(preview.critical).toBe(computeDamage(direct));
     expect(preview.critical).toBeGreaterThan(preview.max);
+  });
+});
+
+describe("buildDamagePreview — armure de la cible", () => {
+  const ARMOR_TARGET = {
+    resistances: { flat: { ...ZERO_RES, earth: 5 }, percent: { ...ZERO_RES, earth: 20 } },
+    armor: 10,
+  };
+
+  it("armor réduit min et max, à l'identique de computeDamage", () => {
+    const plain = buildDamagePreview(damageInput());
+    const armored = buildDamagePreview(damageInput({ target: ARMOR_TARGET }));
+    const direct = { stat: 120, flatRes: 5, pctRes: 20, armor: 10, isPlayer: false };
+    expect(armored.min).toBeLessThan(plain.min);
+    expect(armored.max).toBeLessThan(plain.max);
+    expect(armored.min).toBe(computeDamage({ ...direct, base: 10 }));
+    expect(armored.max).toBe(computeDamage({ ...direct, base: 18 }));
   });
 });
 
