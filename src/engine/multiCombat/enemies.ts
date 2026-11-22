@@ -1,5 +1,5 @@
 import type { Position } from "../grid";
-import { findPath, mapPathBudget, pathCost, pathWithinBudget, samePosition, stepDistance } from "../grid";
+import { findPath, mapPathBudget, pathCost, pathWithinBudget, samePosition } from "../grid";
 import { resolveAttack } from "./attack";
 import { appendLog, isAlive, isAliveById, withCombatant } from "./combatants";
 import { separateOccupants } from "./overlap";
@@ -32,10 +32,6 @@ interface Bill {
   enemy: CombatantLike;
   landing: Position;
   cost: number;
-}
-
-function affordableStep(enemy: CombatantLike, cost: number): boolean {
-  return cost > 0 && cost <= enemy.mp;
 }
 
 /** Vivants autres que `enemy` : ils bloquent le passage comme dans `findPath`. */
@@ -75,18 +71,12 @@ function commitMove(current: BattleState, enemy: CombatantLike, path: Position[]
 }
 
 /**
- * Sans carte (fixture héritée 5C-c), il n'y a aucun chemin à mesurer : on garde
- * la facture Chebyshev d'origine. Les batailles de production fournissent
- * toujours une carte, donc ce repli ne contourne pas la règle DEC-10.
+ * Déplacement ennemi. **La carte est requise pour facturer** (DEC-10 : la
+ * facture est la somme des pas du chemin réellement trouvé) : sans carte aucun
+ * prix n'est calculable, donc **aucun déplacement** n'est facturé — le repli
+ * Chebyshev a été supprimé, il trahissait la règle du chemin réel.
  */
-function legacyMove(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
-  const cost = stepDistance(enemy.position, to);
-  if (!affordableStep(enemy, cost) || arrivalTaken(current, enemy, to)) return current;
-  return billMove(current, { enemy, landing: to, cost });
-}
-
 function moveEnemy(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
-  if (current.map === undefined) return legacyMove(current, enemy, to);
   const path = enemyPath(current, enemy, to);
   return path === null ? current : commitMove(current, enemy, path);
 }

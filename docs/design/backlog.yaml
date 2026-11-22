@@ -12,7 +12,7 @@
 #     qui les fonde.
 
 meta:
-  version: 26
+  version: 27
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -968,5 +968,19 @@ debts:
     target: external
     owner: user
     notes: ".opencode/skills/dofus-129-combat/SKILL.md:6-157 : le skill couvre boucle de tour, dégâts, CC, retrait PA-PM, poussée, tacle, initiative et ligne de vue — et **aucune section déplacement**. `PM` n'y apparaît qu'au SKILL.md:79 (réserve restante d'une cible) et `déplacement` qu'au SKILL.md:11 (liste d'actions) ; sa « règle des diagonales et des coins » (SKILL.md:152) porte sur la **ligne de vue**, pas sur le coût du pas. La décision DEC-10 (1 PM orthogonal, 2 PM diagonal, **somme du chemin réellement trouvé**, coin interdit) doit donc y être écrite **avec l'écart assumé à Dofus 1.29**, sinon un futur lecteur relira 1.29 (chaque case entrée = 1 PM) et « corrigera » le 2. `.opencode/skills/` est hors de portée d'écriture d'un agent sans accord du propriétaire, d'où `external` et `owner: user`."
+  - id: D103
+    title: "DEC-03 est violée depuis DEC-10 : la pression de combat tombe à 2,52 tours (fenêtre 1-2), recalibrage non fait"
+    severity: medium
+    target: external
+    owner: user
+    status: blocked
+    notes: "docs/design/DECISIONS.md:25-32 (DEC-03) : la fenêtre 1-2 tours du build contraignant n'est plus tenue. Mesure du 22/11/2026 dans tests/walkthrough/gearedDungeon.spec.ts:771 (`expect(survieMargin).toBeCloseTo(2.52, 1)`) : `16 survie` garde 2,52 tours de marge en salle 4, contre 1,20 avant DEC-10 — le pas diagonal à 2 PM laisse les monstres moins pressants. La borne haute n'a PAS été élargie (aucun `toBeLessThanOrEqual(3)` ne subsiste) : la valeur mesurée est ÉPINGLÉE pour détecter toute dégradation supplémentaire, pas pour valider la situation. Recalibrage (`hpScale` dans `data/dungeons.yaml`, travail de contenu) NON fait, arbitrage du propriétaire requis."
+  - id: D104
+    title: "`contactLanding` laisse figé un monstre collé en diagonale : son correctif rend la mêlée et fait perdre le donjon à `16 survie`, donc il est bloqué par le recalibrage du contenu"
+    severity: medium
+    target: external
+    owner: user
+    status: blocked
+    notes: "src/engine/multiCombat/approach.ts:50-55 : `neighborCells(target)` contient la case du monstre lui-même, `pathTo` y rend un chemin de coût 0, `cheapest` le choisit, puis `paid.length < 2` rend `null` — un monstre déjà au contact en diagonale ne joue jamais (rouge encodé dans tests/unit/multiCombat.spec.ts:780, `it.fails`). Filtrer les cases non libres avant `cheapest` est mesuré et REFUSÉ dans cette PR : tests/walkthrough/gearedDungeon.spec.ts:722-737 passent de six victoires à cinq, `16 survie` perd la salle 4 (48 PV de monstres restants, 105 actions) au lieu de gagner avec 59 PV, et les cinq autres cellules perdent 14 à 22 PV finales. Corriger viole donc DEC-03 (a) et exige un `hpScale` de `data/dungeons.yaml` (data/** hors périmètre agent) : à l'arbitrage du propriétaire."
 
 

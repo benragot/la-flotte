@@ -70,7 +70,7 @@
 ## DEC-10 — Une diagonale coûte deux PM (2026-11-22)
 
 **Décision** : un pas **orthogonal** coûte **1 PM par pas** ; un pas **diagonal** coûte **2 PM par pas**. La facture d'un déplacement est la **somme** du coût des pas du **chemin réellement trouvé** par le pathfinding — jamais une distance à vol d'oiseau, jamais une heuristique.
-**Règle de coin** : un pas diagonal n'est licite que si les **deux cases orthogonales adjacentes** sont libres ; couper un coin est interdit.
+**Règle de coin** : un pas diagonal est interdit **si, et seulement si, les deux cases orthogonales adjacentes** sont bloquées ; une entité bloque comme un mur.
 **Symétrie** : héros et monstres paient le même prix — **aucune asymétrie**, aucune facture « au joueur près ».
 **Écart assumé à Dofus 1.29** : en 1.29, chaque case entrée coûte **1 PM**, diagonale comprise. Le `2` de cette décision est un **écart assumé à Dofus 1.29**, choisi pour réduire le rayon d'action ; ce n'est pas un bug de facturation, et le « corriger » vers 1 PM contredirait le propriétaire.
 **Conséquence** : la mobilité baisse fortement (3 PM = 1 diagonale + 1 orthogonal, là où 1.29 en donnait 3), donc les portées de sorts et la balance du donjon devront être recalibrées. **Ce recalibrage reste ouvert, à l'arbitrage du propriétaire** : la tâche `5C-spell-range-rebalance` le porte, elle ne l'a pas tranché.
