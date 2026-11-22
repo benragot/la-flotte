@@ -15,7 +15,6 @@ const REQUIRED_STATUSES = [
 ];
 const FREE_TARGETS = ["external", "blocked"];
 const PRIORITIES = ["high", "medium", "low"];
-const DEBT_SEVERITIES = ["low", "medium", "high"];
 const TASK_KEYS = ["id", "title", "status", "owner", "priority", "updated_at"];
 const INBOX_KEYS = ["id", "title", "created_at"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -42,6 +41,7 @@ interface Phase {
   status?: string;
   tasks?: Task[];
   depends_on?: string[];
+  notes?: string;
 }
 
 interface Wave {
@@ -65,6 +65,8 @@ interface Meta {
   updated_at: string;
   updated_by: string;
   statuses: string[];
+  /** Échelle de sévérité des dettes, déclarée dans le fichier (dette D60). */
+  debt_severities: string[];
   status_definitions: Record<string, string>;
   update_rules: string[];
   /** Phase réellement suivante ; sert de pointeur de reprise à l'orchestrateur. */
@@ -233,7 +235,7 @@ function invalidPriorities(backlog: Backlog): string[] {
 }
 
 function invalidDebtSeverities(backlog: Backlog): string[] {
-  const valid = new Set(DEBT_SEVERITIES);
+  const valid = new Set(backlog.meta.debt_severities);
   return backlog.debts.filter((debt) => !valid.has(debt.severity)).map((debt) => debt.id);
 }
 
@@ -271,7 +273,13 @@ function fixtureTask(id: string, status: string, pr?: number): Task {
 }
 
 function fixtureBacklog(phases: Phase[], waveStatus = "todo"): Backlog {
-  const meta = { version: 3, updated_at: "2026-11-22", updated_by: "integrator", statuses: REQUIRED_STATUSES };
+  const meta = {
+    version: 3,
+    updated_at: "2026-11-22",
+    updated_by: "integrator",
+    statuses: REQUIRED_STATUSES,
+    debt_severities: ["low", "medium", "high"],
+  };
   const wave: Wave = { id: "wave-1", title: "Fixture", status: waveStatus, phases };
   return { meta: { ...meta, status_definitions: {}, update_rules: [] }, inbox: [], waves: [wave], debts: [] };
 }
@@ -595,10 +603,10 @@ describe("backlog — dettes d'outillage", () => {
     expect(debts.filter((debt) => debt === undefined)).toEqual([]);
   });
 
-  it("cible 5B et 5C quand la dette reste dans le périmètre projet", () => {
+  it("cible 5B et une tâche d'interface quand la dette reste dans le périmètre projet", () => {
     const backlog = readBacklog();
     expect(debtById(backlog, "D49")?.target).toBe("5B");
-    expect(debtById(backlog, "D53")?.target).toBe("5C");
+    expect(debtById(backlog, "D53")?.target).toBe("5C-cast-preview");
   });
 
   it("externalise les dettes d'outillage hors périmètre agent", () => {
@@ -673,8 +681,8 @@ describe("backlog — vague 5B livrée", () => {
     expect(task?.depends_on).toEqual(["5B-f"]);
   });
 
-  it("versionne le backlog en 18", () => {
-    expect(readBacklog().meta.version).toBe(18);
+  it("versionne le backlog en 19", () => {
+    expect(readBacklog().meta.version).toBe(19);
   });
 });
 
@@ -708,11 +716,13 @@ const OPEN_5C = [
   "5C-hover-hp",
   "5C-pm-zone",
   "5C-path-8dirs",
+  "5C-hero-move",
   "5C-cast-preview",
   "5C-turn-rail",
   "5C-info-panel",
   "5C-group-stars",
   "5C-log-channel",
+  "5C-set-panoplies",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
@@ -759,9 +769,8 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
 describe("backlog — dettes des audits #44/#45", () => {
   const AUDITS: Array<[string, string, string]> = [
     ["D59", "medium", "5B"],
-    ["D60", "low", "5C"],
-    ["D62", "low", "5C"],
-    ["D63", "medium", "5C"],
+    ["D62", "low", "5C-hover-hp"],
+    ["D63", "medium", "5C-turn-rail"],
   ];
 
   function auditGaps(backlog: Backlog): string[] {
@@ -771,7 +780,7 @@ describe("backlog — dettes des audits #44/#45", () => {
     });
   }
 
-  it("verse les cinq dettes avec leur sévérité et leur cible", () => {
+  it("verse les dettes restantes avec leur sévérité et leur cible", () => {
     expect(auditGaps(readBacklog())).toEqual([]);
   });
 
@@ -843,7 +852,7 @@ describe("backlog — vague 6 moteur d'effets", () => {
 const AUDITS_22_11: Array<[string, string, string, string]> = [
   ["D65", "medium", "6A-effects-schema", "cooldown"],
   ["D66", "medium", "6B-cast-riders", "coup_daile_gras"],
-  ["D67", "medium", "5D-a", "recommendedLevel"],
+  ["D67", "medium", "external", "recommendedLevel"],
 ];
 
 function audit22Gaps(backlog: Backlog): string[] {
@@ -869,11 +878,13 @@ const UI_TASKS: Array<[string, string, string[]]> = [
   ["5C-hover-hp", "5C", ["5C-actor-ring"]],
   ["5C-pm-zone", "5C", ["5C-actor-ring"]],
   ["5C-path-8dirs", "5C", []],
+  ["5C-hero-move", "5C", ["5C-path-8dirs"]],
   ["5C-cast-preview", "5C", ["5C-pm-zone", "5C-path-8dirs"]],
   ["5C-turn-rail", "5C", ["5C-actor-ring"]],
   ["5C-info-panel", "5C", ["5C-actor-ring"]],
   ["5C-group-stars", "5C", []],
   ["5C-log-channel", "5C", []],
+  ["5C-set-panoplies", "5C", []],
   ["5D-hud-bar", "5D", ["5C-turn-rail"]],
   ["5D-death-end", "5D", []],
 ];
@@ -923,7 +934,7 @@ describe("backlog — spec UI Dofus Retro", () => {
 });
 
 describe("backlog — tâches d'interface Dofus Retro", () => {
-  it("ouvre les dix tâches en todo dans 5C et 5D", () => {
+  it("ouvre les douze tâches en todo dans 5C et 5D", () => {
     expect(uiTaskGaps(readBacklog())).toEqual([]);
   });
 
@@ -950,10 +961,10 @@ describe("backlog — dettes de l'audit UI et donjon du 22/11", () => {
   const UI_DEBTS: Array<[string, string, string, string]> = [
     ["D68", "high", "5C-path-8dirs", "findPath"],
     ["D69", "medium", "5C-path-8dirs", "manhattan(from,to)"],
-    ["D70", "medium", "5D-a", "resolveTackle"],
-    ["D71", "high", "5D-a", "panoplies"],
-    ["D72", "medium", "5D-a", "minRange"],
-    ["D73", "high", "5D-a", "findSpell"],
+    ["D70", "medium", "5C-hero-move", "resolveTackle"],
+    ["D71", "high", "5C-set-panoplies", "panoplies"],
+    ["D72", "medium", "5C-set-panoplies", "minRange"],
+    ["D73", "high", "6C-combatants-list", "findSpell"],
   ];
 
   function uiDebtGaps(backlog: Backlog): string[] {
@@ -992,5 +1003,172 @@ describe("backlog — dette D64 soldée", () => {
 
   it("n'exige plus le contrôle de portée absent dans les dettes", () => {
     expect(rawBacklog()).not.toContain("le joueur frappe à distance infinie");
+  });
+});
+
+const DUNGEON_TASKS: Array<[string, number, string]> = [
+  ["5D-a", 56, "0030f74"],
+  ["5D-b", 57, "ec0e42c"],
+];
+
+describe("backlog — jalon « donjon jouable » (v19)", () => {
+  it("enregistre 5D-a et 5D-b en done avec leur PR et leur squash", () => {
+    const backlog = readBacklog();
+    const gaps = DUNGEON_TASKS.flatMap(([id, pr, squash]) => {
+      const task = taskById(backlog, id);
+      const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
+      return ok ? [] : [id];
+    });
+    expect(gaps).toEqual([]);
+  });
+
+  it("ouvre la phase 5D et acte le donjon jouable depuis l'exploration", () => {
+    const phase = phaseById(readBacklog(), "5D");
+    expect(phase?.status).toBe("in_progress");
+    expect((phase?.tasks ?? []).map((task) => task.id)).toEqual(expect.arrayContaining(["5D-a", "5D-b"]));
+    expect(phase?.notes ?? "").toContain("Donjons");
+    expect(phase?.notes ?? "").toContain("jouable");
+  });
+
+  it("versionne le backlog en 19", () => {
+    expect(readBacklog().meta.version).toBe(19);
+  });
+});
+
+const FOLLOW_UP_TASKS: Array<[string, string[]]> = [
+  ["5C-hero-move", ["5C-path-8dirs"]],
+  ["5C-set-panoplies", []],
+];
+
+describe("backlog — suite ouverte en v19", () => {
+  it("crée 5C-hero-move en todo, après le pathfinding 8 directions", () => {
+    const task = taskById(readBacklog(), "5C-hero-move");
+    expect(task?.status).toBe("todo");
+    expect(task?.priority).toBe("high");
+    expect(task?.depends_on).toEqual(["5C-path-8dirs"]);
+    expect(`${task?.title} ${task?.notes}`).toContain("PM");
+  });
+
+  it("crée 5C-set-panoplies en todo, sans dépendance, comme levier de survie", () => {
+    const task = taskById(readBacklog(), "5C-set-panoplies");
+    expect(task?.status).toBe("todo");
+    expect(task?.priority).toBe("high");
+    expect(task?.depends_on ?? []).toEqual([]);
+    expect(task?.notes ?? "").toContain("2 objets de départ");
+    expect(task?.notes ?? "").toContain("calibré pour un héros équipé");
+  });
+
+  it("les place toutes deux dans la phase 5C", () => {
+    const ids = taskIdsOf(readBacklog(), "5C");
+    expect(FOLLOW_UP_TASKS.filter(([id]) => !ids.includes(id)).map(([id]) => id)).toEqual([]);
+  });
+});
+
+const V19_DEBTS: Array<[string, string, string, string]> = [
+  ["D74", "high", "5C-info-panel", "canUseConsumable"],
+  ["D75", "high", "5C-hero-move", "useCombatStore"],
+  ["D76", "medium", "5C-turn-rail", "Ctrl+Fin"],
+];
+
+function v19DebtGaps(backlog: Backlog): string[] {
+  return V19_DEBTS.flatMap(([id, severity, target, keyword]) => {
+    const debt = debtById(backlog, id);
+    if (debt === undefined) return [`${id}:absent`];
+    const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+    const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    return [...graded, ...noted];
+  });
+}
+
+describe("backlog — dettes versées en v19", () => {
+  it("verse D74, D75 et D76 avec sévérité, cible et note factuelle", () => {
+    expect(v19DebtGaps(readBacklog())).toEqual([]);
+  });
+
+  it("grade en high les résistances et le déplacement du héros", () => {
+    const backlog = readBacklog();
+    expect(debtById(backlog, "D74")?.severity).toBe("high");
+    expect(debtById(backlog, "D75")?.severity).toBe("high");
+  });
+
+  it("garde Espace et note qu'il faut ajouter Ctrl+Fin", () => {
+    const notes = debtById(readBacklog(), "D76")?.notes ?? "";
+    expect(notes).toContain("Espace");
+    expect(notes).toContain("src/ui/shortcuts.ts");
+  });
+});
+
+describe("backlog — plus aucune dette ne vise une phase 5C", () => {
+  it("recible chaque dette de phase sur une tâche ou l'extérieur", () => {
+    const stale = readBacklog().debts.filter((debt) => debt.target === "5C").map((debt) => debt.id);
+    expect(stale).toEqual([]);
+  });
+
+  it("résout D60 en déclarant l'échelle des sévérités dans meta", () => {
+    expect(debtById(readBacklog(), "D60")).toBeUndefined();
+    expect(readBacklog().meta.debt_severities).toEqual(["low", "medium", "high"]);
+  });
+});
+
+describe("backlog — D45 restreinte aux résistances", () => {
+  it("ne garde que les résistances et acte la fermeture de D45a", () => {
+    const debt = debtById(readBacklog(), "D45");
+    expect(debt?.severity).toBe("high");
+    expect(debt?.target).toBe("5C-set-panoplies");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("résistances");
+    expect(text).toContain("zeroResistances");
+    expect(text).toContain("D45a");
+    expect(text).toContain("#58");
+    expect(text).not.toContain("jette `vitality`");
+  });
+});
+
+describe("backlog — D71 remesurée par #57", () => {
+  it("acte la mort en salle 2 et le build Vitalité non mesuré", () => {
+    const debt = debtById(readBacklog(), "D71");
+    expect(debt?.severity).toBe("high");
+    expect(debt?.target).toBe("5C-set-panoplies");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("salle 2");
+    expect(text).toContain("130");
+    expect(text).toContain("62");
+    expect(text).toContain("205");
+    expect(text).not.toContain("salles 3 et 4");
+  });
+});
+
+describe("backlog — D67 : l'avertissement est livré, la décision reste ouverte", () => {
+  it("ne parle plus d'absence d'avertissement et renvoie la décision hors périmètre agent", () => {
+    const debt = debtById(readBacklog(), "D67");
+    expect(debt?.severity).toBe("medium");
+    expect(debt?.target).toBe("external");
+    expect(debt?.owner).toBe("user");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("Niveau recommandé");
+    expect(text).toContain("décision");
+    expect(text).not.toContain("rien ne gate");
+  });
+});
+
+describe("backlog — D72 : le walkthrough ne prouve pas la viabilité", () => {
+  it("garde HERO_ATTACK sans portée et renvoie la mesure à la panoplie", () => {
+    const debt = debtById(readBacklog(), "D72");
+    expect(debt?.severity).toBe("medium");
+    expect(debt?.target).toBe("5C-set-panoplies");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("HERO_ATTACK");
+    expect(text).toContain("minRange");
+    expect(text).toContain("#56");
+  });
+});
+
+describe("backlog — roadmap v19", () => {
+  it("coche 5D-a et 5D-b", () => {
+    const lines = uncheckedRoadmapLines();
+    const unchecked = ["5D-a", "5D-b"].filter((id) => !lines.some((line) => line.startsWith(`- [x] ${id}`)));
+    expect(unchecked).toEqual([]);
+    const stillOpen = lines.filter((line) => /^- \[ \] 5D-[ab]\b/.test(line));
+    expect(stillOpen).toEqual([]);
   });
 });
