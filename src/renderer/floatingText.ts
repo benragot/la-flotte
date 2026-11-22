@@ -1,4 +1,4 @@
-import type { FloatingEvent, FloatKind } from "../engine/combat";
+import type { FloatKind } from "../engine/combat";
 import type { PixelPoint } from "./gridProjection";
 import type { TokenView } from "./tokens";
 import { hpBarFor } from "./tokens";
@@ -75,9 +75,4 @@ export function stackOffset(index: number): PixelPoint {
   const rank = Math.ceil(index / 2);
   const side = index % 2 === 0 ? 1 : -1;
   return { x: side * rank * FLOAT_STACK_DX, y: -index * FLOAT_STACK_DY };
-}
-
-/** Nombre de nombres déjà en vol sur cette cible : sert d'index d'empilement. */
-export function stackIndexFor(events: readonly FloatingEvent[], targetId: string): number {
-  return events.filter((event) => event.targetId === targetId).length;
 }

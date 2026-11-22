@@ -51,6 +51,19 @@ function applyFrame(entry: FloatEntry, elapsedMs: number): void {
 }
 
 /**
+ * Le nombre naît **déjà posé** : sans cette frame 0, le premier `app.render`
+ * affichait le texte au coin haut-gauche pendant une image — un clignotement
+ * visible par le joueur, invisible en capture.
+ */
+function spawnEntry(event: FloatingEvent, token: TokenView, index: number): FloatEntry {
+  const origin = shiftOrigin(floatOrigin(token), index);
+  const text = floatText(event.kind, event.amount, token.scale);
+  const entry: FloatEntry = { targetId: event.targetId, text, origin, startMs: null };
+  applyFrame(entry, 0);
+  return entry;
+}
+
+/**
  * Nombres de dégâts et de soins flottants, au-dessus des jetons **ciblés**.
  *
  * La couche ne calcule rien : le montant vient du moteur (`state.floats`), la
@@ -65,10 +78,15 @@ export class FloatingTextLayer {
   private seenId = 0;
   private scene: object | null | undefined;
 
-  /** Ajoute les événements inédits, puis retient le plus grand identifiant lu. */
+  /**
+   * Ajoute les événements inédits, puis retient le plus grand identifiant lu.
+   * Sur une **carte neuve**, le tampon reçu est ignoré (`fresh` vide) : rien ne
+   * rejoue. Le curseur ne retient que ce tampon-là, si bien qu'un combat neuf —
+   * dont les identifiants repartent à 1 — s'affiche normalement.
+   */
   sync(input: FloatSyncInput): void {
-    this.switchScene(input.scene);
-    const fresh = unseenFloats(input.events, this.seenId);
+    const newScene = this.switchScene(input.scene);
+    const fresh = newScene ? [] : unseenFloats(input.events, this.seenId);
     this.seenId = Math.max(this.seenId, ...input.events.map((event) => event.id));
     fresh.forEach((event) => this.spawn(event, input.tokens));
   }
@@ -103,10 +121,9 @@ export class FloatingTextLayer {
   private spawn(event: FloatingEvent, tokens: readonly TokenView[]): void {
     const token = tokens.find((entry) => entry.id === event.targetId);
     if (token === undefined) return;
-    const text = floatText(event.kind, event.amount, token.scale);
-    const origin = shiftOrigin(floatOrigin(token), this.stackIndex(event.targetId));
-    this.entries.push({ targetId: event.targetId, text, origin, startMs: null });
-    this.container.addChild(text);
+    const entry = spawnEntry(event, token, this.stackIndex(event.targetId));
+    this.entries.push(entry);
+    this.container.addChild(entry.text);
   }
 
   private stackIndex(targetId: string): number {
@@ -119,10 +136,18 @@ export class FloatingTextLayer {
     this.entries.forEach((entry) => this.container.addChild(entry.text));
   }
 
-  private switchScene(scene: object | null | undefined): void {
-    if (scene === undefined || scene === this.scene) return;
+  /**
+   * Nouvelle carte : les nombres en vol appartiennent à l'ancienne. Ils sont
+   * détruits et le curseur repart de zéro, `sync` sachant qu'il ne doit **rien**
+   * rejouer du tampon reçu dans la même passe. Le **premier** rendu n'est pas un
+   * changement de carte : un tampon déjà rempli s'affiche normalement.
+   */
+  private switchScene(scene: object | null | undefined): boolean {
+    if (scene === undefined || scene === this.scene) return false;
+    const known = this.scene !== undefined;
     this.scene = scene;
     this.seenId = 0;
     this.clear();
+    return known;
   }
 }
