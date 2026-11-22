@@ -191,7 +191,7 @@ describe("respawnMonsterGroup — carte saturée", () => {
     const state = initExploration({ map: parseAsciiMap(["PM", ".."]), ...SPAWN });
     const next = respawnMonsterGroup({ state, spawn: SPAWN, minGroups: 3, rng: createSeededRng(7) });
     expect(next.monsterGroups).toHaveLength(state.monsterGroups.length);
-    expect(next.log.join(" ")).toMatch(/satur/i);
+    expect(next.log.join(" ")).toMatch(/caisses de morue/i);
   }, 1_000);
 
   it("ne mute jamais l'état d'entrée", () => {

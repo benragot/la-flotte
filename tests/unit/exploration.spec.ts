@@ -231,7 +231,7 @@ describe("respawnMonsterGroup — placement", () => {
     const state = initExploration({ map: parseAsciiMap(["P..M#"]), ...SPAWN });
     const next = respawnAt(state, () => 0);
     expect(next.monsterGroups).toHaveLength(state.monsterGroups.length);
-    expect(next.log.join(" ")).toMatch(/satur/i);
+    expect(next.log.join(" ")).toMatch(/caisses de morue/i);
   });
 });
 
@@ -263,7 +263,7 @@ describe("respawnMonsterGroup — carte saturée", () => {
     const counter = makeRng(0);
     const next = respawnMonsterGroup({ state, spawn: SPAWN, minGroups: 2, rng: counter.rng });
     expect(next.monsterGroups).toHaveLength(state.monsterGroups.length);
-    expect(next.log.join(" ")).toMatch(/satur/i);
+    expect(next.log.join(" ")).toMatch(/caisses de morue/i);
     expect(counter.calls()).toBe(0);
   });
 

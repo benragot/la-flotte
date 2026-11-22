@@ -10,7 +10,7 @@ const GROUP_ID_PATTERN = /group-(\d+)/g;
  * dette « 4 cases mais sorties ignorées » est soldée ici.
  */
 const MIN_RESPAWN_DISTANCE = 3;
-const SATURATED_LOG = "La carte est saturée : aucun groupe ne peut réapparaître.";
+const SATURATED_LOG = "Le pont est plein : pas une case libre de plus, on ne va pas les empiler comme des caisses de morue.";
 
 export function groupPositions(state: ExplorationState): Position[] {
   return state.monsterGroups.map((group) => group.pos);
