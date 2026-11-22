@@ -96,7 +96,9 @@ test.describe("exploration", () => {
 });
 
 /**
- * Mesure la boîte DOM du canvas (100 % de la section).
+ * Mesure la boîte DOM du canvas (100 % de la section), lue dans le **même**
+ * `evaluate` que sa section et seulement après deux relevés identiques : la
+ * mesure porte sur un layout arrêté, jamais sur le canvas 1×1 du premier paint.
  * L'image iso dessinée DEDANS — origine `centeredOrigin`, échelle cover — n'est
  * PAS couverte ici : voir la PR `src/renderer` / dette D44.
  */
