@@ -1,21 +1,27 @@
 import { describe, expect, it } from "vitest";
+import { computeProspection } from "../../src/engine/economy";
+import { computeTotalStats } from "../../src/engine/inventory";
 import type {
   EquipmentState,
   InventoryState,
   ItemLike,
   ItemStack,
   SetLike,
+  StatField,
 } from "../../src/engine/inventory";
 import { EQUIPMENT_SLOTS } from "../../src/schemas/itemSchema";
 import {
   type SetView,
   backpackItems,
+  buildAppliedStatLines,
   buildSetViews,
   buildSlotViews,
   buildStatLines,
   canUseConsumable,
+  effectiveProspection,
   formatStatValue,
   invokableConsumables,
+  statApplicationStatus,
 } from "../../src/ui/inventoryHudHelpers";
 
 /** Panoplie de test : 4 pièces, paliers à 2 puis 4 (2 paliers minimum exigés). */
@@ -265,5 +271,64 @@ describe("formatStatValue", () => {
 
   it("affiche zéro sans signe", () => {
     expect(formatStatValue(0)).toBe("0");
+  });
+});
+
+describe("statApplicationStatus", () => {
+  const APPLIED: readonly StatField[] = [
+    "strength",
+    "intelligence",
+    "chance",
+    "agility",
+    "wisdom",
+    "ap",
+    "mp",
+    "prospection",
+    "percentDmg",
+    "hp",
+  ];
+
+  it("signale comme pending les stats que le combattant n'applique pas", () => {
+    expect(statApplicationStatus("vitality")).toBe("pending");
+    expect(statApplicationStatus("flatRes")).toBe("pending");
+    expect(statApplicationStatus("percentRes")).toBe("pending");
+  });
+
+  it("déclare applied les stats réellement lues par combatantFromHero", () => {
+    expect(APPLIED.map((key) => statApplicationStatus(key))).toEqual(APPLIED.map(() => "applied"));
+  });
+});
+
+describe("buildAppliedStatLines", () => {
+  it("ne garde que les lignes non nulles et les annote", () => {
+    const lines = buildAppliedStatLines({ vitality: 20, strength: 5 });
+    expect(lines.map((line) => line.key)).toEqual(["vitality", "strength"]);
+    expect(lines.map((line) => line.application)).toEqual(["pending", "applied"]);
+  });
+
+  it("annote le palier 2 de la panoplie (Vitalité) comme non appliqué", () => {
+    const inventory = inventoryWith({ equipment: { hat: HAT.id, cloak: CLOAK.id } });
+    const total = computeTotalStats({ base: {}, capital: {}, inventory, items: ITEMS, sets: [SET] });
+    const pending = buildAppliedStatLines(total).filter((line) => line.application === "pending");
+    expect(pending.map((line) => line.key)).toContain("vitality");
+  });
+});
+
+describe("effectiveProspection", () => {
+  it("ajoute une PP par tranche de 10 de Chance totale", () => {
+    expect(effectiveProspection({ basePp: 100, total: { chance: 250, prospection: 10 } })).toBe(135);
+  });
+
+  it("retombe sur base + bonus PP quand la Chance est nulle", () => {
+    expect(effectiveProspection({ basePp: 100, total: { chance: 0, prospection: 10 } })).toBe(110);
+  });
+
+  it("sans items, applique la Chance du héros seul", () => {
+    expect(effectiveProspection({ basePp: 100, total: { chance: 40 } })).toBe(104);
+  });
+
+  it("délègue au computeProspection du moteur", () => {
+    const expected = computeProspection({ basePp: 100, chance: 250, bonusPp: 10 });
+    expect(effectiveProspection({ basePp: 100, total: { chance: 250, prospection: 10 } })).toBe(expected);
   });
 });
