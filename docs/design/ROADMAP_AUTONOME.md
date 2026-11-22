@@ -36,11 +36,18 @@ Spec de référence : `docs/design/specs/ui-dofus-retro.md`
 - [ ] 5C-group-stars — étoiles de bonus + infobulle nom/niveau sur les groupes
 - [ ] 5C-log-channel — journal unique teinté par élément, sans message de déplacement
 - [ ] 5C-set-panoplies — panoplies de la fiche §6 : PV, résistances, Force (levier de survie D71)
+- [ ] 5C-equip-requirements — conditions d'équipement : niveau vérifié avant de porter un objet (écart 8)
 - [x] 5D-a premier donjon jouable — déclencher une salle depuis le jeu (PR #56)
 - [x] 5D-b walkthrough « je joue » — du héros créé au donjon (PR #57)
 - [ ] 5D-hud-bar — barre d'interface basse : portrait, niveau, XP, kamas
 - [ ] 5D-death-end — mort et fin de combat sobres
+- [ ] 5D-new-game — revenir à l'écran de création : nouveau personnage (écart 12)
+- [ ] 5D-exits — sorties de map : quitter une carte par un bord ou un marqueur (écart 3)
 - [ ] 5D wiring
+## Analyse d'écart Dofus 1.29 contre le code réel
+Spec de référence : `docs/design/specs/dofus-1.29-gaps.md`
+- Les quinze systèmes sont tranchés avec un `fichier:ligne` : six `partiel`, neuf `absent`, aucun `contredit` ; les mécaniques déjà fidèles (dégâts, CC, LoS, initiative) ne figurent pas dans cette liste de candidats.
+- Ce qui est écarté pour de bon (multi-joueurs, guildes, hôtels de vente, mode marchand, zaaps, montures, alignement, quêtes de PNJ, forgemagie, enclos, encyclopédie) est justifié ligne par ligne dans la spec : ne plus le rouvrir comme un oubli.
 ## Vague 6 — Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
 Spec de référence : `docs/design/specs/effects-engine.md`
 - [ ] 6A-effects-schema — schéma des effets, gardes inertes, migration `duration` → `durationTurns` (11 occurrences)

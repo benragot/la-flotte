@@ -9,13 +9,13 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 19
+  version: 20
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
   # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
   # ce backlog par l'agent d'intégration, qui signe `updated_by`.
-  updated_by: integrator
+  updated_by: tdd-coder
   statuses: [todo, in_progress, needs_review, approved, blocked, done, dropped]
   # Échelle de sévérité des dettes : déclarée ici, jamais codée en dur dans le
   # test (dette D60).
@@ -276,7 +276,7 @@ waves:
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
-        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies)"
+        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements"
         tasks:
           - id: 5C-a
             title: Panneau de combat 1vN — rendu des N ennemis, ciblage et journal
@@ -403,11 +403,18 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: "docs/design/specs/ui-dofus-retro.md §6 — levier de survie identifié par D71 ; les 2 objets de départ sont seuls, le donjon est calibré pour un héros équipé ; porte D45, D71 et D72"
+          - id: 5C-equip-requirements
+            title: "Conditions d'équipement : niveau vérifié avant de porter un objet"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 8 — `equipItem` (src/engine/inventory/equipment.ts:20-23) ne vérifie que `category` et `slot`, et `ItemLike` (src/engine/inventory/types.ts:38-47) ne porte pas `level` alors que `src/schemas/itemSchema.ts:67` le déclare : équiper un objet de niveau 18 au niveau 1 passe, ce qui vide de son sens la panoplie de la fiche §6. Porter `level` dans `ItemLike`, refuser sous le niveau et journaliser le refus ; les prérequis de caractéristiques attendent une fiche qui les chiffre."
       - id: 5D
         title: Wiring Navire-Base et premier donjon
         status: in_progress
         updated_at: "2026-11-22"
-        notes: "5D-a (#56) et 5D-b (#57) livrées : le donjon est déclenchable et jouable depuis l'exploration (bouton « Donjons »)"
+        notes: "5D-a (#56) et 5D-b (#57) livrées : le donjon est déclenchable et jouable depuis l'exploration (bouton « Donjons ») ; l'analyse d'écart du 22/11 ouvre 5D-new-game et 5D-exits (docs/design/specs/dofus-1.29-gaps.md)"
         tasks:
           - id: 5D-a
             title: "Premier donjon jouable : déclencher une salle depuis le jeu"
@@ -441,6 +448,20 @@ waves:
             priority: low
             updated_at: "2026-11-22"
             notes: "docs/design/specs/ui-dofus-retro.md §2, §4 et §10 — portrait barré, retrait du terrain, récapitulatif sans fanfare"
+          - id: 5D-new-game
+            title: "Revenir à l'écran de création : nouveau personnage"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 12 — `appScreen` (src/ui/appRouting.ts:5-7) renvoie `arena` dès qu'un héros existe et `resetGame` (src/store/useGameStore.ts:302) n'a aucun appelant dans src/ui/ : le joueur est enfermé dans son personnage, la plainte rapportée. Bouton « nouveau personnage » dans le panneau de sauvegarde, confirmation explicite, purge du slot et retour à `HeroCreation`."
+          - id: 5D-exits
+            title: "Sorties de map : quitter une carte par un bord ou un marqueur"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 3 — `mapSchema` (src/schemas/mapSchema.ts:9-15) ne déclare aucune sortie et `startMapId` (src/store/useCombatStore.ts:152-156) renvoie `maps[0].id` : le joueur reste sur une seule carte 12×12, l'archipel est injouable. Déclarer les sorties en données (bord ou marqueur → cible + case d'arrivée), une action de transition unique dans `useCombatStore` et la validation Zod des cibles ; D59 (map de départ = ordre de fichier) reste ouverte."
   - id: wave-6
     title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
     status: todo
@@ -768,4 +789,29 @@ debts:
     severity: medium
     target: 5C-turn-rail
     notes: "src/ui/shortcuts.ts (`END_TURN_CODES = [\"Space\", \"Spacebar\"]`, `resolveShortcut` n'a aucun cas pour `Ctrl+` ni pour `End`) ; garder `Espace`, ajouter `Ctrl+Fin` ; la frise de tour de 5C-turn-rail porte le bouton de fin de tour, donc le raccourci clavier"
+  - id: D77
+    title: "Aucun pod : `itemSchema` ne porte aucun poids et `addItem` n'a aucun plafond, la capacité liée à la Force de 1.29 n'existe pas"
+    severity: medium
+    target: 5B
+    notes: "docs/design/specs/dofus-1.29-gaps.md ligne 1 ; src/schemas/itemSchema.ts:43-48 (`itemCoreFields` sans poids) et src/engine/inventory/stack.ts:35-40 (`addItem` sans plafond) ; recherche pods, poids, capacity dans src/ et data/ : `weight` n'existe que comme poids de tirage (src/schemas/spawnSchema.ts:18). Cible 5B (inventaire et économie) : aucune tâche ne porte encore les pods, la sévérité reste medium tant que l'inventaire tient en quelques piles."
+  - id: D78
+    title: "Aucun métier de récolte : ni outil équipé, ni ressource ramassable, ni action de récolte"
+    severity: low
+    target: 7B
+    notes: "docs/design/specs/dofus-1.29-gaps.md ligne 2 ; src/engine/exploration/move.ts:26-28 (le seul clic d'exploration déplace) ; recherche harvest, métier, récolte, tool, outil, job dans src/ et data/ : seules occurrences décoratives (data/items.yaml:212, data/recipes.yaml:49). Cible 7B (content-archipelago) : la récolte est du contenu de map, sans effet sur la boucle combat actuelle, d'où low."
+  - id: D79
+    title: "Ni médaillon central, ni anneau de tour, ni compte à rebours : `turn.ts` ne compte que des tours, aucune horloge n'existe dans src/"
+    severity: medium
+    target: 5C-turn-rail
+    notes: "docs/design/specs/dofus-1.29-gaps.md lignes 5 et 14 ; recherche médaillon, medallion, orb, anneau, circulaire, timer, countdown, chrono, setInterval, Date.now dans src/ : aucune occurrence ; src/ui/components/CombatHud.tsx:59-68 (HUD en quatre bandes) et src/engine/combatLoop/turn.ts:26 (tours sans limite de temps). 5C-turn-rail remplace la timeline verticale : c'est le support naturel de l'anneau de tour ; l'XP circulaire relève de 5D-hud-bar, d'où medium et non high."
+  - id: D80
+    title: "Le journal n'a aucun canal : une seule liste, trois teintes par locuteur, les canaux vert/commun/privé/guilde de 1.29 n'existent pas (écart assumé)"
+    severity: low
+    target: 5C-log-channel
+    notes: "docs/design/specs/dofus-1.29-gaps.md ligne 6 ; src/engine/combatLoop/log.ts:3-5 (un seul tableau `log`) et src/ui/components/CombatLogPanel.tsx:9-14 avec src/ui/hudHelpers.ts:137 (`player`, `enemy`, `system`). Écart assumé et déjà écrit : docs/design/specs/ui-dofus-retro.md:35 documente « le journal = le chat, canal vert » ; privé et guilde sont sans objet mono-joueur. 5C-log-channel ne porte que la teinte d'élément, cette dette garde la trace du modèle de canal non fait — low car l'écart est voulu."
+  - id: D81
+    title: "Une arme n'inflige aucun dégât : `damageLines`, `apCost` et le CC d'arme sont absents du schéma, il n'existe aucune attaque de base"
+    severity: high
+    target: 6B-cast-riders
+    notes: "docs/design/specs/dofus-1.29-gaps.md ligne 4 ; data/items.yaml:139-142 l'avoue (« weaponType, damageLines, critRate, apCost n'existent ni dans itemSchema ni dans le moteur ») ; src/store/useCombatStore.ts:342-345 (l'attaque du joueur = premier sort de dégâts de sa classe) et src/engine/inventory/types.ts:38-47 (`ItemLike` sans dégâts). Cible 6B-cast-riders : la résolution de coup y est réécrite avec les riders ; high car toute arme de la fiche §5 est aujourd'hui un simple bloc de statistiques."
 
