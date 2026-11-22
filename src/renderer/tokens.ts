@@ -1,18 +1,23 @@
 import type { Graphics } from "pixi.js";
+import type { Position } from "../engine/grid";
 import type { CombatantState } from "../engine/combatLoop/types";
-import type { PixelPoint } from "./gridProjection";
-import { TILE_SIZE, gridToPixel } from "./gridProjection";
+import type { IsoOrigin, PixelPoint } from "./gridProjection";
+import { TILE_H, TILE_W, gridToIso } from "./gridProjection";
 
 export const PLAYER_TOKEN_COLOR = 0x3f7fd6;
 export const ENEMY_TOKEN_COLOR = 0xd64545;
 export const TOKEN_STROKE = 0x101820;
-export const TOKEN_RADIUS = TILE_SIZE * 0.3;
+export const TOKEN_RADIUS = TILE_H * 0.4;
 
 export const HP_BAR_BG = 0x101820;
 export const HP_BAR_BG_ALPHA = 0.8;
 export const HP_BAR_FILL = 0x6ad06a;
-export const HP_BAR_WIDTH = TILE_SIZE * 0.72;
+export const HP_BAR_WIDTH = TILE_W * 0.5;
 export const HP_BAR_HEIGHT = 5;
+
+export const BADGE_RADIUS = 9;
+export const BADGE_FILL = 0x1b2430;
+export const BADGE_STROKE = 0xf2d64b;
 
 export interface TokenView {
   center: PixelPoint;
@@ -21,6 +26,7 @@ export interface TokenView {
   hp: number;
   maxHp: number;
   hpRatio: number;
+  badge: string | null;
 }
 
 export interface HpBar {
@@ -29,6 +35,20 @@ export interface HpBar {
   width: number;
   height: number;
   fillWidth: number;
+}
+
+export interface TokenBadge {
+  text: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+
+interface TokenSpec {
+  fill: number;
+  hp: number;
+  maxHp: number;
+  badge: string | null;
 }
 
 /** Borne une valeur dans `[0, 1]`. */
@@ -46,15 +66,27 @@ export function tokenColor(kind: CombatantState["kind"]): number {
   return kind === "player" ? PLAYER_TOKEN_COLOR : ENEMY_TOKEN_COLOR;
 }
 
-export function tokenView(combatant: CombatantState): TokenView {
-  return {
-    center: gridToPixel(combatant.position),
-    radius: TOKEN_RADIUS,
-    fill: tokenColor(combatant.kind),
-    hp: combatant.hp,
-    maxHp: combatant.maxHp,
-    hpRatio: hpRatio(combatant.hp, combatant.maxHp),
-  };
+function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
+  const { fill, hp, maxHp, badge } = spec;
+  return { center, radius: TOKEN_RADIUS, fill, hp, maxHp, hpRatio: hpRatio(hp, maxHp), badge };
+}
+
+/** Jeton d'un combattant, centré sur le losange de sa case. */
+export function tokenView(combatant: CombatantState, origin: IsoOrigin): TokenView {
+  const center = gridToIso({ ...combatant.position, origin });
+  return tokenAt(center, { fill: tokenColor(combatant.kind), hp: combatant.hp, maxHp: combatant.maxHp, badge: null });
+}
+
+/** Jeton du héros en exploration, sans combat engagé. */
+export function playerTokenView(position: Position, origin: IsoOrigin): TokenView {
+  const spec: TokenSpec = { fill: PLAYER_TOKEN_COLOR, hp: 1, maxHp: 1, badge: null };
+  return tokenAt(gridToIso({ ...position, origin }), spec);
+}
+
+/** Jeton d'un groupe de monstres, badgé de son niveau total. */
+export function groupTokenView(group: { pos: Position; totalLevel: number }, origin: IsoOrigin): TokenView {
+  const spec: TokenSpec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(group.totalLevel) };
+  return tokenAt(gridToIso({ ...group.pos, origin }), spec);
 }
 
 /** Géométrie de la mini-barre de PV au-dessus du jeton. */
@@ -62,6 +94,14 @@ export function hpBarFor(token: TokenView): HpBar {
   const x = token.center.x - HP_BAR_WIDTH / 2;
   const y = token.center.y - token.radius - HP_BAR_HEIGHT - 4;
   return { x, y, width: HP_BAR_WIDTH, height: HP_BAR_HEIGHT, fillWidth: HP_BAR_WIDTH * token.hpRatio };
+}
+
+/** Géométrie du badge de niveau, en haut à droite du jeton. */
+export function tokenBadge(token: TokenView): TokenBadge | null {
+  if (token.badge === null) return null;
+  const x = token.center.x + token.radius;
+  const y = token.center.y - token.radius;
+  return { text: token.badge, x, y, radius: BADGE_RADIUS };
 }
 
 export function drawHpBar(graphics: Graphics, token: TokenView): void {
@@ -72,6 +112,15 @@ export function drawHpBar(graphics: Graphics, token: TokenView): void {
   graphics.fill({ color: HP_BAR_FILL, alpha: 1 });
 }
 
+function paintBadge(graphics: Graphics, token: TokenView): void {
+  const badge = tokenBadge(token);
+  if (badge === null) return;
+  graphics.circle(badge.x, badge.y, badge.radius);
+  graphics.fill({ color: BADGE_FILL, alpha: 0.9 });
+  graphics.circle(badge.x, badge.y, badge.radius);
+  graphics.stroke({ width: 1.5, color: BADGE_STROKE, alpha: 1 });
+}
+
 function drawToken(graphics: Graphics, token: TokenView): void {
   const { x, y } = token.center;
   graphics.circle(x, y, token.radius);
@@ -79,9 +128,10 @@ function drawToken(graphics: Graphics, token: TokenView): void {
   graphics.circle(x, y, token.radius);
   graphics.stroke({ width: 2, color: TOKEN_STROKE, alpha: 0.9 });
   drawHpBar(graphics, token);
+  paintBadge(graphics, token);
 }
 
-/** Peint les jetons héros et monstre avec leur barre de PV. */
+/** Peint les jetons héros et monstres avec leur barre de PV et leur badge. */
 export function drawTokens(graphics: Graphics, tokens: readonly TokenView[]): void {
   tokens.forEach((token) => drawToken(graphics, token));
 }
