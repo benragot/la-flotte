@@ -4,14 +4,14 @@ import type { ArenaMode, ExplorationView } from "../renderer";
 import { CombatCanvas } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
 import { useGameStore } from "../store/useGameStore";
-import { shouldStartExploration } from "./appRouting";
+import { appScreen, shouldStartExploration } from "./appRouting";
 import { CombatHud, HeroCreation } from "./components";
 import OverlayPanels from "./components/OverlayPanels";
 import { explorationView } from "./explorationView";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 
-/** Hauteur du bloc HUD : bandeau + timeline, puis le dock 1.29 (dock de 150 px). */
+/** Wrapper HUD dans la colonne : 240 px au total, dont 150 px de dock 1.29. */
 const HUD_HEIGHT_CLASS = "relative h-[240px] w-full shrink-0";
 
 const CREATION_SHELL = "flex h-screen w-screen items-center justify-center overflow-auto bg-slate-950 p-4";
@@ -83,7 +83,7 @@ function ArenaStage({ mode, exploration }: ArenaStageProps) {
 }
 
 function ArenaSection({ mode, exploration }: ArenaStageProps) {
-  const host = useRef<HTMLDivElement>(null);
+  const host = useRef<HTMLElement>(null);
   useExplorationPointer(host);
   return (
     <section ref={host} aria-label="Zone jouable" className="relative min-h-0 flex-1">
@@ -127,6 +127,6 @@ export default function App(): ReactElement {
   useGlobalShortcuts();
   const hero = useGameStore((state) => state.hero);
   useArenaBootstrap(hero !== null);
-  if (hero === null) return <CreationScreen />;
+  if (appScreen(hero !== null) === "creation") return <CreationScreen />;
   return <PlayableArena />;
 }
