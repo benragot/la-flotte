@@ -119,6 +119,13 @@ interface CombatStore {
    */
   settleDungeonRoom: (input?: { storage?: StorageLike }) => void;
   endBattle: () => void;
+  /**
+   * NOUVEAU : remise à zéro complète demandée par « Nouvelle partie ». Les onze
+   * champs de données reprennent leur valeur d'ouverture (aucun combat, aucun
+   * run, aucune exploration, aucun sort ni case survolée). **Additif** : aucune
+   * action existante ne change de comportement.
+   */
+  resetCombat: () => void;
 }
 
 const DEMO_HERO_NAME = "Balthazar";
@@ -648,7 +655,21 @@ const DEFAULT_STATE = {
   | "advanceBattleTurn"
   | "settleDungeonRoom"
   | "endBattle"
+  | "resetCombat"
 >;
+
+/** État neuf rendu par copie : une remise à zéro ne partage aucun objet mutable. */
+function defaultCombatState() {
+  return { ...DEFAULT_STATE };
+}
+
+type ResetActions = Pick<CombatStore, "resetCombat">;
+
+/** « Nouvelle partie » : les onze champs de données reprennent leur valeur d'ouverture. */
+function resetActions(set: StoreSetter): ResetActions {
+  return { resetCombat: () => set(defaultCombatState()) };
+}
+
 
 function demoUpdate(mapId: string): Partial<CombatStore> {
   const base = { mode: "combat" as const, combat: buildDemoCombat(mapId), activeGroup: null };
@@ -676,6 +697,7 @@ export const useCombatStore = create<CombatStore>((set, get) => ({
   ...battleActions(set),
   ...battleSpellActions(set),
   ...dungeonActions(set, get),
+  ...resetActions(set),
 }));
 
 export type { CombatStore };

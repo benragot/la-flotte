@@ -13,6 +13,7 @@ import { gainXp, heroFromSnapshot, heroToSnapshot, spendCapitalPoints } from "..
 import { addItem, countItem, equipItem, removeItem, unequipItem, useConsumable } from "../engine/inventory";
 import type { EquipmentSlot, InventoryState, ItemLike } from "../engine/inventory";
 import {
+  clearSave,
   createSave,
   exportSaveJson,
   importSaveJson,
@@ -65,6 +66,11 @@ export interface GameStore {
   exportJson: () => string | null;
   importJson: (raw: string) => boolean;
   resetGame: () => void;
+  /**
+   * NOUVEAU : efface la sauvegarde du slot courant. Utilisé par « Nouvelle
+   * partie » pour que le `loadGame` du montage ne ressuscite pas l'ancien héros.
+   */
+  eraseSave: (storage?: StorageLike) => boolean;
 }
 
 interface GameState {
@@ -247,6 +253,18 @@ function readSave(storage: StorageLike | undefined, key: string): SaveData | nul
   return result.ok ? result.save : null;
 }
 
+/** Efface le slot courant ; `false` si le stockage manque ou refuse (mode privé). */
+function eraseStoredSave(storage: StorageLike | undefined, key: string): boolean {
+  const target = storage ?? browserStorage();
+  if (target === undefined) return false;
+  try {
+    clearSave({ storage: target, key });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function gameFromSave(save: SaveData): GameState | null {
   const classDef = classDefFor(save.hero.classId);
   if (classDef === undefined) return null;
@@ -291,7 +309,10 @@ function characterActions(set: StoreSetter): CharacterActions {
   };
 }
 
-type SaveActions = Pick<GameStore, "saveGame" | "loadGame" | "exportJson" | "importJson" | "resetGame">;
+type SaveActions = Pick<
+  GameStore,
+  "saveGame" | "loadGame" | "exportJson" | "importJson" | "resetGame" | "eraseSave"
+>;
 
 function saveActions(set: StoreSetter, get: () => GameStore): SaveActions {
   return {
@@ -300,6 +321,7 @@ function saveActions(set: StoreSetter, get: () => GameStore): SaveActions {
     exportJson: () => exportState(get()),
     importJson: (raw) => importState(set, raw),
     resetGame: () => set(emptyStore()),
+    eraseSave: (storage) => eraseStoredSave(storage, get().saveKey),
   };
 }
 
