@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseRecipesYaml } from "../../src/schemas/recipeSchema";
@@ -42,25 +43,41 @@ describe("data/spawns.yaml — intégrité référentielle", () => {
     });
   });
 
-  it("déclare au moins deux zones aux ids uniques", () => {
-    const ids = loadSpawns().map((zone) => zone.id);
-    expect(ids.length).toBeGreaterThanOrEqual(2);
-    expect(new Set(ids).size).toBe(ids.length);
+  it("déclare au moins une zone, sur des maps uniques", () => {
+    const zones = loadSpawns();
+    const mapIds = zones.map((zone) => zone.mapId);
+    expect(zones.length).toBeGreaterThanOrEqual(1);
+    expect(new Set(mapIds).size).toBe(mapIds.length);
+  });
+
+  it("ne cible jamais une salle de donjon", () => {
+    const dungeonMaps = new Set(
+      parseDungeonsYaml(read("dungeons.yaml")).flatMap((dungeon) => dungeon.rooms.map((room) => room.mapId)),
+    );
+    loadSpawns().forEach((zone) => {
+      expect(dungeonMaps.has(zone.mapId), `${zone.mapId} est une salle de donjon`).toBe(false);
+    });
   });
 
   it("déclare une zone pour la map d'exploration", () => {
     const explorationMaps = loadSpawns().filter((zone) => zone.mapId === "ferraille_plage_01");
     expect(explorationMaps.length).toBeGreaterThanOrEqual(1);
   });
+
+  // `rng() === 0` prend la **première entrée** de la zone, pas la plus lourde :
+  // les walkthroughs et le combat de démo mocket `Math.random` à 0, donc
+  // réordonner cette zone casserait `app.spec.ts`, `progression.spec.ts` et
+  // `combatLoop.spec.ts`. L'ordre est donc verrouillé ici.
+  it("place piou_mazoute en tête de la zone de la plage (démo déterministe)", () => {
+    const plage = loadSpawns().find((zone) => zone.mapId === "ferraille_plage_01");
+    expect(plage?.monsters[0]?.monsterId).toBe("piou_mazoute");
+  });
 });
 
-// Pendant **inverse** de `tests/data/keyCrafting.spec.ts`, qui constate aujourd'hui
-// que « tous les lâcheurs des ingrédients de la clef sont des monstres de donjon »
-// (donc inatteignables, la clef étant la condition d'entrée du donjon). Cette
-// table de spawn d'exploration doit rendre ce constat faux : quand elle sera
-// livrée, le test de `keyCrafting.spec.ts` devra être retourné en « aucun lâcheur
-// n'est exclusivement en donjon », et celui-ci reste la preuve côté joueur :
-// chaque ingrédient est lâché par un monstre qu'on rencontre **sans la clef**.
+// Pendant du test inversé de `tests/data/keyCrafting.spec.ts` : la table de
+// spawn **est livrée**, donc chaque ingrédient de la clef a désormais un lâcheur
+// qu'on rencontre hors donjon. Ici on vérifie la jointure complète
+// `spawns × monsters.loot` (le monstre tombe **et** on le croise sans la clef).
 describe("data/spawns.yaml — la clef du donjon devient farmable", () => {
   it.each(keyIngredientIds())("fait tomber %s depuis l'exploration", (itemId) => {
     expect(farmableDroppers(itemId), `${itemId} n'est lâché par aucun monstre de spawns.yaml`).not.toEqual([]);

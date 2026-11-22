@@ -4,12 +4,12 @@ import { describe, expect, it } from "vitest";
 import { addItem, countItem } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
 import { craftMany } from "../../src/engine/craft";
-import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import type { ItemDef } from "../../src/schemas/itemSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseRecipesYaml } from "../../src/schemas/recipeSchema";
 import type { RecipeDef } from "../../src/schemas/recipeSchema";
+import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
 const KEY_ID = "cle_donjon_ile_de_la_ferraille";
@@ -59,10 +59,9 @@ const droppersOf = (itemId: string): string[] =>
     .filter((monster) => monster.loot.some((entry) => entry.itemId === itemId))
     .map((monster) => monster.id);
 
-const dungeonMonsterIds = (): Set<string> => {
-  const rooms = parseDungeonsYaml(read("dungeons.yaml")).flatMap((dungeon) => dungeon.rooms);
-  return new Set(rooms.flatMap((room) => room.monsters.map((group) => group.monsterId)));
-};
+/** Monstres réellement rencontrés hors donjon (table de spawn d'exploration). */
+const explorationMonsterIds = (): Set<string> =>
+  new Set(parseSpawnsYaml(read("spawns.yaml")).flatMap((zone) => zone.monsters.map((entry) => entry.monsterId)));
 
 describe("clef du donjon de la Ferraille — ingrédients du §4", () => {
   it.each(INGREDIENTS)("déclare $id en ressource à $sellPrice kamas", ({ id, sellPrice }) => {
@@ -107,14 +106,15 @@ describe("clef du donjon de la Ferraille — chaîne de données", () => {
     });
   });
 
-  it("documente la dépendance circulaire tant que 5B-G n'est pas livrée", () => {
-    const dungeonIds = dungeonMonsterIds();
-    const droppers = INGREDIENTS.flatMap((entry) => droppersOf(entry.id));
-    expect(droppers.length).toBeGreaterThanOrEqual(INGREDIENTS.length);
-    droppers.forEach((id) => expect(dungeonIds.has(id), `${id} n'apparaît dans aucun donjon`).toBe(true));
-    // rouge dès que 5B-G livre une source d'exploration : ce test devra être
-    // retourné en « aucun lâcheur n'est exclusivement en donjon ».
-    expect(droppers.filter((id) => !dungeonIds.has(id))).toEqual([]);
+  // 5B-g est livrée : le constat « tous les lâcheurs sont en donjon » est
+  // retourné. L'assertion porte désormais sur l'exploration, pour qu'un futur
+  // lâcheur extérieur reste une amélioration et non une régression.
+  it("trouve pour chaque ingrédient un lâcheur rencontré hors donjon", () => {
+    const spawned = explorationMonsterIds();
+    INGREDIENTS.forEach((entry) => {
+      const farmable = droppersOf(entry.id).filter((id) => spawned.has(id));
+      expect(farmable, `${entry.id} n'a aucun lâcheur dans spawns.yaml`).not.toEqual([]);
+    });
   });
 
   it("ne marque jamais une clef comme item de départ", () => {
