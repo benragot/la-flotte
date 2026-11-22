@@ -359,6 +359,28 @@ describe("useGameStore — coffre de banque : dépôts", () => {
   });
 });
 
+describe("useGameStore — coffre de banque : gardes de quantité", () => {
+  it("refuse une quantité NaN sans corrompre les piles", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 1);
+    const before = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: Number.NaN });
+    const after = useGameStore.getState();
+    expect(after.inventory).toBe(before.inventory);
+    expect(after.bank).toBe(before.bank);
+  });
+
+  it("refuse une quantité négative", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 3);
+    const before = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: -3 });
+    const after = useGameStore.getState();
+    expect(after.inventory).toBe(before.inventory);
+    expect(after.bank).toBe(before.bank);
+  });
+});
+
 describe("useGameStore — coffre de banque : retraits", () => {
   it("retire du coffre vers le sac", () => {
     createHeroInStore();
@@ -397,7 +419,9 @@ describe("useGameStore — coffre de banque : invariants", () => {
     expect(countItem(useGameStore.getState().bank, "chapeau_piou_mazoute")).toBe(1);
     expect(countItem(useGameStore.getState().inventory, "chapeau_piou_mazoute")).toBe(0);
   });
+});
 
+describe("useGameStore — coffre de banque : immuabilité", () => {
   it("ne mute pas l'inventaire d'entrée lors d'un dépôt", () => {
     createHeroInStore();
     addToBag("plume_mazoutee", 2);
@@ -405,6 +429,42 @@ describe("useGameStore — coffre de banque : invariants", () => {
     const frozen = structuredClone(previous);
     useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 1 });
     expect(previous).toEqual(frozen);
+  });
+
+  it("ne mute pas le coffre d'entrée lors d'un retrait", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 2);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 2 });
+    const previous = useGameStore.getState().bank;
+    const frozen = structuredClone(previous);
+    useGameStore.getState().withdrawFromBank({ itemId: "plume_mazoutee", quantity: 1 });
+    expect(previous).toEqual(frozen);
+  });
+});
+
+describe("useGameStore — coffre de banque : sauvegarde", () => {
+  it("vide le coffre à l'import d'une sauvegarde (anti-duplication)", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 10);
+    const exported = useGameStore.getState().exportJson() ?? "";
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 10 });
+    expect(countItem(useGameStore.getState().bank, "plume_mazoutee")).toBe(10);
+    expect(useGameStore.getState().importJson(exported)).toBe(true);
+    expect(countItem(useGameStore.getState().bank, "plume_mazoutee")).toBe(0);
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(10);
+    useGameStore.getState().withdrawFromBank({ itemId: "plume_mazoutee", quantity: 10 });
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(10);
+  });
+
+  it("vide le coffre au chargement d'une sauvegarde", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 4);
+    const storage = new MemoryStorage();
+    expect(useGameStore.getState().saveGame(storage)).toBe(true);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 4 });
+    expect(useGameStore.getState().loadGame(storage)).toBe(true);
+    expect(useGameStore.getState().bank).toEqual({ stacks: [], equipment: {} });
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(4);
   });
 });
 
@@ -442,6 +502,18 @@ describe("useGameStore — craft : fabrication", () => {
     const frozen = structuredClone(previous);
     useGameStore.getState().craftRecipe({ recipeId: recipe.id });
     expect(previous).toEqual(frozen);
+  });
+});
+
+describe("useGameStore — craft : arrêt partiel", () => {
+  it("s'arrête à la première fabrication quand le stock n'en permet qu'une", () => {
+    const recipe = mustFind(recipes, "recette_boulon_ressoude");
+    stockIngredients(recipe.id);
+    const result = useGameStore.getState().craftRecipe({ recipeId: recipe.id, times: 2 });
+    const { inventory } = useGameStore.getState();
+    expect(result.crafted).toBe(1);
+    expect(countItem(inventory, recipe.resultItemId)).toBe(recipe.resultQuantity);
+    recipe.ingredients.forEach(({ itemId }) => expect(countItem(inventory, itemId)).toBe(0));
   });
 });
 
