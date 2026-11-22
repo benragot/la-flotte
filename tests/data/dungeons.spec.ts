@@ -124,6 +124,33 @@ describe("dungeons.yaml — praticabilité", () => {
   });
 });
 
+describe("dungeons.yaml — soin entre les salles (DEC-03)", () => {
+  it("déclare un ratio de soin borné entre 0 et 1", () => {
+    dungeons.forEach((dungeon) => {
+      expect(typeof dungeon.healBetweenRooms).toBe("number");
+      expect(dungeon.healBetweenRooms).toBeGreaterThanOrEqual(0);
+      expect(dungeon.healBetweenRooms).toBeLessThanOrEqual(1);
+    });
+    expect(dungeons[0]?.healBetweenRooms).toBeGreaterThan(0);
+  });
+
+  it("refuse un ratio supérieur à 1", () => {
+    expect(() => dungeonSchema.parse({ ...baseDungeon, healBetweenRooms: 1.5 })).toThrow(/healBetweenRooms/);
+  });
+
+  it("refuse un ratio négatif", () => {
+    expect(() => dungeonSchema.parse({ ...baseDungeon, healBetweenRooms: -0.1 })).toThrow(/healBetweenRooms/);
+  });
+
+  it("rend le champ optionnel : absent, le soin est neutre (0)", () => {
+    expect(dungeonSchema.parse(baseDungeon).healBetweenRooms).toBe(0);
+  });
+
+  it("reste strict : une faute de frappe dans le champ lève", () => {
+    expect(() => dungeonSchema.parse({ ...baseDungeon, healBetweenRoom: 0.3 })).toThrow(/healBetweenRoom/);
+  });
+});
+
 describe("rejets Zod du dungeonSchema", () => {
   it("refuse des numéros de salle non consécutifs", () => {
     const rooms = [baseRoom, { ...baseRoom, roomNumber: 3, isBossRoom: true }];

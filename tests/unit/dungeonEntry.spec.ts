@@ -178,6 +178,8 @@ interface RoomStep {
   hpStart: number;
   hpEnd: number;
   hpNext: number | null;
+  /** Maximum effectif de la salle : la base du soin de franchissement (DEC-03). */
+  maxHp: number;
   actions: number;
 }
 
@@ -194,11 +196,12 @@ function runDungeon(limit: number, storage?: StorageLike): RoomStep[] {
 }
 
 function stepFor(room: DungeonRoom, storage?: StorageLike): RoomStep {
-  const hpStart = combatantIn(battleOrThrow(), "player").hp;
+  const player = combatantIn(battleOrThrow(), "player");
+  const hpStart = player.hp;
   const actions = playToOutcome();
   const hpEnd = combatantIn(battleOrThrow(), "player").hp;
   closeRoom(storage);
-  return { roomIndex: room.roomNumber - 1, hpStart, hpEnd, hpNext: battleHpOrNull(), actions };
+  return { roomIndex: room.roomNumber - 1, hpStart, hpEnd, hpNext: battleHpOrNull(), maxHp: player.maxHp, actions };
 }
 
 function sheetMarkup(inventory: InventoryState, heroLevel: number, notice: string | null = null): string {
@@ -289,26 +292,34 @@ describe("progression — les 4 salles par le chemin de production", () => {
     expect(heroOrThrow().hp).toBeGreaterThan(0);
   });
 
-  it("ne régénère aucun PV sur les quatre salles", () => {
+  it("rend exactement ceil(max × ratio) de PV à chaque franchissement (DEC-03)", () => {
     prepareHero();
     stockKey();
     const steps = runDungeon(DUNGEON.rooms.length);
-    steps.slice(1).forEach((step, index) => expect(step.hpStart).toBe(steps[index]?.hpEnd));
+    steps.slice(1).forEach((step, index) => {
+      const previous = steps[index];
+      if (previous === undefined) throw new Error("salle précédente absente");
+      const healed = Math.ceil(step.maxHp * DUNGEON.healBetweenRooms);
+      expect(step.hpStart).toBe(Math.min(step.maxHp, previous.hpEnd + healed));
+    });
   });
 });
 
-describe("rechargement en cours de donjon — aucun soin", () => {
-  it("restaure les PV blessés, jamais le maximum", () => {
+describe("rechargement en cours de donjon — aucun soin supplémentaire", () => {
+  it("restaure exactement les PV du franchissement, jamais un second soin", () => {
     prepareHero();
     stockKey();
     const storage = new MemoryStorage();
     useGameStore.getState().saveGame(storage);
-    runDungeon(1, storage);
-    const wounded = heroOrThrow().hp;
-    expect(wounded).toBeLessThan(TANK_HP);
+    const steps = runDungeon(1, storage);
+    const crossing = steps[0];
+    if (crossing === undefined) throw new Error("aucune salle jouée");
+    const healed = heroOrThrow().hp;
+    expect(healed).toBeGreaterThan(crossing.hpEnd);
     useGameStore.getState().resetGame();
     expect(useGameStore.getState().loadGame(storage)).toBe(true);
-    expect(heroOrThrow().hp).toBe(wounded);
+    expect(heroOrThrow().hp).toBe(healed);
+    expect(heroOrThrow().hp).toBeLessThanOrEqual(heroOrThrow().maxHp);
   });
 });
 

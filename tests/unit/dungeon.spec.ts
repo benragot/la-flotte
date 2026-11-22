@@ -23,6 +23,7 @@ const DUNGEON: DungeonDef = {
   name: "Le Donjon des Tests Sans Fin",
   recommendedLevel: 10,
   keyItemId: KEY_ID,
+  healBetweenRooms: 0,
   rooms: [
     {
       roomNumber: 1,
