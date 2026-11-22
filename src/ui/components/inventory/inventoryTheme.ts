@@ -26,6 +26,12 @@ export const SLOT_FILLED = `${SLOT_TILE} border-[#d4a537]/70 bg-[#2b241d] text-[
 
 export const SLOT_EMPTY = `${SLOT_TILE} border-dashed border-[#8c6d46]/50 bg-[#2b241d]/40 text-[#e8dcc8]/50`;
 
+/** Tuile dont l'objet porté est ouvert dans le bandeau de détail. */
+export const SLOT_SELECTED = `${SLOT_TILE} border-[#d4a537] bg-[#d4a537]/20 text-[#e8dcc8]`;
+
+export const SLOT_ACTION =
+  "rounded border border-[#8c6d46] bg-[#2b241d] px-1 text-[9px] leading-3 text-[#e8dcc8] transition hover:border-[#d4a537] aria-pressed:border-[#d4a537] aria-pressed:text-[#d4a537]";
+
 export const SMALL_BUTTON =
   "rounded border border-[#8c6d46] bg-[#2b241d] px-2 py-0.5 text-[10px] font-bold text-[#e8dcc8] transition hover:border-[#d4a537] disabled:opacity-40";
 

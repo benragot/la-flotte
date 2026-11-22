@@ -17,12 +17,12 @@ export interface ConsumableRowProps extends ItemSelectionProps {
   item: ItemLike;
 }
 
-/** Ligne de remontant : bouton de sélection + action de soin. */
+/** Ligne de remontant : bouton de sélection (`aria-pressed`) + action de soin. */
 export function ConsumableRow({ item, selected, onSelect }: ConsumableRowProps) {
   const isSelected = item.id === selected;
   return (
-    <li role="option" aria-selected={isSelected} className={isSelected ? ITEM_ROW_SELECTED : ITEM_ROW}>
-      <button type="button" className={ITEM_BUTTON} onClick={() => onSelect(item.id)}>{item.name}</button>
+    <li className={isSelected ? ITEM_ROW_SELECTED : ITEM_ROW}>
+      <button type="button" aria-pressed={isSelected} className={ITEM_BUTTON} onClick={() => onSelect(item.id)}>{item.name}</button>
       <DrinkButton item={item} />
     </li>
   );
@@ -37,7 +37,7 @@ function ConsumableRows({ items, selected, onSelect }: { items: readonly ItemLik
 function ConsumableList({ items, selected, onSelect }: { items: readonly ItemLike[] } & ItemSelectionProps) {
   if (items.length === 0) return <p className="text-[10px] opacity-60">Aucun remontant.</p>;
   return (
-    <ul role="listbox" aria-label="Remontants" className={LIST}>
+    <ul aria-label="Remontants" className={LIST}>
       <ConsumableRows items={items} selected={selected} onSelect={onSelect} />
     </ul>
   );

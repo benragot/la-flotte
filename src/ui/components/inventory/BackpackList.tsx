@@ -28,11 +28,11 @@ export interface BagRowProps {
   onSelect: (itemId: string) => void;
 }
 
-/** Ligne d'objet : bouton focusable (Tab + Entrée) marqué `aria-selected` si ouverte. */
+/** Ligne d'objet : bouton focusable (Tab + Entrée) qui porte `aria-pressed` quand ouverte. */
 export function BagRow({ entry, selected, onSelect }: BagRowProps) {
   return (
-    <li role="option" aria-selected={selected} className={selected ? ITEM_ROW_SELECTED : ITEM_ROW}>
-      <button type="button" className={ITEM_BUTTON} onClick={() => onSelect(entry.itemId)}>
+    <li className={selected ? ITEM_ROW_SELECTED : ITEM_ROW}>
+      <button type="button" aria-pressed={selected} className={ITEM_BUTTON} onClick={() => onSelect(entry.itemId)}>
         {entry.name} ×{entry.quantity}
       </button>
       <BagAction entry={entry} />
@@ -49,7 +49,7 @@ function BagRows({ entries, selected, onSelect }: { entries: readonly BackpackEn
 function BagList({ entries, selected, onSelect }: { entries: readonly BackpackEntry[] } & ItemSelectionProps) {
   if (entries.length === 0) return <p className="text-[10px] opacity-60">Sac vide.</p>;
   return (
-    <ul role="listbox" aria-label="Objets du sac" className={LIST}>
+    <ul aria-label="Objets du sac" className={LIST}>
       <BagRows entries={entries} selected={selected} onSelect={onSelect} />
     </ul>
   );

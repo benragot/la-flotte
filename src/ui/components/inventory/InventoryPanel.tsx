@@ -42,10 +42,10 @@ function PanelHeader({ onClose }: InventoryPanelProps) {
   );
 }
 
-/** Gauche : équipement, stats et panoplies. */
-function LeftColumn() {
+/** Gauche : équipement (inspectable), stats et panoplies. */
+function LeftColumn({ selected, onSelect }: ItemSelectionProps) {
   return (
-    <div className={COLUMN}><EquipmentSlots /><StatSummary /><SetBonusPanel /></div>
+    <div className={COLUMN}><EquipmentSlots selected={selected} onSelect={onSelect} /><StatSummary /><SetBonusPanel /></div>
   );
 }
 
@@ -63,7 +63,7 @@ function RightColumn({ selected, onSelect }: ItemSelectionProps) {
 function PanelColumns(props: ItemSelectionProps) {
   return (
     <div className={COLUMNS}>
-      <LeftColumn />
+      <LeftColumn selected={props.selected} onSelect={props.onSelect} />
       <RightColumn {...props} />
     </div>
   );
