@@ -69,7 +69,12 @@ function classDefFor(classId: string): ClassDef | undefined {
 
 /** `localStorage` n'est lu qu'à l'appel : les tests node n'ont pas de `window`. */
 function browserStorage(): StorageLike | undefined {
-  return typeof window === "undefined" ? undefined : window.localStorage;
+  if (typeof window === "undefined") return undefined;
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
 }
 
 function emptyGame(): GameState {

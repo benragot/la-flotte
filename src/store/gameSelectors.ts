@@ -1,17 +1,7 @@
 import { addItem } from "../engine/inventory";
 import type { EquipmentSlot, EquipmentState, InventoryState, ItemLike } from "../engine/inventory";
 import type { InventorySnapshot } from "../engine/save";
-
-const EQUIPMENT_SLOTS: readonly string[] = [
-  "hat",
-  "cloak",
-  "weapon",
-  "amulet",
-  "ring1",
-  "ring2",
-  "belt",
-  "boots",
-];
+import { EQUIPMENT_SLOTS } from "../schemas/itemSchema";
 
 export interface CreditDropsInput {
   inventory: InventoryState;
@@ -42,8 +32,9 @@ export function toInventorySnapshot(inventory: InventoryState): InventorySnapsho
   return { stacks, equipment: { ...inventory.equipment } };
 }
 
+/** Tuple canonique du schéma : un slot ajouté côté schéma est accepté ici. */
 function isEquipmentSlot(value: string): value is EquipmentSlot {
-  return EQUIPMENT_SLOTS.includes(value);
+  return (EQUIPMENT_SLOTS as readonly string[]).includes(value);
 }
 
 function knownStacks(snapshot: InventorySnapshot, items: readonly ItemLike[]) {
