@@ -16,7 +16,9 @@ import {
   viewportBounds,
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
+import type { ActorSyncInput } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
+import { cellCenters } from "./walkTrail";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
@@ -140,11 +142,18 @@ const ANIMATED = new WeakSet<Application>();
  * frame 0 resterait figée. La boucle n'est démarrée que si la scène contient
  * au moins un acteur à feuille, pour ne pas rendre en continu une scène statique.
  */
-function ensureAnimationLoop(app: Application, view: ViewModel, sheets: ReadonlySet<string>): void {
-  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, sheets).length === view.tokens.length) return;
+function ensureAnimationLoop(app: Application, layers: SceneLayers, view: ViewModel): void {
+  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, layers.actors.sheetIds).length === view.tokens.length) return;
   ANIMATED.add(app);
-  app.ticker.add(() => app.render());
+  app.ticker.add(() => renderFrame(app, layers));
   app.ticker.start();
+}
+
+/** Une image : glissements des acteurs puis rendu. Aucune horloge implicite n'est créée. */
+function renderFrame(app: Application, layers: SceneLayers): void {
+  if (!isApplicationAlive(app)) return;
+  layers.actors.advance(app.ticker.lastTime);
+  app.render();
 }
 
 function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): DecorView[] {
@@ -178,13 +187,27 @@ function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: num
   drawActorLayers(layers, view, viewport);
 }
 
+/** Ce qu'un rendu doit connaître en plus de l'image : feuilles et identité de carte. */
+export interface RenderInput {
+  sheets?: readonly SpriteSheetSpec[];
+  /** Carte dessinée : un changement invalide les trajets en cours. */
+  scene?: object | null;
+}
+
+/** Demande de synchronisation des acteurs : centres de cases, carte et rappel de chargement. */
+function actorSyncInput(app: Application, view: ViewModel, input: RenderInput): ActorSyncInput {
+  const centers = cellCenters(view.scene.tiles);
+  const onReady = (): void => renderScene(app, view, input);
+  return { tokens: view.tokens, onReady, centers, scene: input.scene };
+}
+
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
-export function renderScene(app: Application, view: ViewModel, sheets: readonly SpriteSheetSpec[] = []): void {
+export function renderScene(app: Application, view: ViewModel, input: RenderInput = {}): void {
   if (!isApplicationAlive(app)) return;
-  const layers = layersFor(app, sheets);
+  const layers = layersFor(app, input.sheets ?? []);
   clearLayers(layers);
   drawLayers(layers, view, app.screen);
-  layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
-  ensureAnimationLoop(app, view, layers.actors.sheetIds);
+  layers.actors.sync(actorSyncInput(app, view, input));
+  ensureAnimationLoop(app, layers, view);
   app.render();
 }

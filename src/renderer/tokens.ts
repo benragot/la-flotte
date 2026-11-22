@@ -48,9 +48,21 @@ export const STATIC_TOKEN_SPRITE: TokenSprite = {
   animationKey: "static",
 };
 
+/** Trajet réellement parcouru, tel que le moteur l'a rendu. */
+export interface TokenTrail {
+  /** Cases traversées, départ inclus, arrivée incluse. */
+  cells: readonly Position[];
+  /** Clé de rejeu : change à chaque mouvement, même identique. */
+  signature: string;
+}
+
 export interface TokenView extends TokenSprite {
   /** Identité stable du jeton : deux monstres identiques en ont deux. */
   id: string;
+  /** Trajet reçu du store ; absent pour un spawn ou un jeton immobile. */
+  trail?: TokenTrail | null;
+  /** Case logique du jeton : la règle décide, le rendu ne fait que glisser. */
+  cell: Position;
   center: PixelPoint;
   radius: number;
   /** Échelle de la caméra : jetons, barres et sprites suivent le décor. */
@@ -78,6 +90,7 @@ export interface HpBar {
 
 interface TokenSpec {
   id: string;
+  cell: Position;
   fill: number;
   hp: number;
   maxHp: number;
@@ -126,10 +139,10 @@ export function tokensNeedingCircle(
 }
 
 function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
-  const { id, fill, hp, maxHp, badge, name, depth, sprite, scale, active } = spec;
+  const { id, cell, fill, hp, maxHp, badge, name, depth, sprite, scale, active } = spec;
   const ratio = hpRatio(hp, maxHp);
   const radius = TOKEN_RADIUS * scale;
-  return { id, center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, name, depth, active, ...sprite };
+  return { id, cell, center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, name, depth, active, ...sprite };
 }
 
 /** Jeton d'un combattant, centré sur le losange de sa case. */
@@ -139,7 +152,7 @@ export function tokenView(
   sprite: TokenSprite = STATIC_TOKEN_SPRITE,
 ): TokenView {
   const { id, hp, maxHp, kind, position } = combatant;
-  const base = { id, hp, maxHp, badge: null, name: null, depth: depthOf(position), sprite, scale: originScale(origin), active: false };
+  const base = { id, cell: position, hp, maxHp, badge: null, name: null, depth: depthOf(position), sprite, scale: originScale(origin), active: false };
   const spec = { ...base, fill: tokenColor(kind) };
   return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }
@@ -151,7 +164,7 @@ export function playerTokenView(
   sprite: TokenSprite = STATIC_TOKEN_SPRITE,
 ): TokenView {
   const scale = originScale(origin);
-  const base = { id: "player", hp: 1, maxHp: 1, badge: null, name: null, depth: depthOf(position), sprite, scale, active: false };
+  const base = { id: "player", cell: position, hp: 1, maxHp: 1, badge: null, name: null, depth: depthOf(position), sprite, scale, active: false };
   const spec: TokenSpec = { ...base, fill: PLAYER_TOKEN_COLOR };
   return tokenAt(gridToIso({ ...position, origin }), spec);
 }
@@ -179,7 +192,7 @@ export function groupTokenView(group: GroupTokenInput, origin: IsoOrigin): Token
   const sprite = groupSprite(group.spriteId);
   const scale = originScale(origin);
   const id = `group-${pos.x}-${pos.y}`;
-  const spec = { id, fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), name: group.name ?? null, sprite, scale, active: false };
+  const spec = { id, cell: pos, fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), name: group.name ?? null, sprite, scale, active: false };
   return tokenAt(gridToIso({ ...pos, origin }), { ...spec, depth: depthOf(pos) });
 }
 
@@ -199,7 +212,7 @@ export interface CombatantTokenInput {
 export function combatantTokenView(input: CombatantTokenInput, origin: IsoOrigin): TokenView {
   const { combatant, sprite, active } = input;
   const scale = originScale(origin);
-  const base = { id: combatant.id, hp: combatant.hp, maxHp: combatant.maxHp, badge: null, name: null, sprite, scale, active };
+  const base = { id: combatant.id, cell: combatant.position, hp: combatant.hp, maxHp: combatant.maxHp, badge: null, name: null, sprite, scale, active };
   const spec = { ...base, fill: fillForSide(combatant.side), depth: depthOf(combatant.position) };
   return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }

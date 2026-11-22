@@ -13,10 +13,21 @@ export interface AnimatedLike {
   gotoAndPlay: (frame?: number) => void;
 }
 
+/** Position mémorisée : `set(x, y)`, comme le `Container.position` de PixiJS. */
+export class FakePoint {
+  x = 0;
+  y = 0;
+
+  set(x = 0, y = 0): void {
+    this.x = x;
+    this.y = y;
+  }
+}
+
 export class FakeNode {
   children: FakeNode[] = [];
-  position = { set: (): void => undefined };
-  scale = { x: 1 };
+  position = new FakePoint();
+  scale = { x: 1, y: 1 };
 
   addChild(child: FakeNode): FakeNode {
     this.children.push(child);
