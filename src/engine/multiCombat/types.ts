@@ -1,5 +1,5 @@
 import type { Element } from "../../schemas/spellSchema";
-import type { SpellLimit, SpellUsageMap } from "../combat";
+import type { FloatingEvent, SpellLimit, SpellUsageMap } from "../combat";
 import type { CombatResistances, Rng } from "../combatLoop/types";
 import type { AsciiMap, Position } from "../grid";
 
@@ -69,6 +69,8 @@ export interface BattleState {
    * portés par la bataille. Absent = aucun sort à quota n'a encore été lancé.
    */
   spellUsage?: SpellUsageMap;
+  /** Derniers coups reçus, bornés : le rendu anime ce qu'il n'a pas encore vu. */
+  floats?: readonly FloatingEvent[];
 }
 
 export interface AttackSpec extends SpellLimit {
