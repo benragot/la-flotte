@@ -673,8 +673,8 @@ describe("backlog — vague 5B livrée", () => {
     expect(task?.depends_on).toEqual(["5B-f"]);
   });
 
-  it("versionne le backlog en 17", () => {
-    expect(readBacklog().meta.version).toBe(17);
+  it("versionne le backlog en 18", () => {
+    expect(readBacklog().meta.version).toBe(18);
   });
 });
 
@@ -703,6 +703,18 @@ const DELIVERED_5C: Array<[string, number, string]> = [
   ["5C-c", 48, "74e739d"],
 ];
 
+const OPEN_5C = [
+  "5C-actor-ring",
+  "5C-hover-hp",
+  "5C-pm-zone",
+  "5C-path-8dirs",
+  "5C-cast-preview",
+  "5C-turn-rail",
+  "5C-info-panel",
+  "5C-group-stars",
+  "5C-log-channel",
+];
+
 function deliveryGaps(backlog: Backlog): string[] {
   return DELIVERED_5C.flatMap(([id, pr, squash]) => {
     const task = taskById(backlog, id);
@@ -716,15 +728,14 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur la seule tâche 5C-d après les merges #46 et #48", () => {
+  it("garde 5C ouverte sur les neuf tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
-    expect(taskById(backlog, "5C-d")?.status).toBe("todo");
-    expect(taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done")).toEqual([
-      "5C-d",
-    ]);
+    expect(taskById(backlog, "5C-d")?.status).toBe("done");
+    const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
+    expect(open).toEqual(OPEN_5C);
   });
 
-  it("ouvre les tâches 5C-b, 5C-c, 5C-d et 5D-a", () => {
+  it("référence 5C-b, 5C-c, 5C-d et 5D-a dans les bonnes phases", () => {
     const backlog = readBacklog();
     expect(taskIdsOf(backlog, "5C")).toEqual(expect.arrayContaining(["5C-b", "5C-c", "5C-d"]));
     expect(taskIdsOf(backlog, "5D")).toEqual(expect.arrayContaining(["5D-a"]));
@@ -737,10 +748,11 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(taskById(backlog, "5D-a")?.depends_on).toEqual(["5C-c", "5C-d", "5B-g"]);
   });
 
-  it("exige une PR ouverte sur 5C-d (symétrique de 5B-g)", () => {
+  it("exige que 5C-d soit livrée par la PR #50 (portée et LoS)", () => {
     const task = taskById(readBacklog(), "5C-d");
-    expect(task?.status).toBe("todo");
-    expect(task?.pr).toBeUndefined();
+    expect(task?.status).toBe("done");
+    expect(task?.pr).toBe(50);
+    expect(task?.notes ?? "").toContain("c45708f");
   });
 });
 
@@ -750,7 +762,6 @@ describe("backlog — dettes des audits #44/#45", () => {
     ["D60", "low", "5C"],
     ["D62", "low", "5C"],
     ["D63", "medium", "5C"],
-    ["D64", "high", "5C-d"],
   ];
 
   function auditGaps(backlog: Backlog): string[] {
@@ -848,5 +859,138 @@ function audit22Gaps(backlog: Backlog): string[] {
 describe("backlog — dettes des audits du 22/11", () => {
   it("verse D65, D66 et D67 avec sévérité, cible et note factuelle", () => {
     expect(audit22Gaps(readBacklog())).toEqual([]);
+  });
+});
+
+const UI_SPEC = "docs/design/specs/ui-dofus-retro.md";
+const ROADMAP = "docs/design/ROADMAP_AUTONOME.md";
+const UI_TASKS: Array<[string, string, string[]]> = [
+  ["5C-actor-ring", "5C", []],
+  ["5C-hover-hp", "5C", ["5C-actor-ring"]],
+  ["5C-pm-zone", "5C", ["5C-actor-ring"]],
+  ["5C-path-8dirs", "5C", []],
+  ["5C-cast-preview", "5C", ["5C-pm-zone", "5C-path-8dirs"]],
+  ["5C-turn-rail", "5C", ["5C-actor-ring"]],
+  ["5C-info-panel", "5C", ["5C-actor-ring"]],
+  ["5C-group-stars", "5C", []],
+  ["5C-log-channel", "5C", []],
+  ["5D-hud-bar", "5D", ["5C-turn-rail"]],
+  ["5D-death-end", "5D", []],
+];
+const UI_RULES = ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"];
+
+function uiTaskGaps(backlog: Backlog): string[] {
+  return UI_TASKS.flatMap(([id, phaseId, deps]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const status = task.status === "todo" ? [] : [`${id}:${task.status}`];
+    const notes = task.notes ?? "";
+    const spec = notes.includes(UI_SPEC) ? [] : [`${id}:notes`];
+    const section = /§\d/.test(notes) ? [] : [`${id}:section`];
+    const wired = JSON.stringify(task.depends_on ?? []) === JSON.stringify(deps) ? [] : [`${id}:depends_on`];
+    const placed = taskIdsOf(backlog, phaseId).includes(id) ? [] : [`${id}:phase`];
+    return [...status, ...spec, ...section, ...wired, ...placed];
+  });
+}
+
+function uiNoteText(backlog: Backlog): string {
+  return UI_TASKS.map(([id]) => taskById(backlog, id)?.notes ?? "").join(" | ");
+}
+
+function uncitedRules(backlog: Backlog): string[] {
+  const notes = uiNoteText(backlog);
+  return UI_RULES.filter((rule) => !notes.includes(rule));
+}
+
+function uncheckedRoadmapLines(): string[] {
+  return readFileSync(join(process.cwd(), ROADMAP), "utf8").split("\n");
+}
+
+describe("backlog — spec UI Dofus Retro", () => {
+  it("écrit la spec avec ses métadonnées et ses onze sections", () => {
+    const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
+    expect(text).toContain("title: Interface Dofus 1.29 / Retro — exploration et combat");
+    expect(text).toContain("status: spec");
+    expect(text).toContain("tags: [ui, retrospective, fidelity]");
+    const sections = Array.from({ length: 11 }, (_, index) => `## ${index + 1}.`);
+    expect(sections.filter((heading) => !text.includes(heading))).toEqual([]);
+  });
+
+  it("déclare les huit règles d'état R1 à R8", () => {
+    const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
+    expect(UI_RULES.filter((rule) => !text.includes(`${rule}.`))).toEqual([]);
+  });
+});
+
+describe("backlog — tâches d'interface Dofus Retro", () => {
+  it("ouvre les dix tâches en todo dans 5C et 5D", () => {
+    expect(uiTaskGaps(readBacklog())).toEqual([]);
+  });
+
+  it("renvoie chaque tâche vers la spec et cite les règles R1 à R8", () => {
+    const backlog = readBacklog();
+    expect(uncitedRules(backlog)).toEqual([]);
+  });
+
+  it("inscrit les tâches décochées dans la roadmap", () => {
+    const lines = uncheckedRoadmapLines();
+    const missing = UI_TASKS.filter(([id]) => !lines.some((line) => line.startsWith(`- [ ] ${id}`)));
+    expect(missing.map(([id]) => id)).toEqual([]);
+    expect(lines.join("\n")).toContain(UI_SPEC);
+  });
+
+  it("documente le sprite procédural de l'anneau plutôt qu'une dépendance spritesheets", () => {
+    const task = taskById(readBacklog(), "5C-actor-ring");
+    expect(task?.notes ?? "").toContain("procédural");
+    expect(task?.depends_on ?? []).not.toContain("7A-spritesheets");
+  });
+});
+
+describe("backlog — dettes de l'audit UI et donjon du 22/11", () => {
+  const UI_DEBTS: Array<[string, string, string, string]> = [
+    ["D68", "high", "5C-path-8dirs", "findPath"],
+    ["D69", "medium", "5C-path-8dirs", "manhattan(from,to)"],
+    ["D70", "medium", "5D-a", "resolveTackle"],
+    ["D71", "high", "5D-a", "panoplies"],
+    ["D72", "medium", "5D-a", "minRange"],
+    ["D73", "high", "5D-a", "findSpell"],
+  ];
+
+  function uiDebtGaps(backlog: Backlog): string[] {
+    return UI_DEBTS.flatMap(([id, severity, target, keyword]) => {
+      const debt = debtById(backlog, id);
+      if (debt === undefined) return [`${id}:absent`];
+      const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+      const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+      return [...graded, ...noted];
+    });
+  }
+
+  it("verse D68 à D73 avec sévérité, cible et note factuelle", () => {
+    expect(uiDebtGaps(readBacklog())).toEqual([]);
+  });
+
+  it("grade en high D68, D71 et D73", () => {
+    const backlog = readBacklog();
+    expect(debtById(backlog, "D68")?.severity).toBe("high");
+    expect(debtById(backlog, "D71")?.severity).toBe("high");
+    expect(debtById(backlog, "D73")?.severity).toBe("high");
+  });
+
+  it("recible D68 et D69 sur la tâche moteur 5C-path-8dirs", () => {
+    const backlog = readBacklog();
+    expect(debtById(backlog, "D68")?.target).toBe("5C-path-8dirs");
+    expect(debtById(backlog, "D69")?.target).toBe("5C-path-8dirs");
+    expect(taskById(backlog, "5C-path-8dirs")?.status).toBe("todo");
+  });
+});
+
+describe("backlog — dette D64 soldée", () => {
+  it("ne trouve plus la dette de portée et de LoS, livrée par la PR #50", () => {
+    expect(debtById(readBacklog(), "D64")).toBeUndefined();
+  });
+
+  it("n'exige plus le contrôle de portée absent dans les dettes", () => {
+    expect(rawBacklog()).not.toContain("le joueur frappe à distance infinie");
   });
 });
