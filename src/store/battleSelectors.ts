@@ -1,14 +1,25 @@
 import {
   activeCombatant,
   advanceTurn,
+  castBlock,
   enemiesAct,
   findCombatant,
   isDefeat,
   isVictory,
+  rangeOf,
   resolveAttack,
   targetsOf,
 } from "../engine/multiCombat";
-import type { AttackSpec, BattleState, CombatantLike, EnemyAction, EnemyStrategy, Rng } from "../engine/multiCombat";
+import type {
+  AttackSpec,
+  BattleState,
+  CastBlock,
+  CombatantLike,
+  EnemyAction,
+  EnemyStrategy,
+  RangeSpec,
+  Rng,
+} from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
 
 export const VICTORY_LOG = "Victoire : la salle est nettoyée.";
@@ -16,6 +27,20 @@ export const DEFEAT_LOG = "Défaite : le héros tombe dans la salle.";
 export const STALL_LOG = "La mêlée s'enlise : la main revient au joueur.";
 /** Borne dure : aucune boucle de tours ennemis ne peut dépasser ce nombre d'itérations. */
 export const MAX_ENEMY_STEPS = 32;
+/** Raisons de refus géométrique, telles que le joueur les lit dans le journal. */
+export const CAST_BLOCK_LABEL: Record<CastBlock, string> = {
+  "out-of-range": "hors portée",
+  "no-los": "ligne de vue bloquée",
+};
+
+interface CombatantPair {
+  attacker: CombatantLike;
+  target: CombatantLike;
+}
+
+interface GeometricPair extends CombatantPair {
+  range: RangeSpec;
+}
 
 export interface BattleAttackInput {
   state: BattleState;
@@ -67,11 +92,54 @@ export function rollSpellBase(spell: SpellDef, rng: Rng): number {
 
 /**
  * Pont `SpellDef` → `AttackSpec` pour le 1vN. `baseCrit: 0` : `data/spells.yaml`
- * ne porte pas encore de taux de critique, on n'en invente pas.
+ * ne porte pas encore de taux de critique, on n'en invente pas. La géométrie
+ * (portée, LoS) est ajoutée par `spellCastSpec`, jamais ici : les attaques nues
+ * et les tests historiques gardent exactement cette forme.
  */
 export function spellAttackSpec(spell: SpellDef, roll: number): AttackSpec {
   const element = spell.element ?? "neutral";
   return { base: roll, element, baseCrit: 0, apCost: spell.apCost, pushCells: spell.pushCells ?? 0 };
+}
+
+/** Même spec, portée YAML comprise : le moteur refuse alors hors bornes et sans LoS. */
+export function spellCastSpec(spell: SpellDef, roll: number): AttackSpec {
+  const range = { minRange: spell.minRange, maxRange: spell.maxRange, requiresLos: spell.requiresLos };
+  return { ...spellAttackSpec(spell, roll), ...range };
+}
+
+function pairFor(state: BattleState, targetId: string): CombatantPair | null {
+  const attacker = activeCombatant(state);
+  const target = findCombatant(state, targetId);
+  if (attacker === null) return null;
+  return target === undefined ? null : { attacker, target };
+}
+
+/** Le refus géométrique n'est journalisé que pour un coup par ailleurs valide. */
+function isStrikable(pair: CombatantPair, attack: AttackSpec): boolean {
+  const opposed = pair.attacker.side !== pair.target.side && pair.target.hp > 0;
+  return opposed && attack.apCost <= pair.attacker.ap;
+}
+
+function canMeasure(state: BattleState, range: RangeSpec | undefined): range is RangeSpec {
+  return range !== undefined && state.map !== undefined;
+}
+
+function checkableCast(state: BattleState, targetId: string, attack: AttackSpec): GeometricPair | null {
+  const pair = pairFor(state, targetId);
+  const range = rangeOf(attack);
+  if (pair === null || !canMeasure(state, range)) return null;
+  return isStrikable(pair, attack) ? { ...pair, range } : null;
+}
+
+/**
+ * Raison lisible du refus (portée/LoS), `null` si le coup reste possible.
+ * Réservée à l'affichage : le moteur, lui, refuse silencieusement par identité.
+ */
+export function castRefusal(state: BattleState, targetId: string, attack: AttackSpec): string | null {
+  const pair = checkableCast(state, targetId, attack);
+  if (pair === null) return null;
+  const block = castBlock({ state, attacker: pair.attacker, target: pair.target, range: pair.range });
+  return block === null ? null : `${pair.attacker.name} : ${CAST_BLOCK_LABEL[block]}.`;
 }
 
 export interface SpellStrategyInput {
@@ -111,7 +179,7 @@ function attackOn(context: StrategyContext, spell: SpellDef): EnemyAction | null
   const target = targetsOf(context.state, context.enemy.side)[0];
   if (target === undefined) return null;
   const base = rollSpellBase(spell, context.rng);
-  const attack = { ...spellAttackSpec(spell, base), spellName: spell.name };
+  const attack = { ...spellCastSpec(spell, base), spellName: spell.name };
   return { kind: "attack", targetId: target.id, attack };
 }
 

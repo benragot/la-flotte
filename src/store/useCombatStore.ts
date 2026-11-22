@@ -32,7 +32,7 @@ import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
 import { advanceTurn, buildTimeline, isDefeat, isVictory } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat/timeline";
-import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, Rng } from "../engine/multiCombat";
+import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, RangeSpec, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
 import { mapsFileSchema } from "../schemas/mapSchema";
 import { monstersFileSchema } from "../schemas/monsterSchema";
@@ -43,11 +43,13 @@ import type { SpellDef } from "../schemas/spellSchema";
 import { spellsFileSchema } from "../schemas/spellSchema";
 import { spawnsFileSchema } from "../schemas/spawnSchema";
 import {
+  appendBattleLog,
   battleAttack as resolveBattleAttack,
   battleEnemyTurn as resolveBattleEnemyTurn,
+  castRefusal,
   playEnemyTurns as resolveEnemyTurns,
   rollSpellBase,
-  spellAttackSpec,
+  spellCastSpec,
   spellStrategy,
 } from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
@@ -299,11 +301,21 @@ function roomBattleMonsters(room: DungeonRoom): RoomBattleGroup[] {
   return roomMonsters(room).map((group) => ({ monster: mustFind(monsters, group.monsterId), count: group.count }));
 }
 
-/** Battle d'une salle : héros persistant + `count` copies de chaque monstre. */
+/** Portée du sort de dégâts du héros : le panneau la lit dans le battle, pas ici. */
+function battleRange(): RangeSpec | undefined {
+  const spell = heroDamageSpell();
+  if (spell === null) return undefined;
+  return { min: spell.minRange, max: spell.maxRange, requiresLos: spell.requiresLos };
+}
+
+/** Battle d'une salle : la grille de `mapId` entre dans l'état et place les combattants. */
 function battleFromRoom(room: DungeonRoom): BattleState {
+  const map = mapById(room.mapId);
   const hero = heroBattleCombatant({ combatant: playerFor(demoHero(), BATTLE_ORIGIN) });
-  const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters: roomBattleMonsters(room) });
-  return { turn: 1, ...buildTimeline(combatants), combatants, log: [`Entrée dans ${room.name}`] };
+  const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters: roomBattleMonsters(room), map });
+  const base = { turn: 1, ...buildTimeline(combatants), combatants, log: [`Entrée dans ${room.name}`], map };
+  const castRange = battleRange();
+  return castRange === undefined ? base : { ...base, castRange };
 }
 
 function battleUpdate(previous: BattleState | null, next: BattleState | null): Partial<CombatStore> {
@@ -322,14 +334,20 @@ function canCastHeroSpell(state: BattleState, spell: SpellDef | null): spell is 
   return spell !== null && activeCombatant(state)?.side === "player";
 }
 
+/** Le refus géométrique est journalisé : le joueur voit pourquoi son clic ne fait rien. */
+function castHeroSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): BattleState {
+  const rng = input.rng ?? Math.random;
+  const attack = spellCastSpec(spell, rollSpellBase(spell, rng));
+  const refusal = castRefusal(state, input.targetId, attack);
+  if (refusal !== null) return appendBattleLog(state, refusal);
+  return resolveBattleAttack({ state, targetId: input.targetId, attack, rng });
+}
+
 function spellAttackUpdate(store: CombatStore, input: { targetId: string; rng?: Rng }): Partial<CombatStore> {
   const state = store.battle;
   const spell = heroDamageSpell();
-  if (state === null) return {};
-  if (!canCastHeroSpell(state, spell)) return {};
-  const rng = input.rng ?? Math.random;
-  const attack = spellAttackSpec(spell, rollSpellBase(spell, rng));
-  return battleUpdate(state, resolveBattleAttack({ state, targetId: input.targetId, attack, rng }));
+  if (state === null || !canCastHeroSpell(state, spell)) return {};
+  return battleUpdate(state, castHeroSpell(state, input, spell));
 }
 
 /** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */
