@@ -1135,8 +1135,6 @@ Lore : le figuier salin pousse dans les bassins abandonnés, les racines dans la
 
 ## 9. PNJ et quêtes
 
-*Note de transcription : les valeurs chiffrées, structures et étapes de quête ci-dessous sont celles du dossier. Le texte des répliques (idle et dialogues) est la version de travail du dossier de design et se recale mot pour mot sur la fiche utilisateur lors de la transcription finale — aucune autre valeur n'est concernée.*
-
 ### `sel_npc_alain_gourmand` — Alain Gourmand
 
 - **Rôle** : paludier philosophe, récoltant de sel et donneur de quête d'entrée de l'île.
@@ -1150,9 +1148,9 @@ role: questgiver
 locationId: sel_bassin_fane_grise
 dialogue:
   idle:
-    - "Le sel ne ment pas. Il pique, c'est sa façon d'être honnête."
-    - "J'ai réfléchi vingt ans au sel. J'en suis à la conclusion qu'il faut encore réfléchir."
-    - "Les moulins tournent à l'envers ici. Ça n'a jamais dérangé personne, sauf les moulins."
+    - { speaker: sel_npc_alain_gourmand, text: "La Coupure ? Trop de sel d'un coup dans la mer, ça a tout fait trancher. C'est basique." }
+    - { speaker: sel_npc_alain_gourmand, text: "Si tu veux mon avis — et même si tu le veux pas — tes bottes manquent de poivre." }
+    - { speaker: sel_npc_alain_gourmand, text: "Les Navets Navrants ? On les a jamais plantés, ils sont venus tout seuls pour gâcher l'ambiance." }
 ```
 
 ### `sel_npc_barbe_a_papa` — Maître Pot-au-Feu
@@ -1168,9 +1166,9 @@ role: questgiver
 locationId: sel_chantier_saloir_fortifie
 dialogue:
   idle:
-    - "Une coque, c'est une marmite qui flotte. À partir de là, tout s'éclaire."
-    - "J'ai été quelqu'un de bien, dans la restauration. Puis j'ai goûté ma propre soupe."
-    - "Le Duc taxe le bois flotté. Le bois flotté, note bien : il flotte, il est à personne, et il est taxé."
+    - { speaker: sel_npc_barbe_a_papa, text: "Le Duc m'a banni parce que j'ai mis de l'eau bouillante dans le bouillon. Des barbares, je te dis !" }
+    - { speaker: sel_npc_barbe_a_papa, text: "Pour passer les récifs du Détroit des Cloches Sonnées, faut une coque en bois salé et en os à moelle. Ça flotte mal mais ça casse les cailloux." }
+    - { speaker: sel_npc_barbe_a_papa, text: "Un conseil contre le Duc : le frappe pas au nez, il monte tout de suite dans les tours." }
 ```
 
 ### `sel_quest_mettre_son_grain_de_sel` — « Mettre son Grain de Sel »
@@ -1189,15 +1187,14 @@ steps:
   - { type: talk_to_npc, npcId: sel_npc_alain_gourmand }
 dialogue:
   intro:
-    - { npcId: sel_npc_alain_gourmand, text: "Tu vois ces navets là-bas ? Ils ont des racines, donc des convictions." }
-    - { npcId: sel_npc_alain_gourmand, text: "Cinq navets. Six gros sel. Et un bouillon correct, pas une eau trouble avec des idées." }
-    - { npcId: sel_npc_alain_gourmand, text: "Si l'Ordre demande, tu diras que c'est de la philosophie appliquée. Ils n'osent pas contredire ça." }
+    - { speaker: sel_npc_alain_gourmand, text: "Ah, un nouveau ! Dis-moi, t'as déjà vu un navet essayer de te mordre les mollets ?" }
+    - { speaker: sel_npc_alain_gourmand, text: "Va m'en calmer cinq, ramène-moi six poignées de gros sel et fais-toi un bouillon tiède réglementaire." }
+    - { speaker: sel_npc_alain_gourmand, text: "Si c'est assez salé pour décoller le papier peint, je te file la clé des cuisines du Duc." }
   inProgress:
-    - { npcId: sel_npc_alain_gourmand, text: "Le sel attend. Le sel est très patient, c'est son seul défaut." }
-    - { npcId: sel_npc_alain_gourmand, text: "Six parts de gros sel, consommées dans le bouillon. Une soupe sans sel, c'est un discours sans fin." }
+    - { speaker: sel_npc_alain_gourmand, text: "T'as toujours pas ton bouillon ? C'est pas la mer à boire — quoique ici, c'est à peu près le même goût." }
   completion:
-    - { npcId: sel_npc_alain_gourmand, text: "Ça sent le bouillon honnête. Tiède, comme il se doit." }
-    - { npcId: sel_npc_alain_gourmand, text: "Prends la clef de la Marmite, et deux soupes. La seconde est pour quand la première aura posé des questions." }
+    - { speaker: sel_npc_alain_gourmand, text: "Ouh ! Ça râpe la gorge comme un discours officiel. Bravo, t'es officiellement paludier honoraire." }
+    - { speaker: sel_npc_alain_gourmand, text: "Tiens, prends la clé de la Marmite Royale et file voir Maître Pot-au-Feu au Moulin à l'Envers." }
 rewards:
   xp: 1200
   kamas: 320
@@ -1221,15 +1218,14 @@ steps:
   - { type: talk_to_npc, npcId: sel_npc_barbe_a_papa }
 dialogue:
   intro:
-    - { npcId: sel_npc_barbe_a_papa, text: "La Marmite Royale, quatre salles. Le Duc au fond, dans sa cuisine, avec son pot de moutarde." }
-    - { npcId: sel_npc_barbe_a_papa, text: "Rapporte-moi de quoi faire une coque en chêne et en os. Le sel tient les chevilles mieux que la poix." }
-    - { npcId: sel_npc_barbe_a_papa, text: "Et ne discute pas le prix avec lui. Il facture les mots." }
+    - { speaker: sel_npc_barbe_a_papa, text: "Tu veux traverser les récifs du Détroit des Cloches Sonnées avec cette coque en carton ? Tu vas finir en passoire !" }
+    - { speaker: sel_npc_barbe_a_papa, text: "Va flanquer une dérouillée au Duc dans sa Marmite Royale — reste à distance et évite sa moutarde au sol — et ramène son pot ducal." }
+    - { speaker: sel_npc_barbe_a_papa, text: "Avec ça, du bois salé et quelques os à moelle, on te monte une Coque en Chêne-et-en-Os !" }
   inProgress:
-    - { npcId: sel_npc_barbe_a_papa, text: "Quatre salles, une coque. Ce n'est pas de la menuiserie, c'est de la liturgie." }
-    - { npcId: sel_npc_barbe_a_papa, text: "Il te manque du pot de moutarde, ou du bois. Les deux se volent, mais différemment." }
+    - { speaker: sel_npc_barbe_a_papa, text: "Le Duc mijote toujours dans sa cuisine et ta coque n'est pas blindée. Retourne-y !" }
   completion:
-    - { npcId: sel_npc_barbe_a_papa, text: "Voilà une coque. Elle sonne creux, c'est normal : elle est faite pour aller là où les cloches sonnent." }
-    - { npcId: sel_npc_barbe_a_papa, text: "Tiens, de la moutarde et un anneau. La moutarde pour le pain, l'anneau pour le doigt. Ne les inverse pas." }
+    - { speaker: sel_npc_barbe_a_papa, text: "Regarde-moi cette coque ! On dirait un pot-au-feu blindé, les récifs vont pleurer en la touchant." }
+    - { speaker: sel_npc_barbe_a_papa, text: "Bon vent vers le Détroit des Cloches Sonnées ! Et prends cet anneau, pour continuer à mettre ton grain de sel partout." }
 rewards:
   xp: 2800
   kamas: 650
@@ -1242,7 +1238,7 @@ rewards:
 
 Les écarts **communs** (`pa`/`pm` vs `ap`/`mp`, `sellValue`/`sellPrice`, `healHp`/`heal`, `slot: ring`, `setId: null`, stats en fourchettes, `bonusesByCount` 2→5, `drops`/`loot`, champs de sorts, résistances négatives, `description` obligatoire, `category` absent, `rarity`, `key`/`shipUpgrade` hors union, `crit`/`initiative`/`flatDamage`/`percentDamage` non reconnus et supprimés silencieusement) sont documentés une fois pour toutes dans `docs/design/islands/ile_de_la_ferraille.md` §10 et s'appliquent **à l'identique** ici. Seuls les écarts **nouveaux** sont listés ci-dessous.
 
-**Précision vérifiée, non numérotée** : `checkSetSlot` (`src/schemas/itemSchema.ts`) n'autorise une pièce de panoplie qu'en `hat`/`cloak`/`amulet`/`boots`. La panoplie **Cul-Salé** contient une `ring` (`sel_anneau_sel_fin`) et une `belt` (`sel_ceinture_marais_salant`) : elle est rejetée au parse même après résolution de l'écart 6 de la Ferraille. À traiter avec le même chantier.
+**Renvoi à l'écart 19 de `docs/design/islands/ile_de_la_ferraille.md` §10 — applicable ici, non renuméroté.** `checkSetSlot` (`src/schemas/itemSchema.ts`) n'autorise une pièce de panoplie qu'en `hat`/`cloak`/`amulet`/`boots` (`SET_SLOTS`). La panoplie **Cul-Salé** porte une `ring` (`sel_anneau_sel_fin`) et une `belt` (`sel_ceinture_marais_salant`) : **2 pièces sur 5 sont rejetées au parse**, et une panoplie reste de toute façon plafonnée à **4 slots**. Prérequis bloquant pour `sel_set_cul_sale`, à livrer dans le même chantier que l'écart 19 (et que le palier 5 pièces de l'écart 6).
 
 19. **`sel_spell_faux_mouvement` introduit `pullCells`** (attirance 2). Vérifié : aucun effet d'attraction n'existe, ni dans `spellSchema` (`src/schemas/spellSchema.ts` ne connaît que `pushCells`), ni dans le moteur (`pushCells` est le seul déplacement forcé consommé). C'est un nouvel effet, et le sens opposé de `pushCells` : la résolution (collision, dégâts de poussée, `breakOnWallPush`) doit être partagée, pas dupliquée.
 20. **`sel_spell_pincee_de_poivre` introduit `poLoss: 2`** (retrait de **portée**, 2 tours). Concept inédit : `CombatantState` (`src/engine/combatLoop/types.ts`) ne porte **aucun** champ de portée modifiable (ni `range`, ni `po`), et `spellSchema` n'a aucun effet de réduction de portée. Il faut d'abord doter l'état de combat d'une portée effective dérivée de l'arme et des buffs, puis un effet qui la réduit temporairement.
@@ -1259,14 +1255,19 @@ Les écarts **communs** (`pa`/`pm` vs `ap`/`mp`, `sellValue`/`sellPrice`, `healH
 1. **Vague 5A** (schémas contenu) : `dungeon` / `npc` / `quest` — partagé avec l'Île de la Ferraille, aucun schéma nouveau propre à cette île. Les 2 grilles de ce dossier ne demandent qu'un `id` snake_case, un `name`, `width: 12` et `height: 12`.
 2. **Vague 6A** (moteur d'effets) : zones (`cross`/`circle`, `size` = **rayon**), glyphes à effet périodique, `pullCells`, `poLoss`, bonus temporaires (`percentDamageBonus`, `pmBuff`), `shield`, `summon`. **Trois de ces effets sont des ajouts purs à ceux de l'Île 1** (`pullCells`, `poLoss`, glyphes) : ils s'implémentent après `6A-island-ferraille-spells`, pas en parallèle, sinon deux moteurs d'effets divergent.
 3. **Vague 6A** (Fruits d'Écho) : `sel_fruit_grain_de_sel`, passif `onAfterDamageApplied` (marquage par tour + retrait de 1 PM avec jet d'esquive 1.29). Le passif de la Ferraille est `onBeforeApplyPush` : les deux hooks cohabitent, le pipeline de passifs doit être générique.
-4. **Vague 6B** (équipement/armes) : fourchettes de stats, `ring`/`belt` en panoplie (précision §10), paliers 5 pièces, stat `po`, 4 armes et leurs `weaponType` sur 8 valeurs.
+4. **Vague 6B** (équipement/armes) : fourchettes de stats, `ring`/`belt` en panoplie (**écart 19 de la Ferraille : 2 pièces rejetées**), paliers 5 pièces, stat `po`, 4 armes et leurs `weaponType` sur 8 valeurs.
 5. **Vague 7B** (contenu) : bestiaire, 17 sorts de monstre, 22 recettes, 2 quêtes, donjon 4 salles et ses 2 grilles.
 
 **Dépendance dure : cette île dépend de l'Île 1.** `fer_voiles_fortune_de_pot` doit exister dans `data/items.yaml` (catégorie `shipUpgrade`) pour que l'île soit atteignable, et trois des nouveaux effets (`pullCells`, `poLoss`, glyphes) viennent s'ajouter — et non remplacer — ceux de l'Île de la Ferraille. Livrer Sel-à-Vie avant Ferraille produirait une île inatteignable et un moteur d'effets à moitié écrit deux fois.
 
 ## 12. Tâches et dettes prêtes à coller
 
-⚠️ **Collision d'identifiants existante.** `D27` et `D28` ont été attribués **deux fois** : une première fois par le lot 4B (kamas non modélisés / tables de butin non snapshotées) et une seconde fois par la spec de l'Île de la Ferraille (`plume_mazoutee` redéfini / `bec_mazoute` orphelin). Aucun des deux usages n'est libéré à ce jour. En conséquence : **`D29` est laissé libre** pour porter la résolution de cette collision (renumérotation ou préfixage par lot), et **toutes les dettes de ce dossier commencent à `D30`**. Ne pas renuméroter au passage : la collision se règle une fois, en `D29`.
+⚠️ **Collision d'identifiants — état à jour au 2026-11-22.** La plage **`D27`–`D33` est prise** :
+- `D27` et `D28` ont d'abord été attribués par le lot 4B (kamas non modélisés / tables de butin non snapshotées), puis **réutilisés** par la spec de l'Île de la Ferraille (`plume_mazoutee` redéfini / `bec_mazoute` orphelin) : double attribution non résolue à ce jour ;
+- `D29` **et** `D30` sont désormais pris par la 4B (PV non synchronisés / résistances par élément), **mergés dans `docs/design/backlog.yaml`** ;
+- `D31`, `D32` et `D33` sont pris par la spec de l'Île de la Ferraille (`plume_mazoutee`, `bec_mazoute`, `SET_SLOTS`).
+
+En conséquence, **toutes les dettes de ce dossier vont de `D34` à `D42`** (9 dettes, une par écart 19 à 27, dans l'ordre). `D29` n'est **pas** libre. Aucune renumérotation des plages existantes n'est faite ici : la double attribution `D27`/`D28` reste à arbitrer séparément.
 
 Bloc prêt à coller. Le fichier `docs/design/backlog.yaml` appartient à une autre PR : rien n'est appliqué ici. Les 4 tâches suivent le **format tâche** (`id`, `title`, `status`, `owner`, `priority`, `updated_at`, `depends_on`) et vont dans `waves[].phases[].tasks[]` ; les 9 dettes suivent le **format dette** (`id`, `title`, `severity`, `target`) et vont dans `debts[]`.
 
@@ -1306,39 +1307,39 @@ Bloc prêt à coller. Le fichier `docs/design/backlog.yaml` appartient à une au
   depends_on: [6B-island-sel-equipment, 6A-island-sel-fruit]
 
 # --- debts ---
-- id: D30
+- id: D34
   title: pullCells (attirance) absent du schéma et du moteur — partager la résolution avec pushCells
   severity: high
   target: 6A
-- id: D31
+- id: D35
   title: poLoss (retrait de portée) sans représentation — CombatantState n'a aucune portée modifiable
   severity: high
   target: 6A
-- id: D32
+- id: D36
   title: zones (cross/circle) inexistantes — figer size comme un rayon (circle 2 = 5×5) avant implémentation
   severity: medium
   target: 6A
-- id: D33
+- id: D37
   title: glyphe de moutarde (isGlyph + glyphDurationTurns + pmLoss + zone) impossible avec un effect unique non consommé
   severity: high
   target: 6A
-- id: D34
+- id: D38
   title: percentDamageBonus temporaire absent de CombatantState — ne pas confondre avec percentDmg d'équipement
   severity: medium
   target: 6A
-- id: D35
+- id: D39
   title: stat po (portée) inconnue d'itemStatsSchema
   severity: medium
   target: 6B
-- id: D36
+- id: D40
   title: weaponType à dimensionner sur 8 valeurs (dagger, wand, hammer, shovel, bow, staff, axe, sword) avant tout schéma d'arme
   severity: medium
   target: 6B
-- id: D37
+- id: D41
   title: sel_coque_chene_et_os débloque detroit_des_cloches_sonnees, île inexistante (data/islands.yaml absent) — ordre de livraison à trancher
   severity: high
   target: 7B
-- id: D38
+- id: D42
   title: sel_anneau_sel_fin à la fois drop de monstre et pièce d'équipement — même schéma croisé que fer_anneau_mazoute, à traiter une seule fois
   severity: medium
   target: 6B
