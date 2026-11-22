@@ -134,3 +134,185 @@ items:
     category: key
     targetDungeonId: fer_donjon_casse_vis_sans_fin
     sellPrice: 40
+
+  # --- Armes de la Ferraille (fiche de l'île, §5 l.701-788) ---
+  # `weaponType`, `damageLines`, `critRate`, `critBonus`, `apCost`, `minRange`,
+  # `maxRange` et `conditions` du §5 n'existent ni dans `itemSchema` ni dans le
+  # moteur : omis plutôt que rejetés en silence (voir PR). Aucune ligne de dégâts
+  # n'est donc stockée : l'arme ne porte que ses stats.
+  # Stats en fourchette `{min,max}` du §5/§6 : figées sur le **jet maximum**
+  # (le schéma n'accepte que des entiers plats, cf. §10.5).
+  # `sellPrice` est absent du §5/§6 : niveau x 12 (armes) / x 10 (pièces), dans
+  # la bande des 5 équipements déjà en données (8 à 22 pour les niveaux 1-2).
+  # `percentDamage` -> `percentDmg` (§10.16) ; `crit`, `initiative` et
+  # `flatDamage` n'ont aucune clé : omis, jamais renommés au hasard.
+  - id: fer_dague_ouvre_boite # fiche §5 l.705 / bloc l.711-728
+    name: Dague Ouvre-Boîte
+    description: "Une lame taillée dans une boîte de conserve, affûtée sur le pont par pure provocation. Elle ouvre les crabes, les courriers et les conversations."
+    category: equipment
+    slot: weapon
+    level: 9
+    stats: { agility: 16 } # agilité 8-16 ; crit 1-2 et initiative 20-50 omis
+    sellPrice: 108
+
+  - id: fer_baguette_soudeur # fiche §5 l.706 / bloc l.730-748
+    name: Baguette du Soudeur
+    description: "Un fer à souder qui a trop servi. Il chauffe la main, la soupe et les malentendus, toujours dans cet ordre et jamais assez fort."
+    category: equipment
+    slot: weapon
+    level: 12
+    stats: { intelligence: 18, wisdom: 10 } # int 10-18, sag 5-10 ; dégâts fixes 1-2 omis
+    sellPrice: 144
+
+  - id: fer_marteau_cle_de_douze # fiche §5 l.707 / bloc l.750-768
+    name: Marteau Clef-de-Douze
+    description: "Une clef à molette de douze livres au bout d'un manche. Elle sert à visser, à desserrer et, en dernier recours, à faire valoir son point de vue."
+    category: equipment
+    slot: weapon
+    level: 15
+    stats: { strength: 22, vitality: 20 } # force 12-22, vita 10-20
+    sellPrice: 180
+
+  - id: fer_pelle_a_gravats # fiche §5 l.708 / bloc l.770-788
+    name: Pelle à Gravats
+    description: "Une pelle de chantier dont le fer a trempé dans le mazout. Elle ramasse les gravats, les dettes et un peu de la vie des autres."
+    category: equipment
+    slot: weapon
+    level: 17
+    stats: { chance: 22, prospection: 12, vitality: 15 } # chance 12-22, PP 6-12, vita 8-15
+    sellPrice: 204
+
+  # --- Panoplie Brico-Lourd (fiche §6 l.799-803 et l.938-950) ---
+  # Les 4 pièces de slots `amulet`/`cloak`/`hat`/`boots` du dossier : c'est
+  # exactement le plafond de 4 pièces du schéma. La 5e,
+  # `fer_ceinture_outils_rouilles` (slot `belt`, l.801), est livrée en
+  # équipement autonome : `checkSetSlot` interdit un `setId` hors de
+  # `SET_SLOTS`, donc elle ne peut pas compter dans la panoplie.
+  - id: fer_amulette_ecrou_geante # fiche §6 l.799 / bloc l.853-861
+    name: Amulette à l'Écrou Géant
+    description: "Un écrou de charrette au bout d'une chaîne de ponton. On jure qu'il a été béni ; personne ne jure avoir assisté au rituel."
+    category: equipment
+    slot: amulet
+    setId: fer_set_brico_lourd
+    level: 16
+    stats: { strength: 18, vitality: 22 } # force 10-18, vita 12-22 ; dégâts fixes 1-2 omis
+    sellPrice: 160
+
+  - id: fer_cape_bache_trouee # fiche §6 l.800 / bloc l.862-870
+    name: Cape Bâche Trouée
+    description: "Une bâche de chantier trouée aux mauvais endroits. Elle arrête la pluie et les coups de couteau, statistiquement pas les deux."
+    category: equipment
+    slot: cloak
+    setId: fer_set_brico_lourd
+    level: 17
+    stats: { strength: 20, vitality: 22, percentDmg: 10 } # force 12-20, vita 12-22, dégâts % 5-10
+    sellPrice: 170
+
+  - id: fer_ceinture_outils_rouilles # fiche §6 l.801 / bloc l.871-879 — hors panoplie (plafond de 4, slot belt)
+    name: Ceinture à Outils Rouillés
+    description: "Une ceinture chargée de pinces rouillées. Chaque outil est inutile, l'ensemble est indispensable."
+    category: equipment
+    slot: belt
+    level: 17
+    stats: { strength: 22, vitality: 20 } # force 12-22, vita 10-20 ; dégâts fixes 1-3 omis
+    sellPrice: 170
+
+  - id: fer_casque_chantier_cabosse # fiche §6 l.802 / bloc l.880-887
+    name: Casque de Chantier Cabossé
+    description: "Un casque cabossé de l'intérieur, ce qui interroge sur son usage précédent. Depuis, les coups partent ailleurs."
+    category: equipment
+    slot: hat
+    setId: fer_set_brico_lourd
+    level: 18
+    stats: { strength: 24, vitality: 25 } # force 15-24, vita 15-25
+    sellPrice: 180
+
+  - id: fer_bottes_securite_fer # fiche §6 l.803 / bloc l.888-896
+    name: Bottes de Sécurité en Fer
+    description: "Bottes de sécurité renforcées à l'avant. Elles protègent les orteils, l'amour-propre et, dans une moindre mesure, le reste."
+    category: equipment
+    slot: boots
+    setId: fer_set_brico_lourd
+    level: 18
+    stats: { strength: 22, vitality: 24 } # force 14-22, vita 14-24 ; dégâts fixes 1-2 omis
+    sellPrice: 180
+
+  # --- Panoplie Goudron-et-Plumes (fiche §6 l.794-798 et l.925-937) ---
+  # La panoplie n'existe pas en données : 3 de ses 5 pièces seulement sont des
+  # slots acceptés par `SET_SLOTS` (`cloak`, `hat`, `boots`), or `setSchema`
+  # exige 3 paliers (2/3/4), donc 4 pièces. Les 5 pièces restent livrées comme
+  # équipements autonomes pour ne pas perdre leurs stats (cf. PR, D33).
+  # `fer_ceinture_goudron` (slot `belt`, l.795) est livrée, mais sans `setId` :
+  # `checkSetSlot` réserve les pièces de panoplie à `hat`/`cloak`/`amulet`/`boots`.
+  - id: fer_anneau_mazoute # fiche §6 l.794 / bloc l.809-816
+    name: Anneau Mazouté
+    description: "Une rondelle de mazout durci passée au doigt. Elle ne porte pas chance, mais elle a le mérite d'insister."
+    category: equipment
+    slot: ring1
+    level: 7
+    stats: { agility: 12 } # agilité 6-12 ; initiative 15-35 omise
+    sellPrice: 70
+
+  - id: fer_ceinture_goudron # fiche §6 l.795 / bloc l.817-825
+    name: Ceinture de Goudron
+    description: "Une ceinture de goudron tressé. Elle tient le pantalon et les promesses avec la même efficacité moyenne."
+    category: equipment
+    slot: belt
+    level: 8
+    stats: { agility: 15, vitality: 12 } # agilité 8-15, vita 6-12 ; crit 1-2 omis
+    sellPrice: 80
+
+  - id: fer_cape_plumes_mazoutees # fiche §6 l.796 / bloc l.826-834
+    name: Cape de Plumes Mazoutées
+    description: "Des plumes mazoutées cousues serré. Elle alourdit les épaules et donne l'impression d'avoir déjà gagné un combat."
+    category: equipment
+    slot: cloak
+    level: 9
+    stats: { agility: 18, vitality: 15 } # agilité 10-18, vita 8-15 ; dégâts fixes 1-2 omis
+    sellPrice: 90
+
+  - id: fer_coiffe_goudron # fiche §6 l.797 / bloc l.835-843
+    name: Coiffe de Goudron
+    description: "Un casque de goudron coiffé d'un chiffon. Le porteur entend moins bien les ordres, ce qui est présenté comme un avantage."
+    category: equipment
+    slot: hat
+    level: 10
+    stats: { agility: 20, vitality: 18 } # agilité 12-20, vita 10-18 ; crit 1-2 omis
+    sellPrice: 100
+
+  - id: fer_bottes_goudron # fiche §6 l.798 / bloc l.844-852
+    name: Bottes de Goudron
+    description: "Semelles en goudron armé. Elles collent au pont, aux échelles et aux discussions qui traînent."
+    category: equipment
+    slot: boots
+    level: 10
+    stats: { agility: 18, vitality: 16 } # agilité 10-18, vita 8-16 ; initiative 25-50 omise
+    sellPrice: 100
+
+  # --- Pièces hors panoplie (fiche §6 l.804-806) ---
+  - id: fer_amulette_bouillon_fer # fiche §6 l.804 / bloc l.897-905
+    name: Amulette du Bouillon de Fer
+    description: "Un nouet de fer bouilli dans un bouillon de fer. Le goût est resté, le bouillon est parti, l'écrou aussi."
+    category: equipment
+    slot: amulet
+    level: 11
+    stats: { intelligence: 22, vitality: 16 } # int 12-22, vita 8-16 ; dégâts fixes 1-2 omis
+    sellPrice: 110
+
+  - id: fer_anneau_rondelle_chance # fiche §6 l.805 / bloc l.906-913
+    name: Anneau Rondelle-de-Chance
+    description: "Une rondelle de fortune montée sur un anneau de tonneau. Elle porte chance : la chance, elle, porte plainte."
+    category: equipment
+    slot: ring1
+    level: 13
+    stats: { chance: 20, prospection: 15 } # chance 10-20, PP 8-15
+    sellPrice: 130
+
+  - id: fer_coiffe_passoire_sage # fiche §6 l.806 / bloc l.914-921
+    name: Coiffe Passoire-de-Sagesse
+    description: "Une passoire retournée, ceinturée de ficelle. On réfléchit mieux quand la mer passe à travers, apparemment."
+    category: equipment
+    slot: hat
+    level: 15
+    stats: { wisdom: 22, vitality: 18 } # sag 12-22, vita 10-18
+    sellPrice: 150

@@ -303,7 +303,7 @@ const KEY_MUTATIONS: Record<string, Mutation> = {
   description: (item) => ({ ...item, description: "Description mutée" }),
   category: (item) => ({ ...item, category: "key", targetDungeonId: "donjon_mute" }),
   sellPrice: (item) => ({ ...item, sellPrice: 999 }),
-  slot: (item) => ({ ...item, slot: "belt" }),
+  slot: (item) => ({ ...item, slot: (item as EquipmentDef).slot === "belt" ? "hat" : "belt" } as ItemDef),
   level: (item) => ({ ...item, level: 99 }),
   setId: (item) => ({ ...item, setId: undefined }),
   heal: (item) => ({ ...item, heal: 999 }),

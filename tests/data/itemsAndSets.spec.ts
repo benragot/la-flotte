@@ -85,20 +85,21 @@ describe("items.yaml", () => {
     ids.forEach((id) => expect(id).toMatch(SNAKE_CASE));
   });
 
-  it("déclare neuf ressources, deux consommables, cinq équipements et une clef", () => {
+  it("déclare neuf ressources, deux consommables, vingt-deux équipements et une clef", () => {
     const items = loadItems();
     expect(items.filter((item) => item.category === "resource").length).toBe(9);
     expect(items.filter((item) => item.category === "consumable").length).toBe(2);
-    expect(equipmentOf(items).length).toBe(5);
+    // 5 historiques + 4 armes (§5) + 13 pièces (§6) de la fiche de la Ferraille.
+    expect(equipmentOf(items).length).toBe(22);
     expect(items.filter((item) => item.category === "key").length).toBe(1);
   });
 
   it("garde une arme de départ et un chapeau de départ dans le kit", () => {
     const items = loadItems();
-    const starter = equipmentOf(items).filter((item) => item.slot === "weapon" && item.setId === undefined);
-    expect(starter).toHaveLength(1);
-    expect(starter[0]?.level).toBe(1);
     const starting = equipmentOf(items).filter((item) => item.starting);
+    const startingWeapons = starting.filter((item) => item.slot === "weapon");
+    expect(startingWeapons).toHaveLength(1);
+    expect(startingWeapons[0]?.level).toBe(1);
     expect(starting.map((item) => item.id).sort()).toEqual(["chapeau_piou_mazoute", "gourdin_du_matelot"]);
   });
 });
