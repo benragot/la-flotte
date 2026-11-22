@@ -670,7 +670,6 @@ function resetActions(set: StoreSetter): ResetActions {
   return { resetCombat: () => set(defaultCombatState()) };
 }
 
-
 function demoUpdate(mapId: string): Partial<CombatStore> {
   const base = { mode: "combat" as const, combat: buildDemoCombat(mapId), activeGroup: null };
   return { ...base, mapId, selectedSpellId: null, hoveredCell: null, rewards: null };

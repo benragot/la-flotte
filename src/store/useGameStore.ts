@@ -121,8 +121,35 @@ function emptyGame(): GameState {
   return { hero: null, inventory: emptyInventory(), flags: {} };
 }
 
+/**
+ * Champs qu'une remise à zéro **ne touche pas** : les actions et les deux
+ * réglages de session (`saveKey`, catalogue de recettes déjà connu).
+ * `emptyStore()` en dérive par `Omit`, donc un champ de données ajouté demain
+ * à `GameStore` casse `tsc` tant qu'il n'est pas remis à zéro ici.
+ */
+type KeptOnReset =
+  | "knownRecipeIds"
+  | "saveKey"
+  | "createCharacter"
+  | "allocateStat"
+  | "equip"
+  | "unequip"
+  | "drinkConsumable"
+  | "creditCombatRewards"
+  | "depositToBank"
+  | "withdrawFromBank"
+  | "craftRecipe"
+  | "saveGame"
+  | "loadGame"
+  | "exportJson"
+  | "importJson"
+  | "resetGame"
+  | "eraseSave";
+
+type ResetFields = Omit<GameStore, KeptOnReset>;
+
 /** État complet hors persistance : le coffre n'est pas encore sauvegardé (dette D55). */
-function emptyStore(): GameState & { bank: InventoryState } {
+function emptyStore(): ResetFields {
   return { ...emptyGame(), bank: emptyInventory() };
 }
 
