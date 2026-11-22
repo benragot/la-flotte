@@ -25,12 +25,15 @@ function hasSprite(token: TokenView): boolean {
  */
 export class ActorStage {
   readonly container = new Container();
+  /** Feuilles que ce plateau sait rendre : seule autorité pour le repli géométrique. */
+  readonly sheetIds: ReadonlySet<string>;
   private readonly specs: ReadonlyMap<string, SpriteSheetSpec>;
   private readonly actors = new Map<string, EntitySprite>();
   private notify: () => void = () => undefined;
 
   constructor(sheets: readonly SpriteSheetSpec[]) {
     this.specs = new Map(sheets.map((sheet) => [sheet.entityId, sheet]));
+    this.sheetIds = new Set(this.specs.keys());
   }
 
   /** Met à jour chaque acteur puis rétablit l'ordre peintre de la couche. */
