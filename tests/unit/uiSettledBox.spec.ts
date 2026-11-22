@@ -16,19 +16,24 @@ const STEP_MS = 10;
 
 interface ScriptedPoll extends StablePoll<(Box | null)[]> {
   reads: () => number;
+  pauses: () => number;
 }
 
 /** Source de relevés scriptée : chaque `read` consomme le relevé suivant et avance l'horloge. */
 function scripted(samples: readonly (Box | null)[][], budgetMs = 100): ScriptedPoll {
   let index = 0;
   let reads = 0;
+  let pauses = 0;
   const sampleAt = (position: number) => samples[Math.min(position, samples.length - 1)] ?? [RESIZED];
   return {
     read: async () => {
       const sample = sampleAt(index);
       reads += 1;
-      index += 1;
       return sample;
+    },
+    pause: async () => {
+      pauses += 1;
+      index += 1;
     },
     isComplete: hasEveryBox,
     equals: sameRead,
@@ -36,6 +41,7 @@ function scripted(samples: readonly (Box | null)[][], budgetMs = 100): ScriptedP
     budgetMs,
     now: () => index * STEP_MS,
     reads: () => reads,
+    pauses: () => pauses,
   };
 }
 
@@ -49,12 +55,14 @@ function endless(budgetMs: number): ScriptedPoll {
   };
   return {
     read: async () => [growth()],
+    pause: async () => {},
     isComplete: hasEveryBox,
     equals: sameRead,
     describe: (sample) => `${sample[0]?.width ?? 0}×${sample[0]?.height ?? 0}`,
     budgetMs,
     now: () => index * STEP_MS,
     reads: () => index,
+    pauses: () => index,
   };
 }
 
@@ -82,6 +90,7 @@ describe("pollUntilStable — deux relevés identiques, budget borné", () => {
     const source = scripted([[RESIZED], [RESIZED]]);
     expect(await pollUntilStable(source)).toEqual([RESIZED]);
     expect(source.reads()).toBe(2);
+    expect(source.pauses()).toBe(1);
   });
 
   it("relit quand la taille bouge encore", async () => {

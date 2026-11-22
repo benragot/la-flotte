@@ -26,7 +26,16 @@ export const ARENA = 'main[aria-label="Terrain de combat"]';
  * Après ce délai la mesure échoue en nommant la dernière boîte vue et son
  * conteneur, au lieu de laisser une assertion muette sur une taille périmée.
  */
-export const LAYOUT_BUDGET_MS = 3000;
+export const LAYOUT_BUDGET_MS = 5000;
+
+/**
+ * Intervalle entre deux relevés. Il ne dépend **pas** de `requestAnimationFrame` :
+ * en headless sans compositeur, une frame peut coûter ~1 s (mesuré : 30 frames =
+ * 31,5 s), ce qui mangeait tout le budget avant même le deuxième relevé. Un
+ * `getBoundingClientRect` force le layout de façon synchrone ; 100 ms suffisent
+ * à laisser un commit React et un resize Pixi se poser.
+ */
+export const SAMPLE_INTERVAL_MS = 100;
 
 /** Recouvrement signé sur chaque axe : positif = les boîtes se croisent. */
 export function overlapSize(a: Box, b: Box): { dx: number; dy: number } {
@@ -101,8 +110,10 @@ export function hasEveryBox(sample: readonly (Box | null)[]): boolean {
 
 /** Paramètres injectés d'une attente de stabilité : tout est remplaçable en test. */
 export interface StablePoll<T> {
-  /** Relevé **frais** : l'implémentation laisse poser une frame avant de mesurer. */
+  /** Relevé **frais** : lu à l'instant de l'appel, sans attendre de frame. */
   read: () => Promise<T>;
+  /** Laisse passer un court délai entre deux relevés (jamais une frame). */
+  pause: () => Promise<void>;
   /** Un relevé n'est stable que s'il est complet : un élément absent n'est pas « stable ». */
   isComplete: (sample: T) => boolean;
   equals: (a: T, b: T) => boolean;
@@ -132,6 +143,7 @@ export async function pollUntilStable<T>(input: StablePoll<T>): Promise<T> {
   const deadline = now() + budgetMs;
   let previous = await input.read();
   for (;;) {
+    await input.pause();
     const next = await input.read();
     if (isSettledSample(input, previous, next)) return next;
     if (now() >= deadline) throw new Error(budgetMessage(input, next, budgetMs));
@@ -150,9 +162,10 @@ export async function pollUntilStable<T>(input: StablePoll<T>): Promise<T> {
  * ------------------------------------------------------------------------- */
 
 /**
- * Exécuté DANS la page : polices + deux frames, puis N rectangles au même
- * instant. Les helpers sont **imbriqués** : Playwright ne sérialise que le
- * corps de la fonction passée à `evaluate`, pas la portée du module.
+ * Exécuté DANS la page : N rectangles lus à l'instant de l'appel. Aucune attente
+ * de frame (throttlée en headless) : c'est le contrat de stabilité qui cadence.
+ * Les helpers sont **imbriqués** : Playwright ne sérialise que le corps de la
+ * fonction passée à `evaluate`, pas la portée du module.
  */
 async function readRectsInPage(selectors: string[]): Promise<(Box | null)[]> {
   const rectOf = (selector: string): Box | null => {
@@ -165,7 +178,6 @@ async function readRectsInPage(selectors: string[]): Promise<(Box | null)[]> {
     return { x, y, width, height };
   };
   await document.fonts.ready;
-  await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   return selectors.map(rectOf);
 }
 
@@ -191,6 +203,7 @@ function layoutPoll(
 ): StablePoll<(Box | null)[]> {
   return {
     read: () => readSlots(page, selectors),
+    pause: () => page.waitForTimeout(SAMPLE_INTERVAL_MS),
     isComplete: hasEveryBox,
     equals: sameRead,
     describe,
