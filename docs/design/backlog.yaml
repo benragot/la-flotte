@@ -4,11 +4,12 @@
 #   - toute demande utilisateur arrive dans `inbox` avant d'être planifiée
 #   - `waves[].phases[].tasks[]` porte l'état réel (jamais un état supposé)
 #   - `debts[]` liste ce qui est assumé et REPORTÉ, avec la vague cible
-#   - `blocked_by` et `depends_on` référencent des `id`
+#   - `depends_on` (seule clé de dépendance, phases ET tâches) référence des `id`
+#   - `status: blocked` ⟺ au moins un `depends_on` de la phase n'est pas `done`
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 2
+  version: 3
   updated_at: "2026-11-22"
   # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
   # ce backlog par l'agent d'intégration, qui signe `updated_by`.
@@ -16,7 +17,7 @@ meta:
   statuses: [todo, in_progress, needs_review, approved, blocked, done, dropped]
   status_definitions:
     todo: "planifié, jamais démarré"
-    in_progress: "du travail non commité ou une PR ouverte existe"
+    in_progress: "travail local en cours, aucune PR ouverte"
     needs_review: "PR ouverte ET corrections QA en cours"
     approved: "verdict APPROUVÉ rendu, merge pas encore effectué"
     blocked: "ne peut pas démarrer ou finir : dépendance non satisfaite"
@@ -24,9 +25,10 @@ meta:
     dropped: "abandonné, raison en notes"
   update_rules:
     - "seul l'agent d'intégration (integrator) ou un tdd-coder commité écrit ici : l'orchestrateur ne modifie jamais de fichier, il le fait écrire"
-    - "mise à jour à chaque verdict QA et à chaque merge sur main, jamais un état supposé ou anticipé"
+    - "mise à jour à chaque verdict QA ET à chaque merge sur main, jamais un état supposé, ni hérité d'un avant-dernier commit"
     - "meta.updated_at est bumpé dans le même commit que le changement d'état"
-    - "une phase dont une dépendance blocked_by n'est pas done reste blocked"
+    - "depends_on est la seule clé de dépendance : status blocked ⟺ au moins un depends_on n'est pas done (invariant bidirectionnel)"
+    - "une tâche done, approved ou needs_review cite toujours la PR qui la porte"
 
 inbox: []
 
@@ -37,16 +39,16 @@ waves:
     phases:
       - id: 4A
         title: Modules headless en parallèle
-        status: in_progress
+        status: done
         tasks:
           - id: 4A-hero-prog
             title: Courbe XP 1.29 exacte, Hero persistant, 33 sorts de classe
-            status: approved
+            status: done
             pr: 17
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: CI verte, verdict APPROUVÉ, en attente de la PR 18 (permissions merge)
+            notes: squash ae3edb7
           - id: 4A-items-sets
             title: Items, consommables, panoplie du Piou Mazouté
             status: done
@@ -57,12 +59,12 @@ waves:
             notes: squash e28c3e7
           - id: 4A-inventory
             title: Sac, 8 slots, bonus de panoplie
-            status: approved
+            status: done
             pr: 15
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: duplication d'item corrigée, en attente de la PR 18
+            notes: squash a076389
           - id: 4A-save
             title: Sauvegarde versionnée, export/import JSON
             status: done
@@ -73,17 +75,17 @@ waves:
             notes: squash b8ba3c7
           - id: 4A-harness
             title: Permissions pr-merger pour valider l'arbre combiné
-            status: needs_review
+            status: done
             pr: 18
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: 2e passe de correction (étape de push inopérante, bornes d'échec)
+            notes: squash eedbf26 — permissions de merge gate
       - id: 4B
         title: Intégration — useGameStore, combat câblé, walkthrough niv. 5
-        status: blocked
-        blocked_by: [4A-hero-prog, 4A-inventory, 4A-save, 4A-items-sets, 4A-harness]
-        notes: dépendances non mergées sur main — 4A-hero-prog (approved) et 4A-inventory (approved) attendent la PR 18, 4A-harness est en needs_review
+        status: todo
+        depends_on: [4A-hero-prog, 4A-inventory, 4A-save, 4A-items-sets, 4A-harness]
+        notes: dépendances toutes mergées sur main (PR 14-18), le travail d'intégration n'a pas commencé
       - id: 4C
         title: UI — création de personnage, inventaire et équipement
         status: todo
