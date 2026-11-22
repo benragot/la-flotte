@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 15
+  version: 16
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -272,10 +272,60 @@ waves:
             depends_on: [5B-f]
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
-        status: todo
+        status: in_progress
+        tasks:
+          - id: 5C-a
+            title: Panneau de combat 1vN — rendu des N ennemis, ciblage et journal
+            status: done
+            pr: 44
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash f6a113e — panneau 1vN câblé au store
+          - id: 5C-b
+            title: Sorts des monstres de la Ferraille (données)
+            status: needs_review
+            pr: 46
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: sorts monstres livrés en revue sur #46 ; la riposte reste à câbler en 5C-c
+          - id: 5C-c
+            title: "Câbler `battleEnemyTurn` : les ennemis ripostent"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-b, 5C-a]
+            notes: la riposte existe dans le store ; le panneau ne l'appelle pas encore
+          - id: 5C-d
+            title: "Portée et ligne de vue : `map` dans `BattleState`"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-a]
+            notes: verrouiller portée et LoS dans `battleSpellAttack`
+          - id: 5C-e
+            title: Walkthrough de la chaîne de la clé
+            status: done
+            pr: 45
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash 8a84b15 — de l'exploration au donjon
       - id: 5D
         title: Wiring Navire-Base et premier donjon
         status: todo
+        tasks:
+          - id: 5D-a
+            title: "Premier donjon jouable : déclencher une salle depuis le jeu"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-c, 5C-d, 5B-g]
+            notes: lancer une salle depuis l'exploration ; requiert la riposte et la portée
   - id: wave-6
     title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
     status: todo
@@ -444,3 +494,33 @@ debts:
     severity: low
     target: 5B
     notes: aligner la donnée sur la fiche d'île ; taux de butin hors donjon
+  - id: D59
+    title: "`startMapId()` dépend de l'ordre de `data/maps.yaml` (renvoie `maps[0].id`) ; le test data code `ferraille_plage_01` en dur au lieu de lire `maps[0].id`. Un réordonnancement déplacerait la map de départ."
+    severity: medium
+    target: 5B
+    notes: src/store/useCombatStore.ts (`startMapId` → `maps[0].id`) ; tests/data/spawns.spec.ts (`ferraille_plage_01` en dur)
+  - id: D60
+    title: "`DEBT_SEVERITIES` est codé en dur dans `tests/unit/backlog.spec.ts` alors que les `statuses` sont déclarés dans `meta`. Asymétrie : une sévérité légitime sera refusée un jour."
+    severity: low
+    target: 5C
+    notes: tests/unit/backlog.spec.ts (`DEBT_SEVERITIES`) vs docs/design/backlog.yaml (`meta.statuses`)
+  - id: D61
+    title: "Le panneau de combat ne signale **pas** que les ennemis ne ripostent pas. À corriger **impérativement en 5D**, sinon « Terminer le tour » passera pour un bug."
+    severity: high
+    target: 5D-a
+    notes: src/ui/components/battle/BattlePanel.tsx (aucun avertissement de riposte)
+  - id: D62
+    title: "`src/renderer/battleViewModel.ts` importe `hpRatio` depuis `src/renderer/tokens.ts` (chaîne typée PixiJS) : un view-model testable headless dépend du rendu."
+    severity: low
+    target: 5C
+    notes: src/renderer/battleViewModel.ts (`import { hpRatio } from "./tokens"`) ; src/renderer/tokens.ts (`import type { Graphics } from "pixi.js"`)
+  - id: D63
+    title: "Aucun walkthrough du **panneau** de combat (les tests couvrent le store et le view-model, pas le rendu monté)."
+    severity: medium
+    target: 5C
+    notes: tests/unit/battlePanel.spec.ts (unitaire) ; aucun tests/walkthrough/battle*.spec.ts
+  - id: D64
+    title: "`battleSpellAttack` **ignore portée et ligne de vue** et `BattleState` ne porte **aucune `map`** ⇒ en l'état, le joueur frappe à distance infinie. À verrouiller avec `5C-d`."
+    severity: high
+    target: 5C-d
+    notes: src/store/useCombatStore.ts (`battleSpellAttack` sans contrôle de portée/LoS) ; src/engine/multiCombat/strike.ts (`map` lue seulement pour la poussée) ; src/engine/multiCombat/types.ts (`map` optionnelle)

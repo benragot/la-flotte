@@ -19,7 +19,12 @@ Légende : [ ] à faire · [x] fait
 - [x] 5B-f recette de la clé de la Ferraille, 3 ingrédients et butin
 - [ ] 5B-g table de spawn d'exploration — sortir `DEMO_MONSTER_ID`, farmer les 3 ingrédients hors donjon (PR #43 en revue)
 - [ ] 5B intégration — reste 5B-g
-- [ ] 5C renderer-1vn · ui-ship-hub
+- [x] 5C-a panneau de combat 1vN — rendu des N ennemis, ciblage et journal (PR #44)
+- [ ] 5C-b sorts des monstres de la Ferraille (données) — en revue, riposte à câbler en 5C-c
+- [ ] 5C-c câbler `battleEnemyTurn` — les ennemis ripostent
+- [ ] 5C-d portée et ligne de vue — `map` dans `BattleState`
+- [x] 5C-e walkthrough de la chaîne de la clé (PR #45)
+- [ ] 5D-a premier donjon jouable — déclencher une salle depuis le jeu
 - [ ] 5D wiring
 ## Vague 6 — Fruits d'Écho, sorts avancés, Archipel
 - [ ] 6A advanced-spells · echo-fruits · archipelago
