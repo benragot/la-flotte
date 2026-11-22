@@ -40,6 +40,8 @@
      `🗺️ feat(data): add carte` (emoji avant le type).
 7. L'apparence de l'interface appartient à `ui-designer` : tout changement visuel passe par lui.
 8. La conception des cartes appartient à `map-designer` : grilles, décor, sorties et zones de spawn passent par lui.
+9. Le rendu du canvas (matériaux, sprites, grille, animations) appartient à `render-designer` : les panneaux sont à `ui-designer`, les cartes à `map-designer`.
+10. La CI GitHub (`quality-gate`, `ui-layout`) fait foi ; `ci-runner` fournit en plus une vérification **locale et rapide** (avant de pousser) et sert de **repli** si la CI est indisponible.
 
 ## Qualité
 
