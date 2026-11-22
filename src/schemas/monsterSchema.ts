@@ -9,12 +9,22 @@ export const combatStatsSchema = z.object({
   wisdom: z.number().int().nonnegative(),
 });
 
+/** Bornes 1.29 : jusqu'à 100 % de résistance, et jusqu'à -100 % de faiblesse. */
+const RESISTANCE_MIN = -100;
+const RESISTANCE_MAX = 100;
+
+const resistanceValueSchema = z
+  .number()
+  .int()
+  .min(RESISTANCE_MIN, `une résistance doit être ≥ ${RESISTANCE_MIN}`)
+  .max(RESISTANCE_MAX, `une résistance doit être ≤ ${RESISTANCE_MAX}`);
+
 const resistanceSchema = z.object({
-  earth: z.number().int().nonnegative(),
-  fire: z.number().int().nonnegative(),
-  water: z.number().int().nonnegative(),
-  air: z.number().int().nonnegative(),
-  neutral: z.number().int().nonnegative(),
+  earth: resistanceValueSchema,
+  fire: resistanceValueSchema,
+  water: resistanceValueSchema,
+  air: resistanceValueSchema,
+  neutral: resistanceValueSchema,
 });
 
 export const lootEntrySchema = z.object({
@@ -26,10 +36,22 @@ export const lootEntrySchema = z.object({
   ppThreshold: z.number().int().nonnegative(),
 });
 
+/** Distance préférée : numérique en cases, ou indication libre (`3–4`, `contact`). */
+const preferredDistanceSchema = z.union([z.number().int().nonnegative(), z.string().min(1)]);
+
+export const monsterAiSchema = z.object({
+  archetype: z.string().min(1),
+  preferredDistance: preferredDistanceSchema.optional(),
+  behaviorRules: z.array(z.string().min(1)).optional(),
+  bossMechanic: z.string().min(1).optional(),
+});
+
 export type CombatStats = z.infer<typeof combatStatsSchema>;
 export type LootEntry = z.infer<typeof lootEntrySchema>;
+export type MonsterAi = z.infer<typeof monsterAiSchema>;
 
 type IssueSink = z.RefinementCtx;
+type KamasRange = { kamasMin?: number; kamasMax?: number };
 
 function addIssue(ctx: IssueSink, path: (string | number)[], message: string): void {
   ctx.addIssue({ code: z.ZodIssueCode.custom, message, path });
@@ -41,6 +63,13 @@ function checkLoot(loot: readonly LootEntry[], ctx: IssueSink): void {
       addIssue(ctx, ["loot", index, "baseDropRate"], "baseDropRate doit être dans ]0, 1]");
     }
   });
+}
+
+function checkKamasRange(range: KamasRange, ctx: IssueSink): void {
+  const { kamasMin, kamasMax } = range;
+  if (kamasMin === undefined || kamasMax === undefined) return;
+  if (kamasMin <= kamasMax) return;
+  addIssue(ctx, ["kamasMax"], "kamasMax doit être supérieur ou égal à kamasMin");
 }
 
 export const monsterSchema = z
@@ -58,11 +87,19 @@ export const monsterSchema = z
     stats: combatStatsSchema,
     resistances: z.object({ flat: resistanceSchema, percent: resistanceSchema }),
     baseXp: z.number().int().positive(),
-    spellIds: z.array(z.string().min(1)).min(1),
-    loot: z.array(lootEntrySchema).min(1),
+    isBoss: z.boolean().default(false),
+    kamasMin: z.number().int().nonnegative().optional(),
+    kamasMax: z.number().int().nonnegative().optional(),
+    ai: monsterAiSchema.optional(),
+    // 6A : les 16 sorts `fer_spell_*` n'existent pas encore. Un monstre sans sort
+    // reste jouable (l'IA se contente de se rapprocher), un sort absent ne l'est pas.
+    spellIds: z.array(z.string().min(1)).default([]),
+    // 7B : les butins de la fiche référencent des items qui n'existent pas encore.
+    loot: z.array(lootEntrySchema).default([]),
   })
   .superRefine((monster, ctx) => {
     checkLoot(monster.loot, ctx);
+    checkKamasRange(monster, ctx);
   });
 
 export const monstersFileSchema = z.object({
