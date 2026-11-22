@@ -276,6 +276,7 @@ describe("formatStatValue", () => {
 
 describe("statApplicationStatus", () => {
   const APPLIED: readonly StatField[] = [
+    "vitality",
     "strength",
     "intelligence",
     "chance",
@@ -287,8 +288,11 @@ describe("statApplicationStatus", () => {
     "hp",
   ];
 
-  it("signale comme pending les stats que le combattant n'applique pas", () => {
-    expect(statApplicationStatus("vitality")).toBe("pending");
+  it("déclare la Vitalité appliquée : 1 point donne 1 PV (D45a fermée)", () => {
+    expect(statApplicationStatus("vitality")).toBe("applied");
+  });
+
+  it("signale comme pending les résistances que le combattant n'applique pas (D45b)", () => {
     expect(statApplicationStatus("flatRes")).toBe("pending");
     expect(statApplicationStatus("percentRes")).toBe("pending");
   });
@@ -306,14 +310,17 @@ describe("buildAppliedStatLines", () => {
   it("ne garde que les lignes non nulles et les annote", () => {
     const lines = buildAppliedStatLines({ vitality: 20, strength: 5 });
     expect(lines.map((line) => line.key)).toEqual(["vitality", "strength"]);
-    expect(lines.map((line) => line.application)).toEqual(["pending", "applied"]);
+    expect(lines.map((line) => line.application)).toEqual(["applied", "applied"]);
   });
 
-  it("annote le palier 2 de la panoplie (Vitalité) comme non appliqué", () => {
+  it("applique le palier 2 de la panoplie (Vitalité), qui donne des PV", () => {
     const inventory = inventoryWith({ equipment: { hat: HAT.id, cloak: CLOAK.id } });
     const total = computeTotalStats({ base: {}, capital: {}, inventory, items: ITEMS, sets: [SET] });
-    const pending = buildAppliedStatLines(total).filter((line) => line.application === "pending");
-    expect(pending.map((line) => line.key)).toContain("vitality");
+    const lines = buildAppliedStatLines(total);
+    const vitality = lines.find((line) => line.key === "vitality");
+    expect(vitality?.application).toBe("applied");
+    const pending = lines.filter((line) => line.application === "pending").map((line) => line.key);
+    expect(pending).not.toContain("vitality");
   });
 });
 

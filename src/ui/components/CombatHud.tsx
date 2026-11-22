@@ -3,7 +3,10 @@ import type { Hero } from "../../engine/createHero";
 import { useCombatStore } from "../../store/useCombatStore";
 import { useGameStore } from "../../store/useGameStore";
 import type { HudMode } from "../hudHelpers";
+import type { EffectiveHp } from "../hudHp";
+import { useEffectiveHp } from "../useEffectiveHp";
 import EndOverlay from "./EndOverlay";
+import HeroVitalsLine from "./HeroVitalsLine";
 import Timeline from "./Timeline";
 import TopBanner from "./TopBanner";
 import { CombatDock } from "./battle/CombatDock";
@@ -72,19 +75,20 @@ function CombatLayout({ combat, onReturnToMap }: CombatLayoutProps) {
   return <HudLayout {...layout} />;
 }
 
-function HeroVitals({ hero }: { hero: Hero }) {
+function HeroVitals({ hero, hp }: { hero: Hero; hp: EffectiveHp }) {
   return (
     <section aria-label="Ressources du héros" className={DOCK_PANEL}>
       <h2 className={SECTION_HEADING}>Héros</h2>
-      <p className="text-sm font-bold text-[#b83b3b]">❤ {hero.hp} / {hero.maxHp}</p>
+      <HeroVitalsLine hp={hp} className="text-sm font-bold text-[#b83b3b]" />
       <p className="text-sm font-bold text-[#3b6fb8]">★ {hero.ap} PA · 👢 {hero.mp} PM</p>
     </section>
   );
 }
 
 function DockVitals({ hero }: { hero: Hero | null }) {
-  if (hero === null) return null;
-  return <HeroVitals hero={hero} />;
+  const hp = useEffectiveHp();
+  if (hero === null || hp === null) return null;
+  return <HeroVitals hero={hero} hp={hp} />;
 }
 
 /**
