@@ -91,6 +91,9 @@ function makeHero(): CombatantLike {
 const BIG_ATTACK: AttackSpec = { base: 500, element: "earth", baseCrit: 0, apCost: 3 };
 const SMALL_ATTACK: AttackSpec = { base: 10, element: "earth", baseCrit: 0, apCost: 3 };
 
+/** PV IMPAIRS (53) : `floor(hp × 0,5)` vaut 26, un arrondi donnerait 27. */
+const ODD: MonsterDef = { ...MUD, id: "odd_test", name: "Odd de Test", hp: 53 };
+
 function asState(combatants: CombatantLike[]): BattleState {
   return { turn: 1, ...buildTimeline(combatants), combatants, log: [] };
 }
@@ -189,6 +192,40 @@ describe("monsterCombatant — copie et initiative", () => {
   it("honore une position fournie", () => {
     const combatant = monsterCombatant({ monster: MUD, index: 0, position: { x: 3, y: 4 } });
     expect(combatant.position).toEqual({ x: 3, y: 4 });
+  });
+});
+
+describe("monsterCombatant — hpScale de salle (DEC-03)", () => {
+  it("applique floor(hp × hpScale), jamais un arrondi", () => {
+    const combatant = monsterCombatant({ monster: ODD, index: 0, hpScale: 0.5 });
+    expect(combatant.hp).toBe(26);
+    expect(combatant.maxHp).toBe(26);
+  });
+
+  it("laisse les PV intacts quand le facteur est absent", () => {
+    const combatant = monsterCombatant({ monster: ODD, index: 0 });
+    expect(combatant.hp).toBe(ODD.hp);
+    expect(combatant.maxHp).toBe(ODD.hp);
+  });
+
+  it("ne touche qu'aux PV : le reste du monstre est identique au monde ouvert", () => {
+    const world = monsterCombatant({ monster: MUD, index: 0 });
+    const scaled = monsterCombatant({ monster: MUD, index: 0, hpScale: 0.35 });
+    /** L'initiative dérive des PV (`computeInitiative`), elle suit le facteur. */
+    const withoutHp = (combatant: CombatantLike) => ({ ...combatant, hp: 0, maxHp: 0, initiative: 0 });
+    expect(withoutHp(scaled)).toEqual(withoutHp(world));
+    expect(scaled.hp).toBe(Math.floor(MUD.hp * 0.35));
+    expect(scaled.maxHp).toBe(scaled.hp);
+  });
+
+  it("applique le facteur de salle à tous les ennemis du combat", () => {
+    const setup = setupDungeonBattle({
+      hero: { combatant: makeHero() },
+      monsters: [{ monster: ODD, count: 2 }],
+      hpScale: 0.5,
+    });
+    const hp = setup.combatants.filter((entry) => entry.side === "enemy").map((entry) => entry.hp);
+    expect(hp).toEqual([26, 26]);
   });
 });
 
