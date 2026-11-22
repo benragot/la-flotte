@@ -386,6 +386,7 @@ describe("refus d'entrée — rendu dans la fiche, jamais derrière la nappe", (
     expect(markup).toContain(REFUSAL_BLOCK);
     expect(markup).toContain('role="alert"');
     expect(markup).toContain(REFUSAL);
+    expect(markup).toContain("bg-[#b83b3b]");
     expect(markup.indexOf("manquante")).toBeLessThan(markup.indexOf(REFUSAL));
   });
 
@@ -433,5 +434,8 @@ describe("panneau d'entrée — câblage dans l'exploration", () => {
     expect(source).toContain("Donjons");
     expect(source).toContain("<DungeonEntryPanel");
     expect(source).toContain("<DungeonNotice");
+    expect(source).toContain("combat en cours");
+    expect(source).toContain("disabled");
+    expect(source).toContain("clearDungeonNotice");
   });
 });
