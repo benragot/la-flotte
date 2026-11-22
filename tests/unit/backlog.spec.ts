@@ -571,9 +571,6 @@ describe("backlog — dette D48 soldée", () => {
 describe("backlog — dette D55 soldée", () => {
   it("ne trouve plus la dette du coffre non persisté, soldée par la PR #87", () => {
     expect(debtById(readBacklog(), "D55")).toBeUndefined();
-  });
-
-  it("ne décrit plus le coffre comme non persisté dans le backlog", () => {
     expect(rawBacklog()).not.toContain("Le coffre de banque n'est pas persisté");
   });
 });
