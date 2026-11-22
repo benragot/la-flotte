@@ -1,6 +1,7 @@
 import type { Graphics } from "pixi.js";
 import type { Position } from "../engine/grid";
 import type { CombatantState } from "../engine/combatLoop/types";
+import type { CombatantLike, Side } from "../engine/multiCombat";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
 import { TILE_H, TILE_W, gridToIso, originScale } from "./gridProjection";
 import { depthOf } from "./scene";
@@ -25,6 +26,12 @@ export const BADGE_RADIUS = 9;
 export const BADGE_FILL = 0x1b2430;
 export const BADGE_STROKE = 0xf2d64b;
 
+/** Anneau du combattant actif : la couleur du cadre doré du panneau de salle. */
+export const ACTIVE_RING = 0xf2d64b;
+export const ACTIVE_RING_WIDTH = 3;
+/** Rayon de l'anneau, en multiples du rayon du jeton : il enlace la case. */
+export const ACTIVE_RING_RATIO = 1.3;
+
 /** Ce qu'un jeton doit savoir pour piloter son `EntitySprite`. */
 export interface TokenSprite {
   spriteId: string | null;
@@ -42,6 +49,8 @@ export const STATIC_TOKEN_SPRITE: TokenSprite = {
 };
 
 export interface TokenView extends TokenSprite {
+  /** Identité stable du jeton : deux monstres identiques en ont deux. */
+  id: string;
   center: PixelPoint;
   radius: number;
   /** Échelle de la caméra : jetons, barres et sprites suivent le décor. */
@@ -53,6 +62,8 @@ export interface TokenView extends TokenSprite {
   badge: string | null;
   /** Profondeur de grille `x + y`, utilisée pour l'ordre peintre des acteurs. */
   depth: number;
+  /** C'est son tour : un anneau doré l'entoure, comme le cadre de sa carte. */
+  active: boolean;
 }
 
 export interface HpBar {
@@ -73,6 +84,7 @@ export interface TokenBadge {
 }
 
 interface TokenSpec {
+  id: string;
   fill: number;
   hp: number;
   maxHp: number;
@@ -80,6 +92,7 @@ interface TokenSpec {
   depth: number;
   sprite: TokenSprite;
   scale: number;
+  active: boolean;
 }
 
 /** Borne une valeur dans `[0, 1]`. */
@@ -119,10 +132,10 @@ export function tokensNeedingCircle(
 }
 
 function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
-  const { fill, hp, maxHp, badge, depth, sprite, scale } = spec;
+  const { id, fill, hp, maxHp, badge, depth, sprite, scale, active } = spec;
   const ratio = hpRatio(hp, maxHp);
   const radius = TOKEN_RADIUS * scale;
-  return { center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, depth, ...sprite };
+  return { id, center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, depth, active, ...sprite };
 }
 
 /** Jeton d'un combattant, centré sur le losange de sa case. */
@@ -131,10 +144,10 @@ export function tokenView(
   origin: IsoOrigin,
   sprite: TokenSprite = STATIC_TOKEN_SPRITE,
 ): TokenView {
-  const center = gridToIso({ ...combatant.position, origin });
-  const { hp, maxHp, kind, position } = combatant;
-  const scale = originScale(origin);
-  return tokenAt(center, { fill: tokenColor(kind), hp, maxHp, badge: null, depth: depthOf(position), sprite, scale });
+  const { id, hp, maxHp, kind, position } = combatant;
+  const base = { id, hp, maxHp, badge: null, depth: depthOf(position), sprite, scale: originScale(origin), active: false };
+  const spec = { ...base, fill: tokenColor(kind) };
+  return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }
 
 /** Jeton du héros en exploration, sans combat engagé. */
@@ -144,7 +157,8 @@ export function playerTokenView(
   sprite: TokenSprite = STATIC_TOKEN_SPRITE,
 ): TokenView {
   const scale = originScale(origin);
-  const spec: TokenSpec = { fill: PLAYER_TOKEN_COLOR, hp: 1, maxHp: 1, badge: null, depth: depthOf(position), sprite, scale };
+  const base = { id: "player", hp: 1, maxHp: 1, badge: null, depth: depthOf(position), sprite, scale, active: false };
+  const spec: TokenSpec = { ...base, fill: PLAYER_TOKEN_COLOR };
   return tokenAt(gridToIso({ ...position, origin }), spec);
 }
 
@@ -168,8 +182,30 @@ export function groupTokenView(group: GroupTokenInput, origin: IsoOrigin): Token
   const { pos, totalLevel } = group;
   const sprite = groupSprite(group.spriteId);
   const scale = originScale(origin);
-  const spec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite, scale };
+  const id = `group-${pos.x}-${pos.y}`;
+  const spec = { id, fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite, scale, active: false };
   return tokenAt(gridToIso({ ...pos, origin }), { ...spec, depth: depthOf(pos) });
+}
+
+/** Camp → couleur du jeton : le héros bleu, l'ennemi rouge, comme en 1v1. */
+function fillForSide(side: Side): number {
+  return side === "player" ? PLAYER_TOKEN_COLOR : ENEMY_TOKEN_COLOR;
+}
+
+/** Ce qu'un combattant de salle apporte au jeton : sa case, ses PV et son camp. */
+export interface CombatantTokenInput {
+  combatant: CombatantLike;
+  sprite: TokenSprite;
+  active: boolean;
+}
+
+/** Jeton d'un combattant 1vN : même géométrie que le 1v1, couleur par camp. */
+export function combatantTokenView(input: CombatantTokenInput, origin: IsoOrigin): TokenView {
+  const { combatant, sprite, active } = input;
+  const scale = originScale(origin);
+  const base = { id: combatant.id, hp: combatant.hp, maxHp: combatant.maxHp, badge: null, sprite, scale, active };
+  const spec = { ...base, fill: fillForSide(combatant.side), depth: depthOf(combatant.position) };
+  return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }
 
 function barLift(token: TokenView): number {
@@ -232,4 +268,17 @@ function drawToken(graphics: Graphics, token: TokenView): void {
  */
 export function drawTokens(graphics: Graphics, tokens: readonly TokenView[]): void {
   tokens.forEach((token) => drawToken(graphics, token));
+}
+
+function paintActiveRing(graphics: Graphics, token: TokenView): void {
+  graphics.circle(token.center.x, token.center.y, token.radius * ACTIVE_RING_RATIO);
+  graphics.stroke({ width: ACTIVE_RING_WIDTH * token.scale, color: ACTIVE_RING, alpha: 1 });
+}
+
+/**
+ * Anneau doré du combattant actif, peint **sous** les acteurs : il enlace la
+ * case du jeton même quand une feuille de sprite le recouvre.
+ */
+export function drawActiveRings(graphics: Graphics, tokens: readonly TokenView[]): void {
+  tokens.filter((token) => token.active).forEach((token) => paintActiveRing(graphics, token));
 }

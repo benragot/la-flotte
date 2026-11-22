@@ -6,13 +6,17 @@ import { describe, expect, it } from "vitest";
 import { initExploration } from "../../src/engine/exploration";
 import type { ExplorationState } from "../../src/engine/exploration";
 import { parseAsciiMap } from "../../src/engine/grid";
+import type { BattleState } from "../../src/engine/multiCombat";
 import { buildExplorationViewModel } from "../../src/renderer/explorationScene";
 import type { ExplorationView } from "../../src/renderer/explorationScene";
 import { SPRITE_SHEETS } from "../../src/renderer/spriteManifest";
-import { ExplorationJournal, ExplorationStatusOverlay } from "../../src/ui/components/ExplorationOverlay";
+import { ExplorationJournal, ExplorationStatusOverlay, ExplorationStatusSection } from "../../src/ui/components/ExplorationOverlay";
 import { explorationView } from "../../src/ui/explorationView";
 import { isDevOnlyLine, shouldLogMove, visibleExplorationLog } from "../../src/ui/explorationLog";
 import { JOURNAL_PANEL, STATUS_OVERLAY } from "../../src/ui/explorationLayout";
+
+/** Sous-ensemble d'état lu par le bandeau : le rendu statique lit des props pures. */
+type BannerState = Partial<Parameters<typeof ExplorationStatusSection>[0]>;
 
 /** `P` = héros, `M` = groupe : carte minimale, aucune donnée YAML ici. */
 const MAP_ROWS = ["P....", ".....", "..M.."];
@@ -103,6 +107,28 @@ describe("exploration — bandeau d'état en overlay haut-gauche", () => {
     const source = readSource("src/ui/App.tsx");
     expect(source).toContain("<ExplorationStatus />");
     expect(source).not.toContain("Mode Exploration");
+  });
+});
+
+/** Salle ouverte minimale : le portillon du bandeau ne lit que sa présence. */
+const OPEN_BATTLE: BattleState = { turn: 1, order: [], activeIndex: 0, combatants: [], log: [] };
+
+function bannerMarkup(state: BannerState): string {
+  const props = { mapId: "ferraille_plage_01", mode: "exploration" as const, battle: null, ...state };
+  return renderToStaticMarkup(createElement(ExplorationStatusSection, props));
+}
+
+describe("exploration — le bandeau disparaît dès qu'une salle est ouverte", () => {
+  it("n'affiche rien quand `battle` est ouvert, même si `mode` est resté exploration", () => {
+    expect(bannerMarkup({ battle: OPEN_BATTLE })).toBe("");
+  });
+
+  it("n'affiche rien quand le mode n'est plus l'exploration", () => {
+    expect(bannerMarkup({ mode: "combat" })).toBe("");
+  });
+
+  it("affiche le bandeau en exploration pure", () => {
+    expect(bannerMarkup({})).toContain("Mode Exploration");
   });
 });
 

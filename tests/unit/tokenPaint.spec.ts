@@ -34,6 +34,7 @@ function counter(): PaintCounter {
 
 function token(overrides: Partial<TokenView> = {}): TokenView {
   const base: TokenView = {
+    id: "t",
     center: { x: 32, y: 16 },
     radius: 12,
     scale: 1,
@@ -43,6 +44,7 @@ function token(overrides: Partial<TokenView> = {}): TokenView {
     hpRatio: 0.5,
     badge: null,
     depth: 0,
+    active: false,
     ...STATIC_TOKEN_SPRITE,
   };
   return { ...base, ...overrides };

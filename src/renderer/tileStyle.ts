@@ -34,6 +34,11 @@ export const BASE_ALPHA = 1;
 export const GRID_LINE = 0x6b6257;
 export const GRID_LINE_ALPHA = 0.55;
 
+/** Grille cliquable : trait clair, fin, visible par défaut sans manger le décor. */
+export const CELL_OUTLINE = 0xe8dcc8;
+export const CELL_OUTLINE_ALPHA = 0.22;
+export const CELL_OUTLINE_WIDTH = 1;
+
 /** Faces du relief des murs : dessus éclairé, flanc dans l'ombre. */
 export const WALL_TOP = 0x79828c;
 export const WALL_SIDE = 0x3c424a;
