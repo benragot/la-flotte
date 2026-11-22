@@ -2,10 +2,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { monsterSchema, parseMonstersYaml } from "../../src/schemas/monsterSchema";
+import { parseSpellsYaml } from "../../src/schemas/spellSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
 const read = (file: string): string => readFileSync(join(DATA_DIR, file), "utf8");
 const monsters = parseMonstersYaml(read("monsters.yaml"));
+const spells = parseSpellsYaml(read("spells.yaml"));
 
 const baseMonster = {
   id: "monstre_de_test",
@@ -32,6 +34,18 @@ const FERRAILLE = [
 ];
 
 const monsterById = (id: string) => monsters.find((entry) => entry.id === id);
+const spellById = (id: string) => spells.find((spell) => spell.id === id);
+
+describe("sorts de monstres — riposte possible", () => {
+  it("donne à chaque monstre au moins un sort de dégâts réellement déclaré", () => {
+    monsters.forEach((monster) => {
+      expect(monster.spellIds.length, monster.id).toBeGreaterThan(0);
+      monster.spellIds.forEach((spellId) => expect(spellById(spellId), spellId).toBeDefined());
+      const damage = monster.spellIds.filter((spellId) => spellById(spellId)?.kind === "damage");
+      expect(damage.length, monster.id).toBeGreaterThan(0);
+    });
+  });
+});
 
 describe("bestiaire de la Ferraille", () => {
   it("ajoute les cinq monstres de la fiche", () => {
@@ -51,7 +65,7 @@ describe("bestiaire de la Ferraille", () => {
       ap: 6,
       mp: 3,
       baseXp: 120,
-      spellIds: ["bec_mazoute"],
+      spellIds: ["bec_mazoute", "fer_spell_coup_daile_gras"],
     });
     expect(monsterById("piou_mazoute")?.loot).toHaveLength(2);
     expect(monsterById("piou_mazoute")?.loot).toContainEqual({
