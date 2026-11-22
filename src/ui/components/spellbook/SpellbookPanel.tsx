@@ -91,12 +91,7 @@ function SpellList({ spells, selected, onSelect }: SpellListProps) {
 }
 
 function DetailHead({ view }: { view: SpellDetailView }) {
-  return (
-    <header className="flex items-baseline gap-2">
-      <h3 className="text-[12px] font-bold text-[#d4a537]">{view.name}</h3>
-      <span className={DETAIL_META}>{view.id}</span>
-    </header>
-  );
+  return <h3 className="text-[12px] font-bold text-[#d4a537]">{view.name}</h3>;
 }
 
 function FactChip({ row }: { row: SpellDetailRow }) {
@@ -108,7 +103,7 @@ export function SpellDetailBody({ view }: { view: SpellDetailView }) {
   return (
     <div className="flex flex-col gap-1">
       <DetailHead view={view} />
-      <p className={DETAIL_META}>{view.kind} · {view.apCost} PA</p>
+      <p className={DETAIL_META}>{view.kind} · Coût {view.apCost} PA</p>
       <ul className={ROW}>{view.rows.map((row) => <FactChip key={row.key} row={row} />)}</ul>
       <p className={DETAIL_DESCRIPTION}>{view.description}</p>
     </div>
