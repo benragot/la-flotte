@@ -20,7 +20,7 @@ export const levelUpGainSchema = z.object({
 export type XpTierDef = z.infer<typeof xpTierSchema>;
 export type ApRuleDef = z.infer<typeof apRuleSchema>;
 
-const REQUIRED_TIER_COUNT = 20;
+const MIN_TIER_COUNT = 2;
 const FIRST_LEVEL = 1;
 
 type IssueSink = z.RefinementCtx;
@@ -40,8 +40,8 @@ function isAscending(values: readonly number[]): boolean {
 }
 
 function checkTierCount(thresholds: readonly XpTierDef[], ctx: IssueSink): void {
-  if (thresholds.length !== REQUIRED_TIER_COUNT) {
-    addIssue(ctx, ["xpThresholds"], `${REQUIRED_TIER_COUNT} paliers de niveau sont requis`);
+  if (thresholds.length < MIN_TIER_COUNT) {
+    addIssue(ctx, ["xpThresholds"], `${MIN_TIER_COUNT} paliers de niveau minimum sont requis`);
   }
 }
 
@@ -71,6 +71,7 @@ export const progressionFileSchema = z
     xpThresholds: z.array(xpTierSchema).min(1),
     apRules: z.array(apRuleSchema).min(1),
     gainRules: levelUpGainSchema,
+    levelGapFactor: z.number().positive().default(1),
   })
   .superRefine((def, ctx) => {
     checkTierCount(def.xpThresholds, ctx);
