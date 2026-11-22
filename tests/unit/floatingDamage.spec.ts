@@ -138,7 +138,8 @@ describe("moteur — un coup expose un nombre flottant pour la cible", () => {
 
 describe("moteur — soin et tampon borné", () => {
   it("un soin porte kind « heal » et un montant positif", () => {
-    const { floats } = appendFloat({ floats: [] }, { targetId: "hero", amount: 5, kind: "heal" });
+    const empty: readonly FloatingEvent[] = [];
+    const { floats } = appendFloat({ floats: empty }, { targetId: "hero", amount: 5, kind: "heal" });
     expect(floats?.[0]).toMatchObject({ targetId: "hero", amount: 5, kind: "heal" });
     expect(floats?.[0]?.amount).toBeGreaterThan(0);
   });

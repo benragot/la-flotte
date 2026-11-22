@@ -13,10 +13,9 @@ vi.mock("pixi.js", async () => {
   };
 });
 
-const { FLOAT_MS, FLOAT_RISE_PX, floatAlpha, floatLabel, floatOrigin, floatRise, stackOffset } =
+const { FLOAT_EDGE_PADDING, FLOAT_MS, FLOAT_RISE_PX, floatAlpha, floatLabel, floatOrigin, floatRise, floatY, stackOffset } =
   await import("../../src/renderer/floatingText");
 const { FloatingTextLayer } = await import("../../src/renderer/floatingTextLayer");
-const { FakeNode, FakeText } = await import("./support/fakePixi");
 
 /**
  * Le rendu PixiJS n'est pas testable : la position, la montée et l'opacité sont
@@ -84,6 +83,11 @@ describe("texte flottant — étiquettes et trajectoire", () => {
     expect(floatAlpha(FLOAT_MS)).toBe(0);
   });
 
+  it("s'arrête au bord haut du canevas au lieu de sortir de l'écran", () => {
+    expect(floatY(100, FLOAT_MS / 2)).toBe(100 - FLOAT_RISE_PX / 2);
+    expect(floatY(4, FLOAT_MS)).toBe(FLOAT_EDGE_PADDING);
+  });
+
   it("démarre au-dessus du jeton de la cible, jamais dedans", () => {
     const origin = floatOrigin(token("piou-0"));
     expect(origin.y).toBeLessThan(200);
@@ -111,7 +115,7 @@ describe("couche flottante — durée de vie et changement de scène", () => {
 
   it("écrit le libellé signé dans le texte, pas le montant brut", () => {
     const layer = spawn([event({ amount: 12 })]);
-    const text = layer.container.children[0] as InstanceType<typeof FakeText>;
+    const text = layer.container.children[0] as unknown as { text: string };
     expect(text.text).toBe("-12");
   });
 
@@ -123,7 +127,7 @@ describe("couche flottante — durée de vie et changement de scène", () => {
 
   it("détruit tout au changement de carte : aucun texte fantôme", () => {
     const layer = spawn();
-    layer.sync({ events: [event()], tokens: [token("piou-0")], scene: OTHER_MAP });
+    layer.sync({ events: [], tokens: [token("piou-0")], scene: OTHER_MAP });
     expect(layer.busy()).toBe(false);
     expect(layer.container.children).toHaveLength(0);
   });

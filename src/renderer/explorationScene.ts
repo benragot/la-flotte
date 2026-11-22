@@ -80,10 +80,6 @@ function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): Tok
 export function buildExplorationViewModel(input: ExplorationModelInput): ViewModel {
   const exploration = input.exploration;
   const origin = sceneOrigin(gridSizeOf(exploration), input.viewport);
-  return {
-    scene: explorationScene(exploration, origin),
-    tokens: explorationTokens(exploration, origin),
-    path: [],
-    lastAction: null,
-  };
+  const header = { floats: [], sceneKey: exploration.map ?? null };
+  return { ...header, scene: explorationScene(exploration, origin), tokens: explorationTokens(exploration, origin), path: [], lastAction: null };
 }

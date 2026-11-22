@@ -1,4 +1,5 @@
 import type { Position } from "../engine/grid";
+import type { FloatingEvent } from "../engine/combat";
 import type { BattleState, CombatantLike } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat";
 import type { GridSize, IsoOrigin } from "./gridProjection";
@@ -30,6 +31,10 @@ export interface BattleSceneView {
   lastAction: null;
   /** Combattant dont c'est le tour, tel que `activeCombatant` le désigne. */
   activeId: string | null;
+  /** Nombres flottants du moteur, consommés par la couche de rendu. */
+  floats: readonly FloatingEvent[];
+  /** Identité de la grille : un changement de carte annule les nombres en vol. */
+  sceneKey: object | null;
 }
 
 const NO_HIGHLIGHT: GridHighlight = { move: new Set(), cast: new Set(), hover: null };
@@ -89,5 +94,6 @@ export function buildBattleViewModel(input: BattleSceneInput): BattleSceneView {
   const tokens = input.battle.combatants.map((entry) => tokenFor(context, entry));
   const scene = battleScene(input.battle, origin);
   const activeId = activeIdOf(input.battle);
-  return { scene, tokens, path: [], lastAction: null, activeId };
+  const floats = input.battle.floats ?? [];
+  return { scene, tokens, path: [], lastAction: null, activeId, floats, sceneKey: input.battle.map ?? null };
 }

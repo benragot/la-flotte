@@ -1,5 +1,5 @@
 import type { Element, SpellDef } from "../../schemas/spellSchema";
-import type { SpellUsageMap } from "../combat";
+import type { FloatingEvent, SpellUsageMap } from "../combat";
 import type { LevelUpGain } from "../economy";
 import type { AsciiMap, Position } from "../grid";
 
@@ -65,4 +65,6 @@ export interface CombatState {
   rewards: CombatRewards | null;
   /** Quotas `castsPerTurn`/`cooldown` par lanceur et par sort, portés par le combat. */
   spellUsage?: SpellUsageMap;
+  /** Derniers coups reçus, bornés : le rendu anime ce qu'il n'a pas encore vu. */
+  floats?: readonly FloatingEvent[];
 }

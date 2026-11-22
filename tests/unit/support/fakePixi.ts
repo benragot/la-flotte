@@ -15,8 +15,17 @@ export interface AnimatedLike {
 
 export class FakeNode {
   children: FakeNode[] = [];
-  position = { set: (): void => undefined };
+  position = {
+    x: 0,
+    y: 0,
+    set(this: { x: number; y: number }, x = 0, y = 0): void {
+      this.x = x;
+      this.y = y;
+    },
+  };
   scale = { x: 1 };
+  alpha = 1;
+  eventMode: string | undefined;
 
   addChild(child: FakeNode): FakeNode {
     this.children.push(child);

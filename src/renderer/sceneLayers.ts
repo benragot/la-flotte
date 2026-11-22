@@ -4,6 +4,7 @@ import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import type { DecorView } from "./decor";
 import { drawDecor } from "./decorPaint";
+import { FloatingTextLayer } from "./floatingTextLayer";
 import type { LabelBounds, TokenLabel } from "./labels";
 import {
   LABEL_FILL,
@@ -31,6 +32,7 @@ interface SceneLayers {
   actors: ActorStage;
   hpBars: Graphics;
   labels: Container;
+  floats: FloatingTextLayer;
 }
 
 /** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
@@ -45,15 +47,16 @@ const LAYERS = new WeakMap<Application, SceneLayers>();
 function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const graphics = { grid: new Graphics(), decor: new Graphics(), decorAbove: new Graphics() };
   const moreGraphics = { highlights: new Graphics(), path: new Graphics(), tokens: new Graphics(), hpBars: new Graphics() };
-  return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container() };
+  const floats = new FloatingTextLayer();
+  return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container(), floats };
 }
 
 function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const existing = LAYERS.get(app);
   if (existing !== undefined) return existing;
   const created = createLayers(sheets);
-  const { grid, decor, decorAbove, highlights, path, tokens, actors, hpBars, labels } = created;
-  app.stage.addChild(grid, decor, highlights, path, tokens, actors.container, decorAbove, hpBars, labels);
+  const { grid, decor, decorAbove, highlights, path, tokens, actors, hpBars, labels, floats } = created;
+  app.stage.addChild(grid, decor, highlights, path, tokens, actors.container, decorAbove, hpBars, labels, floats.container);
   LAYERS.set(app, created);
   return created;
 }
@@ -137,14 +140,26 @@ const ANIMATED = new WeakSet<Application>();
 
 /**
  * Une `AnimatedSprite` avance sur le ticker PixiJS : sans boucle de rendu, la
- * frame 0 resterait figée. La boucle n'est démarrée que si la scène contient
- * au moins un acteur à feuille, pour ne pas rendre en continu une scène statique.
+ * frame 0 resterait figée. La boucle n'est démarrée que si la scène a quelque
+ * chose à animer — un acteur à feuille ou un nombre de dégâts en vol.
  */
-function ensureAnimationLoop(app: Application, view: ViewModel, sheets: ReadonlySet<string>): void {
-  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, sheets).length === view.tokens.length) return;
+function ensureAnimationLoop(app: Application, view: ViewModel, layers: SceneLayers): void {
+  if (ANIMATED.has(app) || !animates(view, layers)) return;
   ANIMATED.add(app);
-  app.ticker.add(() => app.render());
+  app.ticker.add(() => renderFrame(app, layers));
   app.ticker.start();
+}
+
+function animates(view: ViewModel, layers: SceneLayers): boolean {
+  const withSheet = view.tokens.length - tokensNeedingCircle(view.tokens, layers.actors.sheetIds).length;
+  return withSheet > 0 || layers.floats.busy();
+}
+
+/** Une image : âge les nombres flottants puis rend. Aucune horloge implicite n'est créée. */
+function renderFrame(app: Application, layers: SceneLayers): void {
+  if (!isApplicationAlive(app)) return;
+  layers.floats.advance(app.ticker.lastTime);
+  app.render();
 }
 
 function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): DecorView[] {
@@ -178,13 +193,20 @@ function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: num
   drawActorLayers(layers, view, viewport);
 }
 
+/** Les nombres flottants arrivent du modèle tel quel : la couche ne recalcule rien. */
+function syncFloats(layers: SceneLayers, view: ViewModel): void {
+  const { floats = [], sceneKey, tokens } = view;
+  layers.floats.sync({ events: floats, tokens, scene: sceneKey });
+}
+
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
 export function renderScene(app: Application, view: ViewModel, sheets: readonly SpriteSheetSpec[] = []): void {
   if (!isApplicationAlive(app)) return;
   const layers = layersFor(app, sheets);
   clearLayers(layers);
   drawLayers(layers, view, app.screen);
+  syncFloats(layers, view);
   layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
-  ensureAnimationLoop(app, view, layers.actors.sheetIds);
+  ensureAnimationLoop(app, view, layers);
   app.render();
 }
