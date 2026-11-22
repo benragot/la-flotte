@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 16
+  version: 17
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -284,20 +284,21 @@ waves:
             notes: squash f6a113e — panneau 1vN câblé au store
           - id: 5C-b
             title: Sorts des monstres de la Ferraille (données)
-            status: needs_review
+            status: done
             pr: 46
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: sorts monstres livrés en revue sur #46 ; la riposte reste à câbler en 5C-c
+            notes: squash 32ae2a3 — sorts monstres posés dans `data/spells.yaml`
           - id: 5C-c
             title: "Câbler `battleEnemyTurn` : les ennemis ripostent"
-            status: todo
+            status: done
+            pr: 48
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
             depends_on: [5C-b, 5C-a]
-            notes: la riposte existe dans le store ; le panneau ne l'appelle pas encore
+            notes: squash 74e739d — riposte câblée avec les vrais sorts ; D61 (avertissement de non-riposte) devient caduque
           - id: 5C-d
             title: "Portée et ligne de vue : `map` dans `BattleState`"
             status: todo
@@ -333,16 +334,97 @@ waves:
       - id: 6A
         title: Modules Fruits d'Écho et sorts avancés
         status: todo
-        tasks: []
+        tasks:
+          - id: 6A-effects-schema
+            title: Schéma des effets de sorts, gardes inertes et migration duration → durationTurns (11 occurrences)
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: docs/design/specs/effects-engine.md §2 et §6 — schéma seul ; castSpell et getCastableCells refusent les nouveaux kind sans dépenser de PA
+          - id: 6A-timed-effects
+            title: Durées d'effets, max PA/PM dérivés et armure dérivée par source
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6A-effects-schema]
+            notes: docs/design/specs/effects-engine.md §1.5, §1.8 et PR2
+          - id: 6A-apmp-retrait
+            title: Retrait PA/PM séquentiel — formule Sagesse bornée 10–90 %
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6A-timed-effects]
+            notes: docs/design/specs/effects-engine.md §1.1 et PR3
+          - id: 6A-heal-armor
+            title: Soin (Intelligence, cap PV) et absorption d'armure avant %res
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6A-timed-effects]
+            notes: docs/design/specs/effects-engine.md §1.2, §1.3 et PR4
       - id: 6B
         title: Intégration Fruits d'Écho et AoE
         status: todo
+        tasks:
+          - id: 6B-zone-geometry
+            title: Géométrie des zones (croix, cercle), murs non tronquants et LoS du centre
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6A-timed-effects]
+            notes: docs/design/specs/effects-engine.md §1.4 et PR5 — croix 1 et cercle 1 font 5 cases
+          - id: 6B-cast-riders
+            title: Intégration des riders et des 7 sorts (dont jet_de_vapeur et pluie_de_rivets en zone)
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6A-apmp-retrait, 6A-heal-armor, 6B-zone-geometry]
+            notes: docs/design/specs/effects-engine.md §2.5 et PR6 — Crachat, Grignotage, Serrage, Tôle, Graissage, Jet, Pluie
       - id: 6C
-        title: UI archipel et Fruits d'Écho
+        title: Moteur de poussée, liste de combattants et UI archipel
         status: todo
+        tasks:
+          - id: 6C-push-fidelity
+            title: Fidélité de la poussée — diagonale, distance non parcourue, RéPou
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: docs/design/specs/effects-engine.md §1.7 et PR7 — mur immédiat = distance complète
+          - id: 6C-combatants-list
+            title: "`CombatState` → `combatants[]` avec adaptateur 1v1"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6C-push-fidelity]
+            notes: docs/design/specs/effects-engine.md PR8a — aucune assertion combatLoop modifiée
       - id: 6D
         title: Wiring archipel complet
         status: todo
+        tasks:
+          - id: 6D-summon
+            title: "`soupe_a_lhuile` (soin allié) et `appel_a_la_casse` (invocation max 2)"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [6B-cast-riders, 6C-combatants-list]
+            notes: docs/design/specs/effects-engine.md §1.6 et PR8b — PV scalés par le niveau de l'invocateur
+          - id: 6D-boss-carapace
+            title: Cassure du bouclier de `tole_blindee` sur `#` puis −2 PA
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            depends_on: [6D-summon]
+            notes: docs/design/specs/effects-engine.md PR9 — trigger breakOnWallPush, source = pousseur
   - id: wave-7
     title: Polish visuel/audio, contenu Archipel complet, packaging Mac
     status: todo
@@ -504,11 +586,6 @@ debts:
     severity: low
     target: 5C
     notes: tests/unit/backlog.spec.ts (`DEBT_SEVERITIES`) vs docs/design/backlog.yaml (`meta.statuses`)
-  - id: D61
-    title: "Le panneau de combat ne signale **pas** que les ennemis ne ripostent pas. À corriger **impérativement en 5D**, sinon « Terminer le tour » passera pour un bug."
-    severity: high
-    target: 5D-a
-    notes: src/ui/components/battle/BattlePanel.tsx (aucun avertissement de riposte)
   - id: D62
     title: "`src/renderer/battleViewModel.ts` importe `hpRatio` depuis `src/renderer/tokens.ts` (chaîne typée PixiJS) : un view-model testable headless dépend du rendu."
     severity: low
@@ -524,3 +601,18 @@ debts:
     severity: high
     target: 5C-d
     notes: src/store/useCombatStore.ts (`battleSpellAttack` sans contrôle de portée/LoS) ; src/engine/multiCombat/strike.ts (`map` lue seulement pour la poussée) ; src/engine/multiCombat/types.ts (`map` optionnelle)
+  - id: D65
+    title: "`cooldown` et `castsPerTurn` ne sont lus par aucun code : la Marmite et Yvon frappent 2×/tour au lieu de 1 et les salles 2-4 sont plus dures que la fiche (pré-existant, identique au chemin héros)"
+    severity: medium
+    target: 6A-effects-schema
+    notes: "aucun consommateur de `cooldown` ni `castsPerTurn` dans src/engine/combatLoop/ et src/store/useCombatStore.ts, alors que data/spells.yaml les déclare ; à traiter avec la lecture des effets"
+  - id: D66
+    title: "Le Piou ne joue jamais `coup_daile_gras` (Air + poussée) : `bec_mazoute` et lui coûtent tous deux 3 PA, le tie-break « moins cher puis premier de spellIds » garde `bec_mazoute` — `agility` et `pushCells` restent inutilisés"
+    severity: medium
+    target: 6B-cast-riders
+    notes: "sélection d'IA trop naïve (premier sort payable) ; `coup_daile_gras` n'est jamais choisi, la fidélité Air/poussée du Piou passera par les riders et la poussée corrigée"
+  - id: D67
+    title: "Le donjon `fer_donjon_casse_vis_sans_fin` est `recommendedLevel: 16` mais rien ne gate l'entrée : la clé se craft dès le niveau 1 (`craftLevel` inerte, D57) et un héros niveau 1 y meurt en 2 tours"
+    severity: medium
+    target: 5D-a
+    notes: "`recommendedLevel: 16` n'est vérifié nulle part à l'entrée — attente de design à écrire (message d'avertissement au lancement de salle, ou gate par niveau) ; dépend de 5D-a et de D57"
