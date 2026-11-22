@@ -18,9 +18,11 @@ function zeroResistances(): CombatResistances {
   return { flat: { ...NO_ELEMENT_RES }, percent: { ...NO_ELEMENT_RES } };
 }
 
+/** 1 Vitalité = +1 PV (1.29) ; un héros pleine vie le reste, un blessé ne se soigne pas. */
 function hpPool(hero: Hero, stats: TotalStats) {
-  const maxHp = hero.maxHp + stats.hp;
-  return { hp: Math.min(hero.hp, maxHp), maxHp };
+  const maxHp = hero.maxHp + stats.hp + stats.vitality;
+  const hp = hero.hp === hero.maxHp ? maxHp : Math.min(hero.hp, maxHp);
+  return { hp, maxHp };
 }
 
 function apPool(hero: Hero, stats: TotalStats) {
