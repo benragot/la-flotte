@@ -30,7 +30,19 @@ permissions:
     resource: game-designer
     effect: allow
   - action: subagent
+    resource: map-designer
+    effect: allow
+  - action: subagent
+    resource: render-designer
+    effect: allow
+  - action: subagent
+    resource: ui-designer
+    effect: allow
+  - action: subagent
     resource: tdd-coder
+    effect: allow
+  - action: subagent
+    resource: ci-runner
     effect: allow
   - action: subagent
     resource: qa-reviewer
