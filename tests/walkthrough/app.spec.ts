@@ -8,8 +8,8 @@ import { getMonsterGroupAt } from "../../src/engine/exploration";
 import type { ExplorationState } from "../../src/engine/exploration";
 import { findPath, samePosition } from "../../src/engine/grid";
 import type { Position } from "../../src/engine/grid";
-import { addItem, getActiveSetBonuses } from "../../src/engine/inventory";
-import type { ActiveSetBonus } from "../../src/engine/inventory";
+import { totalStatsFor } from "../../src/engine/hero/totalStats";
+import { countItem } from "../../src/engine/inventory";
 import type { StorageLike } from "../../src/engine/save";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import { parseSetsYaml } from "../../src/schemas/setSchema";
@@ -21,7 +21,6 @@ const HERO = { name: "Anselme", classId: "iop" };
 const PLAYER_SPELL_ID = "pression";
 const FREE_CELL = { x: 4, y: 3 };
 const GROUP_CELL = { x: 5, y: 9 };
-const SET_PIECES = ["chapeau_piou_mazoute", "cape_graisseuse"];
 const MAX_TURNS = 40;
 const FIXED_RNG = () => 0;
 const APP_PATH = "src/ui/App.tsx";
@@ -107,23 +106,21 @@ function playToVictory(): CombatState {
   throw new Error("victoire non atteinte dans la borne dure");
 }
 
-function addToBag(itemId: string): void {
-  useGameStore.setState((state) => ({
-    inventory: addItem({ inventory: state.inventory, itemId, quantity: 1 }),
-  }));
-}
-
-function wearPieces(itemIds: readonly string[]): void {
-  itemIds.forEach((itemId) => addToBag(itemId));
-  itemIds.forEach((itemId) => useGameStore.getState().equip({ itemId }));
-}
-
-function activeBonuses(): ActiveSetBonus[] {
-  const options = {
+function catalogue() {
+  return {
     items: parseItemsYaml(readData("items.yaml")),
     sets: parseSetsYaml(readData("sets.yaml")),
   };
-  return getActiveSetBonuses({ ...options, inventory: useGameStore.getState().inventory });
+}
+
+function heroOrThrow() {
+  const { hero } = useGameStore.getState();
+  if (hero === null) throw new Error("héros persistant absent");
+  return hero;
+}
+
+function totalStrength(): number {
+  return totalStatsFor({ hero: heroOrThrow(), inventory: useGameStore.getState().inventory, ...catalogue() }).strength;
 }
 
 const storage = new MemoryStorage();
@@ -175,11 +172,14 @@ describe("assemblage : création, exploration et combat", () => {
 });
 
 describe("assemblage : équipement et sauvegarde", () => {
-  it("équipe deux pièces et active le premier palier de panoplie", () => {
-    wearPieces(SET_PIECES);
-    const bonuses = activeBonuses();
-    expect(bonuses.length).toBeGreaterThan(0);
-    expect(bonuses[0]?.activePieces).toBe(2);
+  it("équipe le gourdin du kit de départ depuis le sac et les stats changent", () => {
+    const before = totalStrength();
+    expect(countItem(useGameStore.getState().inventory, "gourdin_du_matelot")).toBe(1);
+    useGameStore.getState().equip({ itemId: "gourdin_du_matelot" });
+    const { inventory } = useGameStore.getState();
+    expect(inventory.equipment.weapon).toBe("gourdin_du_matelot");
+    expect(countItem(inventory, "gourdin_du_matelot")).toBe(0);
+    expect(totalStrength()).toBeGreaterThan(before);
   });
 
   it("recharge héros, niveau, inventaire et équipement à l'identique", () => {

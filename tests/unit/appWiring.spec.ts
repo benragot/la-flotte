@@ -36,4 +36,10 @@ describe("aiguillage de App", () => {
     expect(source).toMatch(/loadGame/);
     expect(source).toMatch(/useArenaBootstrap\(hero !== null\)/);
   });
+
+  it("appelle réellement appScreen depuis App, sans if en dur", () => {
+    const source = readSource(APP_PATH);
+    expect(source).toContain("appScreen(");
+    expect(source).not.toContain('if (hero === null) return <CreationScreen />');
+  });
 });

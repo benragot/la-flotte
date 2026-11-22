@@ -83,6 +83,13 @@ function equipPieces(itemIds: readonly string[]): InventoryState {
   );
 }
 
+/** Ids du kit de départ, lus depuis le catalogue YAML (jamais en dur dans `src/`). */
+function startingItemIds(): string[] {
+  return items
+    .filter((item) => item.category === "equipment" && item.starting)
+    .map((item) => item.id);
+}
+
 function createHeroInStore(name = "Anselme"): Hero {
   useGameStore.getState().createCharacter({ name, classId: "iop" });
   const { hero } = useGameStore.getState();
@@ -107,14 +114,33 @@ afterEach(() => {
 });
 
 describe("useGameStore — création de personnage", () => {
-  it("crée un héros niveau 1 avec un sac et des drapeaux vides", () => {
+  it("crée un héros niveau 1 avec des drapeaux vides", () => {
     const hero = createHeroInStore();
     const state = useGameStore.getState();
     expect(hero.level).toBe(1);
     expect(hero.classId).toBe("iop");
     expect(hero.xp).toBe(0);
-    expect(state.inventory).toEqual({ stacks: [], equipment: {} });
     expect(state.flags).toEqual({});
+  });
+
+  it("sème dans le sac exactement les items marqués starting, quantité 1", () => {
+    createHeroInStore();
+    const startingIds = startingItemIds();
+    const expected = startingIds.map((itemId) => ({ itemId, quantity: 1 }));
+    expect(startingIds).toHaveLength(2);
+    expect(useGameStore.getState().inventory).toEqual({ stacks: expected, equipment: {} });
+  });
+
+  it("équipe le gourdin du kit de départ et les stats totales suivent", () => {
+    const hero = createHeroInStore();
+    const before = totalStatsFor({ hero, inventory: useGameStore.getState().inventory, items, sets });
+    useGameStore.getState().equip({ itemId: "gourdin_du_matelot" });
+    const { inventory } = useGameStore.getState();
+    expect(inventory.equipment.weapon).toBe("gourdin_du_matelot");
+    expect(countItem(inventory, "gourdin_du_matelot")).toBe(0);
+    const bonus = equipmentItem("gourdin_du_matelot").stats.strength ?? 0;
+    const after = totalStatsFor({ hero, inventory, items, sets });
+    expect(after.strength).toBe(before.strength + bonus);
   });
 
   it("ignore une classe inconnue sans jeter", () => {
@@ -161,9 +187,8 @@ describe("useGameStore — points de capital", () => {
 });
 
 describe("useGameStore — inventaire", () => {
-  it("équipe puis déséquipe une pièce de panoplie", () => {
+  it("équipe puis déséquipe la pièce de panoplie du kit de départ", () => {
     createHeroInStore();
-    addToBag("chapeau_piou_mazoute", 1);
     useGameStore.getState().equip({ itemId: "chapeau_piou_mazoute" });
     expect(useGameStore.getState().inventory.equipment.hat).toBe("chapeau_piou_mazoute");
     expect(countItem(useGameStore.getState().inventory, "chapeau_piou_mazoute")).toBe(0);
