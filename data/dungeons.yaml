@@ -1,8 +1,7 @@
 # Donjons (Vague 5A).
 # Une salle = une map de `data/maps.yaml` ; `roomNumber` est consécutif à partir
 # de 1 et la dernière salle est l'unique `isBossRoom: true`.
-# D48 : `keyItemId` référence la clef prévue par la fiche ; l'item arrivera dans
-# `data/items.yaml` dès que `itemSchema` connaîtra la catégorie `key` (cible 5B).
+# La clé est livrée (data/items.yaml, category: key). D48 soldée.
 dungeons:
   - id: fer_donjon_casse_vis_sans_fin
     name: "La Casse aux Vis-Sans-Fin"
