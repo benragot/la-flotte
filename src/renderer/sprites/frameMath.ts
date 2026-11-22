@@ -4,15 +4,21 @@
  * Aucune dépendance PixiJS ni DOM : testable en Node.
  */
 
-/** Côté d'une cellule de feuille, en pixels. */
+/** Côté d'une cellule de feuille, en pixels : valeur par défaut du format 1.29. */
 export const SPRITE_FRAME_SIZE = 64;
-/** Nombre de colonnes (frames) par animation. */
-export const SPRITE_COLUMNS = 4;
 
 /** Nombre de frames d'une animation, pour `animationFrames`. */
 export interface AnimationCount {
   row: number;
   frames: number;
+}
+
+/** Une animation telle que la décrit le manifeste, avec la taille réelle de ses cellules. */
+export interface AnimationLayout {
+  row: number;
+  frames: number;
+  frameWidth: number;
+  frameHeight: number;
 }
 
 /** Cellule source d'une frame dans la feuille. */
@@ -41,10 +47,14 @@ function columns(count: number): number[] {
   return Array.from({ length: count }, (_, column) => column);
 }
 
-/** Les `frames` rectangles d'une ligne, colonnes 0 à n-1. */
+/** Les `frames` rectangles d'une ligne, colonnes 0 à n-1, à la taille de cellule déclarée. */
+export function animationRects(layout: AnimationLayout): FrameRect[] {
+  return columns(layout.frames).map((column) => frameRect({ ...layout, column }));
+}
+
+/** Variante historique du format 1.29 : cellules carrées de 64 px. */
 export function animationFrames(animation: AnimationCount): FrameRect[] {
-  const size = { frameWidth: SPRITE_FRAME_SIZE, frameHeight: SPRITE_FRAME_SIZE };
-  return columns(animation.frames).map((column) => frameRect({ ...animation, ...size, column }));
+  return animationRects({ ...animation, frameWidth: SPRITE_FRAME_SIZE, frameHeight: SPRITE_FRAME_SIZE });
 }
 
 /** Index borné circulairement : `-1` → dernière frame, `frames` → première. */

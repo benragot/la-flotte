@@ -55,7 +55,7 @@ export class ActorStage {
     const spec = this.specFor(token.spriteId);
     if (spec === undefined) return null;
     const actor = this.actors.get(spec.entityId) ?? this.createActor(spec, token.fill);
-    const frames = ensureSpriteSheet(spec.path, () => this.notify());
+    const frames = ensureSpriteSheet(spec, () => this.notify());
     if (frames !== null) actor.setFrames(frames);
     return actor;
   }
