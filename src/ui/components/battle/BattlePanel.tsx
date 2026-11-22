@@ -3,6 +3,7 @@ import { isDefeat } from "../../../engine/multiCombat";
 import type { BattleCombatantView } from "../../../renderer/battleViewModel";
 import { battleViewModel, shouldRenderBattle } from "../../../renderer/battleViewModel";
 import { useCombatStore } from "../../../store/useCombatStore";
+import { useEscapeClose } from "../../useEscapeClose";
 import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
 import { closeBattle } from "./closeBattle";
 import { CombatantList } from "./CombatantList";
@@ -97,6 +98,9 @@ function BattleChrome({ battle, views, handlers }: BattleChromeProps) {
 export function BattleSections({ battle }: { battle: BattleState }) {
   const views = battleViewModel(battle);
   const handlers = useBattleHandlers();
+  // Échap emprunte la **seule** sortie du panneau : `closeBattle` reporte la
+  // victoire ou abandonne la salle, donc jamais un combat orphelin.
+  useEscapeClose(() => handlers.close(battle));
   return <BattleChrome battle={battle} views={views} handlers={handlers} />;
 }
 
