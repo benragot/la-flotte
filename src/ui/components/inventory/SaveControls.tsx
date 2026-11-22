@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useGameStore } from "../../../store/useGameStore";
-import { FIELD, HEADING, ROW, SMALL_BUTTON } from "./inventoryTheme";
+import { FIELD, HEADING, ROW, SMALL_BUTTON, TEXT_KO, TEXT_OK } from "./inventoryTheme";
 
 interface ImportState {
   raw: string;
@@ -13,10 +13,8 @@ interface ImportApi {
   submit: () => void;
 }
 
-const NOTICE_TONE = { ok: "text-[#4a8c4a]", ko: "text-[#b83b3b]" };
-
 function noticeClass(ok: boolean): string {
-  return ok ? NOTICE_TONE.ok : NOTICE_TONE.ko;
+  return ok ? TEXT_OK : TEXT_KO;
 }
 
 /** Retour visuel booléen : « réussie » / « refusée », rien avant le premier essai. */
