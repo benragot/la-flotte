@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { StoreApi } from "zustand";
 import mapsYaml from "../../data/maps.yaml";
 import monstersYaml from "../../data/monsters.yaml";
 import progressionYaml from "../../data/progression.yaml";
@@ -20,21 +21,33 @@ import {
   respawnMonsterGroup,
 } from "../engine/exploration";
 import type { ExplorationState, MonsterGroup, MonsterSpawn } from "../engine/exploration";
+import { roomMonsters } from "../engine/dungeon";
+import type { DungeonRoom } from "../engine/dungeon";
+import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
 import { combatantFromHero } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
+import { buildTimeline } from "../engine/multiCombat";
+import type { AttackSpec, BattleState, EnemyStrategy } from "../engine/multiCombat";
 import { mapsFileSchema } from "../schemas/mapSchema";
 import { monstersFileSchema } from "../schemas/monsterSchema";
+import type { MonsterDef } from "../schemas/monsterSchema";
 import { progressionFileSchema } from "../schemas/progressionSchema";
 import type { ProgressionDef } from "../schemas/progressionSchema";
 import { spellsFileSchema } from "../schemas/spellSchema";
+import { battleAttack as resolveBattleAttack, battleEnemyTurn as resolveBattleEnemyTurn } from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 
 export type CombatMode = "exploration" | "combat";
 
 interface CombatStore {
   combat: CombatState | null;
+  /**
+   * NOUVEAU (5B) : combat 1vN de `multiCombat`, alimenté par les donjons.
+   * Champ **additif** : `combat` reste la seule source du HUD et du canvas.
+   */
+  battle: BattleState | null;
   /** Écran courant : exploration libre de la carte ou combat engagé. */
   mode: CombatMode;
   exploration: ExplorationState | null;
@@ -51,12 +64,18 @@ interface CombatStore {
   setHoveredCell: (pos: Position | null) => void;
   clickCell: (pos: Position) => void;
   endTurn: () => void;
+  startDungeonRoom: (input: { room: DungeonRoom }) => void;
+  battleAttack: (input: { targetId: string; attack: AttackSpec }) => void;
+  battleEnemyTurn: (input: { strategy: EnemyStrategy }) => void;
+  endBattle: () => void;
 }
 
 const DEMO_HERO_NAME = "Balthazar";
 const DEMO_CLASS_ID = "iop";
 const DEMO_MAP_ID = "ferraille_plage_01";
 const DEMO_MONSTER_ID = "piou_mazoute";
+/** Placement de départ du héros en 1vN ; le placement des N ennemis viendra en 5C. */
+const BATTLE_ORIGIN: Position = { x: 0, y: 0 };
 
 const maps = mapsFileSchema.parse(mapsYaml).maps;
 const monsters = monstersFileSchema.parse(monstersYaml).monsters;
@@ -210,8 +229,79 @@ function returnUpdate(store: CombatStore): Partial<CombatStore> {
   return defeatReturn(store);
 }
 
+type RoomBattleGroup = { monster: MonsterDef; count: number };
+
+function roomBattleMonsters(room: DungeonRoom): RoomBattleGroup[] {
+  return roomMonsters(room).map((group) => ({ monster: mustFind(monsters, group.monsterId), count: group.count }));
+}
+
+/** Battle d'une salle : héros persistant + `count` copies de chaque monstre. */
+function battleFromRoom(room: DungeonRoom): BattleState {
+  const hero = heroBattleCombatant({ combatant: playerFor(demoHero(), BATTLE_ORIGIN) });
+  const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters: roomBattleMonsters(room) });
+  return { turn: 1, ...buildTimeline(combatants), combatants, log: [`Entrée dans ${room.name}`] };
+}
+
+function battleUpdate(previous: BattleState | null, next: BattleState | null): Partial<CombatStore> {
+  if (previous === next) return {};
+  return { battle: next };
+}
+
+/** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */
+function attackUpdate(store: CombatStore, input: { targetId: string; attack: AttackSpec }): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null) return {};
+  return battleUpdate(state, resolveBattleAttack({ state, rng: Math.random, ...input }));
+}
+
+function enemyTurnUpdate(store: CombatStore, strategy: EnemyStrategy): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null) return {};
+  return battleUpdate(state, resolveBattleEnemyTurn({ state, strategy, rng: Math.random }));
+}
+
+type StoreSetter = StoreApi<CombatStore>["setState"];
+
+type MapActions = Pick<
+  CombatStore,
+  "startDemoCombat" | "startExploration" | "returnToMap" | "selectSpell" | "setHoveredCell" | "clickCell" | "endTurn"
+>;
+
+function mapStartActions(set: StoreSetter) {
+  return {
+    startDemoCombat: () => set(demoUpdate()),
+    startExploration: () => set(explorationStartUpdate()),
+    returnToMap: () => set((store) => returnUpdate(store)),
+    endTurn: () => set(endTurnAction),
+  };
+}
+
+function mapClickActions(set: StoreSetter) {
+  return {
+    selectSpell: (spellId: string | null) => set({ selectedSpellId: spellId }),
+    setHoveredCell: (hoveredCell: Position | null) => set({ hoveredCell }),
+    clickCell: (pos: Position) => set((store) => clickUpdate(store, pos)),
+  };
+}
+
+function mapActions(set: StoreSetter): MapActions {
+  return { ...mapStartActions(set), ...mapClickActions(set) };
+}
+
+type BattleActions = Pick<CombatStore, "startDungeonRoom" | "battleAttack" | "battleEnemyTurn" | "endBattle">;
+
+function battleActions(set: StoreSetter): BattleActions {
+  return {
+    startDungeonRoom: (input: { room: DungeonRoom }) => set({ battle: battleFromRoom(input.room) }),
+    battleAttack: (input: { targetId: string; attack: AttackSpec }) => set((store) => attackUpdate(store, input)),
+    battleEnemyTurn: (input: { strategy: EnemyStrategy }) => set((store) => enemyTurnUpdate(store, input.strategy)),
+    endBattle: () => set({ battle: null }),
+  };
+}
+
 const DEFAULT_STATE = {
   combat: null,
+  battle: null,
   mode: "exploration",
   exploration: null,
   activeGroup: null,
@@ -221,7 +311,17 @@ const DEFAULT_STATE = {
   rewards: null,
 } satisfies Omit<
   CombatStore,
-  "startDemoCombat" | "startExploration" | "returnToMap" | "selectSpell" | "setHoveredCell" | "clickCell" | "endTurn"
+  | "startDemoCombat"
+  | "startExploration"
+  | "returnToMap"
+  | "selectSpell"
+  | "setHoveredCell"
+  | "clickCell"
+  | "endTurn"
+  | "startDungeonRoom"
+  | "battleAttack"
+  | "battleEnemyTurn"
+  | "endBattle"
 >;
 
 function demoUpdate(): Partial<CombatStore> {
@@ -242,13 +342,8 @@ function endTurnAction(store: CombatStore): Partial<CombatStore> {
 
 export const useCombatStore = create<CombatStore>((set) => ({
   ...DEFAULT_STATE,
-  startDemoCombat: () => set(demoUpdate()),
-  startExploration: () => set(explorationStartUpdate()),
-  returnToMap: () => set((store) => returnUpdate(store)),
-  selectSpell: (spellId) => set({ selectedSpellId: spellId }),
-  setHoveredCell: (hoveredCell) => set({ hoveredCell }),
-  clickCell: (pos) => set((store) => clickUpdate(store, pos)),
-  endTurn: () => set(endTurnAction),
+  ...mapActions(set),
+  ...battleActions(set),
 }));
 
 export type { CombatStore };
