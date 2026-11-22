@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeApMpLossChance,
+  computeCritRate,
   computeDamage,
   computePushbackDamage,
   computeTackleEscapePercent,
@@ -11,6 +12,7 @@ import {
   advanceTurn,
   buildTimeline,
   enemiesAct,
+  isCritical,
   isDefeat,
   isVictory,
   resolveAttack,
@@ -18,6 +20,7 @@ import {
   targetsOf,
 } from "../../src/engine/multiCombat";
 import type {
+  AsciiMap,
   AttackSpec,
   BattleState,
   CombatantLike,
@@ -27,6 +30,11 @@ import type {
 
 const STATS = { strength: 100, intelligence: 60, chance: 40, agility: 100, wisdom: 80 };
 const LEVEL = 10;
+const ZERO: Record<string, number> = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
+
+function resistances(earthPercent = 0, earthFlat = 0) {
+  return { flat: { ...ZERO, earth: earthFlat }, percent: { ...ZERO, earth: earthPercent } };
+}
 
 function makeCombatant(overrides: Partial<CombatantLike> = {}): CombatantLike {
   return {
@@ -42,6 +50,7 @@ function makeCombatant(overrides: Partial<CombatantLike> = {}): CombatantLike {
     maxMp: 3,
     position: { x: 0, y: 0 },
     stats: { ...STATS },
+    resistances: resistances(),
     initiative: 50,
     ...overrides,
   };
@@ -99,13 +108,34 @@ function duel(overrides: DuelOverrides = {}): { player: CombatantLike; enemy: Co
 const adjacentDuel = () =>
   duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 2, y: 1 } } });
 
-const WALL_MAP = parseAsciiMap([".....", "...#."]);
-const FREE_MAP = parseAsciiMap([".....", "....."]);
+const OPEN_MAP: AsciiMap = parseAsciiMap([".......", ".......", "......."]);
+const WALL_FIRST_MAP: AsciiMap = parseAsciiMap([".......", "...#...", "......."]);
+const WALL_SECOND_MAP: AsciiMap = parseAsciiMap([".......", "....#..", "......."]);
 
-function pushState(map: typeof WALL_MAP): BattleState {
+function pushState(map: AsciiMap): BattleState {
   const attacker = makeCombatant({ id: "p1", side: "player", initiative: 300, position: { x: 1, y: 1 } });
   const target = makeCombatant({ id: "e1", side: "enemy", initiative: 60, position: { x: 2, y: 1 } });
   return makeState([attacker, target], { map });
+}
+
+function pushedBy(state: BattleState, attack: AttackSpec): BattleState {
+  return resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
+}
+
+const basePushDamage = (attack: AttackSpec): number =>
+  computeDamage({ base: attack.base, stat: STATS.strength });
+
+function enemyTurnFixture(): BattleState {
+  const player = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 0, y: 0 } });
+  const enemy = makeCombatant({
+    id: "e1",
+    side: "enemy",
+    initiative: 500,
+    position: { x: 9, y: 9 },
+    ap: 100,
+    maxAp: 100,
+  });
+  return makeState([player, enemy]);
 }
 
 describe("buildTimeline", () => {
@@ -170,6 +200,26 @@ describe("advanceTurn", () => {
   });
 });
 
+describe("advanceTurn — bords", () => {
+  it("ne fait rien si l'ordre est vide", () => {
+    const state = makeState([], { order: [], activeIndex: 0 });
+    expect(advanceTurn(state)).toBe(state);
+  });
+
+  it("ne fait rien si tous les combattants sont morts", () => {
+    const { player, enemy } = duel({ player: { hp: 0 }, enemy: { hp: 0 } });
+    const state = makeState([player, enemy]);
+    expect(advanceTurn(state)).toBe(state);
+  });
+
+  it("ne fait rien quand l'actif est le seul vivant", () => {
+    const { player, enemy } = duel({ enemy: { hp: 0 } });
+    const state = makeState([player, enemy]);
+    expect(advanceTurn(state)).toBe(state);
+    expect(advanceTurn(advanceTurn(state)).turn).toBe(1);
+  });
+});
+
 describe("resolveAttack — refus", () => {
   it("refuse un attaquant non actif (même référence)", () => {
     const { player, enemy } = duel();
@@ -191,6 +241,13 @@ describe("resolveAttack — refus", () => {
     const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec(), rng: () => 0.99 });
     expect(next).toBe(state);
   });
+
+  it("refuse l'auto-ciblage sans rembourser les PA", () => {
+    const { player, enemy } = duel();
+    const state = makeState([player, enemy]);
+    const next = resolveAttack({ state, attackerId: "p1", targetId: "p1", attack: attackSpec(), rng: () => 0.99 });
+    expect(next).toBe(state);
+  });
 });
 
 describe("resolveAttack — dégâts", () => {
@@ -199,21 +256,93 @@ describe("resolveAttack — dégâts", () => {
     const state = makeState([player, enemy]);
     const attack = attackSpec();
     const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
-    const expected = computeDamage({ base: attack.base, stat: player.stats.strength, isPlayer: true });
+    const expected = computeDamage({ base: attack.base, stat: player.stats.strength });
     expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
     expect(next.combatants[0]?.ap).toBe(player.ap - attack.apCost);
     expect(next.log).toHaveLength(1);
   });
 
-  it("applique le critique au-delà de 100 de taux avec critDamagePct", () => {
+  it("applique le critique garanti avec le critDamagePct de l'attaque", () => {
     const { player, enemy } = duel();
     const state = makeState([player, enemy]);
-    const attack = attackSpec({ baseCrit: 200 });
+    const attack = attackSpec({ baseCrit: 200, critDamagePct: 50 });
     const rng = countingRng(0);
-    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: rng.rng, critDamagePct: 50 });
+    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: rng.rng });
     const expected = computeDamage({ base: attack.base, stat: player.stats.strength, percentDmg: 50 });
     expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
     expect(rng.calls()).toBe(0);
+  });
+});
+
+describe("resolveAttack — résistances monstre", () => {
+  it("applique les 80 % d'un monstre sans plafond", () => {
+    const { player, enemy } = duel({ enemy: { resistances: resistances(80) } });
+    const state = makeState([player, enemy]);
+    const attack = attackSpec();
+    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
+    const expected = computeDamage({ base: attack.base, stat: player.stats.strength, pctRes: 80 });
+    expect(expected).toBe(4);
+    expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
+  });
+
+  it("retranche les résistances fixes", () => {
+    const { player, enemy } = duel({ enemy: { resistances: resistances(0, 5) } });
+    const state = makeState([player, enemy]);
+    const attack = attackSpec();
+    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
+    const expected = computeDamage({ base: attack.base, stat: player.stats.strength, flatRes: 5 });
+    expect(expected).toBe(15);
+    expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
+  });
+
+  it("augmente les dégâts sur une faiblesse à -10 %", () => {
+    const { player, enemy } = duel({ enemy: { resistances: resistances(-10) } });
+    const state = makeState([player, enemy]);
+    const attack = attackSpec();
+    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
+    const expected = computeDamage({ base: attack.base, stat: player.stats.strength, pctRes: -10 });
+    expect(expected).toBe(22);
+    expect(expected).toBeGreaterThan(basePushDamage(attack));
+    expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
+  });
+});
+
+describe("resolveAttack — résistances joueur", () => {
+  it("plafonne les 80 % d'un joueur à 50 %", () => {
+    const { player, enemy } = duel({ player: { resistances: resistances(80) } });
+    const state = makeState([player, enemy], { activeIndex: 1 });
+    const attack = attackSpec();
+    const next = resolveAttack({ state, attackerId: "e1", targetId: "p1", attack, rng: () => 0.99 });
+    const expected = computeDamage({ base: attack.base, stat: enemy.stats.strength, pctRes: 80, isPlayer: true });
+    expect(expected).toBe(10);
+    expect(next.combatants[0]?.hp).toBe(player.hp - expected);
+  });
+});
+
+describe("crit — branche probabiliste", () => {
+  it("tire le critique sous le taux (12 % ici)", () => {
+    const rate = computeCritRate({ baseCrit: 20, bonusCrit: 0, agility: 100 });
+    expect(rate).toBe(12);
+    expect(rate).toBeLessThan(100);
+  });
+
+  it("critique quand rng()×100 < taux, sinon non", () => {
+    const { player, enemy } = duel({ player: { stats: { ...STATS, agility: 100 } } });
+    const state = makeState([player, enemy]);
+    const attack = attackSpec({ baseCrit: 20, critDamagePct: 50 });
+    const crit = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.05 });
+    const normal = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.5 });
+    const critDamage = computeDamage({ base: 10, stat: 100, percentDmg: 50 });
+    const normalDamage = computeDamage({ base: 10, stat: 100 });
+    expect(crit.combatants[1]?.hp).toBe(enemy.hp - critDamage);
+    expect(normal.combatants[1]?.hp).toBe(enemy.hp - normalDamage);
+  });
+
+  it("place la frontière de isCritical entre 99 et 100", () => {
+    expect(isCritical({ baseCrit: 157, agility: 100 })).toBe(false);
+    expect(computeCritRate({ baseCrit: 157, bonusCrit: 0, agility: 100 })).toBe(99);
+    expect(isCritical({ baseCrit: 158, agility: 100 })).toBe(true);
+    expect(computeCritRate({ baseCrit: 158, bonusCrit: 0, agility: 100 })).toBe(100);
   });
 });
 
@@ -228,33 +357,81 @@ describe("resolveAttack — mort et poussée", () => {
     expect(isVictory(next)).toBe(true);
   });
 
-  it("ajoute les dégâts de collision quand la poussée touche un mur", () => {
-    const state = pushState(WALL_MAP);
-    const attack = attackSpec({ pushCells: 1, roll: 20 });
-    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
-    const collision = computePushbackDamage({ casterLevel: LEVEL, roll: 20, remainingCells: 1 });
-    expect(collision).toBeGreaterThan(0);
-    const base = computeDamage({ base: attack.base, stat: STATS.strength, isPlayer: true });
-    expect(next.combatants[1]?.hp).toBe(200 - base - collision);
+  it("pushCells 3 : mur à la 1re case, 0 case parcourue", () => {
+    const attack = attackSpec({ pushCells: 3, roll: 20 });
+    const next = pushedBy(pushState(WALL_FIRST_MAP), attack);
+    const collision = computePushbackDamage({ casterLevel: LEVEL, roll: 20, remainingCells: 0 });
+    expect(collision).toBe(0);
+    expect(next.combatants[1]?.position).toEqual({ x: 2, y: 1 });
+    expect(next.combatants[1]?.hp).toBe(200 - basePushDamage(attack) - collision);
   });
 
-  it("n'ajoute rien quand la poussée est libre", () => {
-    const state = pushState(FREE_MAP);
-    const attack = attackSpec({ pushCells: 1, roll: 20 });
-    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.99 });
-    const base = computeDamage({ base: attack.base, stat: STATS.strength, isPlayer: true });
-    expect(next.combatants[1]?.hp).toBe(200 - base);
+  it("pushCells 3 : mur à la 2e case, 1 case parcourue", () => {
+    const attack = attackSpec({ pushCells: 3, roll: 20 });
+    const next = pushedBy(pushState(WALL_SECOND_MAP), attack);
+    const collision = computePushbackDamage({ casterLevel: LEVEL, roll: 20, remainingCells: 1 });
+    expect(collision).toBeGreaterThan(0);
+    expect(next.combatants[1]?.position).toEqual({ x: 3, y: 1 });
+    expect(next.combatants[1]?.hp).toBe(200 - basePushDamage(attack) - collision);
+  });
+
+  it("pushCells 3 sans obstruction : 3 cases, aucun dégât de collision", () => {
+    const attack = attackSpec({ pushCells: 3, roll: 20 });
+    const next = pushedBy(pushState(OPEN_MAP), attack);
+    expect(next.combatants[1]?.position).toEqual({ x: 5, y: 1 });
+    expect(next.combatants[1]?.hp).toBe(200 - basePushDamage(attack));
   });
 });
 
-describe("resolveTackle — contact", () => {
+describe("resolveTackle — asymétrie du tacle", () => {
+  it("fuyard 0 / tacleur 200 : tacle systématique", () => {
+    const { player, enemy } = duel({
+      player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 0 } },
+      enemy: { position: { x: 2, y: 1 }, stats: { ...STATS, agility: 200 } },
+    });
+    const state = makeState([player, enemy]);
+    expect(computeTackleEscapePercent({ fleeAgility: 0, tackleAgility: 200 })).toBe(0);
+    const result = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0, 0) });
+    expect(result.moved).toBe(false);
+    expect(result.apLoss).toBe(1);
+  });
+
+  it("fuyard 100 / tacleur 0 : esquive systématique", () => {
+    const { player, enemy } = duel({
+      player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 100 } },
+      enemy: { position: { x: 2, y: 1 }, stats: { ...STATS, agility: 0 } },
+    });
+    const state = makeState([player, enemy]);
+    expect(computeTackleEscapePercent({ fleeAgility: 100, tackleAgility: 0 })).toBe(100);
+    const result = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0.99) });
+    expect(result.moved).toBe(true);
+    expect(result.apLoss).toBe(0);
+  });
+
+  it("retient le tacleur le plus agile quand deux adversaires sont adjacents", () => {
+    const { player, enemy } = duel({
+      player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 0 } },
+      enemy: { position: { x: 2, y: 1 }, stats: { ...STATS, agility: 0 } },
+    });
+    const strong = makeCombatant({
+      id: "e0_strong",
+      position: { x: 1, y: 2 },
+      initiative: 10,
+      stats: { ...STATS, agility: 200 },
+    });
+    const state = makeState([enemy, player, strong]);
+    const result = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0.3, 0) });
+    expect(result.moved).toBe(false);
+    expect(result.apLoss).toBe(1);
+  });
+});
+
+describe("resolveTackle — contact et refus", () => {
   it("tacle réussi : déplacement refusé et perte de PA", () => {
     const { player, enemy } = adjacentDuel();
     const state = makeState([player, enemy]);
     const result = resolveTackle({ state, moverId: "p1", move: { x: 0, y: 1 }, rng: sequence(0.99, 0) });
-    const escaped = computeTackleEscapePercent({ fleeAgility: 100, tackleAgility: 100 });
     const lossChance = computeApMpLossChance({ casterWisdom: 80, targetWisdom: 80, remaining: 6, max: 6 });
-    expect(escaped).toBe(50);
     expect(lossChance).toBeGreaterThan(0);
     expect(result.moved).toBe(false);
     expect(result.apLoss).toBe(1);
@@ -271,9 +448,7 @@ describe("resolveTackle — contact", () => {
     expect(result.state.combatants[0]?.position).toEqual({ x: 0, y: 1 });
     expect(result.state.combatants[0]?.ap).toBe(player.ap);
   });
-});
 
-describe("resolveTackle — refus et absence de contact", () => {
   it("sans adversaire adjacent : déplacement libre sans jet", () => {
     const { player, enemy } = duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 5, y: 5 } } });
     const state = makeState([player, enemy]);
@@ -294,6 +469,18 @@ describe("resolveTackle — refus et absence de contact", () => {
   });
 });
 
+describe("actif mort", () => {
+  it("ne peut ni attaquer ni se déplacer", () => {
+    const { player, enemy } = duel();
+    const state = makeState([{ ...player, hp: 0 }, enemy]);
+    const attack = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec(), rng: () => 0.99 });
+    expect(attack).toBe(state);
+    const move = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0) });
+    expect(move.state).toBe(state);
+    expect(move.moved).toBe(false);
+  });
+});
+
 describe("isVictory / isDefeat", () => {
   it("détecte la fin de combat des deux côtés", () => {
     const { player, enemy } = duel();
@@ -304,19 +491,6 @@ describe("isVictory / isDefeat", () => {
     expect(isDefeat(makeState([{ ...player, hp: 0 }, enemy]))).toBe(true);
   });
 });
-
-function enemyTurnFixture(): BattleState {
-  const player = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 0, y: 0 } });
-  const enemy = makeCombatant({
-    id: "e1",
-    side: "enemy",
-    initiative: 500,
-    position: { x: 9, y: 9 },
-    ap: 100,
-    maxAp: 100,
-  });
-  return makeState([player, enemy]);
-}
 
 describe("enemiesAct — bornes", () => {
   it("borne un tour ennemi à 10 actions", () => {
@@ -351,15 +525,11 @@ describe("enemiesAct — bornes", () => {
   });
 });
 
-describe("enemiesAct — arrêt", () => {
+describe("enemiesAct — arrêts", () => {
   it("s'arrête quand l'état ne change plus", () => {
     const state = enemyTurnFixture();
     const broke = { ...state, combatants: state.combatants.map((entry) => ({ ...entry, ap: 0 })) };
-    const strategy = (): EnemyAction => ({
-      kind: "attack",
-      targetId: "p1",
-      attack: attackSpec({ apCost: 3 }),
-    });
+    const strategy = (): EnemyAction => ({ kind: "attack", targetId: "p1", attack: attackSpec({ apCost: 3 }) });
     expect(enemiesAct({ state: broke, rng: () => 0.99, strategy })).toBe(broke);
   });
 
@@ -367,6 +537,45 @@ describe("enemiesAct — arrêt", () => {
     const { player, enemy } = duel();
     const state = makeState([player, enemy]);
     expect(enemiesAct({ state, rng: () => 0, strategy: () => null })).toBe(state);
+  });
+
+  it("ne joue rien si l'ennemi actif est mort", () => {
+    const state = enemyTurnFixture();
+    const dead = { ...state, combatants: state.combatants.map((e) => (e.id === "e1" ? { ...e, hp: 0 } : e)) };
+    let calls = 0;
+    const strategy = (): EnemyAction => {
+      calls += 1;
+      return { kind: "move", to: { x: 8, y: 9 } };
+    };
+    expect(enemiesAct({ state: dead, rng: () => 0, strategy })).toBe(dead);
+    expect(calls).toBe(0);
+  });
+
+  it("s'arrête quand la cible visée est déjà morte", () => {
+    const state = enemyTurnFixture();
+    const dead = { ...state, combatants: state.combatants.map((e) => (e.id === "p1" ? { ...e, hp: 0 } : e)) };
+    let calls = 0;
+    const strategy = (): EnemyAction => {
+      calls += 1;
+      return { kind: "attack", targetId: "p1", attack: attackSpec() };
+    };
+    expect(enemiesAct({ state: dead, rng: () => 0.99, strategy })).toBe(dead);
+    expect(calls).toBe(1);
+  });
+});
+
+describe("enemiesAct — critique ennemi", () => {
+  it("transmet critDamagePct depuis l'action ennemie", () => {
+    const state = enemyTurnFixture();
+    const attack = attackSpec({ baseCrit: 200, critDamagePct: 50 });
+    let calls = 0;
+    const strategy = (): EnemyAction => {
+      calls += 1;
+      return calls === 1 ? { kind: "attack", targetId: "p1", attack } : null;
+    };
+    const next = enemiesAct({ state, rng: () => 0.99, strategy });
+    const expected = computeDamage({ base: attack.base, stat: STATS.strength, percentDmg: 50, isPlayer: true });
+    expect(next.combatants.find((entry) => entry.id === "p1")?.hp).toBe(200 - expected);
   });
 });
 
@@ -376,9 +585,9 @@ describe("immuabilité", () => {
       player: { position: { x: 1, y: 1 } },
       enemy: { position: { x: 2, y: 1 } },
     });
-    const state = makeState([player, enemy]);
+    const state = makeState([player, enemy], { map: WALL_SECOND_MAP });
     const snapshot = structuredClone(state);
-    resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec(), rng: () => 0.99 });
+    resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec({ pushCells: 3 }), rng: () => 0.99 });
     advanceTurn(state);
     resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0.99, 0) });
     enemiesAct({ state, rng: () => 0, strategy: () => null });
