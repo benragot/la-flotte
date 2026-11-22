@@ -55,5 +55,5 @@ export function initExploration(input: InitExplorationInput): ExplorationState {
   const entryPoints = entryPointsOf(input, playerPos);
   const placement = placeGroups({ map: input.map, entryPoints, plan, rng });
   const log = logOf(shortageLine(placement));
-  return { map: input.map, playerPos, monsterGroups: placement.groups, log };
+  return { map: input.map, playerPos, monsterGroups: placement.groups, log, entries: entryPoints, respawns: 0 };
 }
