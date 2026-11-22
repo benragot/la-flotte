@@ -56,6 +56,14 @@ export {
   loadSpriteSheet,
   peekSpriteSheet,
   sheetPlan,
+  WALK_MS_PER_CELL,
+  findWalkPath,
+  interpolatedCell,
+  pathAt,
+  stepProgress,
+  walkField,
+  walkPlan,
+  walkPlanAlong,
 } from "./sprites";
 export type {
   ActorPlacement,
@@ -69,6 +77,10 @@ export type {
   SpriteAnimationName,
   SpriteSheetFrames,
   SpriteSheetSpec,
+  WalkField,
+  WalkPlan,
+  WalkSample,
+  WalkState,
 } from "./sprites";
 export {
   BADGE_RADIUS,

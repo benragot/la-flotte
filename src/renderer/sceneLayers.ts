@@ -17,6 +17,7 @@ import {
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
+import { walkField } from "./sprites/walkPath";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
@@ -140,11 +141,18 @@ const ANIMATED = new WeakSet<Application>();
  * frame 0 resterait figée. La boucle n'est démarrée que si la scène contient
  * au moins un acteur à feuille, pour ne pas rendre en continu une scène statique.
  */
-function ensureAnimationLoop(app: Application, view: ViewModel, sheets: ReadonlySet<string>): void {
-  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, sheets).length === view.tokens.length) return;
+function ensureAnimationLoop(app: Application, layers: SceneLayers, view: ViewModel): void {
+  if (ANIMATED.has(app) || tokensNeedingCircle(view.tokens, layers.actors.sheetIds).length === view.tokens.length) return;
   ANIMATED.add(app);
-  app.ticker.add(() => app.render());
+  app.ticker.add(() => renderFrame(app, layers));
   app.ticker.start();
+}
+
+/** Une image : glissements des acteurs puis rendu. Aucune horloge implicite n'est créée. */
+function renderFrame(app: Application, layers: SceneLayers): void {
+  if (!isApplicationAlive(app)) return;
+  layers.actors.advance(app.ticker.lastTime);
+  app.render();
 }
 
 function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): DecorView[] {
@@ -184,7 +192,8 @@ export function renderScene(app: Application, view: ViewModel, sheets: readonly 
   const layers = layersFor(app, sheets);
   clearLayers(layers);
   drawLayers(layers, view, app.screen);
-  layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
-  ensureAnimationLoop(app, view, layers.actors.sheetIds);
+  const field = walkField(view.scene.tiles, view.scene.outlines);
+  layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets), field });
+  ensureAnimationLoop(app, layers, view);
   app.render();
 }

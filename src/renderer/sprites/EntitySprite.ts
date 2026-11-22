@@ -2,6 +2,8 @@ import { AnimatedSprite, Container, Graphics } from "pixi.js";
 import type { PixelPoint } from "../gridProjection";
 import { displayScaleFor } from "./frameMath";
 import type { Facing, SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "./types";
+import type { WalkPlan, WalkState } from "./walkMotion";
+import { sampleWalk, startWalk } from "./walkMotion";
 
 /** Pieds de la cellule : l'ancre tombe sur le centre du losange isométrique. */
 export const SPRITE_ANCHOR = { x: 0.5, y: 0.85 } as const;
@@ -47,6 +49,10 @@ export class EntitySprite {
   private animated: AnimatedSprite | null = null;
   /** Signature de la dernière demande du jeu : elle seule décide d'un rejeu. */
   private requested = "";
+  /** Demande courante, mémorisée même pendant un glissement. */
+  private pending = "";
+  /** Glissement en cours : `null` = l'acteur est posé sur sa case logique. */
+  private walk: WalkState | null = null;
 
   constructor(input: EntitySpriteInput) {
     this.spec = input.spec;
@@ -62,6 +68,7 @@ export class EntitySprite {
     this.node.removeChildren().forEach((child) => child.destroy());
     this.node.addChild(this.animated);
     this.requested = "";
+    if (this.walk !== null) this.start("walk");
   }
 
   /**
@@ -91,10 +98,48 @@ export class EntitySprite {
 
   /** Positionne l'acteur sur le centre du losange, à l'échelle du décor, et applique le retournement. */
   update(placement: ActorPlacement): void {
+    this.applyTransform(placement);
+    this.pending = `${placement.signature}:${placement.animation}`;
+    if (this.walk !== null) return;
+    this.placePoint(placement.point);
+    this.play(placement.animation, this.pending);
+  }
+
+  /**
+   * Glisse l'acteur le long d'un chemin de centres de cases. Le trajet précédent
+   * est remplacé, jamais complété : aucune pile de tweens ne peut s'accumuler.
+   */
+  walkAlong(plan: WalkPlan, nowMs: number): void {
+    this.walk = startWalk(plan, nowMs);
+    this.start("walk");
+  }
+
+  /**
+   * Avance le glissement à `nowMs`. `true` tant que l'acteur bouge : la boucle
+   * de rendu sait alors qu'il faut repeindre. À l'arrivée, retour à `idle`.
+   */
+  advance(nowMs: number): boolean {
+    if (this.walk === null) return false;
+    const sample = sampleWalk(this.walk, nowMs);
+    this.placePoint(sample.point);
+    if (sample.done) this.finishWalk();
+    return true;
+  }
+
+  /** Fin de trajet : l'acteur est posé et respire, sans rejouer le walk déjà consommé. */
+  private finishWalk(): void {
+    this.walk = null;
+    this.requested = this.pending;
+    this.start("idle");
+  }
+
+  private placePoint(point: PixelPoint): void {
+    this.node.position.set(point.x, point.y);
+  }
+
+  private applyTransform(placement: ActorPlacement): void {
     const scale = displayScaleFor(this.spec.frameWidth, placement.scale ?? 1);
-    this.node.position.set(placement.point.x, placement.point.y);
     this.node.scale.x = placement.facing === "left" ? -scale : scale;
     this.node.scale.y = scale;
-    this.play(placement.animation, `${placement.signature}:${placement.animation}`);
   }
 }
