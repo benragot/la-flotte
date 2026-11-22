@@ -182,22 +182,22 @@ interface RoomStep {
 }
 
 /** Parcours par le chemin de production, salle après salle, sans reconstruire d'ids. */
-function runDungeon(limit: number): RoomStep[] {
+function runDungeon(limit: number, storage?: StorageLike): RoomStep[] {
   expect(enter()).toBe(true);
   const steps: RoomStep[] = [];
   for (const room of DUNGEON.rooms.slice(0, limit)) {
     expect(useCombatStore.getState().dungeonRun?.roomIndex).toBe(room.roomNumber - 1);
     expect(livingOf(battleOrThrow(), "enemy").length).toBe(roomEnemies(room));
-    steps.push(stepFor(room));
+    steps.push(stepFor(room, storage));
   }
   return steps;
 }
 
-function stepFor(room: DungeonRoom): RoomStep {
+function stepFor(room: DungeonRoom, storage?: StorageLike): RoomStep {
   const hpStart = combatantIn(battleOrThrow(), "player").hp;
   const actions = playToOutcome();
   const hpEnd = combatantIn(battleOrThrow(), "player").hp;
-  closeRoom();
+  closeRoom(storage);
   return { roomIndex: room.roomNumber - 1, hpStart, hpEnd, hpNext: battleHpOrNull(), actions };
 }
 
@@ -292,7 +292,7 @@ describe("progression — les 4 salles par le chemin de production", () => {
     const [first, second] = steps;
     expect(second?.hpStart).toBe(first?.hpEnd);
     expect(second?.hpEnd).toBeLessThanOrEqual(second?.hpStart ?? 0);
-    expect(useCombatStore.getState().dungeonRun?.roomIndex).toBe(1);
+    expect(useCombatStore.getState().dungeonRun?.roomIndex).toBe(2);
     expect(useCombatStore.getState().battle).not.toBeNull();
   });
 });
@@ -303,7 +303,7 @@ describe("rechargement en cours de donjon — aucun soin", () => {
     stockKey();
     const storage = new MemoryStorage();
     useGameStore.getState().saveGame(storage);
-    runDungeon(1);
+    runDungeon(1, storage);
     const wounded = heroOrThrow().hp;
     expect(wounded).toBeLessThan(TANK_HP);
     useGameStore.getState().resetGame();
@@ -325,7 +325,7 @@ describe("défaite — sortie propre, aucun 0 PV persisté", () => {
     const state = useCombatStore.getState();
     expect(state.battle).toBeNull();
     expect(state.dungeonRun).toBeNull();
-    expect(state.dungeonNotice).toContain("donjon");
+    expect(state.dungeonNotice).toContain("Donjon quitté");
     expect(heroOrThrow().hp).toBeGreaterThan(0);
     useGameStore.getState().resetGame();
     expect(useGameStore.getState().loadGame(storage)).toBe(true);
@@ -354,7 +354,9 @@ describe("panneau d'entrée — niveau recommandé et état de la clef", () => {
     const inventory = addItem({ inventory: emptyInventory(), itemId: DUNGEON.keyItemId, quantity: 1 });
     expect(sheetMarkup(inventory, DUNGEON.recommendedLevel)).toContain("possédée");
   });
+});
 
+describe("panneau d'entrée — hors contexte et accessibilité", () => {
   it("ne rend rien sans donjon disponible", () => {
     const props = { entries: [], heroLevel: 1, onEnter: () => undefined, onClose: () => undefined };
     expect(renderToStaticMarkup(createElement(DungeonEntrySheet, props))).toBe("");
@@ -372,7 +374,9 @@ describe("panneau d'entrée — niveau recommandé et état de la clef", () => {
     expect(canEnterDungeon({ hasHero: true, runActive: false, dungeonCount: 0 })).toBe(false);
     expect(canEnterDungeon({ hasHero: true, runActive: false, dungeonCount: 1 })).toBe(true);
   });
+});
 
+describe("panneau d'entrée — câblage dans l'exploration", () => {
   it("est branché sur l'écran d'exploration, pas caché", () => {
     const source = readFileSync(join(process.cwd(), "src/ui/components/OverlayPanels.tsx"), "utf8");
     expect(source).toContain("Donjons");
