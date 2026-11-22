@@ -1327,11 +1327,11 @@ function gapTaskGaps(backlog: Backlog): string[] {
 }
 
 const GAP_DEBTS: Array<[string, string, string, string]> = [
-  ["D77", "medium", "5B", "pods"],
-  ["D78", "low", "7B", "récolte"],
-  ["D79", "medium", "5C-turn-rail", "médaillon"],
-  ["D80", "low", "5C-log-channel", "canal"],
-  ["D81", "high", "6B-cast-riders", "damageLines"],
+  ["D78", "medium", "5B", "pods"],
+  ["D79", "low", "7B", "récolte"],
+  ["D80", "medium", "5C-turn-rail", "médaillon"],
+  ["D81", "low", "5C-log-channel", "canal"],
+  ["D82", "high", "6B-cast-riders", "damageLines"],
 ];
 
 function gapDebtGaps(backlog: Backlog): string[] {
@@ -1350,7 +1350,7 @@ describe("backlog — suites ouvertes par l'analyse d'écart", () => {
     expect(gapTaskGaps(readBacklog())).toEqual([]);
   });
 
-  it("verse D77 à D81 avec sévérité, cible et note factuelle", () => {
+  it("verse D78 à D82 avec sévérité, cible et note factuelle", () => {
     expect(gapDebtGaps(readBacklog())).toEqual([]);
   });
 
@@ -1379,5 +1379,53 @@ describe("backlog — limites assumées du rendu iso (PR #68)", () => {
     expect(text).toContain("nearest");
     expect(text).toContain("les quatre coins");
     expect(text).toContain("73 %");
+  });
+});
+
+describe("backlog — D77 : faux vert du harnais Playwright", () => {
+  it("grade en high le port 4173 codé en dur et la réutilisation d'un serveur local", () => {
+    const debt = debtById(readBacklog(), "D77");
+    expect(debt?.severity).toBe("high");
+    expect(debt?.target).toBe("external");
+    expect(debt?.owner).toBe("user");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("reuseExistingServer");
+    expect(text).toContain("4173");
+    expect(text).toContain("playwright.config.ts");
+    expect(text).toContain("CI");
+    expect(text).toContain("src/renderer/**");
+  });
+});
+
+const RENDER_TASKS: Array<[string, string, string]> = [
+  ["7A-arena-background", "7A", "fond d'arène"],
+];
+
+function renderTaskGaps(backlog: Backlog): string[] {
+  return RENDER_TASKS.flatMap(([id, phaseId, keyword]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const status = task.status === "todo" ? [] : [`${id}:${task.status}`];
+    const noted = (task.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    const placed = taskIdsOf(backlog, phaseId).includes(id) ? [] : [`${id}:phase`];
+    return [...status, ...noted, ...placed];
+  });
+}
+
+describe("backlog — coins vides : une tâche de rendu, pas une dette", () => {
+  it("ouvre 7A-arena-background en todo dans la phase 7A", () => {
+    expect(renderTaskGaps(readBacklog())).toEqual([]);
+  });
+
+  it("renvoie la géométrie du losange et refuse les cases factices", () => {
+    const notes = taskById(readBacklog(), "7A-arena-background")?.notes ?? "";
+    expect(notes).toContain("dofus-1.29-gaps.md");
+    expect(notes).toContain("cases factices");
+    expect(notes).toContain("pathfinding");
+  });
+
+  it("inscrit la tâche décochée dans la roadmap", () => {
+    const lines = uncheckedRoadmapLines();
+    expect(lines.some((line) => line.startsWith("- [ ] 7A-arena-background"))).toBe(true);
   });
 });
