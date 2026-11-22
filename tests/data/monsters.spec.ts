@@ -44,7 +44,7 @@ describe("bestiaire de la Ferraille", () => {
     });
   });
 
-  it("conserve piou_mazoute tel quel", () => {
+  it("conserve piou_mazoute tel quel, avec la goutte de mazout du §2", () => {
     expect(monsterById("piou_mazoute")).toMatchObject({
       level: 1,
       hp: 35,
@@ -53,7 +53,12 @@ describe("bestiaire de la Ferraille", () => {
       baseXp: 120,
       spellIds: ["bec_mazoute"],
     });
-    expect(monsterById("piou_mazoute")?.loot).toHaveLength(1);
+    expect(monsterById("piou_mazoute")?.loot).toHaveLength(2);
+    expect(monsterById("piou_mazoute")?.loot).toContainEqual({
+      itemId: "fer_goutte_mazout",
+      baseDropRate: 0.45,
+      ppThreshold: 100,
+    });
   });
 });
 

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { addItem, countItem } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
 import { craftMany } from "../../src/engine/craft";
+import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import type { ItemDef } from "../../src/schemas/itemSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -49,6 +50,20 @@ const farmInventory = (): InventoryState =>
 const lootItemIdsOf = (monsters: ReturnType<typeof loadMonsters>): string[] =>
   monsters.flatMap((monster) => monster.loot.map((entry) => entry.itemId));
 
+/** `starting` n'existe que sur les équipements : on lit le champ brut, sans filtre de catégorie. */
+const isStarting = (item: ItemDef | undefined): boolean =>
+  (item as { starting?: boolean } | undefined)?.starting === true;
+
+const droppersOf = (itemId: string): string[] =>
+  loadMonsters()
+    .filter((monster) => monster.loot.some((entry) => entry.itemId === itemId))
+    .map((monster) => monster.id);
+
+const dungeonMonsterIds = (): Set<string> => {
+  const rooms = parseDungeonsYaml(read("dungeons.yaml")).flatMap((dungeon) => dungeon.rooms);
+  return new Set(rooms.flatMap((room) => room.monsters.map((group) => group.monsterId)));
+};
+
 describe("clef du donjon de la Ferraille — ingrédients du §4", () => {
   it.each(INGREDIENTS)("déclare $id en ressource à $sellPrice kamas", ({ id, sellPrice }) => {
     const item = itemById(loadItems(), id);
@@ -84,7 +99,7 @@ describe("clef du donjon de la Ferraille — farm réel", () => {
   });
 });
 
-describe("clef du donjon de la Ferraille — obtainabilité", () => {
+describe("clef du donjon de la Ferraille — chaîne de données", () => {
   it("fait lâcher chaque ingrédient par au moins un monstre", () => {
     const loot = lootItemIdsOf(loadMonsters());
     INGREDIENTS.forEach((entry) => {
@@ -92,12 +107,19 @@ describe("clef du donjon de la Ferraille — obtainabilité", () => {
     });
   });
 
-  it("ne place jamais la clef dans l'équipement de départ", () => {
-    const starting = loadItems()
-      .filter((item): item is Extract<ItemDef, { category: "equipment" }> => item.category === "equipment")
-      .filter((item) => item.starting)
-      .map((item) => item.id);
-    expect(starting).not.toContain(KEY_ID);
-    expect(itemById(loadItems(), KEY_ID)?.category).toBe("key");
+  it("documente la dépendance circulaire tant que 5B-G n'est pas livrée", () => {
+    const dungeonIds = dungeonMonsterIds();
+    const droppers = INGREDIENTS.flatMap((entry) => droppersOf(entry.id));
+    expect(droppers.length).toBeGreaterThanOrEqual(INGREDIENTS.length);
+    droppers.forEach((id) => expect(dungeonIds.has(id), `${id} n'apparaît dans aucun donjon`).toBe(true));
+    // rouge dès que 5B-G livre une source d'exploration : ce test devra être
+    // retourné en « aucun lâcheur n'est exclusivement en donjon ».
+    expect(droppers.filter((id) => !dungeonIds.has(id))).toEqual([]);
+  });
+
+  it("ne marque jamais une clef comme item de départ", () => {
+    const startingKeys = loadItems().filter(isStarting).filter((item) => item.category === "key");
+    expect(startingKeys.map((item) => item.id)).toEqual([]);
+    expect(isStarting(itemById(loadItems(), KEY_ID))).toBe(false);
   });
 });
