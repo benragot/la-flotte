@@ -54,6 +54,15 @@ const baseEquipment = {
   sellPrice: 10,
 };
 
+const baseKey = {
+  id: "cle_donjon_ile_de_la_ferraille",
+  name: "Clef de la Casse aux Vis-Sans-Fin",
+  description: "Une clef à molette géante, tordue à la main.",
+  category: "key" as const,
+  targetDungeonId: "fer_donjon_casse_vis_sans_fin",
+  sellPrice: 40,
+};
+
 const baseSet = {
   id: "panoplie_piou_mazoute",
   name: "Panoplie du Piou Mazouté",
@@ -67,24 +76,34 @@ const baseSet = {
 };
 
 describe("items.yaml", () => {
-  it("contient les trois familles avec des ids uniques en snake_case", () => {
+  it("contient les quatre familles avec des ids uniques en snake_case", () => {
     const items = loadItems();
     const categories = new Set(items.map((item) => item.category));
-    expect(categories).toEqual(new Set(["resource", "consumable", "equipment"]));
+    expect(categories).toEqual(new Set(["resource", "consumable", "equipment", "key"]));
     const ids = items.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
     ids.forEach((id) => expect(id).toMatch(SNAKE_CASE));
   });
 
-  it("déclare au moins six ressources, exactement deux consommables et une arme de départ", () => {
+  it("déclare six ressources, deux consommables, cinq équipements et une clef", () => {
     const items = loadItems();
-    expect(items.filter((item) => item.category === "resource").length).toBeGreaterThanOrEqual(6);
+    expect(items.filter((item) => item.category === "resource").length).toBe(6);
     expect(items.filter((item) => item.category === "consumable").length).toBe(2);
+    expect(equipmentOf(items).length).toBe(5);
+    expect(items.filter((item) => item.category === "key").length).toBe(1);
+  });
+
+  it("garde une arme de départ et un chapeau de départ dans le kit", () => {
+    const items = loadItems();
     const starter = equipmentOf(items).filter((item) => item.slot === "weapon" && item.setId === undefined);
     expect(starter).toHaveLength(1);
     expect(starter[0]?.level).toBe(1);
+    const starting = equipmentOf(items).filter((item) => item.starting);
+    expect(starting.map((item) => item.id).sort()).toEqual(["chapeau_piou_mazoute", "gourdin_du_matelot"]);
   });
+});
 
+describe("items.yaml — références", () => {
   it("ne duplique aucun id de monsters.yaml", () => {
     const monsterIds = new Set(loadMonsterIds());
     loadItems().forEach((item) => expect(monsterIds.has(item.id)).toBe(false));
@@ -137,6 +156,11 @@ describe("rejets Zod", () => {
   it("refuse un consommable sans soin", () => {
     const bad = { ...baseConsumable, heal: 0 };
     expect(() => itemsFileSchema.parse({ items: [bad] })).toThrow(/heal/);
+  });
+
+  it("refuse une clef sans donjon cible", () => {
+    const sansCible = { ...baseKey, targetDungeonId: undefined };
+    expect(() => itemsFileSchema.parse({ items: [sansCible] })).toThrow(/targetDungeonId/);
   });
 
   it("refuse des paliers de panoplie non croissants", () => {
