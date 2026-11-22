@@ -27,6 +27,8 @@ function sliceSheet(source: TextureSource, plan: SheetPlan): SpriteSheetFrames {
 
 async function loadSheet(spec: SpriteSheetSpec): Promise<SpriteSheetFrames> {
   const texture = await Assets.load<Texture>(spec.path);
+  // Feuilles générées à 2× : on veut des pixels nets, pas un lissage à l'agrandissement.
+  texture.source.scaleMode = "nearest";
   const frames = sliceSheet(texture.source, sheetPlan(spec));
   READY.set(spec.path, frames);
   return frames;

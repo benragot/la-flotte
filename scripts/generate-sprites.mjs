@@ -8,8 +8,15 @@
  * dépendance npm — deux exécutions produisent des fichiers identiques au bit.
  *
  * Format de sortie (contrat du manifeste `data/sprites.yaml`) :
- *   256 × 256, grille 4 colonnes × 4 lignes de cellules 64 × 64
+ *   512 × 512, grille 4 colonnes × 4 lignes de cellules 128 × 128
  *   ligne 0 = idle, ligne 1 = walk, ligne 2 = attack, ligne 3 = hit
+ *
+ * Échelle : les silhouettes restent dessinées dans l'espace historique de
+ * 64 unités (`UNIT`), puis *toute* la frame est passée par un unique
+ * `transform="scale(FRAME_SCALE)"`. Un seul facteur, appliqué à la racine de la
+ * frame : formes, rayons, offsets et pivots suivent ensemble. Aucune coordonnée
+ * de dessin n'est réécrite à la main, donc aucun risque de personnage 2× trop
+ * petit collé dans le coin haut-gauche.
  *
  * Stratégie : une silhouette de base par entité (parties nommées : `back`,
  * `legL`, `legR`, `body`, `armL`, `head`, `hair`, `armR`, `prop`) déclarée une
@@ -26,7 +33,11 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = join(ROOT, "public", "assets", "sprites");
 
-const CELL = 64;
+/** Espace de dessin historique : toutes les silhouettes sont exprimées en unités de 64. */
+const UNIT = 64;
+/** Facteur de génération (D05) : feuille produite à 2× pour un rendu net. */
+const FRAME_SCALE = 2;
+const CELL = UNIT * FRAME_SCALE;
 const COLUMNS = 4;
 const ROWS = 4;
 const SHEET = CELL * COLUMNS;
@@ -679,15 +690,17 @@ function shadowMarkup(entity) {
   return ellipse(32, 60, rx, ry, "#000000", { flat: true, extra: 'opacity="0.22"' });
 }
 
+/** Surbrillance d'impact : exprimée dans l'espace de dessin, donc couvre la cellule via `FRAME_SCALE`. */
 function flashMarkup(frame) {
-  return frame.flash === true ? rect(0, 0, CELL, CELL, "#fff2b0", { flat: true, extra: 'opacity="0.22"' }) : "";
+  return frame.flash === true ? rect(0, 0, UNIT, UNIT, "#fff2b0", { flat: true, extra: 'opacity="0.22"' }) : "";
 }
 
 function frameMarkup(entity, animation, row, column) {
   const frame = deltasFor(entity, animation)[column];
   const offset = `translate(${column * CELL} ${row * CELL})`;
   const body = [shadowMarkup(entity), actorMarkup(entity, frame), flashMarkup(frame)].join("");
-  return `<g class="frame" data-animation="${animation}" data-frame="${column}" transform="${offset}"><g clip-path="url(#cell)">${body}</g></g>`;
+  const scaled = `<g transform="scale(${FRAME_SCALE})">${body}</g>`;
+  return `<g class="frame" data-animation="${animation}" data-frame="${column}" transform="${offset}"><g clip-path="url(#cell)">${scaled}</g></g>`;
 }
 
 function framesMarkup(entity) {
@@ -701,7 +714,7 @@ function framesMarkup(entity) {
 }
 
 function defsMarkup(entity) {
-  const clip = '<clipPath id="cell"><rect x="0" y="0" width="64" height="64"/></clipPath>';
+  const clip = `<clipPath id="cell"><rect x="0" y="0" width="${CELL}" height="${CELL}"/></clipPath>`;
   const parts = PART_ORDER.filter((name) => entity.parts[name] !== undefined).map(
     (name) => `<g id="p-${name}">${entity.parts[name]}</g>`,
   );
@@ -760,7 +773,7 @@ function checkSheet(entity) {
   const frames = svg.match(/class="frame"/g)?.length ?? 0;
   const problems = [];
   if (svg !== svgFor(entity)) problems.push("feuille désynchronisée du générateur");
-  if (!svg.includes('width="256"') || !svg.includes('height="256"')) problems.push("dimensions ≠ 256×256");
+  if (!svg.includes(`width="${SHEET}"`) || !svg.includes(`height="${SHEET}"`)) problems.push(`dimensions ≠ ${SHEET}×${SHEET}`);
   if (frames !== 16) problems.push(`frames = ${frames}`);
   if (!isWellFormed(svg)) problems.push("XML mal formé");
   if (hasDuplicateAttributes(svg)) problems.push("attribut dupliqué");

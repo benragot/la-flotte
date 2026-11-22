@@ -2,8 +2,8 @@ import yaml from "js-yaml";
 import { z } from "zod";
 import { checkUniqueIds } from "./itemSchema";
 
-/** Format imposé des feuilles générées : 256 × 256, cellules 4 × 4 de 64 × 64. */
-export const SPRITE_FRAME_SIZE = 64;
+/** Format imposé des feuilles générées : 512 × 512, cellules 4 × 4 de 128 × 128 (2×). */
+export const SPRITE_FRAME_SIZE = 128;
 /** Les quatre animations d'une feuille, dans l'ordre des lignes. */
 export const SPRITE_ANIMATIONS = ["idle", "walk", "attack", "hit"] as const;
 
@@ -52,8 +52,9 @@ function addIssue(ctx: IssueSink, path: (string | number)[], message: string): v
 }
 
 function checkFrameSize(sprite: SpriteDef, ctx: IssueSink): void {
-  if (sprite.frameWidth !== SPRITE_FRAME_SIZE) addIssue(ctx, ["frameWidth"], "frameWidth doit valoir 64");
-  if (sprite.frameHeight !== SPRITE_FRAME_SIZE) addIssue(ctx, ["frameHeight"], "frameHeight doit valoir 64");
+  const expected = String(SPRITE_FRAME_SIZE);
+  if (sprite.frameWidth !== SPRITE_FRAME_SIZE) addIssue(ctx, ["frameWidth"], `frameWidth doit valoir ${expected}`);
+  if (sprite.frameHeight !== SPRITE_FRAME_SIZE) addIssue(ctx, ["frameHeight"], `frameHeight doit valoir ${expected}`);
 }
 
 function checkPath(sprite: SpriteDef, ctx: IssueSink): void {
