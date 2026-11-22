@@ -726,6 +726,7 @@ const OPEN_5C = [
   "5C-group-stars",
   "5C-log-channel",
   "5C-set-panoplies",
+  "5C-equip-requirements",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
@@ -741,7 +742,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les neuf tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les douze tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1037,8 +1038,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 19", () => {
-    expect(readBacklog().meta.version).toBe(19);
+  it("versionne le backlog en 20", () => {
+    expect(readBacklog().meta.version).toBe(20);
   });
 });
 
@@ -1191,5 +1192,178 @@ describe("backlog — roadmap v19", () => {
     expect(unchecked).toEqual([]);
     const stillOpen = lines.filter((line) => /^- \[ \] 5D-[ab]\b/.test(line));
     expect(stillOpen).toEqual([]);
+  });
+});
+
+const GAP_SPEC = "docs/design/specs/dofus-1.29-gaps.md";
+const GAP_METHOD = [
+  "Cette analyse confronte une **synthèse documentaire** de Dofus 1.29",
+  "sans sources primaires systématiques",
+  "Chaque verdict est appuyé sur un `fichier:ligne`",
+  "Aucune ligne n'est déduite de la lecture du document seul",
+];
+
+interface GapRow {
+  id: string;
+  system: string;
+  verdict: string;
+}
+
+/**
+ * Vingt systèmes confrontés au code. Le verdict est figé ici : c'est la
+ * conclusion de l'analyse, pas une case à cocher après coup.
+ */
+const GAP_ROWS: readonly GapRow[] = [
+  { id: "1", system: "Pods", verdict: "absent" },
+  { id: "2", system: "Métiers de récolte", verdict: "absent" },
+  { id: "3", system: "Sorties de map", verdict: "absent" },
+  { id: "4", system: "corps-à-corps", verdict: "absent" },
+  { id: "5", system: "Médaillon", verdict: "absent" },
+  { id: "6", system: "Canaux de chat", verdict: "partiel" },
+  { id: "7", system: "Carte du monde", verdict: "absent" },
+  { id: "8", system: "Conditions d'équipement", verdict: "absent" },
+  { id: "9", system: "Tacle", verdict: "partiel" },
+  { id: "10", system: "Poussée", verdict: "partiel" },
+  { id: "11", system: "Timeline", verdict: "partiel" },
+  { id: "12", system: "création", verdict: "absent" },
+  { id: "13", system: "Envoûtements", verdict: "partiel" },
+  { id: "14", system: "Compte à rebours", verdict: "absent" },
+  { id: "15", system: "Sorts de classe", verdict: "partiel" },
+];
+
+const DROPPED_SYSTEMS = [
+  "multi-joueurs",
+  "guildes",
+  "hôtels de vente",
+  "marchand",
+  "zaaps",
+  "montures",
+  "alignement",
+  "quêtes de PNJ",
+];
+
+const PROOF_PATTERN = /\.(?:ts|tsx|yaml|md|jsonc):\d+/;
+
+function gapSpecText(): string {
+  return readFileSync(join(process.cwd(), GAP_SPEC), "utf8");
+}
+
+/** Cellules non vides d'une ligne de tableau `| # | système | verdict | preuve | manque |`. */
+function gapCells(text: string, id: string): string[] {
+  const line = text.split("\n").find((entry) => entry.trim().startsWith(`| ${id} |`));
+  if (line === undefined) return [];
+  return line.split("|").map((cell) => cell.trim()).filter((cell) => cell !== "");
+}
+
+/** Preuve recevable : un `fichier:ligne` réel, ou l'aveu explicite d'une recherche vide. */
+function isProof(cell: string): boolean {
+  return PROOF_PATTERN.test(cell) || cell.includes("recherche :");
+}
+
+function gapFailures(text: string): string[] {
+  return GAP_ROWS.flatMap(({ id, system, verdict }) => {
+    const cells = gapCells(text, id);
+    if (cells.length < 5) return [`${id}:row`];
+    const named = cells[1]?.includes(system) === true ? [] : [`${id}:system`];
+    const graded = cells[2] === verdict ? [] : [`${id}:${cells[2] ?? "?"}`];
+    const proven = isProof(cells[3] ?? "") ? [] : [`${id}:proof`];
+    const missing = isFilled(cells[4]) ? [] : [`${id}:missing`];
+    return [...named, ...graded, ...proven, ...missing];
+  });
+}
+
+function droppedLines(text: string): string[] {
+  const section = text.split("## Ce qui a été délibérément écarté")[1] ?? "";
+  return section.split("\n").filter((line) => line.startsWith("- "));
+}
+
+function droppedFailures(text: string): string[] {
+  const lines = droppedLines(text).map((line) => line.toLowerCase());
+  const unfilled = DROPPED_SYSTEMS.filter((system) => !lines.some((line) => line.includes(system.toLowerCase())));
+  const unargued = droppedLines(text).filter((line) => !line.includes(" — "));
+  return [...unfilled.map((system) => `absent:${system}`), ...unargued.map((line) => `argument:${line}`)];
+}
+
+describe("backlog — analyse d'écart Dofus 1.29 contre le code réel (v20)", () => {
+  it("écrit la spec d'écart avec son avertissement de méthode", () => {
+    const text = gapSpecText();
+    expect(text).toContain("title: Écarts Dofus 1.29 — ce que le code fait vraiment");
+    expect(text).toContain("status: spec");
+    expect(GAP_METHOD.filter((sentence) => !text.includes(sentence))).toEqual([]);
+  });
+
+  it("tranche les quinze systèmes avec un verdict et une preuve fichier:ligne", () => {
+    expect(gapFailures(gapSpecText())).toEqual([]);
+  });
+
+  it("n'écrit aucun verdict hors des quatre mots autorisés", () => {
+    const verdicts = GAP_ROWS.map(({ id }) => gapCells(gapSpecText(), id)[2]);
+    const allowed = new Set(["présent", "partiel", "absent", "contredit"]);
+    expect(verdicts.filter((verdict) => verdict !== undefined && !allowed.has(verdict))).toEqual([]);
+    expect(new Set(GAP_ROWS.map(({ id }) => id)).size).toBe(GAP_ROWS.length);
+  });
+
+  it("liste ce qui a été délibérément écarté, chaque ligne justifiée", () => {
+    expect(droppedFailures(gapSpecText())).toEqual([]);
+  });
+});
+
+const GAP_TASKS: Array<[string, string, string]> = [
+  ["5C-equip-requirements", "5C", "itemSchema"],
+  ["5D-new-game", "5D", "resetGame"],
+  ["5D-exits", "5D", "maps[0]"],
+];
+
+function gapTaskGaps(backlog: Backlog): string[] {
+  return GAP_TASKS.flatMap(([id, phaseId, keyword]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const status = task.status === "todo" ? [] : [`${id}:${task.status}`];
+    const graded = task.priority === "high" ? [] : [`${id}:priority`];
+    const noted = (task.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    const placed = taskIdsOf(backlog, phaseId).includes(id) ? [] : [`${id}:phase`];
+    return [...status, ...graded, ...noted, ...placed];
+  });
+}
+
+const GAP_DEBTS: Array<[string, string, string, string]> = [
+  ["D77", "medium", "5B", "pods"],
+  ["D78", "low", "7B", "récolte"],
+  ["D79", "medium", "5C-turn-rail", "médaillon"],
+  ["D80", "low", "5C-log-channel", "canal"],
+  ["D81", "high", "6B-cast-riders", "damageLines"],
+];
+
+function gapDebtGaps(backlog: Backlog): string[] {
+  return GAP_DEBTS.flatMap(([id, severity, target, keyword]) => {
+    const debt = debtById(backlog, id);
+    if (debt === undefined) return [`${id}:absent`];
+    const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+    const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    const titled = isFilled(debt.title) ? [] : [`${id}:title`];
+    return [...graded, ...noted, ...titled];
+  });
+}
+
+describe("backlog — suites ouvertes par l'analyse d'écart", () => {
+  it("ouvre trois tâches en todo dans 5C et 5D", () => {
+    expect(gapTaskGaps(readBacklog())).toEqual([]);
+  });
+
+  it("verse D77 à D81 avec sévérité, cible et note factuelle", () => {
+    expect(gapDebtGaps(readBacklog())).toEqual([]);
+  });
+
+  it("inscrit les trois tâches décochées dans la roadmap", () => {
+    const lines = uncheckedRoadmapLines();
+    const missing = GAP_TASKS.filter(([id]) => !lines.some((line) => line.startsWith(`- [ ] ${id}`)));
+    expect(missing.map(([id]) => id)).toEqual([]);
+    expect(lines.join("\n")).toContain(GAP_SPEC);
+  });
+
+  it("ne rouvre pas deux fois le même système : une tâche par blocage, le reste en dette", () => {
+    const tasks = allTasks(readBacklog()).map((task) => task.id);
+    const gapTasks = tasks.filter((id) => id === "5C-equip-requirements" || id === "5D-new-game" || id === "5D-exits");
+    expect(gapTasks).toEqual(["5C-equip-requirements", "5D-new-game", "5D-exits"]);
   });
 });
