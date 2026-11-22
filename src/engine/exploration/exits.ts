@@ -91,10 +91,14 @@ export function landingFor(input: LandingInput): Landing {
   return { position, relocated: !samePosition(position, wanted) };
 }
 
-const RELOCATED_LINE = "Sortie noyée : le héros échoue sur la grève la plus proche de";
-const DRY_LINE = "Le ressac dépose le héros à";
+const RELOCATED_LINE = "Sortie noyée : le héros échoue sur la grève la plus proche —";
+const DRY_LINE = "Le ressac dépose le héros :";
 
-/** Une ligne de journal par transition : le joueur, pas la technique. */
+/**
+ * Une ligne de journal par transition. La virgule de deux-points évite toute
+ * contraction : « à Le Quai » n'existe pas, et aucune table par carte n'est
+ * nécessaire pour le savoir.
+ */
 export function arrivalLine(destination: string, landing: Landing): string {
   if (landing.relocated) return `${RELOCATED_LINE} ${destination}.`;
   return `${DRY_LINE} ${destination}.`;

@@ -91,6 +91,19 @@ describe("mapSchema — les sorties de carte", () => {
     expect(mapSchema.safeParse(mapWithExit({ ...EXIT, to: "" })).success).toBe(false);
   });
 
+  it("laisse les quatre salles de donjon sans sortie", () => {
+    const rooms = dungeonRooms();
+    expect(rooms).toHaveLength(4);
+    rooms.forEach((room) => expect(room.exits).toEqual([]));
+  });
+});
+
+describe("mapSchema — la case d'arrivée `at`", () => {
+  it("accepte une arrivée dans la grille de destination", () => {
+    const parsed = mapsFileSchema.parse(fileOf(mapWithExit({ ...EXIT, at: { x: 1, y: 2 } }), NEIGHBOUR));
+    expect(parsed.maps[0]?.exits[0]?.at).toEqual({ x: 1, y: 2 });
+  });
+
   it("refuse une case d'arrivée hors de la grille d'arrivée", () => {
     const huge = fileOf(mapWithExit({ ...EXIT, at: { x: 4999, y: 4999 } }), NEIGHBOUR);
     expect(() => mapsFileSchema.parse(huge)).toThrow(/arrivée/);
@@ -102,12 +115,6 @@ describe("mapSchema — les sorties de carte", () => {
     const big = { ...NEIGHBOUR, width: 6, height: 6, grid: ["P.....", "......", "......", "......", "......", ".....M"] };
     const parsed = mapsFileSchema.parse(fileOf(mapWithExit({ ...EXIT, at: { x: 5, y: 5 } }), big));
     expect(parsed.maps[0]?.exits[0]?.at).toEqual({ x: 5, y: 5 });
-  });
-
-  it("laisse les quatre salles de donjon sans sortie", () => {
-    const rooms = dungeonRooms();
-    expect(rooms).toHaveLength(4);
-    rooms.forEach((room) => expect(room.exits).toEqual([]));
   });
 });
 

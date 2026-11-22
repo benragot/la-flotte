@@ -169,7 +169,31 @@ function checkExitTargets(file: MapsFile, ctx: IssueSink): void {
   });
 }
 
-export const mapsFileSchema = mapsFileSchemaBase.superRefine(checkExitTargets);
+function checkMapsFile(file: MapsFile, ctx: IssueSink): void {
+  checkExitTargets(file, ctx);
+  checkArrivals(file, ctx);
+}
+
+/**
+ * `at` vit sur la carte d'ARRIVÉE : c'est sa grille qui le borne, pas celle de
+ * départ. Sans ce contrôle, une arrivée fausse ne lève pas — elle téléporte.
+ */
+function arrivalOutside(destination: MapFields | undefined, at: ExitTargetSpec | undefined): boolean {
+  if (destination === undefined || at === undefined) return false;
+  return at.x >= destination.width || at.y >= destination.height;
+}
+
+function checkArrivals(file: MapsFile, ctx: IssueSink): void {
+  const byId = new Map(file.maps.map((map) => [map.id, map]));
+  file.maps.forEach((map, mapIndex) => {
+    map.exits.forEach((exit, exitIndex) => {
+      if (!arrivalOutside(byId.get(exit.to), exit.at)) return;
+      addIssue(ctx, ["maps", mapIndex, "exits", exitIndex], `arrivée hors de ${exit.to}`);
+    });
+  });
+}
+
+export const mapsFileSchema = mapsFileSchemaBase.superRefine(checkMapsFile);
 
 export type CellType = z.infer<typeof cellTypeSchema>;
 export type DecorType = z.infer<typeof decorTypeSchema>;

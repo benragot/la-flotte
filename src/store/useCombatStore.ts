@@ -80,11 +80,6 @@ interface CombatStore {
   /** Dernier message de donjon, annoncé par la région `aria-live` du panneau. */
   dungeonNotice: string | null;
   mapId: string;
-  /**
-   * Message de refus de transition de carte (« soleil »), annoncé comme
-   * `dungeonNotice` : l'état d'exploration, lui, n'est pas touché.
-   */
-  mapNotice: string | null;
   selectedSpellId: string | null;
   hoveredCell: Position | null;
   rewards: CombatRewards | null;
@@ -302,6 +297,15 @@ function canLeaveMap(store: CombatStore): boolean {
   return store.combat === null && store.battle === null && store.dungeonRun === null;
 }
 
+/**
+ * Refus lisible : le journal est le seul canal que le joueur lit (même patron
+ * que `BLOCKED_MOVE_LOG`). Une seule source d'information, jamais empilée.
+ */
+function refusalUpdate(exploration: ExplorationState): Partial<CombatStore> {
+  if (exploration.log.at(-1) === EXIT_REFUSED) return {};
+  return { exploration: { ...exploration, log: [...exploration.log, EXIT_REFUSED] } };
+}
+
 /** Carte neuve : la scène est reconstruite sur la destination, journal remplacé. */
 function travelUpdate(state: ExplorationState, exit: ExitSpec): Partial<CombatStore> {
   const destination = mustFind(maps, exit.to);
@@ -310,7 +314,7 @@ function travelUpdate(state: ExplorationState, exit: ExitSpec): Partial<CombatSt
   const fresh = initExploration({ map, ...spawnOf(defaultSpawn(destination.id).monsterId) });
   const log = [arrivalLine(destination.name, landing)];
   const exploration = { ...fresh, playerPos: landing.position, log };
-  return { mapId: destination.id, exploration, mapNotice: null, hoveredCell: null };
+  return { mapId: destination.id, exploration, hoveredCell: null };
 }
 
 /** Le héros rejoint la sortie à pied ; une sortie injoignable reste un clic bloqué. */
@@ -320,8 +324,8 @@ function walkToExit(exploration: ExplorationState, exit: ExitSpec): Partial<Comb
 }
 
 function exitUpdate(store: CombatStore, exit: ExitSpec): Partial<CombatStore> {
-  if (!canLeaveMap(store)) return { mapNotice: EXIT_REFUSED };
   if (store.exploration === null) return {};
+  if (!canLeaveMap(store)) return refusalUpdate(store.exploration);
   return walkToExit(store.exploration, exit);
 }
 
@@ -734,7 +738,6 @@ const DEFAULT_STATE = {
   dungeonRun: null,
   dungeonNotice: null,
   mapId: startMapId(),
-  mapNotice: null,
   selectedSpellId: null,
   hoveredCell: null,
   rewards: null,
