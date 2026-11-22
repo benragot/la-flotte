@@ -425,7 +425,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "squash ec0e42c — tests/walkthrough/play.spec.ts (440 lignes) : création du héros, chaîne de la clé, donjon, mort en salle 2 (mesure de D71)"
+            notes: "squash ec0e42c — tests/walkthrough/play.spec.ts (451 lignes) : création du héros, chaîne de la clé, donjon, mort en salle 2 (mesure de D71, 75 points en Force ⇒ 130 PV)"
           - id: 5D-hud-bar
             title: Barre d'interface basse — portrait, niveau, XP, kamas
             status: todo
@@ -739,7 +739,7 @@ debts:
     target: 5C-hero-move
     notes: "src/engine/multiCombat/index.ts exporte `resolveTackle` et src/engine/multiCombat/tackle.ts l'implémente ; aucun appelant dans src/engine/combatLoop/ ni src/store/useCombatStore.ts — seule tests/unit/multiCombat.spec.ts l'exerce ; 5C-hero-move est la première tâche où le héros peut quitter un corps-à-corps, donc le premier appelant possible"
   - id: D71
-    title: "**balance du donjon, remesurée par #57** : un héros de **niveau 16 réel** (75 points de capital investis en Vitalité, 130 PV) **meurt en SALLE 2** — 130 → 62 → 0 PV — et non dans les dernières salles comme le croyait la v18 ; le build « tout en Vitalité » (**205 PV**) **n'a pas été mesuré**."
+    title: "**balance du donjon, remesurée par #57** : un héros de **niveau 16 réel**, 75 points de capital investis **en Force** ⇒ **130 PV** (base 125 + 5 du chapeau du kit), **meurt en SALLE 2** — 130 → 62 → 0 PV — et non dans les dernières salles comme le croyait la v18 ; le build « **205 PV** » (tout en Vitalité) **n'a pas été joué**."
     severity: high
     target: 5C-set-panoplies
     notes: "mesure = tests/walkthrough/play.spec.ts (#57, squash ec0e42c) : création → clé → salle 1 → salle 2 mortelle ; contrairement à l'estimation de la v18, la chute ne se produit pas dans les dernières salles ; causes probables : **panoplies (§6 de la fiche) non implémentées** (2 objets de départ seulement) et **soins absents** (vague 6, 6A-heal-armor) ; le levier est 5C-set-panoplies"
@@ -754,10 +754,10 @@ debts:
     target: 6C-combatants-list
     notes: "src/engine/combatLoop/enemy.ts (`next === current` → `return current`, `findSpell` sans portée) ; même maladie que le softlock corrigé en 1vN, mais hors donjon — 6C-combatants-list réécrit `CombatState` en `combatants[]` via un adaptateur 1v1, la correction structurelle passe par là"
   - id: D74
-    title: "**HUD des résistances et domaine des PV** : `inventoryHudHelpers` marque encore `vitality`, `flatRes`, `percentRes` et `percentDmg` en `pending` (légitime pour les résistances et `percentDmg`, faux pour la Vitalité depuis #58) et `canUseConsumable` (`hero.hp < hero.maxHp`) compare deux valeurs du **domaine de niveau** alors que le combat affiche le **domaine effectif** (`Vitals` ← combattant)."
-    severity: high
+    title: "**domaine des PV** : `canUseConsumable` (`hero.hp < hero.maxHp`) compare deux valeurs du **domaine de niveau** alors que le HUD de combat affiche le **domaine effectif** (`HeroVitalsLine` ← `EffectiveHp`, #59). Couplage latent, sans effet observable aujourd'hui : plein au niveau ⇒ plein en effectif."
+    severity: low
     target: 5C-info-panel
-    notes: "src/ui/inventoryHudHelpers.ts (`PENDING_STATS`, `STAT_PENDING_HINT`, `canUseConsumable`) ; src/ui/components/Vitals.tsx (domaine effectif) vs src/ui/components/CombatHud.tsx (`hero.hp / hero.maxHp`) — couplage latent, sans effet d'affichage aujourd'hui ; le panneau d'infos de 5C-info-panel affiche les 5 résistances, c'est là que le domaine doit être tranché"
+    notes: "src/ui/inventoryHudHelpers.ts (`canUseConsumable`) est le **seul** reste du domaine de niveau : le HUD est passé en effectif avec #59, `PENDING_STATS` ne contient plus que `flatRes`/`percentRes`/`percentDmg`, déjà portés par D45b et D30 ; le panneau d'infos de 5C-info-panel affiche PV et 5 résistances, c'est là que le domaine doit être tranché"
   - id: D75
     title: "**le héros ne peut pas se déplacer en combat 1vN** : `useCombatStore` n'expose aucune action de mouvement (`battleAttack`, `battleEnemyTurn`, `advanceBattleTurn`, `battleSpellAttack`, `settleDungeonRoom`), le joueur est cloué sur sa case de placement pendant que les ennemis approchent — asymétrie structurelle, se déplacer coûte des PM et fait la moitié d'un combat 1.29."
     severity: high
