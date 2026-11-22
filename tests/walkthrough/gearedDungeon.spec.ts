@@ -52,18 +52,35 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * Force×100 + int×10 + Vita), départage alphabétique d'`id` ; aucun id d'objet
  * n'est écrit dans ce fichier.
  *
- * RÉSULTAT MESURÉ LE 22/11/2026 APRÈS CALIBRATION (`hpScale` 0,35 salle 3,
- * 0,30 salle 4), `castsPerTurn` ET `cooldown` HONORÉS, SOIN ENTRE LES SALLES
- * ACTIF — SIX VICTOIRES, plus aucune défaite :
- *   niv.  build    PV max  issue      dernière salle  PV monstres  PV fin  marge min  actions
- *   16    survie    303    VICTOIRE   4 (120 PV)      0            27      1,40        105
- *   16    offense   228    VICTOIRE   4 (120 PV)      0            60      2,66         76
- *   17    survie    343    VICTOIRE   4 (120 PV)      0           195      6,83         81
- *   17    offense   263    VICTOIRE   4 (120 PV)      0           159      6,73         62
- *   18    survie    433    VICTOIRE   4 (120 PV)      0           329     13,67         61
- *   18    offense   348    VICTOIRE   4 (120 PV)      0           261     10,20         52
+ * RÉSULTAT MESURÉ LE 22/11/2026 APRÈS CALIBRATION 8 DIRECTIONS (`hpScale` 0,29
+ * salle 3, 0,33 salle 4), `castsPerTurn` ET `cooldown` HONORÉS, SOIN ENTRE LES
+ * SALLES ACTIF — SIX VICTOIRES, plus aucune défaite :
+ *   niv.  build    PV max  entrée salle 4  PV monstres  PV fin  marge min  actions
+ *   16    survie    303    230              0            27      1,20        102
+ *   16    offense   228    191              0            63      2,04         68
+ *   17    survie    343    343              0           198      5,09         73
+ *   17    offense   263    263              0           135      4,59         60
+ *   18    survie    433    433              0           322      9,49         58
+ *   18    offense   348    348              0           277      7,04         42
  *
- * AVANT CALIBRATION (même fichier, même jour, cast-per-turn corrigé) : 16 survie
+ * POURQUOI LA CALIBRATION A BOUGÉ D'UN CRAN AVEC LES DIAGONALES : les deux camps
+ * se déplacent maintenant en 8 directions facturées au pas (diagonale = 1 PM).
+ * Les monstres atteignent le héros en ~6 pas au lieu de ~10 et frappent donc un
+ * tour plus tôt : à `hpScale` 0,35/0,30, `16 survie` mourait en salle 4 avec
+ * 11 PV de monstre restants et la marge de la salle 3 tombait à 0,80. Le levier
+ * reste `hpScale`, jamais les monstres. Mesures intermédiaires : salle 4 seule à
+ * 0,28 → 52 PV restants (le pas de quantification est grossier) ; 0,26 → victoire
+ * mais marge minimale 0,80 en salle 3 ; salle 3 à 0,31/0,30 → toujours 0,80 ;
+ * salle 3 à 0,29 → 2,08 (un tour de moins). La marge est donc QUANTIFIÉE : la
+ * fenêtre 1-2 tours n'existe qu'avec la salle 4 comme salle contraignante, d'où
+ * 0,33 — un cran plus dur qu'avant, pour que la boss room reste la salle qui
+ * décide. `16 survie` finit avec 27 PV, exactement la mesure d'avant diagonales.
+ *
+ * AVANT LA CALIBRATION 8 DIRECTIONS (salle 3 0,35 / salle 4 0,30, même fichier) :
+ * `16 survie` perdait la salle 4 (11 PV de monstres restants), `16 offense`
+ * gagnait avec 33 PV, 17 et 18 gagnaient — la marge du build contraignant était
+ * tombée à 0,80, sous la règle du tour de sécurité.
+ * AVANT LA CALIBRATION `hpScale` (même jour, cast-per-turn corrigé) : 16 survie
  * 211 PV de monstres restants en salle 3, 16 offense 176, 17 survie 60, 17 offense
  * 83 — quatre défaites ; seuls 18 survie (95 actions) et 18 offense (77) gagnaient.
  * AVANT LE CORRECTIF `castsPerTurn` : aucune victoire.
@@ -74,24 +91,25 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * de niveau 15 de la plage) ne deviennent pas triviaux en exploration. Retirer
  * des exemplaires aurait vidé « L'Allée des Boulons Perdus » de son identité ET
  * baissé sa menace ; baisser les PV des monstres aurait cassé le monde ouvert.
- * `hpScale` ne touche QUE les PV (`Math.floor`, donc `floor(105 × 0,35) = 36`) :
+ * `hpScale` ne touche QUE les PV (`Math.floor`, donc `floor(105 × 0,29) = 30`) :
  * dégâts, PA/PM, portée et drops d'une salle restent ceux du monde ouvert, et la
  * salle 3 menace toujours ~32 PV/tour. Salles 1-2 : champ absent, facteur 1,
  * comportement identique au PV près (mesures 122 et 287 PV inchangées).
  *
  * RÉPONSE DEC-03 : (a) « au niveau recommandé (16) avec un bon équipement, le
  * joueur gagne » est VRAIE — les deux builds terminent les quatre salles, avec
- * 1 à 2 tours de marge pour le build contraignant (`survie`, 20 dégâts/tour).
+ * 1,20 tour de marge pour le build contraignant (`survie`, 20 dégâts/tour).
  * (b) le héros nu perd toujours, et toujours en salle 3 (mesuré ci-dessous).
  *
  * CONSTAT D'ARITHMÉTIQUE ASSUMÉ : aucune valeur ne donne 1-2 tours de marge aux
- * DEUX builds. `survie` (303 PV, 20 dmg/tour) est le contraignant : à 0,33 sur la
- * salle 4, il meurt avec 32 PV de monstres restants — soit un cran, ≈ 1 tour, le
- * pas de la quantification. `offense` (228 PV, 36 dmg/tour) garde donc plus de
- * marge (2,66 tours mesurés) ; son garde-fou « pas trivial » est le ratio de PV
- * restants, `hpEnd < maxHp / 2` (60/228 = 26 %). Prétendre calibrer les deux à
- * 1-2 tours serait un chiffre faux : on calibre sur `survie` et on borne
- * `offense` par ce ratio.
+ * DEUX builds. `survie` (303 PV, 20 dmg/tour) est le contraignant et c'est lui qui
+ * fixe la règle : sa plus petite marge doit rester dans [1 ; 2]. `offense`
+ * (228 PV, 36 dmg/tour) garde mécaniquement plus de marge (2,04 tours mesurés,
+ * salle 3) ; son garde-fou « pas trivial » est le ratio de PV restants,
+ * `hpEnd < maxHp / 2` (63/228 = 28 %). Prétendre calibrer les deux à 1-2 tours
+ * serait un chiffre faux : on calibre sur `survie` et on borne `offense` par ce
+ * ratio. C'est une RÈGLE (marge du build contraignant, ratio de l'autre), pas un
+ * instantané au centième : le test ne fige plus `2.66`.
  *
  * L'ÉTAT DES QUOTAS EST PORTÉ PAR LA BATAILLE (`BattleState.spellUsage`) : un
  * compteur par lanceur et par sort, remis à zéro quand le tour change, jamais une
@@ -101,17 +119,17 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * calibré. S'il reparaît, c'est que le moteur gèle à nouveau.
  *
  * CE QUE ÇA DIT DE D71 : la cause racine du mur était un BUG DE FIDÉLITÉ, pas
- * l'équilibrage. Trois des six cellules reculent d'une salle entière et deux
- * gagnent, sans qu'aucun PV, dégât, drop ni ratio de soin n'ait bougé. Reste que
- * 16 ne gagne pas encore : ce qui reste à arbitrer est la salle 3 et la boss
- * room (design), plus un moteur qui ignore une donnée validée (corrigé ici).
+ * l'équilibrage. Trois des six cellules reculaient d'une salle entière et deux
+ * gagnaient, sans qu'aucun PV, dégât, drop ni ratio de soin n'ait bougé. Depuis
+ * la calibration, 16 gagne : le mur restant n'est plus un chiffre de salle mais la
+ * géométrie du déplacement (8 directions), corrigée par le moteur.
  *
  * CE QU'IL NE PROUVE PAS : ni l'acquisition réelle de l'équipement (les pièces
  * sont ajoutées au sac puis équipées par l'action `equip` du store — la mesure
  * porte sur l'effet de l'équipement, pas sur son farm, contrairement à la clef
  * qui est, elle, réellement farmée), ni le déplacement en salle (aucune action de
- * mouvement : les monstres viennent au héros), ni l'équilibrage des salles 3-4
- * (la salle 3 n'est jamais nettoyée à 16-17).
+ * mouvement : les monstres viennent au héros — le pas diagonal ne change donc que
+ * leur approche), ni l'équilibrage des salles 3-4 au-delà des `hpScale` mesurés.
  */
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
@@ -630,19 +648,19 @@ interface Cell {
 /**
  * La table EST la mesure : chaque chiffre vient d'une exécution réelle, aucune
  * valeur n'a été calée pour que le test passe. SIX VICTOIRES depuis la
- * calibration `hpScale` (0,35 salle 3 / 0,30 salle 4) : `actions` est le total
+ * calibration `hpScale` (0,29 salle 3 / 0,33 salle 4) : `actions` est le total
  * réellement joué, jamais un plafond atteint (le plafond de 200 actions reste le
  * détecteur d'enlisement, cf. en-tête). Le soin de franchissement (DEC-03) est
  * mesuré par `assertCrossingHeal` : chaque salle suivante démarre au-dessus des
  * PV de fin de la précédente.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 27, actions: 105 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 60, actions: 76 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 195, actions: 81 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 159, actions: 62 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 329, actions: 61 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 261, actions: 52 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 27, actions: 102 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 63, actions: 68 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 198, actions: 73 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 135, actions: 60 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 322, actions: 58 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 277, actions: 42 },
 ];
 
 
@@ -739,7 +757,6 @@ describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
     const survieMargin = Math.min(...survie.rooms.map(margin));
     expect(survieMargin).toBeGreaterThanOrEqual(1);
     expect(survieMargin).toBeLessThanOrEqual(2);
-    expect(Math.min(...offense.rooms.map(margin))).toBeGreaterThanOrEqual(1);
     expect(lastRoomOf(offense.rooms).hpEnd).toBeLessThan(offense.maxHp / 2);
     const naked = measureNaked();
     expect(naked.victory).toBe(false);
