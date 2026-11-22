@@ -12,11 +12,13 @@ async function safely(step, session) {
   }
 }
 
+/** Mesure impossible = zone non prouvée : elle compte comme absente, jamais comme vide. */
 async function safelySnapshot(session, selectors) {
+  const names = Object.keys(selectors ?? {});
   try {
     return await snapshot(session.page, selectors ?? {});
   } catch {
-    return { boxes: {}, missing: [] };
+    return { boxes: {}, missing: names.map((name) => `${name} (mesure impossible)`) };
   }
 }
 

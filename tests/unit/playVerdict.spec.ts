@@ -84,6 +84,47 @@ describe("verdict : exceptions documentées", () => {
   });
 });
 
+describe("verdict : zones absentes", () => {
+  it("une zone absente fait échouer la session même si l’étape est ok", () => {
+    const result = verdict(classify(recorder()), [step("ok", { missing: ["journal", "canvas"] })]);
+    expect(result.code).toBe(1);
+    expect(result.counts.missingZones).toBe(2);
+  });
+
+  it("les zones absentes sont détaillées par étape", () => {
+    const result = verdict(classify(recorder()), [step("ok", { missing: ["canvas", "journal"] })]);
+    expect(result.missing).toEqual([{ step: "05-combat-donjon", zones: ["canvas", "journal"] }]);
+  });
+
+  it("une étape sans zone absente reste en 0", () => {
+    expect(codeOf(recorder(), [step("ok", { missing: [] })])).toBe(0);
+  });
+
+  it("le résumé nomme les zones absentes", () => {
+    const result = verdict(classify(recorder()), [step("ok", { missing: ["journal"] })]);
+    expect(result.reasons.join(" ")).toContain("zone(s) absente(s)");
+  });
+});
+
+describe("verdict : budget de warnings", () => {
+  const warning = consoleEntry("warning", "[.WebGL] GPU stall due to ReadPixels");
+
+  it("un warning par capture reste non bloquant et sans avertissement", () => {
+    const steps = [step("ok", { screenshots: ["01.png", "01b.png"] })];
+    const result = verdict(classify(recorder({ console: [warning, warning, warning] })), steps);
+    expect(result.code).toBe(0);
+    expect(result.advisories).toEqual([]);
+  });
+
+  it("plus de 2 warnings par capture produit un avertissement non bloquant", () => {
+    const steps = [step("ok", { screenshots: ["01.png", "01b.png"] })];
+    const result = verdict(classify(recorder({ console: Array(5).fill(warning) })), steps);
+    expect(result.code).toBe(0);
+    expect(result.advisories).toHaveLength(1);
+    expect(result.advisories[0]).toContain("warnings");
+  });
+});
+
 describe("verdict : session saine", () => {
   it("une session propre sort en 0 et compte les warnings sans bloquer", () => {
     const input = recorder({ console: [consoleEntry("warning", "[.WebGL] GPU stall due to ReadPixels")] });

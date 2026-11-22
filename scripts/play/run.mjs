@@ -50,7 +50,7 @@ async function finalize({ steps, recorder, outDir, baseUrl, port, serverLog, sta
   const result = verdict(buckets, steps);
   const meta = { baseUrl, port, viewport, durationMs: Date.now() - started };
   const report = buildReport({ steps, result, meta, serverLog });
-  const errors = buildErrors({ ...buckets, counts: result.counts });
+  const errors = buildErrors({ ...buckets, counts: result.counts, missing: result.missing });
   await writeArtifacts({ outDir, report, errors, consoleEntries: recorder.console });
   printSummary({ report, errors, result, outDir });
   return result.code;
