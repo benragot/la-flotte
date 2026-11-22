@@ -2,11 +2,18 @@
 # Une salle = une map de `data/maps.yaml` ; `roomNumber` est consécutif à partir
 # de 1 et la dernière salle est l'unique `isBossRoom: true`.
 # La clé est livrée (data/items.yaml, category: key). D48 soldée.
+#
+# DEC-03 : le soin entre deux salles est AUTORISÉ — entorse assumée à Dofus 1.29.
+# `healBetweenRooms` est la part du pool EFFECTIF (PV de niveau + objets +
+# Vitalité) rendue au franchissement d'une salle gagnée. 0 = aucun soin,
+# 1 = retour au maximum. Rien n'est rendu à l'entrée du donjon, en cours de
+# salle, après la dernière salle, ni au rechargement.
 dungeons:
   - id: fer_donjon_casse_vis_sans_fin
     name: "La Casse aux Vis-Sans-Fin"
     recommendedLevel: 16
     keyItemId: cle_donjon_ile_de_la_ferraille
+    healBetweenRooms: 0.5
     rooms:
       - roomNumber: 1
         name: "La Cour aux Volatiles Gras"
