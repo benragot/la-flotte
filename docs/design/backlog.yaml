@@ -8,10 +8,25 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 1
+  version: 2
   updated_at: "2026-11-22"
-  updated_by: orchestrator
+  # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
+  # ce backlog par l'agent d'intégration, qui signe `updated_by`.
+  updated_by: integrator
   statuses: [todo, in_progress, needs_review, approved, blocked, done, dropped]
+  status_definitions:
+    todo: "planifié, jamais démarré"
+    in_progress: "du travail non commité ou une PR ouverte existe"
+    needs_review: "PR ouverte ET corrections QA en cours"
+    approved: "verdict APPROUVÉ rendu, merge pas encore effectué"
+    blocked: "ne peut pas démarrer ou finir : dépendance non satisfaite"
+    done: "mergé sur main (squash), vérifié"
+    dropped: "abandonné, raison en notes"
+  update_rules:
+    - "seul l'agent d'intégration (integrator) ou un tdd-coder commité écrit ici : l'orchestrateur ne modifie jamais de fichier, il le fait écrire"
+    - "mise à jour à chaque verdict QA et à chaque merge sur main, jamais un état supposé ou anticipé"
+    - "meta.updated_at est bumpé dans le même commit que le changement d'état"
+    - "une phase dont une dépendance blocked_by n'est pas done reste blocked"
 
 inbox: []
 
@@ -28,31 +43,47 @@ waves:
             title: Courbe XP 1.29 exacte, Hero persistant, 33 sorts de classe
             status: approved
             pr: 17
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
             notes: CI verte, verdict APPROUVÉ, en attente de la PR 18 (permissions merge)
           - id: 4A-items-sets
             title: Items, consommables, panoplie du Piou Mazouté
             status: done
             pr: 14
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
             notes: squash e28c3e7
           - id: 4A-inventory
             title: Sac, 8 slots, bonus de panoplie
             status: approved
             pr: 15
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
             notes: duplication d'item corrigée, en attente de la PR 18
           - id: 4A-save
             title: Sauvegarde versionnée, export/import JSON
             status: done
             pr: 16
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
             notes: squash b8ba3c7
           - id: 4A-harness
             title: Permissions pr-merger pour valider l'arbre combiné
             status: needs_review
             pr: 18
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
             notes: 2e passe de correction (étape de push inopérante, bornes d'échec)
       - id: 4B
         title: Intégration — useGameStore, combat câblé, walkthrough niv. 5
-        status: todo
+        status: blocked
         blocked_by: [4A-hero-prog, 4A-inventory, 4A-save, 4A-items-sets, 4A-harness]
+        notes: dépendances non mergées sur main — 4A-hero-prog (approved) et 4A-inventory (approved) attendent la PR 18, 4A-harness est en needs_review
       - id: 4C
         title: UI — création de personnage, inventaire et équipement
         status: todo
@@ -64,34 +95,48 @@ waves:
     status: todo
     phases:
       - id: 5A
+        title: Modules headless combat, tacle et navire
+        status: todo
         tasks: []
       - id: 5B
+        title: Intégration combat 1vN et craft
         status: todo
       - id: 5C
+        title: UI combat, tacle et retrait PA-PM
         status: todo
       - id: 5D
+        title: Wiring Navire-Base et premier donjon
         status: todo
   - id: wave-6
     title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
     status: todo
     phases:
       - id: 6A
+        title: Modules Fruits d'Écho et sorts avancés
+        status: todo
         tasks: []
       - id: 6B
+        title: Intégration Fruits d'Écho et AoE
         status: todo
       - id: 6C
+        title: UI archipel et Fruits d'Écho
         status: todo
       - id: 6D
+        title: Wiring archipel complet
         status: todo
   - id: wave-7
     title: Polish visuel/audio, contenu Archipel complet, packaging Mac
     status: todo
     phases:
       - id: 7A
+        title: Polish visuel et audio
+        status: todo
         tasks: []
       - id: 7B
+        title: Contenu archipel final
         status: todo
       - id: 7C
+        title: Packaging Mac
         status: todo
 
 debts:
