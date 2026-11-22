@@ -39,6 +39,16 @@ export interface StepOutcome {
   step: string;
   status: StepStatus;
   skipId?: string | null;
+  /** Zones clés absentes du DOM : leur absence fait échouer la session. */
+  missing?: readonly string[];
+  /** Captures produites par l'étape (au moins une par étape en pratique). */
+  screenshots?: readonly string[];
+}
+
+/** Zones absentes regroupées par étape, pour `errors.json` et le résumé. */
+export interface MissingZones {
+  step: string;
+  zones: string[];
 }
 
 export interface Buckets {
@@ -59,12 +69,16 @@ export interface Counts {
   warnings: number;
   failedSteps: number;
   undocumentedSkips: number;
+  missingZones: number;
 }
 
 export interface Verdict {
   code: 0 | 1;
   reasons: string[];
   counts: Counts;
+  missing: MissingZones[];
+  /** Non bloquant : signale un coût suspect (readback par frame), jamais un échec. */
+  advisories: string[];
 }
 
 export type DocumentedSkips = Record<string, string>;
