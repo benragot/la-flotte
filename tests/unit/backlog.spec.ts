@@ -743,7 +743,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les douze tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les treize tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1599,9 +1599,26 @@ function decisionHeadings(): string[] {
   return [...readFileSync(path, "utf8").matchAll(/^## (D0\d) — /gm)].map((match) => match[1] ?? "");
 }
 
+/** Une clause `**Interdit**` par décision : le corps ne peut pas être vidé sans rougir. */
+function decisionInterdits(): string[] {
+  const path = join(process.cwd(), DECISIONS_PATH);
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8").split("\n").filter((line) => line.startsWith("**Interdit**"));
+}
+
+/** Le sens de la clause : une double négation dirait le contraire de la décision. */
+function negatedInterdits(): string[] {
+  return decisionInterdits().filter((line) => /\bne pas\b/.test(line));
+}
+
 describe("backlog — décisions du propriétaire (v21)", () => {
   it("garde le fichier normatif et numérote D01 à D09", () => {
     expect(existsSync(join(process.cwd(), DECISIONS_PATH))).toBe(true);
     expect(decisionHeadings()).toEqual(DECISION_NUMBERS);
+  });
+
+  it("exige un **Interdit** par décision, rédigé en affirmatif", () => {
+    expect(decisionInterdits()).toHaveLength(DECISION_NUMBERS.length);
+    expect(negatedInterdits()).toEqual([]);
   });
 });
