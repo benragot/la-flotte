@@ -107,6 +107,19 @@ function taskIdsOf(backlog: Backlog, phaseId: string): string[] {
   return (phaseById(backlog, phaseId)?.tasks ?? []).map((task) => task.id);
 }
 
+function donePhaseIds(backlog: Backlog): Set<string> {
+  return new Set(allPhases(backlog).filter((phase) => phase.status === "done").map((phase) => phase.id));
+}
+
+function debtsTargetingDone(backlog: Backlog): Debt[] {
+  const done = donePhaseIds(backlog);
+  return backlog.debts.filter((debt) => done.has(String(debt.target)));
+}
+
+function externalDebtsWithoutOwner(backlog: Backlog): Debt[] {
+  return backlog.debts.filter((debt) => debt.target === "external" && !isFilled(debt.owner));
+}
+
 function phaseStatuses(backlog: Backlog): string[] {
   return allPhases(backlog).flatMap((phase) => (phase.status ? [phase.status] : []));
 }
@@ -584,5 +597,17 @@ describe("backlog — dettes d'outillage", () => {
 
   it("grade les dettes bloquantes en high", () => {
     expect(debtById(readBacklog(), "D51")?.severity).toBe("high");
+  });
+});
+
+describe("backlog — cibles des dettes", () => {
+  it("ne cible jamais une phase terminée", () => {
+    const orphans = debtsTargetingDone(readBacklog());
+    expect(orphans.map((debt) => debt.id)).toEqual([]);
+  });
+
+  it("exige un owner sur chaque dette externalisée", () => {
+    const orphans = externalDebtsWithoutOwner(readBacklog());
+    expect(orphans.map((debt) => debt.id)).toEqual([]);
   });
 });
