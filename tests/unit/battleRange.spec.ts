@@ -6,8 +6,8 @@ import type { DungeonRoom } from "../../src/engine/dungeon";
 import { setupDungeonBattle } from "../../src/engine/dungeon/combatants";
 import { getCell, isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
 import type { Position } from "../../src/engine/grid";
-import { buildTimeline, isDefeat, isVictory, livingOf, resolveAttack } from "../../src/engine/multiCombat";
-import type { BattleState, CombatantLike } from "../../src/engine/multiCombat";
+import { buildTimeline, enemiesAct, isDefeat, isVictory, livingOf, resolveAttack } from "../../src/engine/multiCombat";
+import type { BattleState, CombatantLike, EnemyAction } from "../../src/engine/multiCombat";
 import { battleViewModel } from "../../src/renderer/battleViewModel";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
@@ -15,7 +15,7 @@ import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import type { MonsterDef } from "../../src/schemas/monsterSchema";
 import { parseSpellsYaml } from "../../src/schemas/spellSchema";
-import { castRefusal, spellCastSpec } from "../../src/store/battleSelectors";
+import { castRefusal, spellCastSpec, spellStrategy } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
 import { useGameStore } from "../../src/store/useGameStore";
 
@@ -158,7 +158,9 @@ describe("setupDungeonBattle — la carte entre dans la bataille", () => {
       expect(MAP.monsterSpawns.some((cell) => samePosition(cell, enemy.position))).toBe(true);
     }
   });
+});
 
+describe("setupDungeonBattle — aucune case occupée ni murale", () => {
   it("n'occupe jamais la case d'un autre combattant ni un mur", () => {
     const cells = placeWithMap().combatants.map((entry) => entry.position);
     cells.forEach((cell) => {
@@ -321,11 +323,17 @@ function roomAt(roomNumber: number): DungeonRoom {
   return room;
 }
 
-/** Héros de test endurant : on mesure la géométrie et l'IA, pas l'équilibrage du donjon. */
+/**
+ * Héros de test renforcé : la viabilité mesurée est celle de la **boucle
+ * géométrique** (placement `P`/`M` → approche → portée → riposte), pas
+ * l'équilibrage. Le donjon est calibré niveau 16 alors que les monstres y ont
+ * 20 à 60 de Force face à un héros de démo sans capital investi : un héros de
+ * test plus faible perd les salles 3 et 4, ce qui est un sujet de balance.
+ */
 function durableHero(): void {
   const { hero } = useGameStore.getState();
   if (hero === null) throw new Error("héros absent");
-  useGameStore.setState({ hero: { ...hero, level: 16, hp: 400, maxHp: 400, strength: 120 } });
+  useGameStore.setState({ hero: { ...hero, level: 20, hp: 600, maxHp: 600, strength: 200 } });
 }
 
 function battleOver(state: BattleState): boolean {
@@ -395,4 +403,73 @@ describe("viabilité — les 4 salles se terminent par le chemin de production",
       expect(combatantIn(run.battle, "player").hp).toBeLessThan(run.heroStart);
     });
   }
+});
+
+const BOULON = mustFind(monsters, "fer_boulon_pousseur");
+const BOULON_ID = "fer_boulon_pousseur-0";
+
+function boulonSpells() {
+  return BOULON.spellIds.map((id) => mustFind(spells, id));
+}
+
+/** Un seul Écrou-Baton face au héros, à la distance demandée, sur la vraie carte. */
+function boulonBattle(distance: number): BattleState {
+  const groups = [{ monster: BOULON, count: 1 }];
+  const setup = setupDungeonBattle({ hero: { combatant: HERO }, monsters: groups, map: MAP });
+  const base = { turn: 1, ...buildTimeline(setup.combatants), combatants: setup.combatants, log: [], map: MAP };
+  const positions = { player: { x: 1, y: 1 }, [BOULON_ID]: { x: 1 + distance, y: 1 } };
+  return moved(base, positions);
+}
+
+function enemyActive(state: BattleState): BattleState {
+  return { ...state, order: [BOULON_ID, "player"], activeIndex: 0 };
+}
+
+function decide(state: BattleState): EnemyAction | null {
+  return spellStrategy({ spells: boulonSpells(), rng: () => 0 })(state, BOULON_ID);
+}
+
+function runTurn(state: BattleState): BattleState {
+  const strategy = spellStrategy({ spells: boulonSpells(), rng: () => 0 });
+  return enemiesAct({ state: enemyActive(state), rng: () => 0, strategy });
+}
+
+describe("approche ennemie — sorts distance-aware", () => {
+  it("joue Lancer d'Écrou (2-4) à distance 3, pas le Coup de Tête Fileté (1-1)", () => {
+    const action = decide(boulonBattle(3));
+    expect(action).toMatchObject({ kind: "attack", attack: { spellName: "Lancer d'Écrou" } });
+  });
+
+  it("joue le Coup de Tête Fileté quand la cible est au contact", () => {
+    const action = decide(boulonBattle(1));
+    expect(action).toMatchObject({ kind: "attack", attack: { spellName: "Coup de Tête Fileté" } });
+  });
+});
+
+describe("approche ennemie — PM, attaque et blocage", () => {
+  it("approche avec ses PM hors de portée, puis attaque dans le même tour", () => {
+    const state = boulonBattle(5);
+    const next = runTurn(state);
+    const boulon = combatantIn(next, BOULON_ID);
+    expect(boulon.position).toEqual({ x: 3, y: 1 });
+    expect(boulon.mp).toBe(0);
+    expect(next.log.some((line) => line.includes("se déplace de 3 case(s)"))).toBe(true);
+    expect(combatantIn(next, "player").hp).toBeLessThan(combatantIn(state, "player").hp);
+  });
+
+  it("journalise quand il ne peut ni approcher ni attaquer", () => {
+    const base = boulonBattle(5);
+    const combatants = base.combatants.map((entry) => (entry.id === BOULON_ID ? { ...entry, mp: 0 } : entry));
+    const next = runTurn({ ...base, combatants });
+    expect(next.log.some((line) => line.includes("ne peut pas atteindre le héros"))).toBe(true);
+  });
+
+  it("ne traverse ni un mur ni un combattant (chemin de la grille)", () => {
+    const state = moved(boulonBattle(5), { player: { x: 1, y: 1 }, [BOULON_ID]: { x: 4, y: 3 } });
+    expect(getCell(MAP, { x: 3, y: 3 })).toBe("#");
+    const next = runTurn(state);
+    const boulon = combatantIn(next, BOULON_ID);
+    expect(getCell(MAP, boulon.position)).not.toBe("#");
+    expect(boulon.mp).toBeLessThan(combatantIn(state, BOULON_ID).mp);
+  });
 });

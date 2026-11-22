@@ -47,6 +47,16 @@ function findIn(id: string) {
   return battle()?.combatants.find((entry) => entry.id === id);
 }
 
+/** Le héros apparaît sur une case `P` : on amène la cible au contact pour le cast. */
+function bringAdjacent(targetId: string): void {
+  const state = battle();
+  const hero = findIn("player");
+  if (state === null || hero === undefined) throw new Error("battle incomplet");
+  const next = { x: hero.position.x + 1, y: hero.position.y };
+  const combatants = state.combatants.map((entry) => (entry.id === targetId ? { ...entry, position: next } : entry));
+  useCombatStore.setState({ battle: { ...state, combatants } });
+}
+
 beforeEach(() => {
   useCombatStore.setState({ battle: null, combat: null, mode: "exploration", exploration: null });
   useCombatStore.getState().startDungeonRoom({ room: roomOne() });
@@ -82,16 +92,10 @@ describe("spellAttackSpec — pont SpellDef → AttackSpec", () => {
 
 describe("useCombatStore.battleSpellAttack — attaque du héros", () => {
   it("frappe la cible avec le sort de dégâts du héros, sans chiffre en dur", () => {
-    const state = battle();
-    if (state === null) throw new Error("aucun battle");
+    bringAdjacent("piou_mazoute-0");
     const hero = findIn("player");
-    if (hero === undefined) throw new Error("héros absent");
-    // Le héros apparaît sur une case `P` : on amène la cible au contact.
-    const next = { x: hero.position.x + 1, y: hero.position.y };
-    const combatants = state.combatants.map((entry) => (entry.id === "piou_mazoute-0" ? { ...entry, position: next } : entry));
-    useCombatStore.setState({ battle: { ...state, combatants } });
     const target = findIn("piou_mazoute-0");
-    if (target === undefined) throw new Error("fixture incomplète");
+    if (hero === undefined || target === undefined) throw new Error("fixture incomplète");
     const expected = computeDamage({
       base: PRESSION.damage?.min ?? 0,
       stat: hero.stats.strength,
