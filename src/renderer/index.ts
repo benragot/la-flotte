@@ -3,11 +3,15 @@ export type { ArenaMode, CombatCanvasProps } from "./CombatCanvas";
 export {
   TILE_H,
   TILE_W,
+  arenaScale,
   centeredOrigin,
+  cornerSafeScale,
+  coverScale,
   gridDiamond,
   gridToIso,
   isoMapSize,
   isoToGrid,
+  originScale,
   sceneOrigin,
 } from "./gridProjection";
 export type { CenteredOriginInput, Diamond, GridSize, IsoCellInput, IsoOrigin, IsoPickInput, PixelPoint } from "./gridProjection";

@@ -25,15 +25,17 @@ function paintDiamond(graphics: Graphics, view: TileView): void {
 /** Quadrilatère latéral sud-ouest qui donne de l'épaisseur aux murs. */
 function wallSide(view: TileView): number[] {
   const { x, y } = view.center;
-  const halfW = TILE_W / 2;
-  const halfH = TILE_H / 2;
-  return [x - halfW, y, x, y + halfH, x, y + halfH - WALL_HEIGHT, x - halfW, y - WALL_HEIGHT];
+  const halfW = (TILE_W / 2) * view.scale;
+  const halfH = (TILE_H / 2) * view.scale;
+  const height = WALL_HEIGHT * view.scale;
+  return [x - halfW, y, x, y + halfH, x, y + halfH - height, x - halfW, y - height];
 }
 
 function paintWall(graphics: Graphics, view: TileView): void {
+  const height = WALL_HEIGHT * view.scale;
   graphics.poly(wallSide(view));
   graphics.fill({ color: WALL_SIDE, alpha: 1 });
-  const top = shiftPoints(view.points, -WALL_HEIGHT);
+  const top = shiftPoints(view.points, -height);
   graphics.poly(top);
   graphics.fill({ color: WALL_TOP, alpha: 1 });
   paintOutline(graphics, top);

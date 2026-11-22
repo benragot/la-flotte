@@ -3,7 +3,7 @@ import type { AsciiMap, Position } from "../engine/grid";
 import { getCell } from "../engine/grid";
 import { allPositions } from "../engine/combatLoop/cells";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
-import { gridDiamond } from "./gridProjection";
+import { gridDiamond, originScale } from "./gridProjection";
 import type { TileStyle } from "./tileStyle";
 import { resolveTileStyle } from "./tileStyle";
 
@@ -11,6 +11,8 @@ export interface TileView {
   cell: CellType;
   center: PixelPoint;
   points: number[];
+  /** Échelle de la caméra, pour que le relief des murs suive le décor. */
+  scale: number;
   style: TileStyle;
 }
 
@@ -61,7 +63,8 @@ function tileAt(input: SceneInput, position: Position, flags: TileFlags): TileVi
   const diamond = gridDiamond({ ...position, origin: input.origin });
   const isHovered = input.highlight.hover === cellKey(position);
   const center = { x: diamond.cx, y: diamond.cy };
-  return { cell, center, points: diamond.points, style: resolveTileStyle({ cell, isHovered, ...flags }) };
+  const style = resolveTileStyle({ cell, isHovered, ...flags });
+  return { cell, center, points: diamond.points, scale: originScale(input.origin), style };
 }
 
 function highlightTile(input: SceneInput, position: Position): TileView | null {
