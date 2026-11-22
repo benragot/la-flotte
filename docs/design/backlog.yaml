@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 12
+  version: 13
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -166,7 +166,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: aiguillage création/arène, barrel racine, D07 corrigée (aria-label sur main), percentDmg passé en pending
+            notes: aiguillage création/arène, barrel racine, percentDmg passé en pending ; D07 corrigée dans #34 (aria-label déplacé sur <main>), D47 à solder au merge
   - id: wave-5
     title: Combat 1vN, tacle/CC/retrait PA-PM, Navire-Base, craft, 1er donjon
     status: in_progress
@@ -257,6 +257,9 @@ waves:
         status: todo
 
 debts:
+  # `external` = hors périmètre d'écriture des agents, l'action est portée par
+  # `owner` (humain). Ce n'est PAS « hors projet ». `blocked` = dépendance non
+  # satisfaite.
   - id: D02
     title: requiresState est un enum d'état métier codé en dur dans src/schemas
     severity: low
@@ -268,11 +271,11 @@ debts:
   - id: D04
     title: itemStatsSchema n'est pas .strict(), une clé de stat mal orthographiée est retirée silencieusement
     severity: low
-    target: 5A
+    target: 5B
   - id: D05
     title: monstersFileSchema ne vérifie pas l'unicité des ids (helper checkUniqueIds à mutualiser)
     severity: low
-    target: 5A
+    target: 5B
   - id: D06
     title: Impossible de porter deux exemplaires du même anneau (autorisé en 1.29)
     severity: medium
@@ -291,10 +294,6 @@ debts:
     severity: low
     target: blocked
     notes: le plugin est interdit d'édition aux agents
-  - id: D14
-    title: Les verdicts qa-reviewer ne sont pas matérialisés sur GitHub (pas de gh pr review)
-    severity: low
-    target: 5A
   - id: D15
     title: popBest du pathfinding retriée en O(n^2 log n)
     severity: low
@@ -311,7 +310,7 @@ debts:
   - id: D28
     title: La table XP est verrouillée par snapshot mais pas les autres tables de données
     severity: low
-    target: 5A
+    target: 5B
   - id: D29
     title: Les PV courants du héros ne suivent pas le combat — chaque combat repart à PV plein et le soin hors combat est inatteignable en jeu
     severity: high
@@ -359,7 +358,7 @@ debts:
     severity: high
     target: external
     owner: user
-    notes: même racine que D14, désormais bloquant
+    notes: remplace D14 (même défaut, désormais bloquant)
   - id: D52
     title: "Un conflit de merge désactive silencieusement tous les workflows `pull_request` (GitHub) : `gh pr checks` renvoie \"no checks reported\" sans erreur. Réflexe à inscrire dans les prompts : vérifier `gh pr view --json mergeable` AVANT de conclure à une panne CI. Ajouter aussi une borne lisible sur le `--watch` post-push (course de scheduling : le run n'existe pas encore)"
     severity: medium
