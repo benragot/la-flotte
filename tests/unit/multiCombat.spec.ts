@@ -477,6 +477,13 @@ describe("case partagée héritée", () => {
     expect(isVictory(next) || isDefeat(next)).toBe(false);
   });
 
+  it("le héros n'est jamais déplacé : seul l'ennemi squatter se dégage", () => {
+    const state = overlapState();
+    const next = enemiesAct({ state, rng: () => 0.99, strategy: () => null });
+    expect(positionOf(next, "p1")).toEqual(positionOf(state, "p1"));
+    expect(positionOf(next, "e1")).not.toEqual(positionOf(state, "e1"));
+  });
+
   it("les autres monstres retrouvent un chemin vers le héros", () => {
     const state = overlapState();
     expect(approachCell({ state, enemy: combatantOf(state, "e2"), target: combatantOf(state, "p1"), cells: 3 })).toBeNull();
