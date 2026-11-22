@@ -143,7 +143,7 @@ describe("bornes du monsterSchema", () => {
     expect(() => monsterSchema.parse(withPercent(101))).toThrow(/résistance/);
   });
 
-  it("accepte un monstre sans spellIds ni loot, en attendant la vague 6A", () => {
+  it("tolère l'absence de spellIds et de loot et les normalise en tableaux vides", () => {
     const parsed = monsterSchema.parse(baseMonster);
     expect(parsed.spellIds).toEqual([]);
     expect(parsed.loot).toEqual([]);
