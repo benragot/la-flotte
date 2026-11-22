@@ -1,26 +1,22 @@
-import { useEffect } from "react";
-import type {
-  CombatPhase,
-  CombatRewards,
-  CombatState,
-} from "../../engine/combatLoop/types";
+import type { CombatRewards, CombatState } from "../../engine/combatLoop/types";
+import type { Hero } from "../../engine/createHero";
+import type { ExplorationState } from "../../engine/exploration";
 import { useCombatStore } from "../../store/useCombatStore";
+import { useGameStore } from "../../store/useGameStore";
 import type { HudMode } from "../hudHelpers";
-import type { Shortcut } from "../shortcuts";
-import { resolveShortcut } from "../shortcuts";
 import CombatLogPanel from "./CombatLogPanel";
 import EndOverlay from "./EndOverlay";
 import SpellSlots from "./SpellSlots";
 import Timeline from "./Timeline";
 import TopBanner from "./TopBanner";
 import Vitals from "./Vitals";
-import { PRIMARY_BUTTON } from "./hudTheme";
+import { DOCK_PANEL, PRIMARY_BUTTON, SECTION_HEADING } from "./hudTheme";
 
 /**
  * Le HUD n'est plus `fixed inset-0` : il est en colonne dans le flux de son
  * parent (zone libre `flex-1` pour la carte, puis dock `shrink-0`). C'est la
  * cause racine du recouvrement des dernières rangées du canvas (dette D08) qui
- * disparaît ; l'assemblage `App` (canvas dans la zone libre) arrive en phase B.
+ * disparaît avec l'assemblage `App` de la phase B.
  */
 const HUD_SHELL = "pointer-events-none relative flex h-full w-full flex-col text-[#e8dcc8]";
 const ARENA_ZONE = "pointer-events-none relative min-h-0 flex-1";
@@ -29,6 +25,11 @@ const DOCK_SHELL =
 const LOG_COLUMN = "min-w-0 w-[34%]";
 const VITALS_COLUMN = "flex min-w-0 w-[24%] flex-col justify-center";
 const SPELL_COLUMN = "min-w-0 flex-1";
+const EXPLORATION_BANNER =
+  "pointer-events-auto flex items-baseline gap-3 border-b border-[#8c6d46]/60 bg-[#2b241d]/90 px-3 py-1 text-[#e8dcc8]";
+const EXPLORATION_TITLE = "text-sm font-bold tracking-wide text-[#d4a537]";
+const EXPLORATION_HINT = "text-sm font-semibold text-[#d4a537]";
+const EXPLORATION_TEXT = "text-[11px] opacity-80";
 
 export interface CombatHudProps {
   mode?: HudMode;
@@ -45,65 +46,15 @@ interface HudLayoutProps {
   onReturnToMap?: (() => void) | undefined;
 }
 
-interface ShortcutContext {
-  phase: CombatPhase;
-  onSelect: (index: number) => void;
-  onEndTurn: () => void;
-  onCancel: () => void;
-}
-
-interface KeyboardDeps {
+interface CombatLayoutProps {
   combat: CombatState;
-  selectSpell: (spellId: string | null) => void;
-  endTurn: () => void;
-}
-
-function isTextField(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return tag === "input" || tag === "textarea" || target.isContentEditable;
-}
-
-function keyboardContext(deps: KeyboardDeps): ShortcutContext {
-  const { combat, selectSpell, endTurn } = deps;
-  const onSelect = (index: number) => selectSpell(combat.player.spellIds[index] ?? null);
-  const onCancel = () => selectSpell(null);
-  return { phase: combat.phase, onSelect, onEndTurn: endTurn, onCancel };
-}
-
-function applyShortcut(shortcut: Shortcut, ctx: ShortcutContext): void {
-  if (shortcut.kind === "selectSpell") return ctx.onSelect(shortcut.index);
-  if (shortcut.kind === "endTurn") return ctx.onEndTurn();
-  if (shortcut.kind === "cancelSpell") return ctx.onCancel();
-}
-
-function handleKeyDown(ctx: ShortcutContext, event: KeyboardEvent): void {
-  const focusInTextField = isTextField(event.target);
-  const shortcut = resolveShortcut({ code: event.code, phase: ctx.phase, focusInTextField });
-  if (shortcut.kind === "none") return;
-  event.preventDefault();
-  applyShortcut(shortcut, ctx);
-}
-
-function useHudKeyboard(ctx: ShortcutContext): void {
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => handleKeyDown(ctx, event);
-    window.addEventListener("keydown", listener);
-    return () => window.removeEventListener("keydown", listener);
-  }, [ctx]);
-}
-
-function HudKeyboard({ combat }: { combat: CombatState }) {
-  const selectSpell = useCombatStore((state) => state.selectSpell);
-  const endTurn = useCombatStore((state) => state.endTurn);
-  useHudKeyboard(keyboardContext({ combat, selectSpell, endTurn }));
-  return null;
+  mode: HudMode;
+  onReturnToMap?: (() => void) | undefined;
 }
 
 function ArenaZone({ combat, mapId }: { combat: CombatState; mapId: string }) {
   return (
     <div className={ARENA_ZONE}>
-      <HudKeyboard combat={combat} />
       <TopBanner mapId={mapId} turn={combat.turn} phase={combat.phase} />
       <Timeline player={combat.player} enemy={combat.enemy} phase={combat.phase} />
     </div>
@@ -132,6 +83,73 @@ function HudLayout(props: HudLayoutProps) {
   );
 }
 
+function CombatLayout({ combat, mode, onReturnToMap }: CombatLayoutProps) {
+  const mapId = useCombatStore((state) => state.mapId);
+  const rewards = useCombatStore((state) => state.rewards);
+  const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
+  const layout = { combat, mapId, rewards, selectedSpellId, mode, onReturnToMap };
+  return <HudLayout {...layout} />;
+}
+
+function ExplorationBanner({ mapId }: { mapId: string }) {
+  return (
+    <header className={EXPLORATION_BANNER}>
+      <h1 className={EXPLORATION_TITLE}>La Flotte</h1>
+      <p className={EXPLORATION_HINT}>Mode Exploration — Clique un monstre pour combattre</p>
+      <p className={`ml-auto ${EXPLORATION_TEXT}`}>Carte {mapId}</p>
+    </header>
+  );
+}
+
+function HeroVitals({ hero }: { hero: Hero }) {
+  return (
+    <section aria-label="Ressources du héros" className={DOCK_PANEL}>
+      <h2 className={SECTION_HEADING}>Héros</h2>
+      <p className="text-sm font-bold text-[#b83b3b]">❤ {hero.hp} / {hero.maxHp}</p>
+      <p className="text-sm font-bold text-[#3b6fb8]">★ {hero.ap} PA · 👢 {hero.mp} PM</p>
+    </section>
+  );
+}
+
+function explorationLog(exploration: ExplorationState | null): string[] {
+  return exploration?.log ?? [];
+}
+
+function heroName(hero: Hero | null): string {
+  return hero?.name ?? "Héros";
+}
+
+function DockVitals({ hero }: { hero: Hero | null }) {
+  if (hero === null) return null;
+  return <HeroVitals hero={hero} />;
+}
+
+function ExplorationDock({ exploration, hero }: { exploration: ExplorationState | null; hero: Hero | null }) {
+  const log = explorationLog(exploration);
+  return (
+    <div className={DOCK_SHELL}>
+      <div className={LOG_COLUMN}><CombatLogPanel log={log} playerName={heroName(hero)} /></div>
+      <div className={VITALS_COLUMN}><DockVitals hero={hero} /></div>
+    </div>
+  );
+}
+
+function ExplorationBody(props: { exploration: ExplorationState | null; hero: Hero | null; mapId: string }) {
+  return (
+    <div className={HUD_SHELL}>
+      <div className={ARENA_ZONE}><ExplorationBanner mapId={props.mapId} /></div>
+      <ExplorationDock exploration={props.exploration} hero={props.hero} />
+    </div>
+  );
+}
+
+function ExplorationHud() {
+  const exploration = useCombatStore((state) => state.exploration);
+  const hero = useGameStore((state) => state.hero);
+  const mapId = useCombatStore((state) => state.mapId);
+  return <ExplorationBody exploration={exploration} hero={hero} mapId={mapId} />;
+}
+
 function IdlePanel() {
   const startDemoCombat = useCombatStore((state) => state.startDemoCombat);
   return (
@@ -141,11 +159,13 @@ function IdlePanel() {
   );
 }
 
+/**
+ * Portillon : en exploration le HUD s'affiche même sans combat ; en combat
+ * l'absence de combat retombe sur l'invite de démonstration.
+ */
 export default function CombatHud({ mode = "combat", onReturnToMap }: CombatHudProps) {
   const combat = useCombatStore((state) => state.combat);
-  const mapId = useCombatStore((state) => state.mapId);
-  const rewards = useCombatStore((state) => state.rewards);
-  const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
+  if (mode === "exploration") return <ExplorationHud />;
   if (combat === null) return <IdlePanel />;
-  return <HudLayout combat={combat} mapId={mapId} rewards={rewards} selectedSpellId={selectedSpellId} mode={mode} onReturnToMap={onReturnToMap} />;
+  return <CombatLayout combat={combat} mode={mode} onReturnToMap={onReturnToMap} />;
 }
