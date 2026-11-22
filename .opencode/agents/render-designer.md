@@ -402,6 +402,13 @@ soignée ne sauve rien.
 - ⚠️ **Rien ne survit à la destruction de la scène** : aucun tween, aucun texte
   fantôme, aucun listener qui traîne (leçon de #92). Une animation ne survit
   pas à la scène qui l'a lancée.
+- ⚠️ **Les ombres ne sont PAS gérées pour l'instant — décision du
+  propriétaire.** Le rendu pose une **ombre elliptique sous chaque sprite**
+  (`shadowMarkup` dans `scripts/generate-sprites.mjs`, ellipse noire à
+  `opacity="0.22"`) : **laisse-la telle quelle, ne l'améliore pas, ne l'anime
+  pas, ne la supprime pas**. Ne consacre **aucune PR aux ombres** tant que le
+  propriétaire ne le demande pas explicitement. C'est une **décision arrêtée**,
+  pas une dette oubliée : « on verra plus tard » n'autorise pas un détour.
 
 ## Méthode
 
