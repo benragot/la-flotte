@@ -761,6 +761,10 @@ const OPEN_5C = [
   "5C-set-panoplies",
   "5C-equip-requirements",
   "5C-heal-between-rooms",
+  "5C-explore-hp",
+  "5C-hover-highlight",
+  "5C-cast-cadence",
+  "5C-spell-range-rebalance",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
@@ -776,7 +780,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les treize tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les dix-sept tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1936,7 +1940,7 @@ describe("backlog — dettes de déplacement recadrées par DEC-10 (v26)", () =>
     expect(text).toContain("src/engine/multiCombat/enemies.ts");
     expect(text).toContain("Chebyshev");
     expect(text).toContain("déjà 8-voisins");
-    expect(text).toContain("confirmation");
+    expect(text).toContain("Confirmation en jeu");
     expect(text).toContain("règle de coin");
   });
 
