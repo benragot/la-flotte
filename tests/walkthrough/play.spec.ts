@@ -63,35 +63,37 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * (LCG injecté pour le spawn et le drop, `() => 0.5` pour le combat).
  *
  * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`) et
- * c'est toujours une mauvaise nouvelle :
+ * le correctif `castsPerTurn`/`cooldown` a déplacé la mort d'une salle :
  *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 62 PV, 16 actions ;
  *   franchissement : 62 + ceil(130 × 0,5) = 127 PV rendus par la porte (DEC-03) ;
- *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 127 → 0 PV, 21 actions.
- * Le héros meurt donc toujours en SALLE 2. Le soin de franchissement de DEC-03
- * retarde la mort (12 → 21 actions) sans l'éviter : il ne rend que 65 PV, une
- * seule fois, et la salle 2 en demande davantage.
+ *   salle 2 « Le Hangar à Mazout » : GAGNÉE, 127 → 7 PV, 36 actions ;
+ *   franchissement : 7 + ceil(130 × 0,5) = 72 PV rendus par la porte ;
+ *   salle 3 « L'Allée des Boulons Perdus » : DÉFAITE, 72 → 0 PV, 10 actions.
  *
- * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros ne tient
- * pas la salle 2 même soigné à 127 PV. La salle 2 aligne 287 PV de monstres et
- * ce build Force n'inflige que ~26 PV par tour, alors que la porte ne rend que
- * la moitié de la barre une fois franchie. Il manque encore de la marge : le
- * soin de DEC-03 rapproche le build Force de la salle 3, il ne le fait pas
- * gagner. Une salle qui dure plus longtemps que le pool effectif ne se soigne
- * pas de l'intérieur — c'est exactement la limite mesurée ici.
+ * AVANT LE CORRECTIF (même fichier, même soin, mesure du 22/11/2026) : la salle 2
+ * était une DÉFAITE en 21 actions (127 → 0). `data/spells.yaml` déclarait
+ * `castsPerTurn`/`cooldown` que le moteur ignorait : chaque monstre à 6 PA
+ * frappait deux fois par tour. Le héros nu gagne maintenant une salle de plus —
+ * c'est la preuve que le mur n'était pas l'équilibrage mais la donnée jetée.
  *
- * CE QUI INVERSERA L'ASSERTION : il reste l'équilibrage des salles 3-4 et de la
- * boss room (baisser les dégâts des monstres est INTERDIT par le brief DEC-03).
- * Le jour où la salle 2 tombe, remplacer `expect(second.defeat).toBe(true)` par
- * la victoire, puis dérouler les salles 3 et 4 : ce test deviendra la PREUVE
- * que le donjon est finissable par un joueur normal, pas seulement par un héros
- * de 5 000 PV.
+ * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force ne
+ * tient pas la salle 3. La salle 3 aligne 370 PV de monstres et ce build
+ * n'inflige que ~28 PV par tour, alors que la porte ne rend que la moitié de la
+ * barre. Une salle qui dure plus longtemps que le pool effectif ne se soigne pas
+ * de l'intérieur — c'est exactement la limite mesurée ici.
+ *
+ * CE QUI INVERSERA L'ASSERTION : l'équilibrage de la salle 3 et de la boss room
+ * (baisser les dégâts des monstres est INTERDIT par le brief DEC-03). Le jour où
+ * la salle 3 tombe, prolonger ce parcours vers la salle 4 : ce test deviendra la
+ * PREUVE que le donjon est finissable par un joueur normal, pas seulement par un
+ * héros de 5 000 PV.
  *
  * CE QU'IL NE PROUVE PAS : ni le déplacement du héros en salle (le store 1vN
  * n'a pas d'action de mouvement : le héros reste sur sa case de placement, les
  * monstres viennent à lui), ni l'usage de consommables en donjon (le kit de
  * départ n'en contient aucun et le héros n'a pas de kamas), ni le farm en temps
  * joueur (les rencontres sont bornées par un cap explicite, pas par une
- * horloge), ni l'équilibrage des salles 3-4 (jamais atteintes).
+ * horloge), ni l'équilibrage de la salle 3 (atteinte, jamais nettoyée).
  */
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
@@ -118,8 +120,8 @@ const STARTING_ITEMS: readonly ItemDef[] = items.filter((item) => item.category 
 /** La clef du donjon et la recette qui la produit, lues au YAML. */
 const KEY: ItemDef = mustFind(items, DUNGEON.keyItemId);
 const KEY_RECIPE: RecipeDef = recipes.find((recipe) => recipe.resultItemId === KEY.id) ?? noRecipe();
-/** Salle de la mort, mesurée : le brief attendait 3, le moteur donne 2. */
-const DEATH_ROOM = 2;
+/** Salle de la mort, mesurée : le brief attendait 3, le bug de fidélité la donnait 2. */
+const DEATH_ROOM = 3;
 
 /**
  * GARDE-FOU de farm, pas une mesure : depuis `DEC-07` la clef tombe en butin
@@ -430,8 +432,8 @@ beforeEach(() => {
   });
 });
 
-describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => {
-  it("niveau 16 réel → farm → clef → salle 1 gagnée → défaite salle 2 → sortie propre", () => {
+describe("walkthrough : je joue, du héros créé à la mort en salle 3", () => {
+  it("niveau 16 réel → farm → clef → salles 1-2 gagnées → défaite salle 3 → sortie propre", () => {
     prepareHero();
     const farm = farmKey();
     expect(farm.encounters).toBe(FARM_ENCOUNTERS);
@@ -447,12 +449,21 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
     expect(first.hpEnd).toBeLessThan(first.hpStart);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(2);
+    expect(first.hpEnd).toBe(62);
     const second = playRoom(currentRoomNumber(), storage);
-    expect(second.roomNumber).toBe(DEATH_ROOM);
+    expect(second.roomNumber).toBe(2);
     // DEC-03 : 62 PV + ceil(130 × 0,5) = 127 PV à la porte de la salle 2.
     expect(second.hpStart).toBe(127);
-    expect(second.defeat).toBe(true);
-    expect(second.hpEnd).toBe(0);
+    expect(second.victory).toBe(true);
+    expect(second.hpEnd).toBe(7);
+    useCombatStore.getState().settleDungeonRoom({ storage });
+    expect(currentRoomNumber()).toBe(3);
+    const third = playRoom(currentRoomNumber(), storage);
+    expect(third.roomNumber).toBe(DEATH_ROOM);
+    // DEC-03 : 7 PV + ceil(130 × 0,5) = 72 PV à la porte de la salle 3.
+    expect(third.hpStart).toBe(72);
+    expect(third.defeat).toBe(true);
+    expect(third.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();
     assertCleanExit(storage);
   });

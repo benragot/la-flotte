@@ -2,6 +2,7 @@ import {
   activeCombatant,
   advanceTurn,
   approachCell,
+  canCastSpellNow,
   castBlock,
   enemiesAct,
   findCombatant,
@@ -106,7 +107,8 @@ export function spellAttackSpec(spell: SpellDef, roll: number): AttackSpec {
 /** Même spec, portée YAML comprise : le moteur refuse alors hors bornes et sans LoS. */
 export function spellCastSpec(spell: SpellDef, roll: number): AttackSpec {
   const range = { minRange: spell.minRange, maxRange: spell.maxRange, requiresLos: spell.requiresLos };
-  return { ...spellAttackSpec(spell, roll), ...range };
+  const quotas = { spellId: spell.id, castsPerTurn: spell.castsPerTurn, cooldown: spell.cooldown };
+  return { ...spellAttackSpec(spell, roll), ...range, ...quotas };
 }
 
 function pairFor(state: BattleState, targetId: string): CombatantPair | null {
@@ -173,14 +175,21 @@ function cheapest(spells: readonly SpellDef[]): SpellDef | null {
 }
 
 /** Repli sans carte : le moins cher des sorts payables, sans notion de portée. */
-function cheapestAffordable(enemy: CombatantLike, spells: readonly SpellDef[]): SpellDef | null {
-  return cheapest(affordable(damageSpells(spells), enemy.ap));
+function cheapestAffordable(context: StrategyContext): SpellDef | null {
+  const payable = affordable(damageSpells(context.spells), context.enemy.ap);
+  const available = payable.filter((spell) => canCastSpellNow(context.state, context.enemy.id, spell));
+  return cheapest(available);
 }
 
-/** Sorts payables dont la portée contient la distance réelle et dont la LoS passe. */
+/**
+ * Sorts payables, à portée et **hors recharge** : un sort dont `castsPerTurn`
+ * est épuisé ou qui attend son `cooldown` n'est pas proposé, sinon le moteur le
+ * refuserait et le monstre perdrait son tour.
+ */
 function castableSpells(context: StrategyContext, target: CombatantLike): SpellDef[] {
-  const affordableSpells = affordable(damageSpells(context.spells), context.enemy.ap);
-  return affordableSpells.filter((spell) => spellReaches(context, target, spell));
+  const payable = affordable(damageSpells(context.spells), context.enemy.ap);
+  const reaching = payable.filter((spell) => spellReaches(context, target, spell));
+  return reaching.filter((spell) => canCastSpellNow(context.state, context.enemy.id, spell));
 }
 
 function spellReaches(context: StrategyContext, target: CombatantLike, spell: SpellDef): boolean {
@@ -198,7 +207,7 @@ function attackOn(context: StrategyContext, target: CombatantLike, spell: SpellD
 
 /** Sans carte, aucune géométrie : comportement historique (le moins cher, sans portée). */
 function noMapAction(context: StrategyContext, target: CombatantLike): EnemyAction | null {
-  const spell = cheapestAffordable(context.enemy, context.spells);
+  const spell = cheapestAffordable(context);
   return spell === null ? null : attackOn(context, target, spell);
 }
 

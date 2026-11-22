@@ -1,4 +1,5 @@
 import type { Element } from "../../schemas/spellSchema";
+import type { SpellLimit, SpellUsageMap } from "../combat";
 import type { CombatResistances, Rng } from "../combatLoop/types";
 import type { AsciiMap, Position } from "../grid";
 
@@ -63,9 +64,14 @@ export interface BattleState {
    * recalculer. Absente = aucune cible n'est marquée hors portée.
    */
   castRange?: RangeSpec;
+  /**
+   * Quotas de lancement par lanceur et par sort (`castsPerTurn`, `cooldown`),
+   * portés par la bataille. Absent = aucun sort à quota n'a encore été lancé.
+   */
+  spellUsage?: SpellUsageMap;
 }
 
-export interface AttackSpec {
+export interface AttackSpec extends SpellLimit {
   base: number;
   element: Element;
   baseCrit: number;
@@ -77,6 +83,11 @@ export interface AttackSpec {
   /** Valeur de dé de la poussée (voir `computePushbackDamage`). */
   roll?: number;
   apCost: number;
+  /**
+   * Sort d'origine : clé des quotas `castsPerTurn`/`cooldown`. Sans lui, le
+   * coup est une attaque nue, jamais soumise à une recharge.
+   */
+  spellId?: string;
   /** Nom du sort, pour un journal lisible ; absent = attaque nue. */
   spellName?: string;
   /**
