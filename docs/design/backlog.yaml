@@ -7,9 +7,12 @@
 #   - `depends_on` (seule clé de dépendance, phases ET tâches) référence des `id`
 #   - `status: blocked` ⟺ au moins un `depends_on` de la phase n'est pas `done`
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
+#   - `docs/design/DECISIONS.md` est NORMATIF : une PR qui le contredit est refusée,
+#     même techniquement correcte ; les notes ci-dessous citent la décision (D0x)
+#     qui les fonde.
 
 meta:
-  version: 20
+  version: 21
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -273,6 +276,13 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             depends_on: [5B-f]
+          - id: 5B-key-budget
+            title: "Ramener la clé de donjon à 5-10 combats"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "décision DEC-07 : une clé doit être obtenable en **5 à 10 combats en moyenne**, standard applicable à toutes les futures clés ; mesurer le farm actuel de la clé de la Ferraille puis ajuster — poids de spawn, taux de drop de la fiche (`piou_mazoute`, D58) **et/ou recette** ; rendre la clé directement droppable est autorisé. Ne jamais refuser l'ajustement au motif que la fiche d'île est figée."
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
@@ -357,7 +367,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             depends_on: [5C-path-8dirs]
-            notes: "docs/design/specs/ui-dofus-retro.md §1, §2 et §6 R1 — `useCombatStore` n'expose aucune action de déplacement en 1vN : le joueur est cloué sur sa case de placement pendant que les ennemis approchent ; en 1.29 se déplacer coûte des PM et fait la moitié du combat ; porte D70 et D75"
+            notes: "docs/design/specs/ui-dofus-retro.md §1, §2 et §6 R1 — `useCombatStore` n'expose aucune action de déplacement en 1vN : le joueur est cloué sur sa case de placement pendant que les ennemis approchent ; en 1.29 se déplacer coûte des PM et fait la moitié du combat ; porte D70 et D75. **Priorité la plus haute de la file** : décision DEC-02, cette tâche passe avant toute la vague 6 (déplacement du héros avant le moteur d'effets)."
           - id: 5C-cast-preview
             title: Portée en contour et aperçu de zone d'effet au survol
             status: todo
@@ -410,6 +420,13 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: "docs/design/specs/dofus-1.29-gaps.md ligne 8 — `equipItem` (src/engine/inventory/equipment.ts:20-23) ne vérifie que `category` et `slot`, et `ItemLike` (src/engine/inventory/types.ts:38-47) ne porte pas `level` alors que `src/schemas/itemSchema.ts:67` le déclare : équiper un objet de niveau 18 au niveau 1 passe, ce qui vide de son sens la panoplie de la fiche §6. Porter `level` dans `ItemLike`, refuser sous le niveau et journaliser le refus ; **équiper sans posséder** est le même défaut : `takeFromBag` (src/engine/inventory/equipment.ts:63-66) ne vérifie pas l'échec de `removeItem` (qui rend l'inventaire inchangé quand l'objet manque) et équipe quand même — exiger la présence dans le sac. Les prérequis de caractéristiques attendent une fiche qui les chiffre."
+          - id: 5C-heal-between-rooms
+            title: "Soin entre les salles de donjon — entorse assumée"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "décision DEC-03 : le soin entre les salles est **autorisé** (entorse assumée à Dofus) parce qu'un héros qui meurt en salle 2 (D71, #57) ne se répare pas en affaiblissant les monstres ; couvre le soin de fin de salle et la restauration de PV hors combat (D29) sans pénalité de mort (décision DEC-06)."
       - id: 5D
         title: Wiring Navire-Base et premier donjon
         status: in_progress
@@ -462,7 +479,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 3 — `mapSchema` (src/schemas/mapSchema.ts:9-15) ne déclare aucune sortie et `startMapId` (src/store/useCombatStore.ts:152-156) renvoie `maps[0].id` : `data/maps.yaml` déclare 5 cartes, mais le joueur ne peut pas quitter sa carte de départ (`maps[0]`) — l'archipel est injouable. Déclarer les sorties en données (bord ou marqueur → cible + case d'arrivée), une action de transition unique dans `useCombatStore` et la validation Zod des cibles ; D59 (map de départ = ordre de fichier) reste ouverte."
+            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 3 — `mapSchema` (src/schemas/mapSchema.ts:9-15) ne déclare aucune sortie et `startMapId` (src/store/useCombatStore.ts:152-156) renvoie `maps[0].id` : `data/maps.yaml` déclare 5 cartes, mais le joueur ne peut pas quitter sa carte de départ (`maps[0]`) — l'archipel est injouable. Déclarer les sorties en données (bord ou marqueur → cible + case d'arrivée), une action de transition unique dans `useCombatStore` et la validation Zod des cibles ; D59 (map de départ = ordre de fichier) reste ouverte. **décision DEC-04 : 10 à 20 maps par île** — les sorties sont le préalable à toute île supplémentaire."
   - id: wave-6
     title: Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
     status: todo
@@ -477,7 +494,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: docs/design/specs/effects-engine.md §2 et §6 — schéma seul ; castSpell et getCastableCells refusent les nouveaux kind sans dépenser de PA
+            notes: "docs/design/specs/effects-engine.md §2 et §6 — schéma seul ; castSpell et getCastableCells refusent les nouveaux kind sans dépenser de PA ; décision DEC-02 : après `5C-hero-move` (le déplacement du héros passe avant le moteur d'effets)"
           - id: 6A-timed-effects
             title: Durées d'effets, max PA/PM dérivés et armure dérivée par source
             status: todo
@@ -485,7 +502,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             depends_on: [6A-effects-schema]
-            notes: docs/design/specs/effects-engine.md §1.5, §1.8 et PR2
+            notes: "docs/design/specs/effects-engine.md §1.5, §1.8 et PR2 ; décision DEC-02 : après `5C-hero-move`"
           - id: 6A-apmp-retrait
             title: Retrait PA/PM séquentiel — formule Sagesse bornée 10–90 %
             status: todo
@@ -493,7 +510,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             depends_on: [6A-timed-effects]
-            notes: docs/design/specs/effects-engine.md §1.1 et PR3
+            notes: "docs/design/specs/effects-engine.md §1.1 et PR3 ; décision DEC-02 : après `5C-hero-move`"
           - id: 6A-heal-armor
             title: Soin (Intelligence, cap PV) et absorption d'armure avant %res
             status: todo
@@ -501,7 +518,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             depends_on: [6A-timed-effects]
-            notes: docs/design/specs/effects-engine.md §1.2, §1.3 et PR4
+            notes: "docs/design/specs/effects-engine.md §1.2, §1.3 et PR4 ; décision DEC-02 : après `5C-hero-move` ; le soin **entre les salles** de donjon est traité à part par `5C-heal-between-rooms` (décision DEC-03)"
       - id: 6B
         title: Intégration Fruits d'Écho et AoE
         status: todo
@@ -771,7 +788,7 @@ debts:
     title: "**balance du donjon, remesurée par #57** : un héros de **niveau 16 réel**, 75 points de capital investis **en Force** ⇒ **130 PV** (base 125 + 5 du chapeau du kit), **meurt en SALLE 2** — 130 → 62 → 0 PV — et non dans les dernières salles comme le croyait la v18 ; le build « **205 PV** » (tout en Vitalité) **n'a pas été joué**."
     severity: high
     target: 5C-set-panoplies
-    notes: "mesure = tests/walkthrough/play.spec.ts (#57, squash ec0e42c) : création → clé → salle 1 → salle 2 mortelle ; contrairement à l'estimation de la v18, la chute ne se produit pas dans les dernières salles ; causes probables : **panoplies (§6 de la fiche) non implémentées** (2 objets de départ seulement) et **soins absents** (vague 6, 6A-heal-armor) ; le levier est 5C-set-panoplies"
+    notes: "mesure = tests/walkthrough/play.spec.ts (#57, squash ec0e42c) : création → clé → salle 1 → salle 2 mortelle ; contrairement à l'estimation de la v18, la chute ne se produit pas dans les dernières salles ; causes probables : **panoplies (§6 de la fiche) non implémentées** (2 objets de départ seulement) et **soins absents** (vague 6, 6A-heal-armor) ; le levier est 5C-set-panoplies. **cible de calibration = décision DEC-03** : au niveau recommandé **avec un bon équipement**, difficulté standard, le joueur est **censé gagner** ; jusqu'à **−10 niveaux** sous les monstres reste **très difficile mais faisable**. **Baisser les dégâts des monstres est interdit** : les leviers permis sont les panoplies (§6) et le **soin entre les salles** (`5C-heal-between-rooms`, entorse assumée à Dofus)."
   - id: D72
     title: "`tests/walkthrough/dungeon.spec.ts` utilise `HERO_ATTACK` **sans `minRange`/`maxRange`** ⇒ la géométrie de portée est **court-circuitée**"
     severity: medium

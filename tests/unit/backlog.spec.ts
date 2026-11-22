@@ -727,6 +727,7 @@ const OPEN_5C = [
   "5C-log-channel",
   "5C-set-panoplies",
   "5C-equip-requirements",
+  "5C-heal-between-rooms",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
@@ -742,7 +743,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les douze tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les treize tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1038,8 +1039,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 20", () => {
-    expect(readBacklog().meta.version).toBe(20);
+  it("versionne le backlog en 21", () => {
+    expect(readBacklog().meta.version).toBe(21);
   });
 });
 
@@ -1587,3 +1588,53 @@ function unknownCitations(text: string): string[] {
       .map((path) => `${id}:${path}`);
   });
 }
+
+const DECISIONS_PATH = "docs/design/DECISIONS.md";
+const DECISION_NUMBERS = [
+  "DEC-01",
+  "DEC-02",
+  "DEC-03",
+  "DEC-04",
+  "DEC-05",
+  "DEC-06",
+  "DEC-07",
+  "DEC-08",
+  "DEC-09",
+];
+
+/** Les décisions du propriétaire sont normatives : leur suppression doit casser la CI. */
+function decisionHeadings(): string[] {
+  const path = join(process.cwd(), DECISIONS_PATH);
+  if (!existsSync(path)) return [];
+  return [...readFileSync(path, "utf8").matchAll(/^## (DEC-0\d) — /gm)].map((match) => match[1] ?? "");
+}
+
+/** Une clause `**Interdit**` par décision : le corps ne peut pas être vidé sans rougir. */
+function decisionInterdits(): string[] {
+  const path = join(process.cwd(), DECISIONS_PATH);
+  if (!existsSync(path)) return [];
+  return readFileSync(path, "utf8").split("\n").filter((line) => line.startsWith("**Interdit**"));
+}
+
+/** Le sens de la clause : une double négation dirait le contraire de la décision.
+ * Limite assumée : ce garde-fou attrape la négation littérale (`ne pas`), **pas**
+ * l'inversion par le verbe (« interdire les binaires » est une méta-prohibition qui
+ * dit l'inverse de « tout binaire » interdit). Il ne remplace donc pas la relecture ;
+ * la règle de rédaction est de **nommer l'objet interdit, pas l'acte d'interdire**.
+ * On ne durcit pas la regex : elle produirait des faux positifs sur des tournures
+ * légitimes (`ne peut pas quitter sa carte`, DEC-04). */
+function negatedInterdits(): string[] {
+  return decisionInterdits().filter((line) => /\bne pas\b/.test(line));
+}
+
+describe("backlog — décisions du propriétaire (v21)", () => {
+  it("garde le fichier normatif et numérote DEC-01 à DEC-09", () => {
+    expect(existsSync(join(process.cwd(), DECISIONS_PATH))).toBe(true);
+    expect(decisionHeadings()).toEqual(DECISION_NUMBERS);
+  });
+
+  it("exige un **Interdit** par décision, rédigé en affirmatif", () => {
+    expect(decisionInterdits()).toHaveLength(DECISION_NUMBERS.length);
+    expect(negatedInterdits()).toEqual([]);
+  });
+});
