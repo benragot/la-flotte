@@ -38,8 +38,8 @@ const PLAGE_ROWS = [
 ];
 
 const PLAGE_ID = "ferraille_plage_01";
-/** Sortie de `ferraille_plage_01` recopiée : le respawn doit la traiter comme le héros. */
-const EXIT: Position = { x: 11, y: 3 };
+/** Sortie est réelle de `ferraille_plage_01` (`data/maps.yaml`) : case marchable. */
+const EXIT: Position = { x: 11, y: 4 };
 const SPAWN = { monsterId: "piou_mazoute", monsterName: "Piou Mazouté", level: 1 };
 const PLAN: SpawnPlan = {
   groups: { min: 3, max: 3 },
@@ -58,6 +58,14 @@ function respawn(state: ExplorationState, input: { mapId: string; minGroups: num
   const rng = createSeededRng(seedForRespawn(input.mapId, state.respawns));
   return respawnMonsterGroup({ state, spawn: SPAWN, minGroups: input.minGroups, rng });
 }
+
+/** Même départ, doublure de tirage imposée : sert à balayer toutes les candidates. */
+function respawnWith(state: ExplorationState, rng: () => number): ExplorationState {
+  return respawnMonsterGroup({ state, spawn: SPAWN, minGroups: state.monsterGroups.length + 1, rng });
+}
+
+/** Un tirage sur soixante : assez pour passer sur chaque zone interdite. */
+const SWEEP: number[] = Array.from({ length: 60 }, (_, index) => index / 60);
 
 function gap(a: Position, b: Position): number {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
@@ -109,20 +117,25 @@ describe("respawnMonsterGroup — remonte au minimum de la zone", () => {
 });
 
 describe("respawnMonsterGroup — cinq interdits et marge des entrées", () => {
-  it("ajoute hors mur, eau, héros, sortie et groupe existant", () => {
+  it("ajoute hors mur, eau, héros, sortie et groupe existant, pour tout tirage", () => {
     const state = seeded(PLAGE_ID);
-    const added = addedGroups(state, respawn(state, { mapId: PLAGE_ID, minGroups: 4 }));
-    expect(added).toHaveLength(1);
-    added.forEach((group) => {
-      const cell = getCell(state.map, group.pos);
-      expect(isWalkableCell(state.map, group.pos)).toBe(true);
-      expect(cell === "#" || cell === "~").toBe(false);
-      expect(samePosition(group.pos, state.playerPos)).toBe(false);
-      expect(samePosition(group.pos, EXIT)).toBe(false);
-      expect(gap(group.pos, state.playerPos)).toBeGreaterThanOrEqual(3);
-      expect(gap(group.pos, EXIT)).toBeGreaterThanOrEqual(3);
-      const occupied = state.monsterGroups.some((entry) => samePosition(entry.pos, group.pos));
-      expect(occupied).toBe(false);
+    // Sans cette garde, une « sortie » posée sur un `#` rendrait les deux
+    // assertions suivantes vertes par construction.
+    expect(isWalkableCell(state.map, EXIT)).toBe(true);
+    SWEEP.forEach((step) => {
+      const added = addedGroups(state, respawnWith(state, () => step));
+      expect(added).toHaveLength(1);
+      added.forEach((group) => {
+        const cell = getCell(state.map, group.pos);
+        expect(isWalkableCell(state.map, group.pos)).toBe(true);
+        expect(cell === "#" || cell === "~").toBe(false);
+        expect(samePosition(group.pos, state.playerPos)).toBe(false);
+        expect(samePosition(group.pos, EXIT)).toBe(false);
+        expect(gap(group.pos, state.playerPos)).toBeGreaterThanOrEqual(3);
+        expect(gap(group.pos, EXIT)).toBeGreaterThanOrEqual(3);
+        const occupied = state.monsterGroups.some((entry) => samePosition(entry.pos, group.pos));
+        expect(occupied).toBe(false);
+      });
     });
   });
 
@@ -154,6 +167,22 @@ describe("respawnMonsterGroup — déterminisme seedé", () => {
     const state = seeded(PLAGE_ID);
     const once = respawn(state, { mapId: PLAGE_ID, minGroups: 4 });
     expect(once.respawns).toBe(state.respawns + 1);
+  });
+
+  /**
+   * Même état donc **mêmes candidates** : si les positions diffèrent, c'est la
+   * graine qui les a départagées, pas la règle d'occupation (qui les empêcherait
+   * de tomber sur la même case d'un groupe existant, mais pas sur la même case
+   * libre d'un rang à l'autre).
+   */
+  it("change la position tirée quand le rang de graine change", () => {
+    const state = seeded(PLAGE_ID);
+    const drawnAt = (rank: number): Position | undefined => {
+      const rng = createSeededRng(seedForRespawn(PLAGE_ID, rank));
+      const next = respawnMonsterGroup({ state: { ...state, respawns: rank }, spawn: SPAWN, minGroups: 4, rng });
+      return next.monsterGroups.at(-1)?.pos;
+    };
+    expect(drawnAt(0)).not.toEqual(drawnAt(1));
   });
 });
 
