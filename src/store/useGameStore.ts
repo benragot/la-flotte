@@ -174,9 +174,15 @@ function allocatedGame(hero: Hero | null, input: { stat: StatKey; points: number
   return { hero: spendCapitalPoints({ hero, ...input, classDef }).hero };
 }
 
-function equippedGame(inventory: InventoryState, itemId: string): Partial<GameState> {
+/** Équipe un id du catalogue : le niveau du héros arme les gardes du moteur. */
+function equippedGame(
+  hero: Hero | null,
+  inventory: InventoryState,
+  itemId: string,
+): Partial<GameState> {
   const item = findItem(items, itemId);
-  return item === undefined ? {} : { inventory: equipItem({ inventory, item }) };
+  if (hero === null || item === undefined) return {};
+  return { inventory: equipItem({ inventory, item, heroLevel: hero.level }) };
 }
 
 function unequippedGame(inventory: InventoryState, slot: EquipmentSlot): Partial<GameState> {
@@ -329,7 +335,7 @@ function characterActions(set: StoreSetter): CharacterActions {
   return {
     createCharacter: (input) => set(createdGame(input)),
     allocateStat: (input) => set((state) => allocatedGame(state.hero, input)),
-    equip: (input) => set((state) => equippedGame(state.inventory, input.itemId)),
+    equip: (input) => set((state) => equippedGame(state.hero, state.inventory, input.itemId)),
     unequip: (input) => set((state) => unequippedGame(state.inventory, input.slot)),
     drinkConsumable: (input) => set((state) => drunkGame(state.hero, state.inventory, input.itemId)),
     creditCombatRewards: (rewards) => set((state) => creditedGame(state.hero, state.inventory, rewards)),

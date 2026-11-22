@@ -1,7 +1,9 @@
 import { computeProspection } from "../engine/economy";
-import { equippedItems, STAT_FIELDS, isDefined } from "../engine/inventory";
+import { equippedItems, equippable, STAT_FIELDS, isDefined } from "../engine/inventory";
 import type {
   EquipmentSlot,
+  EquipRefusal,
+  EquipVerdict,
   InventoryState,
   ItemCategory,
   ItemLike,
@@ -263,4 +265,40 @@ export function backpackItems(input: InventoryItemsInput): BackpackEntry[] {
 export function formatStatValue(value: number): string {
   if (value === 0) return "0";
   return value > 0 ? `+${value}` : `${value}`;
+}
+
+/** Libellés FR des refus d'équipement (copie d'interface, pas une donnée métier). */
+const REFUSAL_LABELS: Record<Exclude<EquipRefusal, "level">, string> = {
+  notEquipment: "Objet non équipable",
+  noSlot: "Aucun emplacement",
+  missing: "Objet absent du sac",
+};
+
+/** Texte lisible du refus ; `null` quand l'objet est équipable. */
+export function equipRefusalLabel(verdict: EquipVerdict): string | null {
+  if (verdict.refusal === null) return null;
+  if (verdict.refusal === "level") return `Niveau ${verdict.requiredLevel ?? 1} requis`;
+  return REFUSAL_LABELS[verdict.refusal];
+}
+
+export interface BagEquipHintInput {
+  inventory: InventoryState;
+  items: readonly ItemLike[];
+  heroLevel: number;
+}
+
+function hintEntry(input: BagEquipHintInput, item: ItemLike): [string, string] | null {
+  const verdict = equippable({ inventory: input.inventory, item, heroLevel: input.heroLevel });
+  const label = equipRefusalLabel(verdict);
+  return label === null ? null : [item.id, label];
+}
+
+/** Raisons de refus indexées par id d'objet : un id absent de la table est équipable. */
+export function bagEquipHints(input: BagEquipHintInput): Record<string, string> {
+  const hints: Record<string, string> = {};
+  input.items.forEach((item) => {
+    const entry = hintEntry(input, item);
+    if (entry !== null) hints[entry[0]] = entry[1];
+  });
+  return hints;
 }

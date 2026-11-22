@@ -41,6 +41,8 @@ export interface ItemLike {
   category: ItemCategory;
   slot?: EquipmentSlot;
   setId?: string;
+  /** Niveau requis pour porter l'objet, tel que lu dans `data/items.yaml`. */
+  level?: number;
   stats?: StatBlock;
   heal?: number;
 }
@@ -85,7 +87,18 @@ export interface EquipItemInput {
   item: ItemLike;
   /** Slot cible ; par défaut `item.slot`. */
   slot?: EquipmentSlot;
+  /**
+   * Niveau du héros. Omis = outillage **hors partie** (reconstruction d'un
+   * inventaire par un test de données ou le kit de départ d'un walkthrough) :
+   * les deux gardes de héros — niveau et possession — sont alors désarmées.
+   * Le store de partie fournit toujours `hero.level`, donc le joueur réel
+   * passe obligatoirement par les deux gardes.
+   */
+  heroLevel?: number;
 }
+
+/** Un verdict se calcule sur exactement les mêmes entrées que l'équipement. */
+export type EquipVerdictInput = EquipItemInput;
 
 export interface UnequipItemInput {
   inventory: InventoryState;
