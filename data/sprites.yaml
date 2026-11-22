@@ -132,3 +132,33 @@ sprites:
       walk: { row: 1, frames: 4, fps: 8, loop: true }
       attack: { row: 2, frames: 4, fps: 10, loop: false }
       hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: fer_rat_de_cale
+    path: /assets/sprites/fer_rat_de_cale.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: fer_crabe_cle_molette
+    path: /assets/sprites/fer_crabe_cle_molette.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
+
+  - entityId: fer_boulon_pousseur
+    path: /assets/sprites/fer_boulon_pousseur.svg
+    frameWidth: 64
+    frameHeight: 64
+    animations:
+      idle: { row: 0, frames: 4, fps: 6, loop: true }
+      walk: { row: 1, frames: 4, fps: 8, loop: true }
+      attack: { row: 2, frames: 4, fps: 10, loop: false }
+      hit: { row: 3, frames: 4, fps: 10, loop: false }
