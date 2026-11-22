@@ -42,7 +42,8 @@ export class EntitySprite {
   private readonly spec: SpriteSheetSpec;
   private frames: SpriteSheetFrames | null = null;
   private animated: AnimatedSprite | null = null;
-  private signature = "";
+  /** Signature de la dernière demande du jeu : elle seule décide d'un rejeu. */
+  private requested = "";
 
   constructor(input: EntitySpriteInput) {
     this.spec = input.spec;
@@ -57,31 +58,32 @@ export class EntitySprite {
     this.animated = new AnimatedSprite({ textures: frames.idle, anchor: SPRITE_ANCHOR, autoPlay: true });
     this.node.removeChildren().forEach((child) => child.destroy());
     this.node.addChild(this.animated);
-    this.signature = "";
+    this.requested = "";
   }
 
-  /** `attack`/`hit` ne bouclent pas : retour automatique sur `idle` en fin d'animation. */
-  private onCompleteFor(animation: SpriteAnimationName, signature: string): (() => void) | undefined {
-    if (this.spec.animations[animation].loop) return undefined;
-    return () => this.play("idle", `${signature}:end`);
-  }
-
-  private applyAnimation(animation: SpriteAnimationName, signature: string): void {
+  /**
+   * Démarre visuellement une animation sans toucher à la demande courante :
+   * `attack`/`hit` ne bouclent pas et retombent sur `idle` en fin de course.
+   */
+  private start(animation: SpriteAnimationName): void {
     const { animated, frames } = this;
     if (animated === null || frames === null) return;
     const spec = this.spec.animations[animation];
     animated.textures = frames[animation];
     animated.animationSpeed = spec.fps / REFERENCE_FPS;
     animated.loop = spec.loop;
-    animated.onComplete = this.onCompleteFor(animation, signature);
+    animated.onComplete = spec.loop ? undefined : () => this.start("idle");
     animated.gotoAndPlay(0);
   }
 
-  /** Joue une animation ; `signature` force le redémarrage quand la même action se répète. */
+  /**
+   * Joue la demande du jeu : seule une **nouvelle** signature rejoue, ce qui
+   * garde les one-shots stables à travers les re-rendus (survol, resize…).
+   */
   play(animation: SpriteAnimationName, signature: string): void {
-    if (this.signature === signature) return;
-    this.signature = signature;
-    this.applyAnimation(animation, signature);
+    if (this.requested === signature) return;
+    this.requested = signature;
+    this.start(animation);
   }
 
   /** Positionne l'acteur sur le centre du losange et applique le retournement horizontal. */
