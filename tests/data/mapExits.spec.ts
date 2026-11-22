@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { MapDef } from "../../src/schemas/mapSchema";
+import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { mapSchema, mapsFileSchema, parseMapsYaml } from "../../src/schemas/mapSchema";
 
 /**
@@ -90,6 +91,19 @@ describe("mapSchema — les sorties de carte", () => {
     expect(mapSchema.safeParse(mapWithExit({ ...EXIT, to: "" })).success).toBe(false);
   });
 
+  it("refuse une case d'arrivée hors de la grille d'arrivée", () => {
+    const huge = fileOf(mapWithExit({ ...EXIT, at: { x: 4999, y: 4999 } }), NEIGHBOUR);
+    expect(() => mapsFileSchema.parse(huge)).toThrow(/arrivée/);
+    const justOutside = fileOf(mapWithExit({ ...EXIT, at: { x: 4, y: 0 } }), NEIGHBOUR);
+    expect(() => mapsFileSchema.parse(justOutside)).toThrow(/arrivée/);
+  });
+
+  it("borne l'arrivée sur la carte de destination, pas sur celle de départ", () => {
+    const big = { ...NEIGHBOUR, width: 6, height: 6, grid: ["P.....", "......", "......", "......", "......", ".....M"] };
+    const parsed = mapsFileSchema.parse(fileOf(mapWithExit({ ...EXIT, at: { x: 5, y: 5 } }), big));
+    expect(parsed.maps[0]?.exits[0]?.at).toEqual({ x: 5, y: 5 });
+  });
+
   it("laisse les quatre salles de donjon sans sortie", () => {
     const rooms = dungeonRooms();
     expect(rooms).toHaveLength(4);
@@ -146,5 +160,26 @@ describe("data/maps.yaml — les cartes d'extérieur reliées", () => {
         expect(cell, `${map.id}: sortie (${exit.x},${exit.y}) dans l'eau`).not.toBe("~");
       });
     });
+  });
+});
+
+describe("data/maps.yaml — les salles de donjon gardent leurs monstres", () => {
+  /**
+   * `initExploration` tolère désormais une carte sans `M` (cartes d'extérieur).
+   * Sans ce garde-fou de DONNÉES, une salle de donjon qui perdrait tous ses `M`
+   * se chargerait vide, en silence. Les salles sont lues dans `dungeons.yaml`.
+   */
+  const roomMapIds = parseDungeonsYaml(readFileSync(join(process.cwd(), "data", "dungeons.yaml"), "utf8"))
+    .flatMap((dungeon) => dungeon.rooms.map((room) => room.mapId));
+
+  it("lit bien quatre salles de donjon dans dungeons.yaml", () => {
+    expect(roomMapIds).toHaveLength(4);
+  });
+
+  it.each(roomMapIds)("la salle %s contient au moins un M", (mapId) => {
+    const room = maps.find((map) => map.id === mapId);
+    expect(room, `${mapId} est absente de maps.yaml`).toBeDefined();
+    if (room === undefined) return;
+    expect(symbolsOf(room).includes("M"), `${mapId} n'a aucun M : la salle se chargerait vide`).toBe(true);
   });
 });

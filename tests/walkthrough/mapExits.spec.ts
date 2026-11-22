@@ -50,7 +50,6 @@ function startAtBeach(): void {
     combat: null,
     battle: null,
     dungeonRun: null,
-    mapNotice: null,
     hoveredCell: null,
   });
 }

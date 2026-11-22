@@ -42,7 +42,6 @@ function atBeach(): void {
     combat: null,
     battle: null,
     dungeonRun: null,
-    mapNotice: null,
     hoveredCell: null,
   });
 }
@@ -108,22 +107,28 @@ describe("sortie de carte — aller-retour stable", () => {
 describe("sortie de carte — un combat en cours interdit la transition", () => {
   beforeEach(atBeach);
 
-  it("garde l'état d'exploration par identité et laisse un message", () => {
+  it("laisse le héros sur place et écrit UNE ligne de journal qui explique le refus", () => {
     useCombatStore.getState().startDemoCombat();
     useCombatStore.setState({ mode: "exploration" });
     const before = useCombatStore.getState().exploration;
     click(PLAGE_EXIT);
+    click(PLAGE_EXIT);
     const after = useCombatStore.getState();
-    expect(after.exploration).toBe(before);
     expect(after.mapId).toBe(PLAGE_ID);
-    expect(after.mapNotice).toMatch(/combat/i);
+    expect(after.exploration?.playerPos).toEqual(before?.playerPos);
+    expect(after.exploration?.map).toBe(before?.map);
+    const refusals = (after.exploration?.log ?? []).filter((line) => /combat/i.test(line));
+    expect(refusals).toHaveLength(1);
+    expect(after.exploration?.log.at(-1)).toBe(refusals[0]);
   });
 
-  it("garde aussi la carte fermée pendant une salle de donjon", () => {
+  it("refuse aussi pendant une salle de donjon ouverte", () => {
     useCombatStore.setState({ battle: { turn: 1 } as never });
     const before = useCombatStore.getState().exploration;
     click(PLAGE_EXIT);
-    expect(useCombatStore.getState().exploration).toBe(before);
-    expect(useCombatStore.getState().mapNotice).toMatch(/donjon|combat/i);
+    const after = useCombatStore.getState();
+    expect(after.exploration?.map).toBe(before?.map);
+    expect(after.mapId).toBe(PLAGE_ID);
+    expect(after.exploration?.log.at(-1)).toMatch(/donjon|combat/i);
   });
 });

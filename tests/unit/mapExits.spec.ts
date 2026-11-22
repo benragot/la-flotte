@@ -19,6 +19,11 @@ const SQUARE = { width: 10, height: 10 };
 const OPEN = Array.from({ length: 10 }, () => "..........");
 const openMap = () => parseAsciiMap(OPEN);
 
+/** Carte 10×12 : `y` va de 0 à 11, donc « nord » et « largeur » ne peuvent plus se confondre. */
+const TALL = { width: 10, height: 12 };
+const TALL_OPEN = Array.from({ length: 12 }, () => "..........");
+const tallMap = () => parseAsciiMap(TALL_OPEN);
+
 /** Marais : la colonne ouest de la ligne 2 est un mur, le reste est praticable. */
 const MARSH = ["#####", "#.~.#", "#.#.#", "#...#", "#####"];
 const marshMap = () => parseAsciiMap(MARSH);
@@ -60,6 +65,21 @@ describe("mirrorArrival — le bord d'entrée décide du bord de sortie", () => 
   });
 });
 
+describe("mirrorArrival — carte non carrée (10×12)", () => {
+  it("entrer par le nord ressort en bas des DOUZE lignes", () => {
+    expect(mirrorArrival(TALL, { x: 4, y: 0 }, tallMap())).toEqual({ x: 4, y: 11 });
+  });
+
+  it("entrer par le sud ressort sur la ligne 0, pas sur la ligne 9", () => {
+    expect(mirrorArrival(TALL, { x: 4, y: 11 }, tallMap())).toEqual({ x: 4, y: 0 });
+  });
+
+  it("l'axe est celui du bord traversé, jamais la largeur", () => {
+    expect(mirrorArrival({ width: 12, height: 10 }, { x: 5, y: 0 }, tallMap())).toEqual({ x: 5, y: 11 });
+    expect(mirrorArrival({ width: 12, height: 12 }, { x: 11, y: 7 }, tallMap())).toEqual({ x: 0, y: 7 });
+  });
+});
+
 describe("landingFor — l'arrivée est toujours praticable", () => {
   it("utilise la case écrite en donnée quand elle est fournie", () => {
     const landing = landingFor({ size: SQUARE, pos: { x: 9, y: 4 }, to: openMap(), at: { x: 2, y: 8 } });
@@ -79,6 +99,16 @@ describe("landingFor — l'arrivée est toujours praticable", () => {
     const landing = landingFor({ size: SQUARE, pos: { x: 9, y: 4 }, to: openMap() });
     expect(landing.relocated).toBe(false);
     expect(arrivalLine("Le Quai des Réclamations", landing)).not.toContain("grève");
+  });
+
+  it("ne colle jamais une préposition devant Le ou La (pas de « à Le Quai »)", () => {
+    const dry = landingFor({ size: SQUARE, pos: { x: 9, y: 4 }, to: openMap() });
+    const wet = landingFor({ size: { width: 5, height: 5 }, pos: { x: 4, y: 2 }, to: marshMap() });
+    ["Le Quai des Réclamations", "La Cale aux Serments"].forEach((name) => {
+      [dry, wet].forEach((landing) => {
+        expect(arrivalLine(name, landing)).not.toMatch(/\b(à|de|au|aux) (Le|La|Les)\b/);
+      });
+    });
   });
 });
 
