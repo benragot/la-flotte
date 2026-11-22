@@ -249,10 +249,15 @@ function buildDemoCombat(mapId: string): CombatState {
   return buildCombat({ hero: demoHero(), monsterId: defaultSpawn(mapId).monsterId, mapId });
 }
 
+/**
+ * Le 1v1 ne fait entrer qu'UN monstre : `monsterIdFor` le choisit, et le
+ * journal nomme **ce monstre-là** — jamais la liste des membres annoncés, qui
+ * ferait croire à un éventail que le combat n'honore pas.
+ */
 function buildGroupCombat(group: MonsterGroup, mapId: string): CombatState {
-  const monsterId = group.monsterIds[0] ?? defaultSpawn(mapId).monsterId;
+  const monsterId = monsterIdFor(group, mapId);
   const base = buildCombat({ hero: demoHero(), monsterId, mapId });
-  return appendLog(base, `Le groupe ${group.id} entre en scène : ${group.monsterIds.join(", ")}.`);
+  return appendLog(base, `Le groupe ${group.id} entre en scène : ${mustFind(monsters, monsterId).name}.`);
 }
 
 function monsterIdFor(group: MonsterGroup | null, mapId: string): string {
