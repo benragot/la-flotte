@@ -12,6 +12,9 @@ test-results/
 playwright-report/
 blob-report/
 
+# Session jouée par `npm run play` : rapport de diagnostic, jamais commité
+play-report/
+
 # Logs
 logs/
 *.log

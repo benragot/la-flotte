@@ -13,6 +13,7 @@
     "test:walkthrough": "vitest run tests/walkthrough",
     "test": "vitest run",
     "test:ui": "playwright test",
+    "play": "node scripts/play/run.mjs",
     "check": "npm run typecheck && npm run lint && npm run test:data && npm run test:unit && npm run test:walkthrough"
   },
   "dependencies": {
