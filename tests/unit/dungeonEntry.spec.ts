@@ -4,8 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { DungeonRoom } from "../../src/engine/dungeon";
-import { countItem } from "../../src/engine/inventory";
-import { addItem } from "../../src/engine/inventory";
+import { addItem, countItem } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
 import { isDefeat, isVictory, livingOf } from "../../src/engine/multiCombat";
 import type { BattleState, CombatantLike } from "../../src/engine/multiCombat";
@@ -51,9 +50,10 @@ const DAMAGE_SPELL = mustFind(spells, "pression");
 const CAST_SPEC = spellCastSpec(DAMAGE_SPELL, 0);
 const MAX_ACTIONS = 300;
 /**
- * PV du héros de test : le parcours enchaîne quatre salles **sans aucun soin**
- * (`settleDungeonRoom` reporte les PV). L'équilibrage D67/D71 n'est pas le
- * sujet : on mesure le câblage, pas la difficulté au niveau 16.
+ * Fixture de **câblage** (5000 PV / 200 force) : elle isole la mécanique
+ * d'entrée/progression. **Un héros de niveau 16 réel perd les salles 3-4**
+ * (dette **D71** : 41-43 dégâts subis par tour pour 3 tours de survie, contre
+ * 12-13 tours nécessaires). Ces tests ne prouvent **pas** la viabilité du donjon.
  */
 const TANK_HP = 5000;
 
@@ -201,9 +201,9 @@ function stepFor(room: DungeonRoom, storage?: StorageLike): RoomStep {
   return { roomIndex: room.roomNumber - 1, hpStart, hpEnd, hpNext: battleHpOrNull(), actions };
 }
 
-function sheetMarkup(inventory: InventoryState, heroLevel: number): string {
+function sheetMarkup(inventory: InventoryState, heroLevel: number, notice: string | null = null): string {
   const entries = dungeonEntries({ dungeons, items, inventory });
-  const props = { entries, heroLevel, onEnter: () => undefined, onClose: () => undefined };
+  const props = { entries, heroLevel, notice, onEnter: () => undefined, onClose: () => undefined };
   return renderToStaticMarkup(createElement(DungeonEntrySheet, props));
 }
 
@@ -278,22 +278,22 @@ describe("progression — les 4 salles par le chemin de production", () => {
     const steps = runDungeon(DUNGEON.rooms.length);
     const state = useCombatStore.getState();
     expect(steps.map((step) => step.roomIndex)).toEqual([0, 1, 2, 3]);
-    steps.forEach((step) => expect(step.actions).toBeLessThan(MAX_ACTIONS));
+    steps.forEach((step) => {
+      expect(step.actions).toBeGreaterThan(0);
+      expect(step.actions).toBeLessThan(MAX_ACTIONS);
+      expect(step.hpEnd).toBeLessThan(step.hpStart);
+    });
     expect(state.dungeonRun).toBeNull();
     expect(state.battle).toBeNull();
     expect(state.dungeonNotice).toContain("Donjon terminé");
     expect(heroOrThrow().hp).toBeGreaterThan(0);
   });
 
-  it("ne régénère aucun PV entre deux salles", () => {
+  it("ne régénère aucun PV sur les quatre salles", () => {
     prepareHero();
     stockKey();
-    const steps = runDungeon(2);
-    const [first, second] = steps;
-    expect(second?.hpStart).toBe(first?.hpEnd);
-    expect(second?.hpEnd).toBeLessThanOrEqual(second?.hpStart ?? 0);
-    expect(useCombatStore.getState().dungeonRun?.roomIndex).toBe(2);
-    expect(useCombatStore.getState().battle).not.toBeNull();
+    const steps = runDungeon(DUNGEON.rooms.length);
+    steps.slice(1).forEach((step, index) => expect(step.hpStart).toBe(steps[index]?.hpEnd));
   });
 });
 
@@ -358,7 +358,7 @@ describe("panneau d'entrée — niveau recommandé et état de la clef", () => {
 
 describe("panneau d'entrée — hors contexte et accessibilité", () => {
   it("ne rend rien sans donjon disponible", () => {
-    const props = { entries: [], heroLevel: 1, onEnter: () => undefined, onClose: () => undefined };
+    const props = { entries: [], heroLevel: 1, notice: null, onEnter: () => undefined, onClose: () => undefined };
     expect(renderToStaticMarkup(createElement(DungeonEntrySheet, props))).toBe("");
   });
 
@@ -368,11 +368,62 @@ describe("panneau d'entrée — hors contexte et accessibilité", () => {
     expect(markup).toContain("Entrée dans la Casse.");
   });
 
-  it("se ferme hors contexte : sans héros, run en cours ou catalogue vide", () => {
-    expect(canEnterDungeon({ hasHero: false, runActive: false, dungeonCount: 1 })).toBe(false);
-    expect(canEnterDungeon({ hasHero: true, runActive: true, dungeonCount: 1 })).toBe(false);
-    expect(canEnterDungeon({ hasHero: true, runActive: false, dungeonCount: 0 })).toBe(false);
-    expect(canEnterDungeon({ hasHero: true, runActive: false, dungeonCount: 1 })).toBe(true);
+  it("se ferme hors contexte : sans héros, run en cours, combat ou catalogue vide", () => {
+    expect(canEnterDungeon({ hasHero: false, runActive: false, inCombat: false, dungeonCount: 1 })).toBe(false);
+    expect(canEnterDungeon({ hasHero: true, runActive: true, inCombat: false, dungeonCount: 1 })).toBe(false);
+    expect(canEnterDungeon({ hasHero: true, runActive: false, inCombat: true, dungeonCount: 1 })).toBe(false);
+    expect(canEnterDungeon({ hasHero: true, runActive: false, inCombat: false, dungeonCount: 0 })).toBe(false);
+    expect(canEnterDungeon({ hasHero: true, runActive: false, inCombat: false, dungeonCount: 1 })).toBe(true);
+  });
+});
+
+describe("refus d'entrée — rendu dans la fiche, jamais derrière la nappe", () => {
+  const REFUSAL = "Entrée refusée : il manque la clef.";
+  const REFUSAL_BLOCK = 'aria-label="Refus d’entrée"';
+
+  it("affiche le refus en role=alert sous la ligne de clef", () => {
+    const markup = sheetMarkup(emptyInventory(), 1, REFUSAL);
+    expect(markup).toContain(REFUSAL_BLOCK);
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain(REFUSAL);
+    expect(markup.indexOf("manquante")).toBeLessThan(markup.indexOf(REFUSAL));
+  });
+
+  it("ne rend aucun refus quand la notice est purgée", () => {
+    expect(sheetMarkup(emptyInventory(), 1)).not.toContain(REFUSAL_BLOCK);
+  });
+});
+
+describe("notice de donjon — purgée à l'ouverture et au succès", () => {
+  it("clearDungeonNotice remet la notice à zéro", () => {
+    useCombatStore.setState({ dungeonNotice: "vieux message" });
+    useCombatStore.getState().clearDungeonNotice();
+    expect(useCombatStore.getState().dungeonNotice).toBeNull();
+  });
+
+  it("une entrée réussie ne laisse aucun message périmé", () => {
+    prepareHero();
+    stockKey();
+    useCombatStore.setState({ dungeonNotice: "vieux message" });
+    expect(enter()).toBe(true);
+    expect(useCombatStore.getState().dungeonNotice).toBeNull();
+  });
+});
+
+describe("entrée interdite pendant un combat", () => {
+  it("refuse l'entrée en 1v1 sans toucher au combat ni à l'inventaire", () => {
+    prepareHero();
+    stockKey();
+    useCombatStore.getState().startDemoCombat();
+    const combat = useCombatStore.getState().combat;
+    const inventory = useGameStore.getState().inventory;
+    expect(combat).not.toBeNull();
+    expect(enter()).toBe(false);
+    expect(useCombatStore.getState().combat).toBe(combat);
+    expect(useCombatStore.getState().battle).toBeNull();
+    expect(useGameStore.getState().inventory).toBe(inventory);
+    expect(countItem(inventory, DUNGEON.keyItemId)).toBe(1);
+    expect(useCombatStore.getState().dungeonNotice).toContain("combat");
   });
 });
 
