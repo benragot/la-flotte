@@ -391,6 +391,32 @@ describe("walkthrough : exploration, combat et respawn", () => {
   });
 });
 
+describe("walkthrough : enchaînement de combats sur la même carte", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("enchaîne trois combats et retrouve trois à quatre groupes", () => {
+    useGameStore.getState().resetGame();
+    useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
+    vi.spyOn(Math, "random").mockReturnValue(STORE_RNG());
+    useCombatStore.getState().startExploration();
+    for (let fight = 0; fight < 3; fight += 1) fightThenCount(fight);
+  });
+});
+
+/** Un combat gagné puis un retour : la carte doit garder son minimum de zone. */
+function fightThenCount(fight: number): void {
+  const group = storeExploration().monsterGroups[0];
+  if (group === undefined) throw new Error(`groupe absent au combat ${fight + 1}`);
+  useCombatStore.getState().clickCell(group.pos);
+  expect(playStoreCombat().phase).toBe("victory");
+  useCombatStore.getState().returnToMap();
+  // MESURÉ : le vaincu est remplacé, la carte garde trois à quatre groupes.
+  expect(storeExploration().monsterGroups.length).toBeGreaterThanOrEqual(3);
+  expect(storeExploration().monsterGroups.length).toBeLessThanOrEqual(4);
+}
+
 function setHeroHp(hp: number): void {
   const game = useGameStore.getState();
   if (game.hero === null) throw new Error("héros persistant absent");

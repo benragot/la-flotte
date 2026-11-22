@@ -54,8 +54,9 @@ function freshState(): ExplorationState {
   return initExploration({ map: plage(), ...SPAWN });
 }
 
+/** Respawn de jeu : on remonte d'un cran au-dessus du compte courant. */
 function respawnAt(state: ExplorationState, rng: () => number): ExplorationState {
-  return respawnMonsterGroup({ state, spawn: SPAWN, rng });
+  return respawnMonsterGroup({ state, spawn: SPAWN, minGroups: state.monsterGroups.length + 1, rng });
 }
 
 function newGroup(state: ExplorationState): ExplorationState["monsterGroups"][number] {
@@ -183,7 +184,7 @@ describe("respawnMonsterGroup — ajout", () => {
 
   it("tire label et niveau du spawn fourni, pas d'un groupe existant", () => {
     const spawn = { monsterId: "craqueleur", monsterName: "Craqueleur", level: 7 };
-    const next = respawnMonsterGroup({ state: freshState(), spawn, rng: () => 0 });
+    const next = respawnMonsterGroup({ state: freshState(), spawn, minGroups: 2, rng: () => 0 });
     const group = newGroup(next);
     expect(group.label).toBe("Craqueleur · Niv. 7");
     expect(group.totalLevel).toBe(7);
@@ -211,19 +212,26 @@ describe("respawnMonsterGroup — placement", () => {
     });
   });
 
-  it("ne réapparaît pas sur la case d'un groupe éloigné", () => {
+  it("ne réapparaît pas sur la case d'un groupe déjà posé", () => {
     const state = initExploration({ map: parseAsciiMap(["P...M"]), ...SPAWN });
-    expect(respawnAt(state, () => 0)).toBe(state);
+    const next = respawnAt(state, () => 0);
+    // MESURÉ : la marge de trois cases du héros rend (3,0) éligible ; (4,0) est
+    // occupé par le groupe existant et reste donc exclu.
+    expect(newGroup(next).pos).toEqual({ x: 3, y: 0 });
+    expect(next.monsterGroups).toHaveLength(2);
   });
 
   it("écarte une case occupée pour préférer la case libre", () => {
     const state = initExploration({ map: parseAsciiMap(["P...M."]), ...SPAWN });
-    expect(newGroup(respawnAt(state, () => 0)).pos).toEqual({ x: 5, y: 0 });
+    // MESURÉ : marge de 3 cases (et plus 4), donc (3,0) passe avant (5,0).
+    expect(newGroup(respawnAt(state, () => 0)).pos).toEqual({ x: 3, y: 0 });
   });
 
-  it("renvoie la même référence si seule une case bloquée est candidate", () => {
+  it("ne place rien si seule une case bloquée est candidate", () => {
     const state = initExploration({ map: parseAsciiMap(["P..M#"]), ...SPAWN });
-    expect(respawnAt(state, () => 0)).toBe(state);
+    const next = respawnAt(state, () => 0);
+    expect(next.monsterGroups).toHaveLength(state.monsterGroups.length);
+    expect(next.log.join(" ")).toMatch(/caisses de morue/i);
   });
 });
 
@@ -250,10 +258,12 @@ describe("respawnMonsterGroup — déterminisme", () => {
 });
 
 describe("respawnMonsterGroup — carte saturée", () => {
-  it("renvoie l'état inchangé quand aucune candidate n'existe", () => {
+  it("n'ajoute rien, journalise et n'appelle pas le rng", () => {
     const state = initExploration({ map: parseAsciiMap(["PM", ".."]), ...SPAWN });
     const counter = makeRng(0);
-    expect(respawnMonsterGroup({ state, spawn: SPAWN, rng: counter.rng })).toBe(state);
+    const next = respawnMonsterGroup({ state, spawn: SPAWN, minGroups: 2, rng: counter.rng });
+    expect(next.monsterGroups).toHaveLength(state.monsterGroups.length);
+    expect(next.log.join(" ")).toMatch(/caisses de morue/i);
     expect(counter.calls()).toBe(0);
   });
 
