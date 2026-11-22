@@ -284,11 +284,12 @@ waves:
             notes: squash f6a113e — panneau 1vN câblé au store
           - id: 5C-b
             title: Sorts des monstres de la Ferraille (données)
-            status: in_progress
+            status: needs_review
+            pr: 46
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: sorts monstres livrés en données ; revue en cours, riposte à câbler en 5C-c
+            notes: sorts monstres livrés en revue sur #46 ; la riposte reste à câbler en 5C-c
           - id: 5C-c
             title: "Câbler `battleEnemyTurn` : les ennemis ripostent"
             status: todo
