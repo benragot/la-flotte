@@ -573,8 +573,9 @@ describe("hero — projection en combattant", () => {
       kind: "player",
       name: "Anselme",
       level: 1,
-      hp: 50,
-      maxHp: 50,
+      // 50 PV de base + 43 Vitalité des 4 pièces (5+10+8 objets, +20 panoplie) × 1 PV.
+      hp: 93,
+      maxHp: 93,
       ap: 7,
       maxAp: 7,
       mp: 3,
@@ -626,7 +627,7 @@ describe("arène — câblage du héros persistant", () => {
     if (player === undefined) throw new Error("combat de démonstration attendu");
     expect(player.name).toBe("Anselme");
     expect(player.ap).toBe(hero.ap + 1);
-    expect(player.maxHp).toBe(hero.maxHp + weaponHpBonus());
+    expect(player.maxHp).toBe(hero.maxHp + weaponHpBonus() + equipVitality());
     expect(player.pp).toBe(expectedProspection(hero));
   });
 });
@@ -640,6 +641,19 @@ function equipmentItem(itemId: string) {
 function weaponHpBonus(): number {
   const hp = SET_PIECES.map((itemId) => equipmentItem(itemId).stats.hp ?? 0);
   return hp.reduce((total, value) => total + value, 0);
+}
+
+/** Palier de panoplie actif avec les 4 pièces, tous rangs confondus. */
+function setVitalityBonus(): number {
+  const set = mustFind(sets, "panoplie_piou_mazoute");
+  const active = set.bonuses.filter((bonus) => bonus.pieces <= SET_PIECES.length);
+  return active.map((bonus) => bonus.stats.vitality ?? 0).reduce((total, value) => total + value, 0);
+}
+
+/** Vitalité des 4 pièces + panoplie : 1 point = 1 PV depuis D45. */
+function equipVitality(): number {
+  const pieces = SET_PIECES.map((itemId) => equipmentItem(itemId).stats.vitality ?? 0);
+  return pieces.reduce((total, value) => total + value, setVitalityBonus());
 }
 
 function expectedProspection(hero: Hero): number {

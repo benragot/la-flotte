@@ -54,21 +54,24 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * (`data/spells.yaml` seul, portée et LoS comprises), aucun `Math.random`
  * (LCG injecté pour le spawn et le drop, `() => 0.5` pour le combat).
  *
- * RÉSULTAT MESURÉ AUJOURD'HUI — et c'est une mauvaise nouvelle :
- *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 125 → 57 PV, 16 actions ;
- *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 57 → 0 PV, 12 actions.
+ * RÉSULTAT MESURÉ AUJOURD'HUI — et c'est toujours une mauvaise nouvelle :
+ *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 62 PV, 16 actions ;
+ *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 62 → 0 PV, 12 actions.
  * Le héros meurt donc en SALLE 2, pas en salle 3 comme l'annonçait la dette
  * D71. Le brief prévoyait une défaite en salle 3 ; le moteur dit 2, et ce test
  * DÉCRIT le jeu au lieu de le souhaiter : l'assertion est la mesure.
+ * Ses 130 PV de départ sont 125 PV de niveau + les 5 PV du chapeau du kit
+ * (5 Vitalité × 1 PV, D45) : la Vitalité compte désormais, mais ce parcours
+ * investit ses 75 points de capital en Force.
  *
- * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : le donjon est injouable au-delà
- * de la salle 1. Sans soin et sans panoplie, 125 PV ne couvrent que 6 tours
+ * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : le donjon reste injouable au-delà
+ * de la salle 1. Sans soin et sans panoplie, 130 PV ne couvrent que 6 tours
  * ennemis de la salle 1 (68 PV perdus, soit 11 PV/tour moyen) ; la salle 2
  * aligne 287 PV de monstres (rat 52 + 2 crabes 75 + marmite 85) pour ~26 PV de
  * dégâts héroïques par tour (2 × 13 sur le crabe), soit ≈ 11 tours, contre 4-5
- * tours de survie à 14 PV/tour subis. Il manque ~200 PV effectifs : aucun
- * réglage de capital ne les donne, la Vitalité n'achetant aucun PV aujourd'hui
- * (cf. second test, dette de formule).
+ * tours de survie à 14 PV/tour subis. Il manque ~200 PV effectifs : le second
+ * test mesure que la Vitalité en achète désormais un par point, mais ce build
+ * met les 75 points en Force et n'en tire que les 5 PV du chapeau.
  *
  * CE QUI INVERSERA L'ASSERTION : l'arrivée des panoplies (§6 de la fiche, donc
  * des objets qui portent `hp`) et des soins (vague 6). Le jour où la salle 2
@@ -219,6 +222,15 @@ function statsWithKit(hero: Hero): TotalStats {
 function hpWithKit(hero: Hero): number {
   const stats = statsWithKit(hero);
   return combatantFromHero({ hero, stats, position: { x: 0, y: 0 }, spellIds: [] }).maxHp;
+}
+
+/** Vitalité portée par le kit de départ (`starting: true`), lue au YAML. */
+function itemVitality(item: ItemDef): number {
+  return item.category === "equipment" ? item.stats.vitality ?? 0 : 0;
+}
+
+function kitVitality(): number {
+  return STARTING_ITEMS.reduce((total, item) => total + itemVitality(item), 0);
 }
 
 function spellDamage(stats: TotalStats): number {
@@ -422,17 +434,16 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
   });
 });
 
-describe("walkthrough : pourquoi la Force, et pas la Vitalité", () => {
-  it("la Vitalité n'achète aucun PV ; la Force double les dégâts du sort", () => {
+describe("walkthrough : ce que la Vitalité et la Force achètent", () => {
+  it("la Vitalité donne 1 PV par point ; la Force double les dégâts du sort", () => {
     const base = leveledHero(createHero("Anselme", HERO_CLASS), DUNGEON.recommendedLevel);
     const strengthHero = withSpentCapital(base, "strength");
     const vitalityHero = withSpentCapital(base, "vitality");
     expect(vitalityHero.capitalPoints).toBe(0);
     expect(vitalityHero.vitality).toBeGreaterThan(0);
-    // Dette de formule : `hero.vitality` n'entre dans aucun calcul de PV, seuls
-    // les objets portant un champ `hp` comptent. Les deux builds ont 125 PV.
-    expect(hpWithKit(vitalityHero)).toBe(hpWithKit(strengthHero));
-    expect(hpWithKit(strengthHero)).toBe(base.maxHp);
+    // D45 : 1 Vitalité = 1 PV, et le kit de départ porte déjà 5 Vitalité (chapeau).
+    expect(hpWithKit(strengthHero)).toBe(base.maxHp + kitVitality());
+    expect(hpWithKit(vitalityHero)).toBe(hpWithKit(strengthHero) + vitalityHero.vitality);
     // ...alors que la Force change tout : 10 → 17 dégâts par Pression.
     expect(spellDamage(statsWithKit(strengthHero))).toBe(17);
     expect(spellDamage(statsWithKit(vitalityHero))).toBe(10);
