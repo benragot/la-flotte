@@ -33,5 +33,7 @@ export { resolveTackle } from "./tackle";
 export type { TackleInput, TackleResult } from "./tackle";
 export { enemiesAct } from "./enemies";
 export type { EnemiesActInput } from "./enemies";
+export { nearestFreeCell, separateOccupants } from "./overlap";
+export type { FreeCellInput } from "./overlap";
 export { approachCell } from "./approach";
 export type { ApproachInput } from "./approach";

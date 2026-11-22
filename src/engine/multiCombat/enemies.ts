@@ -1,8 +1,9 @@
 import { manhattan } from "../combatLoop/cells";
 import type { Position } from "../grid";
-import { isWalkableCell } from "../grid";
+import { isWalkableCell, samePosition } from "../grid";
 import { resolveAttack } from "./attack";
 import { appendLog, isAlive, isAliveById, withCombatant } from "./combatants";
+import { separateOccupants } from "./overlap";
 import { activeCombatant } from "./timeline";
 import type { BattleState, CombatantLike, EnemyAction, EnemyStrategy, Rng } from "./types";
 
@@ -36,10 +37,17 @@ function walkableStep(current: BattleState, to: Position): boolean {
   return current.map === undefined || isWalkableCell(current.map, to);
 }
 
+/** Invariant « aucune case partagée » : la case d'arrivée doit être libre. */
+function arrivalTaken(current: BattleState, enemy: CombatantLike, to: Position): boolean {
+  const others = current.combatants.filter((entry) => entry.id !== enemy.id && entry.hp > 0);
+  return others.some((entry) => samePosition(entry.position, to));
+}
+
 /** Un pas coûte une case de PM par case parcourue, comme `combatLoop/move.ts`. */
 function moveEnemy(current: BattleState, enemy: CombatantLike, to: Position): BattleState {
   const cost = manhattan(enemy.position, to);
   if (!affordableStep(enemy, cost) || !walkableStep(current, to)) return current;
+  if (arrivalTaken(current, enemy, to)) return current;
   const moved = withCombatant(current, { ...enemy, position: to, mp: enemy.mp - cost });
   return appendLog(moved, `${enemy.name} se déplace de ${cost} case(s).`);
 }
@@ -96,7 +104,11 @@ function runLoop(input: EnemiesActInput, current: BattleState, steps: number): B
  * La boucle s'arrête sur `null`, sur un refus (`blocked`), quand la cible meurt,
  * quand l'état ne change plus (comparaison de référence) et au plus tard après
  * 10 actions : aucune stratégie ne peut boucler indéfiniment.
+ *
+ * Avant la première action, les ennemis qui partagent une case sont dégagés
+ * (`separateOccupants`) : un état hérité ne fige la salle que si **aucune** case
+ * libre n'existe (salle entièrement occupée, inatteignable en pratique).
  */
 export function enemiesAct(input: EnemiesActInput): BattleState {
-  return runLoop(input, input.state, 0);
+  return runLoop(input, separateOccupants(input.state), 0);
 }
