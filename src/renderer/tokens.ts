@@ -3,6 +3,8 @@ import type { Position } from "../engine/grid";
 import type { CombatantState } from "../engine/combatLoop/types";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
 import { TILE_H, TILE_W, gridToIso } from "./gridProjection";
+import { depthOf } from "./scene";
+import type { Facing, SpriteAnimationName } from "./sprites/types";
 
 export const PLAYER_TOKEN_COLOR = 0x3f7fd6;
 export const ENEMY_TOKEN_COLOR = 0xd64545;
@@ -14,12 +16,30 @@ export const HP_BAR_BG_ALPHA = 0.8;
 export const HP_BAR_FILL = 0x6ad06a;
 export const HP_BAR_WIDTH = TILE_W * 0.5;
 export const HP_BAR_HEIGHT = 5;
+/** Dégagement au-dessus d'un sprite : la barre de PV passe au-dessus de la tête. */
+export const SPRITE_HEADROOM = 30;
 
 export const BADGE_RADIUS = 9;
 export const BADGE_FILL = 0x1b2430;
 export const BADGE_STROKE = 0xf2d64b;
 
-export interface TokenView {
+/** Ce qu'un jeton doit savoir pour piloter son `EntitySprite`. */
+export interface TokenSprite {
+  spriteId: string | null;
+  facing: Facing;
+  animation: SpriteAnimationName;
+  animationKey: string;
+}
+
+/** Repli géométrique : aucun sprite connu pour ce jeton. */
+export const STATIC_TOKEN_SPRITE: TokenSprite = {
+  spriteId: null,
+  facing: "right",
+  animation: "idle",
+  animationKey: "static",
+};
+
+export interface TokenView extends TokenSprite {
   center: PixelPoint;
   radius: number;
   fill: number;
@@ -27,6 +47,8 @@ export interface TokenView {
   maxHp: number;
   hpRatio: number;
   badge: string | null;
+  /** Profondeur de grille `x + y`, utilisée pour l'ordre peintre des acteurs. */
+  depth: number;
 }
 
 export interface HpBar {
@@ -49,6 +71,8 @@ interface TokenSpec {
   hp: number;
   maxHp: number;
   badge: string | null;
+  depth: number;
+  sprite: TokenSprite;
 }
 
 /** Borne une valeur dans `[0, 1]`. */
@@ -66,33 +90,53 @@ export function tokenColor(kind: CombatantState["kind"]): number {
   return kind === "player" ? PLAYER_TOKEN_COLOR : ENEMY_TOKEN_COLOR;
 }
 
+/** Orientation écran : l'acteur regarde la colonne isométrique de sa cible. */
+export function facingToward(from: Position, to: Position): Facing {
+  return to.x - to.y >= from.x - from.y ? "right" : "left";
+}
+
 function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
-  const { fill, hp, maxHp, badge } = spec;
-  return { center, radius: TOKEN_RADIUS, fill, hp, maxHp, hpRatio: hpRatio(hp, maxHp), badge };
+  const { fill, hp, maxHp, badge, depth, sprite } = spec;
+  const ratio = hpRatio(hp, maxHp);
+  return { center, radius: TOKEN_RADIUS, fill, hp, maxHp, hpRatio: ratio, badge, depth, ...sprite };
 }
 
 /** Jeton d'un combattant, centré sur le losange de sa case. */
-export function tokenView(combatant: CombatantState, origin: IsoOrigin): TokenView {
+export function tokenView(
+  combatant: CombatantState,
+  origin: IsoOrigin,
+  sprite: TokenSprite = STATIC_TOKEN_SPRITE,
+): TokenView {
   const center = gridToIso({ ...combatant.position, origin });
-  return tokenAt(center, { fill: tokenColor(combatant.kind), hp: combatant.hp, maxHp: combatant.maxHp, badge: null });
+  const { hp, maxHp, kind, position } = combatant;
+  return tokenAt(center, { fill: tokenColor(kind), hp, maxHp, badge: null, depth: depthOf(position), sprite });
 }
 
 /** Jeton du héros en exploration, sans combat engagé. */
-export function playerTokenView(position: Position, origin: IsoOrigin): TokenView {
-  const spec: TokenSpec = { fill: PLAYER_TOKEN_COLOR, hp: 1, maxHp: 1, badge: null };
+export function playerTokenView(
+  position: Position,
+  origin: IsoOrigin,
+  sprite: TokenSprite = STATIC_TOKEN_SPRITE,
+): TokenView {
+  const spec: TokenSpec = { fill: PLAYER_TOKEN_COLOR, hp: 1, maxHp: 1, badge: null, depth: depthOf(position), sprite };
   return tokenAt(gridToIso({ ...position, origin }), spec);
 }
 
 /** Jeton d'un groupe de monstres, badgé de son niveau total. */
 export function groupTokenView(group: { pos: Position; totalLevel: number }, origin: IsoOrigin): TokenView {
-  const spec: TokenSpec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(group.totalLevel) };
-  return tokenAt(gridToIso({ ...group.pos, origin }), spec);
+  const { pos, totalLevel } = group;
+  const spec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite: STATIC_TOKEN_SPRITE };
+  return tokenAt(gridToIso({ ...pos, origin }), { ...spec, depth: depthOf(pos) });
 }
 
-/** Géométrie de la mini-barre de PV au-dessus du jeton. */
+function barLift(token: TokenView): number {
+  return token.spriteId === null ? 0 : SPRITE_HEADROOM;
+}
+
+/** Géométrie de la mini-barre de PV au-dessus du jeton (et au-dessus de la tête d'un sprite). */
 export function hpBarFor(token: TokenView): HpBar {
   const x = token.center.x - HP_BAR_WIDTH / 2;
-  const y = token.center.y - token.radius - HP_BAR_HEIGHT - 4;
+  const y = token.center.y - token.radius - HP_BAR_HEIGHT - 4 - barLift(token);
   return { x, y, width: HP_BAR_WIDTH, height: HP_BAR_HEIGHT, fillWidth: HP_BAR_WIDTH * token.hpRatio };
 }
 
@@ -112,6 +156,11 @@ export function drawHpBar(graphics: Graphics, token: TokenView): void {
   graphics.fill({ color: HP_BAR_FILL, alpha: 1 });
 }
 
+/** Barres de PV seules, pour les jetons rendus par un `EntitySprite`. */
+export function drawHpBars(graphics: Graphics, tokens: readonly TokenView[]): void {
+  tokens.forEach((token) => drawHpBar(graphics, token));
+}
+
 function paintBadge(graphics: Graphics, token: TokenView): void {
   const badge = tokenBadge(token);
   if (badge === null) return;
@@ -127,11 +176,14 @@ function drawToken(graphics: Graphics, token: TokenView): void {
   graphics.fill({ color: token.fill, alpha: 1 });
   graphics.circle(x, y, token.radius);
   graphics.stroke({ width: 2, color: TOKEN_STROKE, alpha: 0.9 });
-  drawHpBar(graphics, token);
   paintBadge(graphics, token);
 }
 
-/** Peint les jetons héros et monstres avec leur barre de PV et leur badge. */
+/**
+ * Peint les jetons géométriques (groupes, héros sans feuille) avec leur badge.
+ * La barre de PV n'est **pas** peinte ici : elle vit uniquement dans
+ * `drawHpBars`, sinon les jetons géométriques la verraient deux fois.
+ */
 export function drawTokens(graphics: Graphics, tokens: readonly TokenView[]): void {
   tokens.forEach((token) => drawToken(graphics, token));
 }
