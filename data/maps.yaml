@@ -47,6 +47,53 @@ maps:
       - { type: ponton, x: 0, y: 9 }
       - { type: ponton, x: 1, y: 9 }
 
+    # Sortie est de la grève : la grille ci-dessus n'a pas bougé, seule cette
+    # entrée est ajoutée. Le miroir place le héros à l'ouest de la destination.
+    exits:
+      - { x: 11, y: 4, to: ferraille_quai_02 }
+
+  # Île de la Ferraille — quai des réclamations. Deuxième carte d'extérieur :
+  # aucun `M`, les monstres viendront de `data/spawns.yaml`. Sorties ouest
+  # (retour à la plage) et est (vers la cale).
+  - id: ferraille_quai_02
+    name: Le Quai des Réclamations
+    width: 10
+    height: 10
+    grid:
+      - "~~~~~~~~~~"
+      - "~.P......~"
+      - "~..###...~"
+      - "~..#.#...~"
+      - "...#.#...."
+      - "~..#.#...~"
+      - "~..###...~"
+      - "~........~"
+      - "~.####...~"
+      - "~~~~~~~~~~"
+    exits:
+      - { x: 0, y: 4, to: ferraille_plage_01 }
+      - { x: 9, y: 4, to: ferraille_cale_03 }
+
+  # Île de la Ferraille — cale aux serments. Le quai et la cale se répondent :
+  # entrer par l'est du quai ressort à l'ouest de la cale, et l'inverse.
+  - id: ferraille_cale_03
+    name: La Cale aux Serments
+    width: 10
+    height: 10
+    grid:
+      - "~~~~~~~~~~"
+      - "~...##...~"
+      - "~...##...~"
+      - "~........~"
+      - ".....~...."
+      - "~...#....~"
+      - "~...#....~"
+      - "~.P......~"
+      - "~........~"
+      - "~~~~~~~~~~"
+    exits:
+      - { x: 0, y: 4, to: ferraille_quai_02 }
+
   # Donjon « La Casse aux Vis-Sans-Fin » — salle 1.
   - id: fer_salle_cour_volatiles
     name: La Cour aux Volatiles Gras
