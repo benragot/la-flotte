@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 18
+  version: 19
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -17,6 +17,9 @@ meta:
   # ce backlog par l'agent d'intégration, qui signe `updated_by`.
   updated_by: integrator
   statuses: [todo, in_progress, needs_review, approved, blocked, done, dropped]
+  # Échelle de sévérité des dettes : déclarée ici, jamais codée en dur dans le
+  # test (dette D60).
+  debt_severities: [low, medium, high]
   status_definitions:
     todo: "planifié, jamais démarré"
     in_progress: "travail local en cours, aucune PR ouverte"
@@ -273,7 +276,7 @@ waves:
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
-        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface et le pathfinding 8 directions"
+        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies)"
         tasks:
           - id: 5C-a
             title: Panneau de combat 1vN — rendu des N ennemis, ciblage et journal
@@ -347,6 +350,14 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: "docs/design/specs/ui-dofus-retro.md §1, §6 R1 et §9 TC3 — `findPath` 8 voisins (diagonale = 1 pas) et facturation PM réelle des ennemis ; porte D68 et D69"
+          - id: 5C-hero-move
+            title: "Déplacement du héros en combat : PM, pathfinding et tacle"
+            status: todo
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [5C-path-8dirs]
+            notes: "docs/design/specs/ui-dofus-retro.md §1, §2 et §6 R1 — `useCombatStore` n'expose aucune action de déplacement en 1vN : le joueur est cloué sur sa case de placement pendant que les ennemis approchent ; en 1.29 se déplacer coûte des PM et fait la moitié du combat ; porte D70 et D75"
           - id: 5C-cast-preview
             title: Portée en contour et aperçu de zone d'effet au survol
             status: todo
@@ -385,18 +396,36 @@ waves:
             priority: medium
             updated_at: "2026-11-22"
             notes: "docs/design/specs/ui-dofus-retro.md §6 R7, §3.1, §4 et §8.7 — teinte d'élément avec glyphe de renfort (deutéranopie) ; TC5"
-      - id: 5D
-        title: Wiring Navire-Base et premier donjon
-        status: todo
-        tasks:
-          - id: 5D-a
-            title: "Premier donjon jouable : déclencher une salle depuis le jeu"
+          - id: 5C-set-panoplies
+            title: "Panoplies de la fiche §6 : PV, résistances et Force"
             status: todo
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
+            notes: "docs/design/specs/ui-dofus-retro.md §6 — levier de survie identifié par D71 ; les 2 objets de départ sont seuls, le donjon est calibré pour un héros équipé ; porte D45, D71 et D72"
+      - id: 5D
+        title: Wiring Navire-Base et premier donjon
+        status: in_progress
+        updated_at: "2026-11-22"
+        notes: "5D-a (#56) et 5D-b (#57) livrées : le donjon est déclenchable et jouable depuis l'exploration (bouton « Donjons »)"
+        tasks:
+          - id: 5D-a
+            title: "Premier donjon jouable : déclencher une salle depuis le jeu"
+            status: done
+            pr: 56
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
             depends_on: [5C-c, 5C-d, 5B-g]
-            notes: lancer une salle depuis l'exploration ; requiert la riposte et la portée
+            notes: "squash 0030f74 — bouton « Donjons », fiche d'entrée, clef, refus d'entrée rendu dans la fiche et résolution des 4 salles depuis l'exploration"
+          - id: 5D-b
+            title: "Walkthrough « je joue » : du héros créé au donjon"
+            status: done
+            pr: 57
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: "squash ec0e42c — tests/walkthrough/play.spec.ts (440 lignes) : création du héros, chaîne de la clé, donjon, mort en salle 2 (mesure de D71)"
           - id: 5D-hud-bar
             title: Barre d'interface basse — portrait, niveau, XP, kamas
             status: todo
@@ -604,9 +633,10 @@ debts:
     severity: medium
     target: 4D
   - id: D45
-    title: "`combatantFromHero` jette `vitality` et force `zeroResistances()` ⇒ le palier 2 de la panoplie (Vitalité) est inerte en combat et le palier 3 (résistance fixe) est ignoré ; mapper `vitality → PV`, `flatRes`/`percentRes` → `resistances`"
+    title: "Les **résistances** `flatRes`/`percentRes` ne sont pas projetées sur le combattant : `combatantFromHero` appelle toujours `zeroResistances()` ⇒ le palier 3 de la panoplie (résistance fixe) reste inerte. La moitié Vitalité → PV est fermée par #58 — « D45a (Vitalité) fermée par #58 », il ne reste que la moitié résistances (D45b)."
     severity: high
-    target: 5B
+    target: 5C-set-panoplies
+    notes: "src/engine/hero/combatant.ts (`combatantFromHero` → `zeroResistances()`) ; D45a fermée par #58 (Vitalité → PV livrée, testée en unitaire, store et walkthrough donjon)"
   - id: D46
     title: "`rewards.ts` appelle `computeProspection` sur un `pp` déjà calculé ⇒ double comptage de `floor(chance/10)` ; le panneau, le combattant et `RewardsSummary` peuvent afficher trois valeurs différentes"
     severity: medium
@@ -640,7 +670,8 @@ debts:
   - id: D53
     title: "`DamagePreviewInput` n'expose pas `flatDmg` (inutilisé par le moteur aujourd'hui) — à rouvrir si des buffs de dégâts plats arrivent"
     severity: low
-    target: 5C
+    target: 5C-cast-preview
+    notes: "src/renderer/damagePreview.ts (`DamagePreviewInput`) ; l'aperçu de dégâts/zone est réécrit par 5C-cast-preview, c'est là que le champ manquant devra être tranché"
   - id: D55
     title: "Le coffre de banque n'est pas persisté : `SaveData` n'a aucun champ `bank`, et `loadGame`/`importJson` le vident volontairement (anti-duplication) — déposer puis recharger perd le contenu"
     severity: high
@@ -666,21 +697,16 @@ debts:
     severity: medium
     target: 5B
     notes: src/store/useCombatStore.ts (`startMapId` → `maps[0].id`) ; tests/data/spawns.spec.ts (`ferraille_plage_01` en dur)
-  - id: D60
-    title: "`DEBT_SEVERITIES` est codé en dur dans `tests/unit/backlog.spec.ts` alors que les `statuses` sont déclarés dans `meta`. Asymétrie : une sévérité légitime sera refusée un jour."
-    severity: low
-    target: 5C
-    notes: tests/unit/backlog.spec.ts (`DEBT_SEVERITIES`) vs docs/design/backlog.yaml (`meta.statuses`)
   - id: D62
     title: "`src/renderer/battleViewModel.ts` importe `hpRatio` depuis `src/renderer/tokens.ts` (chaîne typée PixiJS) : un view-model testable headless dépend du rendu."
     severity: low
-    target: 5C
-    notes: src/renderer/battleViewModel.ts (`import { hpRatio } from "./tokens"`) ; src/renderer/tokens.ts (`import type { Graphics } from "pixi.js"`)
+    target: 5C-hover-hp
+    notes: "src/renderer/battleViewModel.ts (`import { hpRatio } from \"./tokens\"`) ; src/renderer/tokens.ts (`import type { Graphics } from \"pixi.js\"`) — `hpRatio` est justement le calcul que la barre de survol consomme, la tâche qui la dessine doit le sortir de la chaîne PixiJS"
   - id: D63
     title: "Aucun walkthrough du **panneau** de combat (les tests couvrent le store et le view-model, pas le rendu monté)."
     severity: medium
-    target: 5C
-    notes: tests/unit/battlePanel.spec.ts (unitaire) ; aucun tests/walkthrough/battle*.spec.ts
+    target: 5C-turn-rail
+    notes: "tests/unit/battlePanel.spec.ts (unitaire) ; aucun tests/walkthrough/battle*.spec.ts — 5C-turn-rail réécrit la frise de portraits dans le panneau, le walkthrough du rendu monté doit arriver avec"
   - id: D65
     title: "`cooldown` et `castsPerTurn` ne sont lus par aucun code : la Marmite et Yvon frappent 2×/tour au lieu de 1 et les salles 2-4 sont plus dures que la fiche (pré-existant, identique au chemin héros)"
     severity: medium
@@ -692,10 +718,11 @@ debts:
     target: 6B-cast-riders
     notes: "sélection d'IA trop naïve (premier sort payable) ; `coup_daile_gras` n'est jamais choisi, la fidélité Air/poussée du Piou passera par les riders et la poussée corrigée"
   - id: D67
-    title: "Le donjon `fer_donjon_casse_vis_sans_fin` est `recommendedLevel: 16` mais rien ne gate l'entrée : la clé se craft dès le niveau 1 (`craftLevel` inerte, D57) et un héros niveau 1 y meurt en 2 tours"
+    title: "L'avertissement de niveau du donjon est **fait** (#56) : « Niveau recommandé 16 · ton héros : niveau X » avec `role=\"alert\"` dans la fiche d'entrée. Ce qui reste ouvert, c'est la **décision** : gate d'entrée (refus sous le niveau) ou simple avertissement non bloquant."
     severity: medium
-    target: 5D-a
-    notes: "`recommendedLevel: 16` n'est vérifié nulle part à l'entrée — attente de design à écrire (message d'avertissement au lancement de salle, ou gate par niveau) ; dépend de 5D-a et de D57"
+    target: external
+    owner: user
+    notes: "`recommendedLevel: 16` sur `fer_donjon_casse_vis_sans_fin` n'est vérifié que pour l'affichage (DungeonEntryPanel `LevelLine`) ; aucun refus n'est posé, la décision bloque/avertit relève du design — aucune tâche moteur naturelle ; reste adossé à D57 (craftLevel inerte)"
   - id: D68
     title: "`findPath` est **4-voisins** : les diagonales ne sont pas modélisées, donc **tous les chemins sont 30-40 % trop longs** et les déplacements « collent »"
     severity: high
@@ -709,21 +736,36 @@ debts:
   - id: D70
     title: "`resolveTackle` existe et est **exporté mais jamais appelé** : aucun malus de tacle en quittant un corps-à-corps"
     severity: medium
-    target: 5D-a
-    notes: "src/engine/multiCombat/index.ts exporte `resolveTackle` et src/engine/multiCombat/tackle.ts l'implémente ; aucun appelant dans src/engine/combatLoop/ ni src/store/useCombatStore.ts — seule tests/unit/multiCombat.spec.ts l'exerce"
+    target: 5C-hero-move
+    notes: "src/engine/multiCombat/index.ts exporte `resolveTackle` et src/engine/multiCombat/tackle.ts l'implémente ; aucun appelant dans src/engine/combatLoop/ ni src/store/useCombatStore.ts — seule tests/unit/multiCombat.spec.ts l'exerce ; 5C-hero-move est la première tâche où le héros peut quitter un corps-à-corps, donc le premier appelant possible"
   - id: D71
-    title: "**balance du donjon** : un héros de **niveau 16 réel** (125 PV, 75 pts de capital) **perd les salles 3 et 4 d'un facteur 3-4** (41-43 dégâts/tour pour 3 tours de survie, contre 12-13 tours nécessaires)"
+    title: "**balance du donjon, remesurée par #57** : un héros de **niveau 16 réel** (75 points de capital investis en Vitalité, 130 PV) **meurt en SALLE 2** — 130 → 62 → 0 PV — et non dans les dernières salles comme le croyait la v18 ; le build « tout en Vitalité » (**205 PV**) **n'a pas été mesuré**."
     severity: high
-    target: 5D-a
-    notes: "causes probables : **panoplies (§6 de la fiche) non implémentées** et **soins absents** (vague 6, 6A-heal-armor) ; mesure à refaire après 5D-a"
+    target: 5C-set-panoplies
+    notes: "mesure = tests/walkthrough/play.spec.ts (#57, squash ec0e42c) : création → clé → salle 1 → salle 2 mortelle ; contrairement à l'estimation de la v18, la chute ne se produit pas dans les dernières salles ; causes probables : **panoplies (§6 de la fiche) non implémentées** (2 objets de départ seulement) et **soins absents** (vague 6, 6A-heal-armor) ; le levier est 5C-set-panoplies"
   - id: D72
-    title: "`tests/walkthrough/dungeon.spec.ts` utilise `HERO_ATTACK` **sans `minRange`/`maxRange`** ⇒ la géométrie est **court-circuitée**"
+    title: "`tests/walkthrough/dungeon.spec.ts` utilise `HERO_ATTACK` **sans `minRange`/`maxRange`** ⇒ la géométrie de portée est **court-circuitée**"
     severity: medium
-    target: 5D-a
-    notes: "tests/walkthrough/dungeon.spec.ts (`HERO_ATTACK` sans `minRange`/`maxRange`) ; ce walkthrough prouve la séquence des 4 salles, **pas la viabilité**"
+    target: 5C-set-panoplies
+    notes: "tests/walkthrough/dungeon.spec.ts (`HERO_ATTACK`, base 400, sans `minRange`/`maxRange`) ; #56 n'a corrigé que le commentaire de `attemptRoom`, le walkthrough prouve toujours la **séquence** des 4 salles, pas la viabilité — il devra porter la portée avant que la re-mesure de D71 ait un sens"
   - id: D73
     title: "le 1v1 (`src/engine/combatLoop/enemy.ts`) garde un **standoff silencieux** (`if (next === current) return current`) et un `findSpell` **non distance-aware**"
     severity: high
-    target: 5D-a
-    notes: "src/engine/combatLoop/enemy.ts (`next === current` → `return current`, `findSpell` sans portée) ; même maladie que le softlock corrigé en 1vN, mais hors donjon"
+    target: 6C-combatants-list
+    notes: "src/engine/combatLoop/enemy.ts (`next === current` → `return current`, `findSpell` sans portée) ; même maladie que le softlock corrigé en 1vN, mais hors donjon — 6C-combatants-list réécrit `CombatState` en `combatants[]` via un adaptateur 1v1, la correction structurelle passe par là"
+  - id: D74
+    title: "**HUD des résistances et domaine des PV** : `inventoryHudHelpers` marque encore `vitality`, `flatRes`, `percentRes` et `percentDmg` en `pending` (légitime pour les résistances et `percentDmg`, faux pour la Vitalité depuis #58) et `canUseConsumable` (`hero.hp < hero.maxHp`) compare deux valeurs du **domaine de niveau** alors que le combat affiche le **domaine effectif** (`Vitals` ← combattant)."
+    severity: high
+    target: 5C-info-panel
+    notes: "src/ui/inventoryHudHelpers.ts (`PENDING_STATS`, `STAT_PENDING_HINT`, `canUseConsumable`) ; src/ui/components/Vitals.tsx (domaine effectif) vs src/ui/components/CombatHud.tsx (`hero.hp / hero.maxHp`) — couplage latent, sans effet d'affichage aujourd'hui ; le panneau d'infos de 5C-info-panel affiche les 5 résistances, c'est là que le domaine doit être tranché"
+  - id: D75
+    title: "**le héros ne peut pas se déplacer en combat 1vN** : `useCombatStore` n'expose aucune action de mouvement (`battleAttack`, `battleEnemyTurn`, `advanceBattleTurn`, `battleSpellAttack`, `settleDungeonRoom`), le joueur est cloué sur sa case de placement pendant que les ennemis approchent — asymétrie structurelle, se déplacer coûte des PM et fait la moitié d'un combat 1.29."
+    severity: high
+    target: 5C-hero-move
+    notes: "src/store/useCombatStore.ts (aucune action de déplacement dans `battle`) ; seul `src/engine/combatLoop/move.ts` (1v1) sait déplacer un combattant ; la tâche 5C-hero-move porte le moteur et l'UI"
+  - id: D76
+    title: "**fin de tour** : `src/ui/shortcuts.ts` mappe `Espace` (`END_TURN_CODES`) alors que Dofus 1.29/Retro utilise **`Ctrl+Fin`** — il faut **garder `Espace`** et **ajouter `Ctrl+Fin`**."
+    severity: medium
+    target: 5C-turn-rail
+    notes: "src/ui/shortcuts.ts (`END_TURN_CODES = [\"Space\", \"Spacebar\"]`, `resolveShortcut` n'a aucun cas pour `Ctrl+` ni pour `End`) ; garder `Espace`, ajouter `Ctrl+Fin` ; la frise de tour de 5C-turn-rail porte le bouton de fin de tour, donc le raccourci clavier"
 

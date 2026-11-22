@@ -29,12 +29,15 @@ Spec de référence : `docs/design/specs/ui-dofus-retro.md`
 - [ ] 5C-hover-hp — barres de PV au survol uniquement
 - [ ] 5C-pm-zone — rendu conditionnel de la zone PM (héros et ennemis au survol, écart assumé)
 - [ ] 5C-path-8dirs — déplacement et pathfinding 8 directions (moteur, porte D68 et D69)
+- [ ] 5C-hero-move — déplacement du héros en combat : PM, pathfinding et tacle (dépend de 5C-path-8dirs)
 - [ ] 5C-cast-preview — portée en contour + aperçu de zone d'effet au survol
 - [ ] 5C-turn-rail — frise de portraits en bas (remplace la timeline verticale)
 - [ ] 5C-info-panel — panneau d'infos bas-droite (nom, niveau, PV, 5 résistances)
 - [ ] 5C-group-stars — étoiles de bonus + infobulle nom/niveau sur les groupes
 - [ ] 5C-log-channel — journal unique teinté par élément, sans message de déplacement
-- [ ] 5D-a premier donjon jouable — déclencher une salle depuis le jeu
+- [ ] 5C-set-panoplies — panoplies de la fiche §6 : PV, résistances, Force (levier de survie D71)
+- [x] 5D-a premier donjon jouable — déclencher une salle depuis le jeu (PR #56)
+- [x] 5D-b walkthrough « je joue » — du héros créé au donjon (PR #57)
 - [ ] 5D-hud-bar — barre d'interface basse : portrait, niveau, XP, kamas
 - [ ] 5D-death-end — mort et fin de combat sobres
 - [ ] 5D wiring
