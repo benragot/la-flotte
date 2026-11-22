@@ -1367,3 +1367,17 @@ describe("backlog — suites ouvertes par l'analyse d'écart", () => {
     expect(gapTasks).toEqual(["5C-equip-requirements", "5D-new-game", "5D-exits"]);
   });
 });
+
+describe("backlog — limites assumées du rendu iso (PR #68)", () => {
+  it("documente le flou au-delà de ×1 et les coins vides comme des choix mesurés", () => {
+    const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
+    expect(text).toContain("## 12. Limites connues du rendu iso");
+    expect(text).toContain("choix assumés, mesurés, pas des oublis");
+    expect(text).toContain("Flou des sprites au-delà de ×1");
+    expect(text).toContain("1,33");
+    expect(text).toContain("2,19");
+    expect(text).toContain("nearest");
+    expect(text).toContain("les quatre coins");
+    expect(text).toContain("73 %");
+  });
+});
