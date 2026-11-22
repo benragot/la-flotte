@@ -29,6 +29,21 @@ export const ACTION_BUTTON =
 
 export const FOOT = "mt-1 flex flex-col gap-1";
 
+/**
+ * Dock du combat 1v1 : une colonne par zone (`layout.ts`). Le bouton de tour a
+ * la sienne, chiffrée en `px` : il ne peut plus être écrasé par les compteurs.
+ */
+export const COMBAT_DOCK =
+  "pointer-events-auto flex h-[150px] shrink-0 gap-2 border-t-2 border-[#8c6d46] bg-[#2b241d] px-2 py-2";
+
+export const DOCK_JOURNAL = "min-w-0 w-[28%]";
+
+export const DOCK_VITALS = "min-w-0 w-[20%]";
+
+export const DOCK_TURN = "flex w-[120px] shrink-0 items-center";
+
+export const DOCK_SPELLS = "min-w-0 flex-1";
+
 export const LOG_LINE = "truncate text-[10px] opacity-80";
 
 export const HINT = "text-[10px] opacity-80";
