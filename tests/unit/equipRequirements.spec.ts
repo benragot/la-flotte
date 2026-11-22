@@ -157,6 +157,7 @@ describe("inventaire — refus visible dans le sac", () => {
     const html = renderToStaticMarkup(createElement(BagRow, props));
     expect(html).toContain("Niveau 18 requis");
     expect(html).toContain('disabled=""');
+    expect(html).toContain('aria-describedby="equip-hint-fer_casque_chantier_cabosse"');
   });
 
   it("laisse l'action active et sans badge pour un objet équipable", () => {
@@ -166,6 +167,7 @@ describe("inventaire — refus visible dans le sac", () => {
     const html = renderToStaticMarkup(createElement(BagRow, { entry, selected: false, onSelect: () => undefined }));
     expect(html).toContain("Équiper");
     expect(html).not.toContain('disabled=""');
+    expect(html).not.toContain("aria-describedby");
   });
 });
 
