@@ -18,8 +18,8 @@ sets:
         stats: { ap: 1, prospection: 10 }
 
   # Fiche §6 l.938-950. Quatre pièces = le plafond du schéma : la 5e du dossier
-  # (`fer_ceinture_outils_rouilles`, slot `belt`) n'est pas livrée, faute de
-  # pouvoir porter le slot `belt` sans casser le test d'exhaustivité de l'UI.
+  # (`fer_ceinture_outils_rouilles`, slot `belt`) reste un équipement autonome,
+  # `SET_SLOTS` interdisant un `setId` hors `hat`/`cloak`/`amulet`/`boots`.
   # Les paliers sont ceux de `bonusesByCount` 2/3/4, amputés de `flatDamage`
   # (clé absente de `itemStatsSchema`, cf. §10.16) ; le palier 5 est hors
   # plafond (`MAX_TIER_PIECES`) et n'a donc pas de représentation.

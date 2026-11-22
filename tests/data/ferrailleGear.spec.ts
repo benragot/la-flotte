@@ -250,6 +250,9 @@ describe("panoplies de la fiche — fidélité aux paliers", () => {
     });
   });
 
+});
+
+describe("panoplies de la fiche — Goudron-et-Plumes", () => {
   it("laisse Goudron-et-Plumes hors de sets.yaml : trois slots légaux pour quatre exigés", () => {
     const fiche = ficheSet("fer_set_goudron_plumes");
     const legal = fiche.pieceIds.filter((id) => SET_SLOTS.includes(slotOf(id) ?? ""));

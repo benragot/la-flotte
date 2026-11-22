@@ -184,10 +184,10 @@ items:
 
   # --- Panoplie Brico-Lourd (fiche §6 l.799-803 et l.938-950) ---
   # Les 4 pièces de slots `amulet`/`cloak`/`hat`/`boots` du dossier : c'est
-  # exactement le plafond de 4 pièces du schéma. La 5e, `fer_ceinture_outils_rouilles`
-  # (slot `belt`, l.801), n'est PAS livrée : `tests/unit/itemDetailView.spec.ts`
-  # mute `slot` en `belt`, donc toute pièce `belt` fait échouer le contrôle
-  # d'exhaustivité de l'UI. Prérequis hors `data/` (voir PR).
+  # exactement le plafond de 4 pièces du schéma. La 5e,
+  # `fer_ceinture_outils_rouilles` (slot `belt`, l.801), est livrée en
+  # équipement autonome : `checkSetSlot` interdit un `setId` hors de
+  # `SET_SLOTS`, donc elle ne peut pas compter dans la panoplie.
   - id: fer_amulette_ecrou_geante # fiche §6 l.799 / bloc l.853-861
     name: Amulette à l'Écrou Géant
     description: "Un écrou de charrette au bout d'une chaîne de ponton. On jure qu'il a été béni ; personne ne jure avoir assisté au rituel."
@@ -206,6 +206,15 @@ items:
     setId: fer_set_brico_lourd
     level: 17
     stats: { strength: 20, vitality: 22, percentDmg: 10 } # force 12-20, vita 12-22, dégâts % 5-10
+    sellPrice: 170
+
+  - id: fer_ceinture_outils_rouilles # fiche §6 l.801 / bloc l.871-879 — hors panoplie (plafond de 4, slot belt)
+    name: Ceinture à Outils Rouillés
+    description: "Une ceinture chargée de pinces rouillées. Chaque outil est inutile, l'ensemble est indispensable."
+    category: equipment
+    slot: belt
+    level: 17
+    stats: { strength: 22, vitality: 20 } # force 12-22, vita 10-20 ; dégâts fixes 1-3 omis
     sellPrice: 170
 
   - id: fer_casque_chantier_cabosse # fiche §6 l.802 / bloc l.880-887
@@ -233,8 +242,8 @@ items:
   # slots acceptés par `SET_SLOTS` (`cloak`, `hat`, `boots`), or `setSchema`
   # exige 3 paliers (2/3/4), donc 4 pièces. Les 5 pièces restent livrées comme
   # équipements autonomes pour ne pas perdre leurs stats (cf. PR, D33).
-  # `fer_ceinture_goudron` (slot `belt`, l.795) n'est pas livrée non plus pour
-  # la raison UI décrite plus haut.
+  # `fer_ceinture_goudron` (slot `belt`, l.795) est livrée, mais sans `setId` :
+  # `checkSetSlot` réserve les pièces de panoplie à `hat`/`cloak`/`amulet`/`boots`.
   - id: fer_anneau_mazoute # fiche §6 l.794 / bloc l.809-816
     name: Anneau Mazouté
     description: "Une rondelle de mazout durci passée au doigt. Elle ne porte pas chance, mais elle a le mérite d'insister."
@@ -243,6 +252,15 @@ items:
     level: 7
     stats: { agility: 12 } # agilité 6-12 ; initiative 15-35 omise
     sellPrice: 70
+
+  - id: fer_ceinture_goudron # fiche §6 l.795 / bloc l.817-825
+    name: Ceinture de Goudron
+    description: "Une ceinture de goudron tressé. Elle tient le pantalon et les promesses avec la même efficacité moyenne."
+    category: equipment
+    slot: belt
+    level: 8
+    stats: { agility: 15, vitality: 12 } # agilité 8-15, vita 6-12 ; crit 1-2 omis
+    sellPrice: 80
 
   - id: fer_cape_plumes_mazoutees # fiche §6 l.796 / bloc l.826-834
     name: Cape de Plumes Mazoutées
