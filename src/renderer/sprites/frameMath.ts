@@ -1,11 +1,14 @@
 /**
- * Découpeur pur des feuilles de sprites : format imposé 256 × 256,
- * grille 4 × 4 de cellules 64 × 64 (une ligne par animation).
- * Aucune dépendance PixiJS ni DOM : testable en Node.
+ * Découpeur pur des feuilles de sprites : format imposé 512 × 512,
+ * grille 4 × 4 de cellules 128 × 128 (feuilles générées à 2×),
+ * une ligne par animation. Aucune dépendance PixiJS ni DOM : testable en Node.
  */
 
-/** Côté d'une cellule de feuille, en pixels : valeur par défaut du format 1.29. */
-export const SPRITE_FRAME_SIZE = 64;
+/** Côté d'une cellule de feuille, en pixels : feuilles générées à 2×. */
+export const SPRITE_FRAME_SIZE = 128;
+
+/** Largeur affichée de référence, en px monde, d'une frame à l'échelle 1. */
+export const SPRITE_DISPLAY_SIZE = 64;
 
 /** Nombre de frames d'une animation, pour `animationFrames`. */
 export interface AnimationCount {
@@ -52,9 +55,19 @@ export function animationRects(layout: AnimationLayout): FrameRect[] {
   return columns(layout.frames).map((column) => frameRect({ ...layout, column }));
 }
 
-/** Variante historique du format 1.29 : cellules carrées de 64 px. */
+/** Variante historique : cellules carrées au format de la feuille courante. */
 export function animationFrames(animation: AnimationCount): FrameRect[] {
   return animationRects({ ...animation, frameWidth: SPRITE_FRAME_SIZE, frameHeight: SPRITE_FRAME_SIZE });
+}
+
+/**
+ * Échelle Pixi d'un acteur : `frameWidth × displayScaleFor(...)` vaut toujours
+ * `SPRITE_DISPLAY_SIZE × decorScale`. Passer la feuille à 2× ne double donc
+ * jamais l'encombrement du personnage dans sa case.
+ */
+export function displayScaleFor(frameWidth: number, decorScale = 1): number {
+  if (frameWidth <= 0) return decorScale;
+  return (decorScale * SPRITE_DISPLAY_SIZE) / frameWidth;
 }
 
 /** Index borné circulairement : `-1` → dernière frame, `frames` → première. */

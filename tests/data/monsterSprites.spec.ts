@@ -69,8 +69,8 @@ describe("bornes et fichiers des feuilles de monstres", () => {
     FERRAILLE_SPRITES.forEach((id) => {
       const sprite = spriteOf(id);
       expect(sprite?.path, id).toBe(`/assets/sprites/${id}.svg`);
-      expect(sprite?.frameWidth, id).toBe(64);
-      expect(sprite?.frameHeight, id).toBe(64);
+      expect(sprite?.frameWidth, id).toBe(128);
+      expect(sprite?.frameHeight, id).toBe(128);
       expect(sprite?.animations.idle, id).toMatchObject({ row: 0, frames: 4, fps: 6, loop: true });
       expect(sprite?.animations.walk, id).toMatchObject({ row: 1, frames: 4, fps: 8, loop: true });
       expect(sprite?.animations.attack, id).toMatchObject({ row: 2, frames: 4, fps: 10, loop: false });
@@ -78,13 +78,13 @@ describe("bornes et fichiers des feuilles de monstres", () => {
     });
   });
 
-  it("publie un SVG 256 × 256 de 16 frames par feuille de rencontre", () => {
+  it("publie un SVG 512 × 512 de 16 frames par feuille de rencontre", () => {
     spawnIds.forEach((id) => {
       const file = sheetOf(id);
       expect(existsSync(file), `SVG généré absent : ${file}`).toBe(true);
       const svg = readFileSync(file, "utf8");
-      expect(svg, id).toContain('width="256"');
-      expect(svg, id).toContain('height="256"');
+      expect(svg, id).toContain('width="512"');
+      expect(svg, id).toContain('height="512"');
       expect(svg.match(/class="frame"/g)?.length, id).toBe(16);
     });
   });
