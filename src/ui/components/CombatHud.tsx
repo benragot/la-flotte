@@ -27,7 +27,7 @@ const DOCK_SHELL =
   "pointer-events-auto flex h-[150px] shrink-0 gap-2 border-t-2 border-[#8c6d46] bg-[#2b241d] px-2 py-2";
 const VITALS_COLUMN = "flex min-w-0 w-[24%] flex-col justify-center";
 /** Exploration : le journal est passé en colonne gauche, le dock garde les ressources. */
-const EXPLORATION_HUD_SHELL = "pointer-events-none flex h-full w-full flex-col justify-end text-[#e8dcc8]";
+const EXPLORATION_HUD_SHELL = "pointer-events-none flex w-full flex-col text-[#e8dcc8]";
 
 export interface CombatHudProps {
   mode?: HudMode;
@@ -94,10 +94,11 @@ function DockVitals({ hero }: { hero: Hero | null }) {
 /**
  * Dock d'exploration : le journal est parti dans la colonne gauche et le
  * bandeau d'état au-dessus de la carte, il ne reste que les ressources du héros.
+ * C'est le seul contenu du conteneur de HUD : il en fixe donc la hauteur.
  */
 function ExplorationDock({ hero }: { hero: Hero | null }) {
   return (
-    <div className={EXPLORATION_HUD_SHELL}>
+    <div className={EXPLORATION_HUD_SHELL} role="group" aria-label="Dock du héros">
       <div className={DOCK_SHELL}>
         <div className={VITALS_COLUMN}><DockVitals hero={hero} /></div>
       </div>

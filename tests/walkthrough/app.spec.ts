@@ -202,7 +202,7 @@ describe("assemblage : source de App", () => {
     expect(source).not.toMatch(/<div[^>]*aria-label=/);
   });
 
-  it("garde le HUD dans le flux sous l'arène, hauteur fixe", () => {
+  it("garde le HUD dans le flux sous l'arène : 240 px en combat, épousé en exploration", () => {
     const source = readFileSync(join(process.cwd(), APP_PATH), "utf8");
     expect(source).toMatch(/h-\[240px\][^"]*shrink-0/);
     expect(source).toContain("min-h-0 flex-1");
