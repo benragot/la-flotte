@@ -1,19 +1,26 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { castSpell } from "../../src/engine/combatLoop/cast";
 import { getCastableCells } from "../../src/engine/combatLoop/castable";
 import { getReachableCells } from "../../src/engine/combatLoop/cells";
 import { initCombat } from "../../src/engine/combatLoop/init";
+import { moveActiveEntity } from "../../src/engine/combatLoop/move";
 import type { CombatState } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import { parseAsciiMap, samePosition } from "../../src/engine/grid";
 import { isApplicationAlive } from "../../src/renderer/appLifecycle";
-import { buildViewModel } from "../../src/renderer/combatSceneModel";
+import { buildViewModel, lastActionFrom } from "../../src/renderer/combatSceneModel";
 import { buildExplorationViewModel, explorationMapSize } from "../../src/renderer/explorationScene";
 import { gridToIso, sceneOrigin } from "../../src/renderer/gridProjection";
 import { buildSceneModel } from "../../src/renderer/scene";
 import { CAST_HIGHLIGHT, HOVER_STROKE } from "../../src/renderer/tileStyle";
-import { ENEMY_TOKEN_COLOR, PLAYER_TOKEN_COLOR, tokenView } from "../../src/renderer/tokens";
+import {
+  ENEMY_TOKEN_COLOR,
+  PLAYER_TOKEN_COLOR,
+  facingToward,
+  tokenView,
+} from "../../src/renderer/tokens";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -157,6 +164,100 @@ describe("buildViewModel — jetons", () => {
   });
 });
 
+describe("buildViewModel — sprite des combattants", () => {
+  it("associe la classe du héros et l'identifiant du monstre aux jetons", () => {
+    const view = buildViewModel({ combat: buildState(), selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.tokens[0]?.spriteId).toBe("iop");
+    expect(view.tokens[1]?.spriteId).toBe("piou_mazoute");
+  });
+
+  it("oriente chaque combattant vers l'adversaire", () => {
+    const combat = buildState();
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.tokens[0]?.facing).toBe(facingToward(combat.player.position, combat.enemy.position));
+    expect(view.tokens[1]?.facing).toBe(facingToward(combat.enemy.position, combat.player.position));
+  });
+
+  it("joue idle à l'ouverture du combat", () => {
+    const view = buildViewModel({ combat: buildState(), selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.tokens.map((token) => token.animation)).toEqual(["idle", "idle"]);
+    expect(view.lastAction).toBeNull();
+  });
+
+  it("laisse les jetons sans sprite en repli géométrique", () => {
+    const token = tokenView(buildState().player, ORIGIN);
+    expect(token.spriteId).toBeNull();
+    expect(token.animationKey).toBe("static");
+  });
+});
+
+describe("buildViewModel — actions dérivées du journal", () => {
+  it("fait jouer attack au lanceur et hit à la cible", () => {
+    const base = buildState();
+    const combat = castSpell({ state: base, spellId: "pression", target: base.enemy.position, rng: () => 0 });
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.lastAction).toMatchObject({ kind: "cast", actor: "player" });
+    expect(view.tokens[0]?.animation).toBe("attack");
+    expect(view.tokens[1]?.animation).toBe("hit");
+    expect(view.tokens[0]?.animationKey).toBe(view.lastAction?.signature);
+  });
+
+  it("fait jouer walk au combattant qui se déplace", () => {
+    const base = buildState();
+    const target = getReachableCells(base)[0];
+    const combat = target === undefined ? base : moveActiveEntity(base, target);
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.lastAction).toMatchObject({ kind: "move", actor: "player" });
+    expect(view.tokens[0]?.animation).toBe("walk");
+    expect(view.tokens[1]?.animation).toBe("idle");
+  });
+
+  it("attribue attaque et touche à l'ennemi quand c'est lui qui agit", () => {
+    const base = buildState();
+    const line = `${base.enemy.name} lance Bec Mazouté : 6 dégâts.`;
+    const combat: CombatState = { ...base, log: [...base.log, line] };
+    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
+    expect(view.lastAction).toMatchObject({ kind: "cast", actor: "enemy" });
+    expect(view.tokens.map((token) => token.animation)).toEqual(["hit", "attack"]);
+  });
+});
+
+describe("lastActionFrom — heuristique du journal", () => {
+  const combat = buildState();
+  const withLog = (line: string): CombatState => ({ ...combat, log: [...combat.log, line] });
+
+  it("ignore une ligne qui n'est pas une action", () => {
+    expect(lastActionFrom(withLog(`${combat.player.name} affronte ${combat.enemy.name}.`))).toBeNull();
+    expect(lastActionFrom({ ...combat, log: [] })).toBeNull();
+  });
+
+  it("classe un sort comme cast et un déplacement comme move", () => {
+    expect(lastActionFrom(withLog(`${combat.player.name} lance Pression : 9 dégâts.`))).toMatchObject({ kind: "cast" });
+    expect(lastActionFrom(withLog(`${combat.player.name} se déplace de 2 case(s).`))).toMatchObject({ kind: "move" });
+    expect(lastActionFrom(withLog(`${combat.player.name} se téléporte.`))).toMatchObject({ kind: "cast" });
+  });
+
+  it("attribue l'acteur par le préfixe de la ligne", () => {
+    const player = lastActionFrom(withLog(`${combat.player.name} se déplace de 1 case(s).`));
+    const enemy = lastActionFrom(withLog(`${combat.enemy.name} se déplace de 1 case(s).`));
+    expect(player?.actor).toBe("player");
+    expect(enemy?.actor).toBe("enemy");
+  });
+
+  it("ne retient que la dernière ligne du journal", () => {
+    const first = `${combat.player.name} se déplace de 1 case(s).`;
+    const action = lastActionFrom({ ...combat, log: [...combat.log, first, `${combat.player.name} lance Pression.`] });
+    expect(action).toMatchObject({ kind: "cast", actor: "player" });
+  });
+
+  it("change de signature quand le journal grandit", () => {
+    const line = `${combat.player.name} se déplace de 1 case(s).`;
+    const before = lastActionFrom(withLog(line));
+    const after = lastActionFrom({ ...withLog(line), log: [...withLog(line).log, line] });
+    expect(before?.signature).not.toBe(after?.signature);
+  });
+});
+
 describe("tokenView — bornes de PV", () => {
   it("retombe à zéro quand maxHp est nul", () => {
     const token = tokenView({ ...buildState().player, hp: 5, maxHp: 0 }, ORIGIN);
@@ -215,6 +316,25 @@ describe("exploration — jetons", () => {
     });
     expect(view.path).toHaveLength(0);
     expect(view.tokens).toHaveLength(1);
+  });
+
+  it("rend le héros avec sa feuille et laisse les groupes géométriques", () => {
+    const view = buildExplorationViewModel({
+      exploration: { ...exploration, heroSpriteId: "ecaflip" },
+      viewport: VIEWPORT,
+    });
+    expect(view.tokens[0]?.spriteId).toBe("ecaflip");
+    expect(view.tokens[0]?.animation).toBe("idle");
+    expect(view.tokens[1]?.spriteId).toBeNull();
+    expect(view.lastAction).toBeNull();
+  });
+
+  it("anime le héros en walk quand un chemin est tracé", () => {
+    const view = buildExplorationViewModel({
+      exploration: { ...exploration, heroSpriteId: "ecaflip", path: [{ x: 2, y: 4 }] },
+      viewport: VIEWPORT,
+    });
+    expect(view.tokens[0]?.animation).toBe("walk");
   });
 });
 
