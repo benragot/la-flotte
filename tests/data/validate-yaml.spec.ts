@@ -11,6 +11,7 @@ import { progressionFileSchema } from "../../src/schemas/progressionSchema";
 import { recipesFileSchema } from "../../src/schemas/recipeSchema";
 import { setsFileSchema } from "../../src/schemas/setSchema";
 import { spellsFileSchema } from "../../src/schemas/spellSchema";
+import { spawnsFileSchema } from "../../src/schemas/spawnSchema";
 import { spritesFileSchema } from "../../src/schemas/spriteSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
@@ -24,6 +25,7 @@ const SCHEMAS: Record<string, { parse: (raw: unknown) => unknown }> = {
   "recipes.yaml": recipesFileSchema,
   "sets.yaml": setsFileSchema,
   "spells.yaml": spellsFileSchema,
+  "spawns.yaml": spawnsFileSchema,
   "sprites.yaml": spritesFileSchema,
 };
 

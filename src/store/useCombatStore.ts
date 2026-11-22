@@ -3,6 +3,7 @@ import type { StoreApi } from "zustand";
 import mapsYaml from "../../data/maps.yaml";
 import monstersYaml from "../../data/monsters.yaml";
 import progressionYaml from "../../data/progression.yaml";
+import spawnsYaml from "../../data/spawns.yaml";
 import spellsYaml from "../../data/spells.yaml";
 import { castSpell } from "../engine/combatLoop/cast";
 import { initCombat } from "../engine/combatLoop/init";
@@ -18,9 +19,10 @@ import {
   getMonsterGroupAt,
   initExploration,
   moveHeroOnMap,
+  pickSpawn,
   respawnMonsterGroup,
 } from "../engine/exploration";
-import type { ExplorationState, MonsterGroup, MonsterSpawn } from "../engine/exploration";
+import type { ExplorationState, MonsterGroup, MonsterSpawn, SpawnPick, SpawnZone } from "../engine/exploration";
 import { roomMonsters } from "../engine/dungeon";
 import type { DungeonRoom } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
@@ -37,6 +39,7 @@ import type { MonsterDef } from "../schemas/monsterSchema";
 import { progressionFileSchema } from "../schemas/progressionSchema";
 import type { ProgressionDef } from "../schemas/progressionSchema";
 import { spellsFileSchema } from "../schemas/spellSchema";
+import { spawnsFileSchema } from "../schemas/spawnSchema";
 import { battleAttack as resolveBattleAttack, battleEnemyTurn as resolveBattleEnemyTurn } from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 
@@ -59,7 +62,8 @@ interface CombatStore {
   hoveredCell: Position | null;
   rewards: CombatRewards | null;
   startDemoCombat: () => void;
-  startExploration: () => void;
+  /** Entrée en exploration : monstre tiré de `data/spawns.yaml` (rng injectable). */
+  startExploration: (rng?: Rng) => void;
   returnToMap: () => void;
   selectSpell: (spellId: string | null) => void;
   setHoveredCell: (pos: Position | null) => void;
@@ -81,14 +85,19 @@ interface CombatStore {
 
 const DEMO_HERO_NAME = "Balthazar";
 const DEMO_CLASS_ID = "iop";
-const DEMO_MAP_ID = "ferraille_plage_01";
-const DEMO_MONSTER_ID = "piou_mazoute";
 /** Placement de départ du héros en 1vN ; le placement des N ennemis viendra en 5C. */
 const BATTLE_ORIGIN: Position = { x: 0, y: 0 };
+/**
+ * `rng() === 0` sélectionne la **première entrée** de la zone, pas la plus
+ * lourde : c'est un tirage au sort, pas un tri par poids. L'ordre de
+ * `data/spawns.yaml` est donc significatif et verrouillé par les tests data.
+ */
+const FIRST_ENTRY_RNG = () => 0;
 
 const maps = mapsFileSchema.parse(mapsYaml).maps;
 const monsters = monstersFileSchema.parse(monstersYaml).monsters;
 const spells = spellsFileSchema.parse(spellsYaml).spells;
+const spawnZones: readonly SpawnZone[] = spawnsFileSchema.parse(spawnsYaml).zones;
 const progression: ProgressionDef = progressionFileSchema.parse(progressionYaml);
 
 function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
@@ -97,9 +106,19 @@ function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   return found;
 }
 
-function demoMap(): AsciiMap {
-  const def = mustFind(maps, DEMO_MAP_ID);
-  return parseAsciiMap(def.grid);
+/**
+ * Carte de départ de la V1 : première entrée de `data/maps.yaml`, donc aucune
+ * map nommée en dur ici. DETTE : le choix de zone par le joueur (5C) remplacera
+ * cet ordre de fichier par une vraie sélection.
+ */
+function startMapId(): string {
+  const first = maps[0];
+  if (first === undefined) throw new Error("data/maps.yaml ne déclare aucune carte");
+  return first.id;
+}
+
+function mapById(mapId: string): AsciiMap {
+  return parseAsciiMap(mustFind(maps, mapId).grid);
 }
 
 /** Héros persistant, ou héros de démo créé à la volée pour ne rien casser. */
@@ -111,9 +130,25 @@ function demoHero(): Hero {
 }
 
 /** Spawn d'exploration dérivé du YAML : aucune donnée métier en dur. */
-function explorationSpawn(): MonsterSpawn {
-  const monster = mustFind(monsters, DEMO_MONSTER_ID);
+function spawnOf(monsterId: string): MonsterSpawn {
+  const monster = mustFind(monsters, monsterId);
   return { monsterId: monster.id, monsterName: monster.name, level: monster.level };
+}
+
+/** Tirage pondéré de la zone de `mapId` ; repli sur la première zone sinon. */
+function spawnPick(input: { mapId: string; rng?: Rng }): SpawnPick {
+  return pickSpawn({ zones: spawnZones, mapId: input.mapId, rng: input.rng ?? Math.random });
+}
+
+/** Monstre de la première entrée de la zone de `mapId` : repli déterministe. */
+function defaultSpawn(mapId: string): MonsterSpawn {
+  return spawnOf(spawnPick({ mapId, rng: FIRST_ENTRY_RNG }).monsterId);
+}
+
+/** Zone absente : le joueur reste sur la carte, le repli est journalisé. */
+function fallbackLog(state: ExplorationState, input: { mapId: string; zoneId: string }): ExplorationState {
+  const note = `Aucune zone de spawn sur ${input.mapId} : repli sur ${input.zoneId}.`;
+  return { ...state, log: [...state.log, note] };
 }
 
 function playerFor(hero: Hero, position: Position): CombatantState {
@@ -123,27 +158,28 @@ function playerFor(hero: Hero, position: Position): CombatantState {
   return combatantFromHero({ hero, stats, position, spellIds });
 }
 
-function buildCombat(hero: Hero, monsterId: string): CombatState {
-  const base = initCombat({ map: demoMap(), hero, monster: mustFind(monsters, monsterId), spells });
-  return { ...base, player: playerFor(hero, base.player.position) };
+function buildCombat(input: { hero: Hero; monsterId: string; mapId: string }): CombatState {
+  const monster = mustFind(monsters, input.monsterId);
+  const base = initCombat({ map: mapById(input.mapId), hero: input.hero, monster, spells });
+  return { ...base, player: playerFor(input.hero, base.player.position) };
 }
 
-function buildDemoCombat(): CombatState {
-  return buildCombat(demoHero(), DEMO_MONSTER_ID);
+function buildDemoCombat(mapId: string): CombatState {
+  return buildCombat({ hero: demoHero(), monsterId: defaultSpawn(mapId).monsterId, mapId });
 }
 
-function buildGroupCombat(group: MonsterGroup): CombatState {
-  const monsterId = group.monsterIds[0] ?? DEMO_MONSTER_ID;
-  const base = buildCombat(demoHero(), monsterId);
+function buildGroupCombat(group: MonsterGroup, mapId: string): CombatState {
+  const monsterId = group.monsterIds[0] ?? defaultSpawn(mapId).monsterId;
+  const base = buildCombat({ hero: demoHero(), monsterId, mapId });
   return appendLog(base, `Le groupe ${group.id} entre en scène : ${group.monsterIds.join(", ")}.`);
 }
 
-function monsterIdFor(group: MonsterGroup | null): string {
-  return group?.monsterIds[0] ?? DEMO_MONSTER_ID;
+function monsterIdFor(group: MonsterGroup | null, mapId: string): string {
+  return group?.monsterIds[0] ?? defaultSpawn(mapId).monsterId;
 }
 
-function rewardsFor(state: CombatState, group: MonsterGroup | null): CombatRewards {
-  const monster = mustFind(monsters, monsterIdFor(group));
+function rewardsFor(state: CombatState, group: MonsterGroup | null, mapId: string): CombatRewards {
+  const monster = mustFind(monsters, monsterIdFor(group, mapId));
   const heroXp = useGameStore.getState().hero?.xp ?? 0;
   return resolveCombatRewards({ heroXp, hero: state.player, monster, progression, rng: Math.random });
 }
@@ -170,7 +206,7 @@ function castOrMove(state: CombatState, spellId: string | null, target: Position
 function stateUpdate(store: CombatStore, next: CombatState): Partial<CombatStore> {
   if (store.combat === next) return {};
   if (next.phase !== "victory") return { combat: next, selectedSpellId: null };
-  const rewards = rewardsFor(next, store.activeGroup);
+  const rewards = rewardsFor(next, store.activeGroup, store.mapId);
   creditVictory(rewards);
   return { combat: next, rewards, selectedSpellId: null };
 }
@@ -186,7 +222,7 @@ function explorationUpdate(store: CombatStore, target: Position): Partial<Combat
   if (exploration === null) return {};
   const group = getMonsterGroupAt(exploration, target);
   if (group === null) return movedUpdate(exploration, target);
-  const combatBase = { mode: "combat" as const, combat: buildGroupCombat(group), activeGroup: group };
+  const combatBase = { mode: "combat" as const, combat: buildGroupCombat(group, store.mapId), activeGroup: group };
   return { ...combatBase, rewards: null, selectedSpellId: null };
 }
 
@@ -201,10 +237,8 @@ function endTurnUpdate(store: CombatStore): Partial<CombatStore> {
   return stateUpdate(store, endPlayerTurn(store.combat, Math.random));
 }
 
-function spawnForGroup(group: MonsterGroup | null): MonsterSpawn {
-  const monster = monsters.find((entry) => entry.id === monsterIdFor(group));
-  if (monster === undefined) return explorationSpawn();
-  return { monsterId: monster.id, monsterName: monster.name, level: monster.level };
+function spawnForGroup(group: MonsterGroup | null, mapId: string): MonsterSpawn {
+  return spawnOf(monsterIdFor(group, mapId));
 }
 
 function groupId(group: MonsterGroup | null): string {
@@ -220,7 +254,7 @@ function victoryReturn(store: CombatStore): Partial<CombatStore> {
   const { exploration, activeGroup } = store;
   if (exploration === null || store.rewards === null) return {};
   const defeated = defeatGroup(exploration, groupId(activeGroup));
-  const spawn = spawnForGroup(activeGroup);
+  const spawn = spawnForGroup(activeGroup, store.mapId);
   return explorationReturn(respawnMonsterGroup({ state: defeated, spawn, rng: Math.random }));
 }
 
@@ -314,8 +348,8 @@ type MapActions = Pick<
 
 function mapStartActions(set: StoreSetter) {
   return {
-    startDemoCombat: () => set(demoUpdate()),
-    startExploration: () => set(explorationStartUpdate()),
+    startDemoCombat: () => set((store) => demoUpdate(store.mapId)),
+    startExploration: (rng?: Rng) => set((store) => explorationStartUpdate({ mapId: store.mapId, rng })),
     returnToMap: () => set((store) => returnUpdate(store)),
     endTurn: () => set(endTurnAction),
   };
@@ -366,7 +400,7 @@ const DEFAULT_STATE = {
   mode: "exploration",
   exploration: null,
   activeGroup: null,
-  mapId: DEMO_MAP_ID,
+  mapId: startMapId(),
   selectedSpellId: null,
   hoveredCell: null,
   rewards: null,
@@ -387,15 +421,19 @@ const DEFAULT_STATE = {
   | "endBattle"
 >;
 
-function demoUpdate(): Partial<CombatStore> {
-  const base = { mode: "combat" as const, combat: buildDemoCombat(), activeGroup: null };
-  return { ...base, mapId: DEMO_MAP_ID, selectedSpellId: null, hoveredCell: null, rewards: null };
+function demoUpdate(mapId: string): Partial<CombatStore> {
+  const base = { mode: "combat" as const, combat: buildDemoCombat(mapId), activeGroup: null };
+  return { ...base, mapId, selectedSpellId: null, hoveredCell: null, rewards: null };
 }
 
-function explorationStartUpdate(): Partial<CombatStore> {
-  const exploration = initExploration({ map: demoMap(), ...explorationSpawn() });
-  const base = { mode: "exploration" as const, exploration, combat: null, activeGroup: null };
-  return { ...base, mapId: DEMO_MAP_ID, selectedSpellId: null, hoveredCell: null, rewards: null };
+/** Zone de spawn choisie par le `mapId` courant du store, jamais par une constante. */
+function explorationStartUpdate(input: { mapId: string; rng?: Rng }): Partial<CombatStore> {
+  const pick = spawnPick(input);
+  const base = initExploration({ map: mapById(input.mapId), ...spawnOf(pick.monsterId) });
+  const context = { mapId: input.mapId, zoneId: pick.zoneId };
+  const exploration = pick.fallback ? fallbackLog(base, context) : base;
+  const header = { mode: "exploration" as const, exploration, combat: null, activeGroup: null };
+  return { ...header, mapId: input.mapId, selectedSpellId: null, hoveredCell: null, rewards: null };
 }
 
 function endTurnAction(store: CombatStore): Partial<CombatStore> {
