@@ -12,6 +12,14 @@ tags: [gap-analysis, fidelity, backlog]
 > Chaque verdict est appuyé sur un `fichier:ligne`.
 > Aucune ligne n'est déduite de la lecture du document seul.
 
+**Vérifié sur `main` @ 0676a46.**
+
+Cette analyse est un instantané : chaque verdict est **figé par un test**
+(`GAP_ROWS` dans `tests/unit/backlog.spec.ts`), qui vérifie aussi que chaque
+preuve cite un fichier qui existe. Le test ne rejoue pas le raisonnement :
+combler un écart exige de mettre à jour la ligne, sa preuve et son test dans la
+même passe — le verdict 12 en est l'exemple, livré par #69 puis corrigé ici.
+
 ## 1. Méthode
 
 Une description fonctionnelle de Dofus 1.29 a été confrontée au dépôt, système
@@ -44,7 +52,7 @@ points litigieux (chrono de tour, ordre des invocations).
 | 9 | Tacle (Agilité, empêche de quitter un contact) | partiel | `src/engine/multiCombat/tackle.ts:110-116` (`resolveTackle`) et `src/engine/combat/tackle.ts:19-21` (formule) existent, mais **aucun appelant de production** : `src/engine/combatLoop/move.ts:19-26` déplace sans tacle, seul `tests/unit/multiCombat.spec.ts:496` l'exerce | l'appel dans le chemin de déplacement (dette D70, tâche 5C-hero-move) ; simplifications assumées : tacleur unique, perte de PA au lieu de PM |
 | 10 | Poussée et dégâts de collision | partiel | `src/engine/combatLoop/push.ts:65-70` et `src/engine/combat/pushback.ts:17-21`, branchés par `src/engine/combatLoop/cast.ts:103-126` ; écarts déjà documentés (distance `travelled` au lieu de `cells - travelled`, diagonale, jet jamais tiré, `RéPou` absente) dans `docs/design/specs/effects-engine.md:302` | fidélité : distance non parcourue, diagonale, jet 1..8 et résistance de poussée (tâche 6C-push-fidelity) |
 | 11 | Timeline par initiative | partiel | `src/engine/multiCombat/timeline.ts:24-27` (tri **décroissant**, départage par id) utilisé par `src/store/useCombatStore.ts:331` ; `src/engine/combat/initiative.ts:20-22` (somme des 4 stats × ratio de PV) | départage aléatoire 1.29 (remplacé par l'id, assumé pour le déterminisme) ; invocations après l'invocateur : **sans objet**, aucune invocation n'existe |
-| 12 | Écran de création accessible | absent | `src/ui/appRouting.ts:5-7` (`hasHero` ⇒ arène, sans retour) ; `src/store/useGameStore.ts:302` expose `resetGame` mais aucun fichier de `src/ui/` ne l'appelle | bouton « nouveau personnage », purge du slot et retour à `HeroCreation` (tâche 5D-new-game) |
+| 12 | Écran de création accessible | présent | `src/store/newGame.ts:17-22` (`startNewGame` efface le slot puis remet les deux stores à zéro : `hero = null` ⇒ `appScreen` renvoie `creation`, `src/ui/appRouting.ts:5-7`) et `src/ui/components/NewGameButton.tsx:94-100` (accès + confirmation), rendu par `src/ui/components/OverlayPanels.tsx:68` | rien : la création est de nouveau atteignable et la sauvegarde du slot est effacée (#69) ; seul reste ouvert le cas du stockage qui refuse l'effacement, signalé en console (`src/store/newGame.ts:5-7`) |
 | 13 | Envoûtements / buffs / debuffs | partiel | modélisés par `src/schemas/spellSchema.ts:13-31` (types, `value`, `duration`) et 18 sorts de héros `kind: other` dans `data/spells.yaml` ; **non appliqués** : `src/engine/combatLoop/cast.ts:153-161` refuse par identité tout `kind: other` | moteur d'effets (vague 6, `docs/design/specs/effects-engine.md`) : durée, PA/PM, armure, soin, zone, invocation |
 | 14 | Compte à rebours de tour | absent | recherche : timer, countdown, chrono, deadline, setInterval, Date.now dans `src/` — **zéro occurrence** ; `src/engine/combatLoop/turn.ts:26` ne compte que des tours | limite de temps par tour, anneau de temps et auto-pass ; aucun état d'horloge dans `BattleState` (dette D80) |
 | 15 | Sorts de classe et attaques d'arme | partiel | `data/spells.yaml` (44 sorts : 36 héros, 8 monstres) et `src/store/useCombatStore.ts:342-345` (seul le **premier** sort de dégâts de la classe est exposé en 1vN) contre `src/engine/combatLoop/cast.ts:153-161` (18 sorts de héros `kind: other` inertes) | **26 sorts non inertes sur 44** (16 dégâts de héros + 2 téléportations de héros + 8 sorts de monstres) ; les **18** sorts de héros `kind: other` ne font rien ; en 1vN de donjon `heroDamageSpell` n'expose qu'un sort, en 1v1 d'exploration la grille de `SPELL_SLOT_COUNT` (12 emplacements) en montre trois, dont les `kind: other` sont des clics morts |
@@ -75,9 +83,10 @@ points litigieux (chrono de tour, ordre des invocations).
    `level`, alors que le schéma le déclare (`src/schemas/itemSchema.ts:67`) : le
    schéma promet une règle que le moteur n'applique pas.
 
-Deux blocages de jouabilité, moins « graves » mais bloquants, sont traités en
-tâches : l'absence de sortie de map (ligne 3 : 5 cartes déclarées, mais le joueur ne peut pas quitter `maps[0]`) et
-l'impossibilité de revenir à la création (ligne 12, `resetGame` sans appelant).
+Un blocage de jouabilité reste, moins « grave » que les trois précédents : l'absence
+de sortie de map (ligne 3 : 5 cartes déclarées, mais le joueur ne peut pas quitter
+`maps[0]`). Le retour à la création (ligne 12) est **livré par #69** :
+`startNewGame` efface le slot et remet les deux stores à zéro.
 
 ## Ce qui a été délibérément écarté
 
@@ -104,14 +113,14 @@ jamais réapparaître comme des « oublis » dans une prochaine analyse.
 
 ## 4. Ce que cette analyse ouvre dans le backlog (v20)
 
-Trois tâches seulement, celles qui débloquent le joueur ou corrigent une promesse
-fausse — plus une tâche de rendu issue des limites géométriques :
+Deux tâches de jouabilité — la troisième de la première version est **livrée par
+#69** (`5D-new-game`, squash `0676a46`) — plus une tâche de rendu issue des limites
+géométriques :
 
 | Tâche | Phase | Pourquoi maintenant |
 |---|---|---|
 | `5C-equip-requirements` | 5C | corrige une promesse du schéma : `level` existe et n'est jamais lu |
-| `5D-new-game` | 5D | le joueur est enfermé dans son personnage, `resetGame` n'a aucun appelant |
-| `5D-exits` | 5D | une seule carte, aucun moyen d'aller ailleurs : l'archipel est injouable |
+| `5D-exits` | 5D | 5 cartes déclarées, mais le joueur ne peut pas quitter `maps[0]` : l'archipel est injouable |
 | `7A-arena-background` | 7A | les coins du viewport restent hors du losange (voir `ui-dofus-retro.md` §12.2) : fond d'arène, jamais de cases factices |
 
 Six dettes, avec leur sévérité et leur cible :

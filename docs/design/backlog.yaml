@@ -414,7 +414,7 @@ waves:
         title: Wiring Navire-Base et premier donjon
         status: in_progress
         updated_at: "2026-11-22"
-        notes: "5D-a (#56) et 5D-b (#57) livrées : le donjon est déclenchable et jouable depuis l'exploration (bouton « Donjons ») ; l'analyse d'écart du 22/11 ouvre 5D-new-game et 5D-exits (docs/design/specs/dofus-1.29-gaps.md)"
+        notes: "5D-a (#56) et 5D-b (#57) livrées : le donjon est déclenchable et jouable depuis l'exploration (bouton « Donjons ») ; 5D-new-game est livrée par #69 (squash 0676a46) et 5D-exits reste ouverte (docs/design/specs/dofus-1.29-gaps.md)"
         tasks:
           - id: 5D-a
             title: "Premier donjon jouable : déclencher une salle depuis le jeu"
@@ -450,11 +450,12 @@ waves:
             notes: "docs/design/specs/ui-dofus-retro.md §2, §4 et §10 — portrait barré, retrait du terrain, récapitulatif sans fanfare"
           - id: 5D-new-game
             title: "Revenir à l'écran de création : nouveau personnage"
-            status: todo
+            status: done
+            pr: 69
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/dofus-1.29-gaps.md ligne 12 — `appScreen` (src/ui/appRouting.ts:5-7) renvoie `arena` dès qu'un héros existe et `resetGame` (src/store/useGameStore.ts:302) n'a aucun appelant dans src/ui/ : le joueur est enfermé dans son personnage, la plainte rapportée. Bouton « nouveau personnage » dans le panneau de sauvegarde, confirmation explicite, purge du slot et retour à `HeroCreation`."
+            notes: "squash 0676a46 — `startNewGame` (src/store/newGame.ts:17-22) efface le slot (`eraseSave`) puis remet les deux stores à zéro : `hero = null` ⇒ `appScreen` (src/ui/appRouting.ts:5-7) renvoie `creation`. Bouton « Nouvelle partie » + confirmation bloquante (src/ui/components/NewGameButton.tsx:94-100), rendu par `AccessBar` (src/ui/components/OverlayPanels.tsx:68). Limite signalée : si le stockage refuse l'effacement, l'ancien héros revient au rechargement (console)."
           - id: 5D-exits
             title: "Sorties de map : quitter une carte par un bord ou un marqueur"
             status: todo
@@ -581,7 +582,7 @@ waves:
             owner: tdd-coder
             priority: medium
             updated_at: "2026-11-22"
-            notes: "docs/design/specs/ui-dofus-retro.md §12.2 et docs/design/specs/dofus-1.29-gaps.md ligne 7 — une carte iso est un losange de rapport 2:1 (`TILE_W/TILE_H`) : un losange n'occupe que la moitié de sa boîte englobante, donc ses quatre coins restent dehors ; s'il partageait le rapport du viewport il faudrait `c ≥ 2` (2/c ≤ 1), et pour un 4:3 contenir les quatre coins avec un losange 2:1 exige ≈ ×2,5 l'échelle d'inscription — au prix de la carte entière. `arenaScale` plafonne donc par `cornerSafeScale` : le losange est inscrit, chaque case reste cliquable. C'est la raison du fond sombre de Dofus, pas un défaut à corriger : dessiner un fond d'arène, jamais des cases factices — elles seraient cliquables et casseraient le pathfinding."
+            notes: "docs/design/specs/ui-dofus-retro.md §12.2 et docs/design/specs/dofus-1.29-gaps.md ligne 7 — une carte iso est un losange de rapport 2:1 (`TILE_W/TILE_H`) : un losange n'occupe que la moitié de sa boîte englobante, donc ses quatre coins restent dehors ; s'il partageait le rapport du viewport il faudrait `c ≥ 2` (2/c ≤ 1), et pour un 4:3 contenir les quatre coins avec un losange 2:1 exige une demi-diagonale de 1,25 × la largeur du viewport, soit ≈ ×2,5 le zoom où la carte tient entière — au prix de la carte entière. `arenaScale` plafonne donc par `cornerSafeScale` : le losange est inscrit, chaque case reste cliquable. C'est la raison du fond sombre de Dofus, pas un défaut à corriger : dessiner un fond d'arène, jamais des cases factices — elles seraient cliquables et casseraient le pathfinding."
       - id: 7B
         title: Contenu archipel final
         status: todo

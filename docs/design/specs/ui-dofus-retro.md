@@ -295,7 +295,8 @@ l'échelle pour atteindre les quatre coins.
 Notre losange, lui, a un rapport **fixé à 2:1** par `TILE_W/TILE_H`
 (`src/renderer/gridProjection.ts:4-6`) : il n'a jamais celui du viewport. Pour
 un 4:3 (1,33), contenir les quatre coins avec un losange 2:1 exige
-`a ≥ W/2 + H`, soit **≈ ×2,5** l'échelle d'inscription (×3 pour un carré,
+`a ≥ W/2 + H`, soit une demi-diagonale de **1,25 × la largeur du viewport** et un
+zoom de **≈ ×2,5** par rapport à l'échelle où la carte tient entière (×3 en carré,
 ×2,125 en 16:9) — et à ce zoom la carte déborde largement de l'écran.
 
 D'où le choix de `arenaScale` (`src/renderer/gridProjection.ts:155`), plafonné
