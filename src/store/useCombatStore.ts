@@ -5,6 +5,7 @@ import monstersYaml from "../../data/monsters.yaml";
 import progressionYaml from "../../data/progression.yaml";
 import spawnsYaml from "../../data/spawns.yaml";
 import spellsYaml from "../../data/spells.yaml";
+import { canAct } from "../engine/combat/beat";
 import { castSpell } from "../engine/combatLoop/cast";
 import { initCombat } from "../engine/combatLoop/init";
 import { appendLog } from "../engine/combatLoop/log";
@@ -63,7 +64,9 @@ import {
   battleAttack as resolveBattleAttack,
   battleEnemyTurn as resolveBattleEnemyTurn,
   castRefusal,
+  needsEnemyStep,
   playEnemyTurns as resolveEnemyTurns,
+  playStepOnce,
   rollSpellBase,
   spellCastSpec,
   spellStrategy,
@@ -132,6 +135,21 @@ interface CombatStore {
    * tombe, aucun `hp: 0` n'est persisté (voir `restoreHeroHp`).
    */
   playEnemyTurns: (input?: { rng?: Rng; storage?: StorageLike }) => void;
+  /**
+   * NOUVEAU (cadence) : joue **un seul** pas ennemi (un tour, ou le passage du
+   * tour du héros quand il a la main). L'UI espace les appels : la boucle de
+   * `playEnemyTurns` reste l'API d'un bloc, rien n'est retiré.
+   */
+  playEnemyStepOnce: (input?: { rng?: Rng; storage?: StorageLike }) => void;
+  /**
+   * NOUVEAU (cadence) : horodatage (ms) de la dernière action de combat. Posé
+   * par l'appelant via `stampActionAt` — le store ne lit **aucune** horloge.
+   */
+  lastActionAt: number;
+  /** Pose la borne basse de la prochaine action ; `now` vient de l'appelant. */
+  stampActionAt: (now: number) => void;
+  /** L'action suivante est-elle autorisée à `now` ? Répond via `canAct`, sans muter. */
+  canActNow: (now: number) => boolean;
   /** Fait tourner la timeline quand l'actif courant ne peut plus rien faire (aucun aléa). */
   advanceBattleTurn: () => void;
   /**
@@ -580,6 +598,16 @@ function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLik
   return battleUpdate(store, next);
 }
 
+/** Un seul pas : même stratégie, même journal, seule la cadence change de place. */
+function enemyStepUpdate(store: CombatStore, rng: Rng, storage?: StorageLike): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null || !needsEnemyStep(state, false)) return {};
+  const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
+  const next = playStepOnce({ state, strategyFor, rng });
+  if (isDefeat(next)) restoreHeroHp(storage);
+  return battleUpdate(store, next);
+}
+
 function heroStatsFor(hero: Hero) {
   const { inventory } = useGameStore.getState();
   return totalStatsFor({ hero, inventory, items: GAME_CATALOG.items, sets: GAME_CATALOG.sets });
@@ -759,8 +787,17 @@ function mapActions(set: StoreSetter): MapActions {
 
 type BattleActions = Pick<
   CombatStore,
-  "startDungeonRoom" | "battleAttack" | "battleEnemyTurn" | "playEnemyTurns" | "advanceBattleTurn" | "settleDungeonRoom" | "endBattle"
+  | "startDungeonRoom"
+  | "battleAttack"
+  | "battleEnemyTurn"
+  | "playEnemyTurns"
+  | "playEnemyStepOnce"
+  | "advanceBattleTurn"
+  | "settleDungeonRoom"
+  | "endBattle"
 >;
+
+type BeatActions = Pick<CombatStore, "stampActionAt" | "canActNow">;
 
 function battlePlayActions(set: StoreSetter) {
   return {
@@ -776,7 +813,17 @@ function battleTurnActions(set: StoreSetter) {
   return {
     playEnemyTurns: (input?: { rng?: Rng; storage?: StorageLike }) =>
       set((store) => playEnemyTurnsUpdate(store, input?.rng ?? Math.random, input?.storage)),
+    playEnemyStepOnce: (input?: { rng?: Rng; storage?: StorageLike }) =>
+      set((store) => enemyStepUpdate(store, input?.rng ?? Math.random, input?.storage)),
     advanceBattleTurn: () => set((store) => advanceTurnUpdate(store)),
+  };
+}
+
+/** Gardien de cadence : l'horodatage vient de l'appelant, jamais d'une horloge du store. */
+function beatActions(set: StoreSetter, get: () => CombatStore): BeatActions {
+  return {
+    stampActionAt: (now: number) => set({ lastActionAt: now }),
+    canActNow: (now: number) => canAct(get().lastActionAt, now),
   };
 }
 
@@ -825,6 +872,7 @@ const DEFAULT_STATE = {
   hoveredCell: null,
   rewards: null,
   trails: NO_TRAILS,
+  lastActionAt: 0,
 } satisfies Omit<
   CombatStore,
   | "startDemoCombat"
@@ -841,6 +889,9 @@ const DEFAULT_STATE = {
   | "battleSpellAttack"
   | "battleEnemyTurn"
   | "playEnemyTurns"
+  | "playEnemyStepOnce"
+  | "stampActionAt"
+  | "canActNow"
   | "advanceBattleTurn"
   | "settleDungeonRoom"
   | "endBattle"
@@ -892,6 +943,7 @@ export const useCombatStore = create<CombatStore>((set, get) => ({
   ...DEFAULT_STATE,
   ...mapActions(set),
   ...battleActions(set),
+  ...beatActions(set, get),
   ...battleSpellActions(set),
   ...dungeonActions(set, get),
   ...resetActions(set),

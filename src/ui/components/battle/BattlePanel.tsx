@@ -8,6 +8,7 @@ import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
 import { closeBattle } from "./closeBattle";
 import { CombatantList } from "./CombatantList";
 import { ACTION_BUTTON, BATTLE_PANEL, CARD_HEAD, FOOT, HINT, LOG_LINE } from "./battleTheme";
+import { useCombatBeat } from "./useCombatBeat";
 
 /** Nombre de lignes de journal gardées à l'écran : le joueur voit sa riposte. */
 const LOG_LINES = 5;
@@ -39,12 +40,11 @@ interface PanelFootProps {
 }
 
 function useBattleHandlers(): BattleHandlers {
-  const attack = useCombatStore((state) => state.battleSpellAttack);
-  const retaliate = useCombatStore((state) => state.playEnemyTurns);
+  const beat = useCombatBeat();
   const settle = useCombatStore((state) => state.settleDungeonRoom);
   const abandon = useCombatStore((state) => state.endBattle);
   const close = (battle: BattleState) => closeBattle(battle, { settle, abandon });
-  return { attack: (targetId) => attack({ targetId }), endTurn: () => retaliate(), close };
+  return { attack: beat.attack, endTurn: beat.endTurn, close };
 }
 
 function activeName(views: readonly BattleCombatantView[]): string {

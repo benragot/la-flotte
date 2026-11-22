@@ -278,6 +278,34 @@ function enemyStep(input: EnemyTurnsInput, state: BattleState): BattleState {
   return advanceTurn(next);
 }
 
+/**
+ * Un **seul** pas ennemi, sans changer le comportement de la boucle : c'est
+ * exactement l'itération de `playEnemyTurns`, exposée pour que l'UI puisse
+ * espacer les actions (une action = un pas, jamais N tours dans le même tick).
+ */
+export function enemyStepOnce(input: EnemyTurnsInput, state: BattleState): BattleState {
+  return enemyStep(input, state);
+}
+
+/**
+ * Un pas de la cadence, préfixe héros compris : la main du héros passe d'abord
+ * (`advanceTurn`), puis chaque appel ne joue qu'un tour ennemi.
+ */
+export function playStepOnce(input: EnemyTurnsInput): BattleState {
+  if (heroHasHand(input.state)) return advanceTurn(input.state);
+  return enemyStepOnce(input, input.state);
+}
+
+/**
+ * Reste-t-il un pas à jouer ? `started === false` couvre le **premier** pas,
+ * même quand le héros a la main : c'est son tour qui passe, comme dans
+ * `playEnemyTurns`. Bataille finie ou absente : plus rien n'est dû.
+ */
+export function needsEnemyStep(state: BattleState | null, started: boolean): boolean {
+  if (state === null || isBattleOver(state)) return false;
+  return started ? !heroHasHand(state) : true;
+}
+
 function stepLimit(input: EnemyTurnsInput): number {
   return input.maxSteps ?? MAX_ENEMY_STEPS;
 }
