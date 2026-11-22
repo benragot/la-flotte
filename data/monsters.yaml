@@ -23,8 +23,8 @@ monsters:
     spellIds: [bec_mazoute]
     loot:
       - { itemId: plume_mazoutee, baseDropRate: 0.4, ppThreshold: 100 }
-      # §2 de la fiche : seconde source de la goutte, seule ressource des trois
-      # ingrédients de la clef farmable hors donjon (piou = seul encounter d'exploration).
+      # §2 de la fiche : seconde source de la goutte. Le Piou est le seul
+      # encounter d'exploration, donc la seule des trois ressources butinable hors donjon.
       - { itemId: fer_goutte_mazout, baseDropRate: 0.45, ppThreshold: 100 }
 
   # La Cour aux Volatiles Gras.
