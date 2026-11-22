@@ -397,6 +397,7 @@ const PIOU = {
   id: "piou_mazoute",
   label: "Piou Mazouté",
   deltas: BIRD_DELTAS,
+  shadow: { rx: 13, ry: 5 },
   parts: {
     back: ellipse(32, 44, 16, 14, "#2b2431"),
     legL: rect(26, 56, 5, 4, "#e8a13a", { extra: 'rx="1"' }),
@@ -419,7 +420,233 @@ const PIOU = {
   },
 };
 
-const ENTITIES = [IOP, CRA, FECA, SRAM, ENIRIPSA, ENUTROF, OSAMODAS, XELOR, ECAFLIP, SADIDA, SACRIEUR, PANDAWA, PIOU];
+/* ------------------------------------------------- monstres de la Ferraille */
+
+/**
+ * Rat d'Égoût-dron : trottineur bas sur pattes. La queue (`back`) balaie à
+ * chaque pas, la morsure part vers l'avant — il ne recule jamais.
+ */
+const RAT_DELTAS = {
+  idle: [
+    { dy: 0, tilt: 0, parts: {} },
+    { dy: -1, tilt: 0, parts: { body: -1, head: 1, hair: 1.5, armL: -2, armR: 2, back: -3 } },
+    { dy: 0, tilt: 0, parts: { body: 1, head: -1, hair: -1, back: 2 } },
+    { dy: -1, tilt: 0, parts: { body: -1, head: 1, hair: 1.5, armL: -2, armR: 2, back: -3 } },
+  ],
+  walk: [
+    { dy: 0, tilt: -2, parts: { legL: 22, legR: -22, armL: -16, armR: 16, head: -2, hair: -3, back: -6 } },
+    { dy: -2, tilt: 1, parts: { legL: 0, legR: 0, armL: 0, armR: 0, head: 1 } },
+    { dy: 0, tilt: 2, parts: { legL: -22, legR: 22, armL: 16, armR: -16, head: 2, hair: 3, back: 6 } },
+    { dy: -2, tilt: 1, parts: { legL: 0, legR: 0, armL: 0, armR: 0, head: 1 } },
+  ],
+  attack: [
+    { dy: 0, tilt: -5, parts: { head: -7, hair: -9, armL: -10, armR: 10, body: -3, back: -4 } },
+    { dy: -3, tilt: 6, parts: { head: 8, hair: 10, armL: 8, armR: -8, body: 4, back: 4 } },
+    { dy: 0, tilt: 10, parts: { head: 13, hair: 16, armL: 14, armR: -14, body: 6, back: 6 }, flash: true },
+    { dy: -1, tilt: 3, parts: { head: 4, hair: 5, body: 2 } },
+  ],
+  hit: [
+    { dy: 0, tilt: -10, parts: { head: -8, hair: -10, armL: -14, armR: 14, body: -6, back: -8 } },
+    { dy: -2, tilt: -15, parts: { head: -12, hair: -14, armL: -18, armR: 18, body: -8, back: -10 }, flash: true },
+    { dy: 0, tilt: -6, parts: { head: -5, hair: -6, armL: -8, armR: 8, body: -4, back: -4 } },
+    { dy: 0, tilt: 0, parts: { head: 0, hair: 2, armL: 0, armR: 0, body: 0, back: 0 } },
+  ],
+};
+
+/**
+ * Crabe à Clé-à-Molette : la carapace tangue latéralement, la pince gauche
+ * claque, la clé (main droite) n'est qu'un emblème — les rotations de `prop`
+ * restent faibles pour ne jamais sortir de la cellule.
+ */
+const CRABE_DELTAS = {
+  idle: [
+    { dy: 0, tilt: 0, parts: {} },
+    { dy: -1, tilt: 0, parts: { head: 2, armL: -6, armR: 2, prop: 3 } },
+    { dy: 0, tilt: 0, parts: { head: -1, armL: 3, armR: -1, prop: -2 } },
+    { dy: -1, tilt: 0, parts: { head: 2, armL: -6, armR: 2, prop: 3 } },
+  ],
+  walk: [
+    { dy: 0, tilt: -3, parts: { legL: 18, legR: -18, armL: -8, armR: 8, head: -3, prop: -5 } },
+    { dy: -2, tilt: 0, parts: { legL: 0, legR: 0, armL: 0, armR: 0, head: 1 } },
+    { dy: 0, tilt: 3, parts: { legL: -18, legR: 18, armL: 8, armR: -8, head: 3, prop: 5 } },
+    { dy: -2, tilt: 0, parts: { legL: 0, legR: 0, armL: 0, armR: 0, head: 1 } },
+  ],
+  attack: [
+    { dy: 0, tilt: -4, parts: { armL: -26, head: -4, hair: -4, armR: -14, prop: -8, body: -2 } },
+    { dy: -1, tilt: 4, parts: { armL: 14, head: 4, armR: 10, prop: 6, body: 3 } },
+    { dy: 0, tilt: 8, parts: { armL: 32, head: 8, armR: 14, prop: 12, body: 5 }, flash: true },
+    { dy: -1, tilt: 2, parts: { armL: 6, head: 2, armR: 4, prop: 4, body: 1 } },
+  ],
+  hit: [
+    { dy: 0, tilt: -10, parts: { head: -8, hair: -10, armL: -16, armR: 16, body: -6 } },
+    { dy: -2, tilt: -14, parts: { head: -12, hair: -14, armL: -20, armR: 20, body: -8 }, flash: true },
+    { dy: 0, tilt: -5, parts: { head: -5, hair: -6, armL: -8, armR: 8, body: -3 } },
+    { dy: 0, tilt: 0, parts: { head: 0, hair: 0, armL: 0, armR: 0, body: 0 } },
+  ],
+};
+
+/** Écrou-Baton : masse d'acier, pas lourds, et une poussée au bâton qui engage tout le corps. */
+const BOULON_DELTAS = {
+  idle: [
+    { dy: 0, tilt: 0, parts: {} },
+    { dy: -1, tilt: 0, parts: { body: -1, head: 1, hair: 1, armL: -3, armR: 3, prop: 2 } },
+    { dy: 0, tilt: 0, parts: { body: 1, head: -1, hair: -1, armL: 2, armR: -2, prop: -1 } },
+    { dy: -1, tilt: 0, parts: { body: -1, head: 1, hair: 1, armL: -3, armR: 3, prop: 2 } },
+  ],
+  walk: [
+    { dy: 0, tilt: -2, parts: { legL: 14, legR: -14, armL: -6, armR: 6, head: -2, hair: -2, prop: 4 } },
+    { dy: -2, tilt: 0, parts: { legL: 0, legR: 0, head: 1 } },
+    { dy: 0, tilt: 2, parts: { legL: -14, legR: 14, armL: 6, armR: -6, head: 2, hair: 2, prop: -4 } },
+    { dy: -2, tilt: 0, parts: { legL: 0, legR: 0, head: 1 } },
+  ],
+  attack: [
+    { dy: 0, tilt: -6, parts: { armR: -14, prop: -18, armL: -8, head: -4, body: -3 } },
+    { dy: -1, tilt: 5, parts: { armR: 18, prop: 10, armL: 8, head: 5, body: 4 } },
+    { dy: 0, tilt: 9, parts: { armR: 30, prop: 22, armL: 14, head: 8, body: 6 }, flash: true },
+    { dy: -1, tilt: 2, parts: { armR: 8, prop: 6, armL: 3, head: 2, body: 2 } },
+  ],
+  hit: [
+    { dy: 0, tilt: -9, parts: { head: -8, hair: -10, armL: -14, armR: 14, body: -6 } },
+    { dy: -2, tilt: -13, parts: { head: -12, hair: -14, armL: -18, armR: 18, body: -8 }, flash: true },
+    { dy: 0, tilt: -5, parts: { head: -5, hair: -6, armL: -8, armR: 8, body: -3 } },
+    { dy: 0, tilt: 0, parts: { head: 0, hair: 0, armL: 0, armR: 0, body: 0, prop: 0 } },
+  ],
+};
+
+/**
+ * Rat d'Égoût-dron (niv. 6, `melee_rusher`) : rat de cale goudronné, museau
+ * pointu, grandes oreilles roses, queue de caoutchouc et câble rongé sous les
+ * pattes — la description du bestiaire dit « trois câbles » et « mazout ».
+ */
+const FER_RAT = {
+  id: "fer_rat_de_cale",
+  label: "Rat d'Égoût-dron",
+  deltas: RAT_DELTAS,
+  shadow: { rx: 16, ry: 4.5 },
+  parts: {
+    back:
+      path("M15 43 Q2 37 5 26 Q7 20 11 22 Q8 29 12 34 Q15 38 19 40 Z", "#a8806a") +
+      rect(5, 54, 20, 3, "#2b2622", { extra: 'rx="1"' }) +
+      rect(25, 54, 4, 3, "#c9743a", { flat: true }),
+    legL: rect(18, 49, 6, 9, "#3a322c", { extra: 'rx="2"' }),
+    legR: rect(27, 49, 6, 9, "#332b26", { extra: 'rx="2"' }),
+    body:
+      ellipse(29, 43, 16, 11, "#4a4038") +
+      ellipse(29, 47, 11, 5, "#6b5c4c", { flat: true }) +
+      path("M21 48 Q19 55 23 55 Q26 54 24 48 Z", "#1f1a17", { flat: true }),
+    armL: rect(35, 49, 5, 9, "#3a322c", { extra: 'rx="2"' }),
+    head:
+      circle(46, 36, 9, "#5a4a3e") +
+      poly("51,32 61,37 51,42", "#7a6a5a") +
+      circle(60, 37, 1.8, "#d99a8a") +
+      circle(47.5, 33, 1.7, INK, { flat: true }) +
+      rect(52, 39, 4, 3, "#f7f2e8", { flat: true }) +
+      path("M57 35 L62 32 M57 39 L62 41", "none", { stroke: "#f7f2e8", width: 1 }),
+    hair:
+      circle(42, 29, 5, "#6b5c4c") +
+      circle(42, 29, 2.4, "#d99a8a", { flat: true }) +
+      circle(50, 30, 4.5, "#6b5c4c") +
+      circle(50, 30, 2, "#d99a8a", { flat: true }),
+    armR: rect(41, 49, 5, 9, "#332b26", { extra: 'rx="2"' }),
+  },
+};
+
+/**
+ * Crabe à Clé-à-Molette (niv. 9, `tank_tackler`) : carapace de tôle rouillée,
+ * six pattes (trois par côté, dont une paire dans `back`), deux pédoncules
+ * oculaires, pince gauche et clé à molette soudée au bras droit.
+ */
+const FER_CRABE = {
+  id: "fer_crabe_cle_molette",
+  label: "Crabe à Clé-à-Molette",
+  deltas: CRABE_DELTAS,
+  shadow: { rx: 17, ry: 5 },
+  parts: {
+    back:
+      path("M16 43 L4 48", "none", { stroke: "#8f3a22", width: 3 }) +
+      path("M15 48 L4 53", "none", { stroke: "#8f3a22", width: 3 }),
+    legL: path("M19 53 L8 58", "none", { stroke: "#a8432a", width: 3 }),
+    legR:
+      path("M46 43 L56 47", "none", { stroke: "#a8432a", width: 3 }) +
+      path("M47 48 L57 52", "none", { stroke: "#a8432a", width: 3 }) +
+      path("M47 53 L57 57", "none", { stroke: "#a8432a", width: 3 }),
+    body:
+      ellipse(32, 41, 18, 12, "#c0563a") +
+      ellipse(32, 45, 14, 7, "#d9714f", { flat: true }) +
+      circle(24, 38, 2.6, "#8f3a22", { flat: true }) +
+      circle(40, 38, 2.6, "#8f3a22", { flat: true }) +
+      path("M32 33 Q38 41 32 49 Q26 41 32 33 Z", "#a8432a", { flat: true }),
+    armL:
+      poly("15 43 5 39 4 30 12 30 13 35 17 37", "#c0563a") +
+      path("M7 33 L14 34", "none", { stroke: "#8f3a22", width: 2 }),
+    head:
+      rect(26, 24, 3, 11, "#c0563a") +
+      rect(36, 23, 3, 12, "#c0563a") +
+      circle(27.5, 23, 4.2, "#f7f2e8") +
+      circle(37.5, 22, 4.2, "#f7f2e8") +
+      circle(28, 22.5, 1.6, INK, { flat: true }) +
+      circle(38, 21.5, 1.6, INK, { flat: true }),
+    hair:
+      circle(22, 41, 2, "#f2d64b", { flat: true }) +
+      circle(42, 41, 2, "#f2d64b", { flat: true }) +
+      circle(32, 47, 2, "#f2d64b", { flat: true }),
+    armR: rect(47, 38, 4, 13, "#c0563a", { extra: 'rx="2"' }),
+    prop:
+      rect(49, 28, 4, 22, "#cdd3da", { extra: 'rx="1"' }) +
+      rect(43, 16, 5, 13, "#cdd3da") +
+      rect(55, 16, 5, 13, "#cdd3da") +
+      rect(46, 24, 11, 4, "#cdd3da", { flat: true }) +
+      circle(51.5, 26, 1.8, "#c9a86a", { flat: true }),
+  },
+};
+
+/**
+ * Écrou-Baton (niv. 15, `pusher_control`) : un écrou hexagonal de la taille
+ * d'un homme, filetage doré, casque de chantier jaune et bâton de pousseur —
+ * « sens très développé de l'injustice salariale », donc casque et bâton.
+ */
+const FER_BOULON = {
+  id: "fer_boulon_pousseur",
+  label: "Écrou-Baton",
+  deltas: BOULON_DELTAS,
+  shadow: { rx: 14, ry: 4.5 },
+  parts: {
+    back:
+      poly("20,36 44,36 47,52 17,52", "#6b7681") +
+      circle(20, 44, 2.2, "#4a5058", { flat: true }) +
+      circle(44, 44, 2.2, "#4a5058", { flat: true }),
+    legL: rect(23, 51, 7, 9, "#3a4048", { extra: 'rx="2"' }),
+    legR: rect(34, 51, 7, 9, "#333941", { extra: 'rx="2"' }),
+    body:
+      poly("22,25 42,25 50,41 42,58 22,58 14,41", "#9aa4ad") +
+      circle(32, 41, 8, "#3a4048") +
+      path("M32 34 Q39 38 35 43 Q31 47 26 43 Q22 39 27 35", "none", { stroke: "#c9a86a", width: 2 }) +
+      rect(21, 27, 22, 3, "#b6c0c8", { flat: true }) +
+      circle(17, 42, 1.8, "#6b7681", { flat: true }) +
+      circle(47, 42, 1.8, "#6b7681", { flat: true }),
+    armL:
+      rect(8, 37, 6, 16, "#8b959e", { extra: 'rx="3"' }) +
+      rect(7, 48, 8, 6, "#6b7681", { extra: 'rx="2"' }),
+    head:
+      circle(32, 19, 9, "#b6c0c8") +
+      circle(28.5, 19, 1.8, INK, { flat: true }) +
+      circle(35.5, 19, 1.8, INK, { flat: true }) +
+      path("M27 24 Q32 28 37 24", "none", { stroke: "#3a4048", width: 2 }),
+    hair:
+      path("M20 12 Q32 0 44 12 L44 15 L20 15 Z", "#f2d64b") +
+      rect(17, 11, 30, 3, "#f2d64b", { extra: 'rx="1"' }) +
+      rect(30, 2, 4, 10, "#e0c23c", { flat: true }),
+    armR:
+      rect(50, 37, 6, 16, "#8b959e", { extra: 'rx="3"' }) +
+      rect(49, 48, 8, 6, "#6b7681", { extra: 'rx="2"' }),
+    prop:
+      rect(53, 18, 3, 34, "#8a6231") +
+      rect(51, 49, 7, 4, "#cdd3da", { extra: 'rx="1"' }) +
+      circle(54.5, 42, 2, "#8b959e", { flat: true }),
+  },
+};
+
+const ENTITIES = [IOP, CRA, FECA, SRAM, ENIRIPSA, ENUTROF, OSAMODAS, XELOR, ECAFLIP, SADIDA, SACRIEUR, PANDAWA, PIOU, FER_RAT, FER_CRABE, FER_BOULON];
 
 /* --------------------------------------------------------- assemblage SVG */
 
@@ -444,9 +671,12 @@ function actorMarkup(entity, frame) {
   return `<g class="actor" transform="${tilt}">${uses.join("")}</g>`;
 }
 
+/** Ombre au sol ; les entités larges (crabe) peuvent élargir la leur. */
+const DEFAULT_SHADOW = { rx: 13, ry: 4.5 };
+
 function shadowMarkup(entity) {
-  const ry = entity.id === "piou_mazoute" ? 5 : 4.5;
-  return ellipse(32, 60, 13, ry, "#000000", { flat: true, extra: 'opacity="0.22"' });
+  const { rx, ry } = entity.shadow ?? DEFAULT_SHADOW;
+  return ellipse(32, 60, rx, ry, "#000000", { flat: true, extra: 'opacity="0.22"' });
 }
 
 function flashMarkup(frame) {
