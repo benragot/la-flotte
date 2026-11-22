@@ -380,16 +380,22 @@ describe("arène — câblage du héros persistant", () => {
   });
 });
 
+function equipmentItem(itemId: string) {
+  const item = mustFind(items, itemId);
+  if (item.category !== "equipment") throw new Error(`${itemId} n'est pas un équipement`);
+  return item;
+}
+
 function weaponHpBonus(): number {
-  const hp = SET_PIECES.map((itemId) => mustFind(items, itemId).stats?.hp ?? 0);
+  const hp = SET_PIECES.map((itemId) => equipmentItem(itemId).stats.hp ?? 0);
   return hp.reduce((total, value) => total + value, 0);
 }
 
 function expectedProspection(hero: Hero): number {
-  const amulet = mustFind(items, "amulette_de_la_coupure");
+  const amulet = equipmentItem("amulette_de_la_coupure");
   const set = mustFind(sets, "panoplie_piou_mazoute");
   const tier = set.bonuses.find((bonus) => bonus.pieces === 4);
-  const bonusPp = (amulet.stats?.prospection ?? 0) + (tier?.stats.prospection ?? 0);
+  const bonusPp = (amulet.stats.prospection ?? 0) + (tier?.stats.prospection ?? 0);
   return computeProspection({ basePp: hero.pp, chance: hero.chance, bonusPp });
 }
 
