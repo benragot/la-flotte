@@ -80,6 +80,15 @@ export function canAffordAnyStat(input: { hero: Hero; classDef: ClassDef }): boo
   return buildStatOptions(input).some((option) => option.affordable);
 }
 
+/**
+ * `points` du store est un BUDGET de capital (`availablePoints` dans
+ * `spendCapitalPoints`), pas un nombre de points à dépenser : on y passe donc
+ * le coût réel du prochain point, sinon `spendStatPoints` refuse et l'UI ment.
+ */
+export function allocationPayload(option: StatOption): { stat: StatKey; points: number } {
+  return { stat: option.stat, points: option.cost };
+}
+
 function pluralPoints(points: number): string {
   return points > 1 ? "pts" : "pt";
 }

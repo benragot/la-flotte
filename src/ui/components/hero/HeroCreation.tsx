@@ -5,7 +5,7 @@ import { classesFileSchema } from "../../../schemas/classSchema";
 import type { ClassDef } from "../../../schemas/classSchema";
 import { useGameStore } from "../../../store/useGameStore";
 import { isValidCharacterName } from "../../heroHudHelpers";
-import { SECTION_HEADING } from "../hudTheme";
+import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
 import CharacterNameField from "./CharacterNameField";
 import ClassCard from "./ClassCard";
 import StatAllocation from "./StatAllocation";
@@ -16,8 +16,6 @@ const classes = classesFileSchema.parse(classesYaml).classes;
 const SHEET =
   "pointer-events-auto flex w-full max-w-3xl flex-col gap-3 rounded border-2 border-[#8c6d46] bg-[#2b241d] p-3 text-[#e8dcc8]";
 const GRID = "grid grid-cols-2 gap-2 sm:grid-cols-4";
-const CREATE_BUTTON =
-  "rounded border-2 border-[#8c6d46] bg-[#d4a537] px-4 py-2 text-sm font-bold text-[#2b241d] transition hover:bg-[#e8dcc8] disabled:opacity-40";
 
 export interface HeroCreationProps {
   /** Appelé juste après `createCharacter` : la phase 4D branche l'entrée en arène. */
@@ -66,7 +64,7 @@ function CreateButton({ draft, onCreate }: { draft: Draft; onCreate: (payload: P
   const payload = draftPayload(draft);
   const click = payload === null ? undefined : () => onCreate(payload);
   return (
-    <button type="button" onClick={click} disabled={payload === null} className={CREATE_BUTTON}>
+    <button type="button" onClick={click} disabled={payload === null} className={PRIMARY_BUTTON}>
       Créer
     </button>
   );
