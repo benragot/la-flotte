@@ -16,6 +16,7 @@ import type { ClassDef } from "../../src/schemas/classSchema";
 import { computeProspection } from "../../src/engine/economy";
 import { EQUIPMENT_SLOTS, parseItemsYaml } from "../../src/schemas/itemSchema";
 import { parseProgressionYaml } from "../../src/schemas/progressionSchema";
+import { parseRecipesYaml } from "../../src/schemas/recipeSchema";
 import { parseSetsYaml } from "../../src/schemas/setSchema";
 import { emptyInventory, inventoryFromSnapshot } from "../../src/store/gameSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
@@ -30,6 +31,7 @@ const classes = parseClassesYaml(read("classes.yaml"));
 const items = parseItemsYaml(read("items.yaml"));
 const sets = parseSetsYaml(read("sets.yaml"));
 const progression = parseProgressionYaml(read("progression.yaml"));
+const recipes = parseRecipesYaml(read("recipes.yaml"));
 
 function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   const found = list.find((entry) => entry.id === id);
@@ -101,6 +103,12 @@ function addToBag(itemId: string, quantity: number): void {
   useGameStore.setState((state) => ({
     inventory: addItem({ inventory: state.inventory, itemId, quantity }),
   }));
+}
+
+/** Remplit le sac des ingrédients d'une recette du catalogue, `times` fois de suite. */
+function stockIngredients(recipeId: string, times = 1): void {
+  const recipe = mustFind(recipes, recipeId);
+  recipe.ingredients.forEach(({ itemId, quantity }) => addToBag(itemId, quantity * times));
 }
 
 beforeEach(() => {
@@ -304,6 +312,224 @@ describe("useGameStore — export, import et remise à zéro", () => {
     expect(state.hero).toBeNull();
     expect(state.inventory).toEqual({ stacks: [], equipment: {} });
     expect(state.flags).toEqual({});
+  });
+});
+
+describe("useGameStore — coffre de banque : état initial", () => {
+  it("démarre vide à la création puis après remise à zéro", () => {
+    const empty = { stacks: [], equipment: {} };
+    expect(useGameStore.getState().bank).toEqual(empty);
+    createHeroInStore();
+    expect(useGameStore.getState().bank).toEqual(empty);
+    useGameStore.getState().depositToBank({ itemId: "chapeau_piou_mazoute", quantity: 1 });
+    expect(countItem(useGameStore.getState().bank, "chapeau_piou_mazoute")).toBe(1);
+    useGameStore.getState().resetGame();
+    expect(useGameStore.getState().bank).toEqual(empty);
+  });
+});
+
+describe("useGameStore — coffre de banque : dépôts", () => {
+  it("déplace la quantité exacte du sac vers le coffre", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 3);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 2 });
+    const { inventory, bank } = useGameStore.getState();
+    expect(countItem(inventory, "plume_mazoutee")).toBe(1);
+    expect(countItem(bank, "plume_mazoutee")).toBe(2);
+    expect(countItem(inventory, "gourdin_du_matelot")).toBe(1);
+  });
+
+  it("refuse un dépôt supérieur au stock sans toucher aux deux inventaires", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 1);
+    const before = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 2 });
+    const after = useGameStore.getState();
+    expect(after.inventory).toBe(before.inventory);
+    expect(after.bank).toBe(before.bank);
+  });
+
+  it("ignore un dépôt non strictement positif", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 1);
+    const before = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 0 });
+    expect(useGameStore.getState().inventory).toBe(before.inventory);
+    expect(useGameStore.getState().bank).toBe(before.bank);
+  });
+});
+
+describe("useGameStore — coffre de banque : gardes de quantité", () => {
+  it("refuse une quantité NaN sans corrompre les piles", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 1);
+    const before = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: Number.NaN });
+    const after = useGameStore.getState();
+    expect(after.inventory).toBe(before.inventory);
+    expect(after.bank).toBe(before.bank);
+  });
+
+  it("refuse une quantité négative", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 3);
+    const before = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: -3 });
+    const after = useGameStore.getState();
+    expect(after.inventory).toBe(before.inventory);
+    expect(after.bank).toBe(before.bank);
+  });
+});
+
+describe("useGameStore — coffre de banque : retraits", () => {
+  it("retire du coffre vers le sac", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 3);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 3 });
+    useGameStore.getState().withdrawFromBank({ itemId: "plume_mazoutee", quantity: 2 });
+    const { inventory, bank } = useGameStore.getState();
+    expect(countItem(inventory, "plume_mazoutee")).toBe(2);
+    expect(countItem(bank, "plume_mazoutee")).toBe(1);
+  });
+
+  it("refuse un retrait supérieur au contenu du coffre", () => {
+    createHeroInStore();
+    const before = useGameStore.getState();
+    useGameStore.getState().withdrawFromBank({ itemId: "plume_mazoutee", quantity: 1 });
+    const after = useGameStore.getState();
+    expect(after.inventory).toBe(before.inventory);
+    expect(after.bank).toBe(before.bank);
+  });
+});
+
+describe("useGameStore — coffre de banque : invariants", () => {
+  it("fait l'aller-retour dépôt puis retrait sans changer le sac", () => {
+    createHeroInStore();
+    addToBag("ferraille_rouillee", 2);
+    const { inventory } = useGameStore.getState();
+    useGameStore.getState().depositToBank({ itemId: "ferraille_rouillee", quantity: 2 });
+    useGameStore.getState().withdrawFromBank({ itemId: "ferraille_rouillee", quantity: 2 });
+    expect(useGameStore.getState().inventory).toEqual(inventory);
+    expect(useGameStore.getState().bank).toEqual({ stacks: [], equipment: {} });
+  });
+
+  it("accepte les équipements comme les ressources, sans filtre", () => {
+    createHeroInStore();
+    useGameStore.getState().depositToBank({ itemId: "chapeau_piou_mazoute", quantity: 1 });
+    expect(countItem(useGameStore.getState().bank, "chapeau_piou_mazoute")).toBe(1);
+    expect(countItem(useGameStore.getState().inventory, "chapeau_piou_mazoute")).toBe(0);
+  });
+});
+
+describe("useGameStore — coffre de banque : immuabilité", () => {
+  it("ne mute pas l'inventaire d'entrée lors d'un dépôt", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 2);
+    const previous = useGameStore.getState().inventory;
+    const frozen = structuredClone(previous);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 1 });
+    expect(previous).toEqual(frozen);
+  });
+
+  it("ne mute pas le coffre d'entrée lors d'un retrait", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 2);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 2 });
+    const previous = useGameStore.getState().bank;
+    const frozen = structuredClone(previous);
+    useGameStore.getState().withdrawFromBank({ itemId: "plume_mazoutee", quantity: 1 });
+    expect(previous).toEqual(frozen);
+  });
+});
+
+describe("useGameStore — coffre de banque : sauvegarde", () => {
+  it("vide le coffre à l'import d'une sauvegarde (anti-duplication)", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 10);
+    const exported = useGameStore.getState().exportJson() ?? "";
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 10 });
+    expect(countItem(useGameStore.getState().bank, "plume_mazoutee")).toBe(10);
+    expect(useGameStore.getState().importJson(exported)).toBe(true);
+    expect(countItem(useGameStore.getState().bank, "plume_mazoutee")).toBe(0);
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(10);
+    useGameStore.getState().withdrawFromBank({ itemId: "plume_mazoutee", quantity: 10 });
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(10);
+  });
+
+  it("vide le coffre au chargement d'une sauvegarde", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 4);
+    const storage = new MemoryStorage();
+    expect(useGameStore.getState().saveGame(storage)).toBe(true);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 4 });
+    expect(useGameStore.getState().loadGame(storage)).toBe(true);
+    expect(useGameStore.getState().bank).toEqual({ stacks: [], equipment: {} });
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(4);
+  });
+});
+
+describe("useGameStore — craft : catalogue connu", () => {
+  it("connaît toutes les recettes du catalogue YAML", () => {
+    const expected = recipes.map((recipe) => recipe.id).sort();
+    expect([...useGameStore.getState().knownRecipeIds].sort()).toEqual(expected);
+  });
+});
+
+describe("useGameStore — craft : fabrication", () => {
+  it("fabrique une fois, consomme les ingrédients et ajoute le résultat", () => {
+    const recipe = mustFind(recipes, "recette_boulon_ressoude");
+    stockIngredients(recipe.id);
+    const { crafted } = useGameStore.getState().craftRecipe({ recipeId: recipe.id });
+    const { inventory } = useGameStore.getState();
+    expect(crafted).toBe(1);
+    expect(countItem(inventory, recipe.resultItemId)).toBe(recipe.resultQuantity);
+    recipe.ingredients.forEach(({ itemId }) => expect(countItem(inventory, itemId)).toBe(0));
+  });
+
+  it("fabrique `times` fois quand le stock le permet", () => {
+    const recipe = mustFind(recipes, "recette_boulon_ressoude");
+    stockIngredients(recipe.id, 2);
+    const result = useGameStore.getState().craftRecipe({ recipeId: recipe.id, times: 2 });
+    const { inventory } = useGameStore.getState();
+    expect(result.crafted).toBe(2);
+    expect(countItem(inventory, recipe.resultItemId)).toBe(2 * recipe.resultQuantity);
+  });
+
+  it("ne mute pas l'inventaire d'entrée après un craft", () => {
+    const recipe = mustFind(recipes, "recette_boulon_ressoude");
+    stockIngredients(recipe.id);
+    const previous = useGameStore.getState().inventory;
+    const frozen = structuredClone(previous);
+    useGameStore.getState().craftRecipe({ recipeId: recipe.id });
+    expect(previous).toEqual(frozen);
+  });
+});
+
+describe("useGameStore — craft : arrêt partiel", () => {
+  it("s'arrête à la première fabrication quand le stock n'en permet qu'une", () => {
+    const recipe = mustFind(recipes, "recette_boulon_ressoude");
+    stockIngredients(recipe.id);
+    const result = useGameStore.getState().craftRecipe({ recipeId: recipe.id, times: 2 });
+    const { inventory } = useGameStore.getState();
+    expect(result.crafted).toBe(1);
+    expect(countItem(inventory, recipe.resultItemId)).toBe(recipe.resultQuantity);
+    recipe.ingredients.forEach(({ itemId }) => expect(countItem(inventory, itemId)).toBe(0));
+  });
+});
+
+describe("useGameStore — craft : refus", () => {
+  it("s'arrête sans rien changer quand les ingrédients manquent", () => {
+    const recipe = mustFind(recipes, "recette_boulon_ressoude");
+    addToBag("ferraille_rouillee", 1);
+    const before = useGameStore.getState().inventory;
+    expect(useGameStore.getState().craftRecipe({ recipeId: recipe.id }).crafted).toBe(0);
+    expect(useGameStore.getState().inventory).toBe(before);
+  });
+
+  it("ignore une recette absente du catalogue", () => {
+    const before = useGameStore.getState().inventory;
+    expect(useGameStore.getState().craftRecipe({ recipeId: "recette_fantome" }).crafted).toBe(0);
+    expect(useGameStore.getState().inventory).toBe(before);
   });
 });
 
