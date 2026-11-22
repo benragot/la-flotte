@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { castSpell } from "../../src/engine/combatLoop/cast";
 import { getCastableCells } from "../../src/engine/combatLoop/castable";
 import { getReachableCells } from "../../src/engine/combatLoop/cells";
@@ -18,6 +18,7 @@ import type { StorageLike } from "../../src/engine/save";
 import { parseAsciiMap, samePosition } from "../../src/engine/grid";
 import { findPath } from "../../src/engine/grid";
 import type { Position } from "../../src/engine/grid";
+import { getMonsterGroupAt } from "../../src/engine/exploration";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseItemsYaml } from "../../src/schemas/itemSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
@@ -25,6 +26,7 @@ import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseProgressionYaml } from "../../src/schemas/progressionSchema";
 import { parseSetsYaml } from "../../src/schemas/setSchema";
 import { parseSpellsYaml } from "../../src/schemas/spellSchema";
+import { useCombatStore } from "../../src/store/useCombatStore";
 import { useGameStore } from "../../src/store/useGameStore";
 
 const CLASSES_PATH = join(process.cwd(), "data", "classes.yaml");
@@ -298,5 +300,131 @@ describe("walkthrough : équipement, soin et sauvegarde", () => {
     expect(after.hero).toEqual(before.hero);
     expect(after.inventory).toEqual(before.inventory);
     expect(after.flags).toEqual(before.flags);
+  });
+});
+
+const STORE_RNG = () => 0;
+
+function storeCombat(): CombatState {
+  const { combat } = useCombatStore.getState();
+  if (combat === null) throw new Error("combat attendu dans le store");
+  return combat;
+}
+
+function storeExploration() {
+  const { exploration } = useCombatStore.getState();
+  if (exploration === null) throw new Error("exploration attendue dans le store");
+  return exploration;
+}
+
+function stepTarget(combat: CombatState): Position {
+  return stepCloser(combat).player.position;
+}
+
+function enemyInRange(combat: CombatState): boolean {
+  const target = combat.enemy.position;
+  return getCastableCells(combat, PLAYER_SPELL_ID).some((cell) => samePosition(cell, target));
+}
+
+function attackOrApproach(): void {
+  const store = useCombatStore.getState();
+  const combat = storeCombat();
+  const target = combat.enemy.position;
+  const inRange = enemyInRange(combat);
+  store.selectSpell(inRange ? PLAYER_SPELL_ID : null);
+  store.clickCell(inRange ? target : stepTarget(combat));
+}
+
+/** Rejoue des sorts tant que des PA restent ; sinon avance d'une case. */
+function playStoreTurn(): void {
+  if (!enemyInRange(storeCombat())) return attackOrApproach();
+  for (let shot = 0; shot < 6; shot += 1) {
+    const combat = storeCombat();
+    if (combat.phase !== "player_turn" || !enemyInRange(combat)) return;
+    attackOrApproach();
+    if (storeCombat() === combat) return;
+  }
+}
+
+function playStoreCombat(): CombatState {
+  for (let turn = 0; turn < MAX_TURNS; turn += 1) {
+    const combat = storeCombat();
+    if (combat.phase === "victory") return combat;
+    playStoreTurn();
+    useCombatStore.getState().endTurn();
+  }
+  throw new Error("victoire non atteinte dans la borne dure");
+}
+
+describe("walkthrough : exploration, combat et respawn", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("déplace le héros, engage le groupe, gagne puis respawn", () => {
+    useGameStore.getState().resetGame();
+    useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
+    vi.spyOn(Math, "random").mockReturnValue(STORE_RNG());
+    const xpBefore = heroState().xp;
+    useCombatStore.getState().startExploration();
+    useCombatStore.getState().clickCell({ x: 4, y: 3 });
+    const moved = useCombatStore.getState();
+    expect(moved.mode).toBe("exploration");
+    expect(moved.exploration?.playerPos).toEqual({ x: 4, y: 3 });
+    const group = getMonsterGroupAt(storeExploration(), { x: 5, y: 9 });
+    if (group === null) throw new Error("groupe attendu sur la case (5,9)");
+    useCombatStore.getState().clickCell({ x: 5, y: 9 });
+    expect(useCombatStore.getState().mode).toBe("combat");
+    expect(storeCombat().player.name).toBe("Anselme");
+    expect(playStoreCombat().phase).toBe("victory");
+    useCombatStore.getState().returnToMap();
+    const back = useCombatStore.getState();
+    expect(back.mode).toBe("exploration");
+    expect(back.combat).toBeNull();
+    expect(back.rewards).toBeNull();
+    expect(back.exploration?.monsterGroups).toHaveLength(1);
+    expect(back.exploration?.monsterGroups[0]?.id).not.toBe(group.id);
+    expect(heroState().xp).toBeGreaterThan(xpBefore);
+  });
+});
+
+function setHeroHp(hp: number): void {
+  const game = useGameStore.getState();
+  if (game.hero === null) throw new Error("héros persistant absent");
+  useGameStore.setState({ hero: { ...game.hero, hp } });
+}
+
+function playUntilDefeat(): void {
+  for (let turn = 0; turn < MAX_TURNS; turn += 1) {
+    if (storeCombat().phase === "defeat") return;
+    useCombatStore.getState().endTurn();
+  }
+  throw new Error("défaite non atteinte dans la borne dure");
+}
+
+describe("walkthrough : défaite et retour sur la carte", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("retourne en exploration sans vaincre le groupe et restaure les PV", () => {
+    useGameStore.getState().resetGame();
+    useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
+    const maxHp = heroState().maxHp;
+    setHeroHp(1);
+    vi.spyOn(Math, "random").mockReturnValue(STORE_RNG());
+    useCombatStore.getState().startExploration();
+    const group = getMonsterGroupAt(storeExploration(), { x: 5, y: 9 });
+    if (group === null) throw new Error("groupe attendu sur la case (5,9)");
+    useCombatStore.getState().clickCell({ x: 5, y: 9 });
+    playUntilDefeat();
+    expect(storeCombat().phase).toBe("defeat");
+    useCombatStore.getState().returnToMap();
+    const back = useCombatStore.getState();
+    expect(back.mode).toBe("exploration");
+    expect(back.combat).toBeNull();
+    expect(back.rewards).toBeNull();
+    expect(back.exploration?.monsterGroups.map((entry) => entry.id)).toEqual([group.id]);
+    expect(heroState().hp).toBe(maxHp);
   });
 });

@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 5
+  version: 9
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -35,6 +35,59 @@ meta:
 inbox: []
 
 waves:
+  - id: wave-3.5
+    title: Look & Feel Dofus 1.29
+    status: done
+    phases:
+      - id: 3.5A
+        title: Exploration iso, HUD rétro et spec de l'île Ferraille
+        status: done
+        tasks:
+          - id: 3.5A-spec-ferraille
+            title: Spec de l'Île de la Ferraille (carte, groupes, exploration)
+            status: done
+            pr: 20
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash c790693
+          - id: 3.5A-exploration
+            title: Exploration hors combat et respawn des groupes de monstres
+            status: done
+            pr: 22
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash 84cdc9a
+          - id: 3.5A-iso-grid
+            title: Grille tactique en losanges isométriques Dofus 1.29
+            status: done
+            pr: 24
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash bfc2631
+          - id: 3.5A-dofus-hud
+            title: HUD rétro dans un dock bas et raccourcis AZERTY
+            status: done
+            pr: 23
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash 10a9640
+      - id: 3.5B
+        title: Câblage final App — exploration ↔ combat, dock et raccourcis
+        status: done
+        depends_on: [3.5A]
+        tasks:
+          - id: 3.5B-wiring
+            title: Câblage App (zone jouable + dock), mode exploration et raccourcis globaux
+            status: approved
+            pr: 27
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: corrections QA en cours ; repassera done après merge
   - id: wave-4
     title: Persistance héros, 12 classes, inventaire, panoplies, sauvegarde
     status: in_progress
@@ -94,6 +147,14 @@ waves:
         title: UI — création de personnage, inventaire et équipement
         status: todo
         depends_on: [4B]
+        tasks:
+          - id: 4C-ui-hero
+            title: Écran de création de héros (nom, 12 classes) et répartition du capital
+            status: approved
+            pr: 30
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
       - id: 4D
         title: Wiring App — écran de création puis arène
         status: todo
@@ -138,7 +199,14 @@ waves:
       - id: 7A
         title: Polish visuel et audio
         status: todo
-        tasks: []
+        tasks:
+          - id: 7A-spritesheets
+            title: Découper et charger les spritesheets iso (tuiles, héros, monstres)
+            status: in_progress
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [3.5A-iso-grid]
       - id: 7B
         title: Contenu archipel final
         status: todo
@@ -167,14 +235,6 @@ debts:
     title: Impossible de porter deux exemplaires du même anneau (autorisé en 1.29)
     severity: medium
     target: 5B
-  - id: D07
-    title: aria-label posé sur un div sans rôle dans ArenaStage (ignoré par les AT)
-    severity: low
-    target: 4C
-  - id: D08
-    title: Le HUD fixed recouvre les 2 dernières rangées du canvas 576x576 sous ~900px de hauteur
-    severity: high
-    target: 4C
   - id: D09
     title: Regex de tailwindSetup.spec.ts à resserrer sur le JSX plutôt que sur les imports
     severity: low
@@ -218,3 +278,11 @@ debts:
     title: Les items ne portent aucune résistance par élément — le combattant part toujours à 0
     severity: medium
     target: 5B
+  - id: D43
+    title: Les tâches des deux specs d'île (§12 de chaque doc, D18–D42) ne sont pas encore insérées dans ce backlog — à faire après le merge de #25
+    severity: medium
+    target: 6A
+  - id: D44
+    title: centeredOrigin décale la carte iso d'une demi-largeur vers la gauche — à 1024 px de large, ~256 px sortent du cadre ; clic cohérent mais décor tronqué
+    severity: medium
+    target: 4D
