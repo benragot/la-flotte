@@ -76,15 +76,6 @@ export interface HpBar {
   fillWidth: number;
 }
 
-export interface TokenBadge {
-  text: string;
-  x: number;
-  y: number;
-  radius: number;
-  /** Échelle de la caméra, pour grossir aussi la police du badge. */
-  scale: number;
-}
-
 interface TokenSpec {
   id: string;
   fill: number;
@@ -227,14 +218,6 @@ export function hpBarFor(token: TokenView): HpBar {
   return { x, y, width, height, fillWidth: width * token.hpRatio };
 }
 
-/** Géométrie du badge de niveau, en haut à droite du jeton. */
-export function tokenBadge(token: TokenView): TokenBadge | null {
-  if (token.badge === null) return null;
-  const x = token.center.x + token.radius;
-  const y = token.center.y - token.radius;
-  return { text: token.badge, x, y, radius: BADGE_RADIUS * token.scale, scale: token.scale };
-}
-
 export function drawHpBar(graphics: Graphics, token: TokenView): void {
   const bar = hpBarFor(token);
   graphics.rect(bar.x, bar.y, bar.width, bar.height);
@@ -248,28 +231,19 @@ export function drawHpBars(graphics: Graphics, tokens: readonly TokenView[]): vo
   tokens.forEach((token) => drawHpBar(graphics, token));
 }
 
-function paintBadge(graphics: Graphics, token: TokenView): void {
-  const badge = tokenBadge(token);
-  if (badge === null) return;
-  graphics.circle(badge.x, badge.y, badge.radius);
-  graphics.fill({ color: BADGE_FILL, alpha: 0.9 });
-  graphics.circle(badge.x, badge.y, badge.radius);
-  graphics.stroke({ width: 1.5, color: BADGE_STROKE, alpha: 1 });
-}
-
 function drawToken(graphics: Graphics, token: TokenView): void {
   const { x, y } = token.center;
   graphics.circle(x, y, token.radius);
   graphics.fill({ color: token.fill, alpha: 1 });
   graphics.circle(x, y, token.radius);
   graphics.stroke({ width: 2, color: TOKEN_STROKE, alpha: 0.9 });
-  paintBadge(graphics, token);
 }
 
 /**
- * Peint les jetons géométriques (groupes, héros sans feuille) avec leur badge.
+ * Peint les jetons géométriques (groupes, héros sans feuille).
  * La barre de PV n'est **pas** peinte ici : elle vit uniquement dans
  * `drawHpBars`, sinon les jetons géométriques la verraient deux fois.
+ * Le badge de niveau vit dans la couche des étiquettes, hors du sprite.
  */
 export function drawTokens(graphics: Graphics, tokens: readonly TokenView[]): void {
   tokens.forEach((token) => drawToken(graphics, token));

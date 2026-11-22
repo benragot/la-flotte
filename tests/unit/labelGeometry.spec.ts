@@ -40,12 +40,16 @@ describe("étiquette du nom — au-dessus de la barre, écart constant", () => {
 
 describe("étiquette du nom — jamais hors de la carte", () => {
   it("ramène le centre du texte dans les bords", () => {
-    expect(clampLabelX(90, 40, BOUNDS)).toBe(144);
-    expect(clampLabelX(310, 40, BOUNDS)).toBe(256);
-    expect(clampLabelX(200, 40, BOUNDS)).toBe(200);
+    expect(clampLabelX({ x: 90, halfWidth: 40, bounds: BOUNDS })).toBe(144);
+    expect(clampLabelX({ x: 310, halfWidth: 40, bounds: BOUNDS })).toBe(256);
+    expect(clampLabelX({ x: 200, halfWidth: 40, bounds: BOUNDS })).toBe(200);
+  });
+
+  it("réserve la place du badge à droite du nom au bord de la carte", () => {
+    expect(clampLabelX({ x: 310, halfWidth: 40, bounds: BOUNDS, rightReserve: 22 })).toBe(234);
   });
 
   it("centre le texte quand la carte est plus étroite que lui", () => {
-    expect(clampLabelX(120, 150, BOUNDS)).toBe(200);
+    expect(clampLabelX({ x: 120, halfWidth: 150, bounds: BOUNDS })).toBe(200);
   });
 });

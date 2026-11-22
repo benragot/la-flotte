@@ -4,12 +4,14 @@ import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import type { DecorView } from "./decor";
 import { drawDecor } from "./decorPaint";
-import type { LabelBounds, NameLabel } from "./labels";
+import type { LabelBounds, TokenLabel } from "./labels";
 import {
   LABEL_FILL,
   LABEL_FONT_SIZE,
   LABEL_STROKE,
   LABEL_STROKE_WIDTH,
+  badgeLabelFor,
+  badgeReserve,
   clampLabelX,
   labelBounds,
   nameLabelFor,
@@ -17,8 +19,8 @@ import {
 import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
-import type { TokenBadge, TokenView } from "./tokens";
-import { drawActiveRings, drawHpBars, drawTokens, tokenBadge, tokensNeedingCircle } from "./tokens";
+import type { TokenView } from "./tokens";
+import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
 
 interface SceneLayers {
   grid: Graphics;
@@ -31,9 +33,6 @@ interface SceneLayers {
   hpBars: Graphics;
   labels: Container;
 }
-
-export const BADGE_FONT_SIZE = 11;
-export const BADGE_TEXT_COLOR = 0xf2d64b;
 
 /** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
 const NAME_STYLE = {
@@ -60,45 +59,62 @@ function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneL
   return created;
 }
 
-function createLabel(badge: TokenBadge): Text {
-  const style = { fontSize: BADGE_FONT_SIZE * badge.scale, fill: BADGE_TEXT_COLOR };
-  const label = new Text({ text: badge.text, style });
-  label.anchor.set(0.5);
-  label.position.set(badge.x, badge.y);
-  return label;
-}
-
-function addLabel(container: Container, token: TokenView): void {
-  const badge = tokenBadge(token);
-  if (badge === null) return;
-  container.addChild(createLabel(badge));
-}
-
-/** Nom complet ancré en bas au-dessus de la barre : aucun recouvrement, jamais coupé. */
-function createNameLabel(label: NameLabel, bounds: LabelBounds | null): Text {
-  const style = { ...NAME_STYLE, fontSize: LABEL_FONT_SIZE * label.scale };
-  const text = new Text({ text: label.text, style });
-  text.anchor.set(0.5, 1);
-  text.position.set(clampNameX(label, text.width, bounds), label.y);
+function createBadgeText(badge: TokenLabel): Text {
+  const style = { fontSize: LABEL_FONT_SIZE * badge.scale, fill: LABEL_FILL };
+  const text = new Text({ text: badge.text, style });
+  text.anchor.set(0.5);
+  text.position.set(badge.x, badge.y);
   return text;
 }
 
-function clampNameX(label: NameLabel, width: number, bounds: LabelBounds | null): number {
-  return bounds === null ? label.x : clampLabelX(label.x, width / 2, bounds);
+function paintBadgeCircle(graphics: Graphics, badge: TokenLabel): void {
+  const radius = BADGE_RADIUS * badge.scale;
+  graphics.circle(badge.x, badge.y, radius);
+  graphics.fill({ color: BADGE_FILL, alpha: 0.9 });
+  graphics.circle(badge.x, badge.y, radius);
+  graphics.stroke({ width: 1.5, color: BADGE_STROKE, alpha: 1 });
 }
 
-function addNameLabel(container: Container, token: TokenView, bounds: LabelBounds | null): void {
-  const label = nameLabelFor(token);
-  if (label === null) return;
-  container.addChild(createNameLabel(label, bounds));
+function createBadgeNode(badge: TokenLabel): Container {
+  const node = new Container();
+  const circle = new Graphics();
+  paintBadgeCircle(circle, badge);
+  node.addChild(circle, createBadgeText(badge));
+  return node;
+}
+
+/** Nom complet ancré en bas au-dessus de la barre : aucun recouvrement, jamais coupé. */
+function createNameLabel(label: TokenLabel, bounds: LabelBounds | null, reserve: number): Text {
+  const style = { ...NAME_STYLE, fontSize: LABEL_FONT_SIZE * label.scale };
+  const text = new Text({ text: label.text, style });
+  text.anchor.set(0.5, 1);
+  const x = bounds === null ? label.x : clampLabelX({ x: label.x, halfWidth: text.width / 2, bounds, rightReserve: reserve });
+  text.position.set(x, label.y);
+  return text;
+}
+
+function addBadgeLabel(container: Container, token: TokenView, nameWidth: number): void {
+  const badge = badgeLabelFor(token, nameWidth);
+  if (badge === null) return;
+  container.addChild(createBadgeNode(badge));
+}
+
+function addNameNode(container: Container, token: TokenView, bounds: LabelBounds | null): Text | null {
+  const name = nameLabelFor(token);
+  if (name === null) return null;
+  const text = createNameLabel(name, bounds, badgeReserve(token));
+  container.addChild(text);
+  return text;
+}
+
+function addTokenLabels(container: Container, token: TokenView, bounds: LabelBounds | null): void {
+  const text = addNameNode(container, token, bounds);
+  addBadgeLabel(container, token, text?.width ?? 0);
 }
 
 function drawLabels(container: Container, view: ViewModel): void {
   const bounds = labelBounds(view.scene.tiles);
-  view.tokens.forEach((token) => {
-    addLabel(container, token);
-    addNameLabel(container, token, bounds);
-  });
+  view.tokens.forEach((token) => addTokenLabels(container, token, bounds));
 }
 
 function clearLabels(container: Container): void {

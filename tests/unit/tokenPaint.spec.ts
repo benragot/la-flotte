@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { Graphics } from "pixi.js";
 import type { TokenView } from "../../src/renderer/tokens";
+import { badgeLabelFor } from "../../src/renderer/labels";
 import {
-  BADGE_RADIUS,
   HP_BAR_WIDTH,
   STATIC_TOKEN_SPRITE,
   TOKEN_RADIUS,
@@ -10,7 +10,6 @@ import {
   drawTokens,
   hpBarFor,
   playerTokenView,
-  tokenBadge,
 } from "../../src/renderer/tokens";
 
 interface PaintCounter {
@@ -81,7 +80,7 @@ describe("échelle de la caméra — les jetons suivent le décor", () => {
     expect(token.radius).toBe(TOKEN_RADIUS * 2);
     expect(token.scale).toBe(2);
     expect(hpBarFor(token).width).toBe(HP_BAR_WIDTH * 2);
-    expect(tokenBadge({ ...token, badge: "3" })?.radius).toBe(BADGE_RADIUS * 2);
+    expect(badgeLabelFor({ ...token, badge: "3" }, 0)?.scale).toBe(2);
   });
 
   it("garde la taille de référence quand l'origine n'a pas d'échelle", () => {
