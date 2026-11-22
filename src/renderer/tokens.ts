@@ -176,11 +176,14 @@ function drawToken(graphics: Graphics, token: TokenView): void {
   graphics.fill({ color: token.fill, alpha: 1 });
   graphics.circle(x, y, token.radius);
   graphics.stroke({ width: 2, color: TOKEN_STROKE, alpha: 0.9 });
-  drawHpBar(graphics, token);
   paintBadge(graphics, token);
 }
 
-/** Peint les jetons géométriques (héros sans feuille, groupes) avec leur barre de PV et leur badge. */
+/**
+ * Peint les jetons géométriques (groupes, héros sans feuille) avec leur badge.
+ * La barre de PV n'est **pas** peinte ici : elle vit uniquement dans
+ * `drawHpBars`, sinon les jetons géométriques la verraient deux fois.
+ */
 export function drawTokens(graphics: Graphics, tokens: readonly TokenView[]): void {
   tokens.forEach((token) => drawToken(graphics, token));
 }
