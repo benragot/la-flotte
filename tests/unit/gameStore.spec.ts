@@ -478,6 +478,21 @@ describe("useGameStore — coffre de banque : sauvegarde", () => {
   });
 });
 
+describe("useGameStore — coffre de banque : export / import", () => {
+  it("garde le coffre non vide et le total sac + coffre à l'import", () => {
+    createHeroInStore();
+    addToBag("plume_mazoutee", 10);
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 4 });
+    const exported = useGameStore.getState().exportJson() ?? "";
+    useGameStore.getState().depositToBank({ itemId: "plume_mazoutee", quantity: 6 });
+    expect(useGameStore.getState().importJson(exported)).toBe(true);
+    const { inventory, bank } = useGameStore.getState();
+    expect(countItem(bank, "plume_mazoutee")).toBe(4);
+    expect(countItem(inventory, "plume_mazoutee")).toBe(6);
+    expect(countItem(bank, "plume_mazoutee") + countItem(inventory, "plume_mazoutee")).toBe(10);
+  });
+});
+
 describe("useGameStore — craft : catalogue connu", () => {
   it("connaît toutes les recettes du catalogue YAML", () => {
     const expected = recipes.map((recipe) => recipe.id).sort();
