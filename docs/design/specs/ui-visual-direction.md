@@ -1,7 +1,9 @@
 ---
-title: Direction visuelle du HUD — proposition à raffiner
-status: proposal
-source: ui-designer (proposition initiale du coder, à arbitrer par le propriétaire)
+title: Direction visuelle du HUD — direction retenue
+status: decided
+decided: 2026-11-22
+variant: A — Pont de navire
+source: ui-designer (proposition du coder, arbitrée par le propriétaire)
 extends: docs/design/specs/ui-dofus-retro.md (§3 palette, §4 anti-anachronisme, §5 géométrie)
 tags: [ui, design, palette, contraste, tailwind]
 ---
@@ -13,10 +15,11 @@ grille, anneaux au sol et traits de sort restent régis par
 `ui-dofus-retro.md` §3 et §5. Aucun chiffre de ce document ne s'applique à un
 pixel dessiné par PixiJS.
 
-**Statut.** C'est une **proposition**, pas un dogme : `ui-designer` la relit,
-tranche les points ouverts du §7 et corrige les valeurs. Ce qui est **mesuré**
-(contrastes, hex existants dans le code) ne se négocie pas ; ce qui est
-**choisi** (rayons, variantes, empilement typographique) se discute.
+**Statut.** La **variante de carte** est tranchée (§3) ; le reste est une
+direction à raffiner : `ui-designer` reprend ce document pour les détails et
+signale ce qu'il corrige. Ce qui est **mesuré** (contrastes, hex existants dans
+le code) ne se négocie pas ; ce qui est **choisi** (rayons, empilement
+typographique) se discute encore.
 
 **Aucune capture dans ce document.** Aucun navigateur n'a été lancé : les
 chiffres sont des calculs WCAG, pas des observations d'écran. Le protocole de
@@ -56,12 +59,15 @@ montre où le code les écrit aujourd'hui : la refonte **ne change pas ces hex**
 | PM | `#4A8C4A` | `HUD_COLORS.mpGreen` |
 
 **Ce que j'ajoute, et pourquoi.** (a) une **échelle de surfaces** (il n'y en a
-que deux, `#2B241D` et `#3D342A`, d'où les `bg-slate-950` / `bg-slate-400` qui
-traînent) ; (b) des **lignes** intermédiaires ; (c) une échelle de **textes** ;
-(d) des **encres d'éléments** — parce que les couleurs ci-dessus, utilisées
-comme **texte**, échouent le 4,5:1 (§1.6). Les unes et les autres sont des
-**variantes calculées**, pas de nouvelles teintes : même teinte, luminance
-levée.
+que deux, `#2B241D` et `#3D342A`, d'où les deux littéraux Tailwind qui restent
+dans le code : `bg-slate-950` sur les coques de `App.tsx:16,19` et
+`text-slate-400` dans `DropList.tsx:2`) ; (b) des **lignes** intermédiaires ;
+(c) une échelle de **textes** ; (d) des **encres d'éléments** — parce que les
+couleurs ci-dessus, utilisées comme **texte**, échouent le 4,5:1 (§1.6). Les
+unes et les autres sont des **variantes calculées**, pas de nouvelles teintes :
+la teinte y est **ramenée vers le Neutre `#E8DCC8`** (mélange sRGB à 45 %), ce
+qui la désature et la réchauffe — Feu `#D2452F` devient `#DC8974`, un rouge
+terreux, pas un rouge « plus lumineux ».
 
 ### 1.2 Surfaces (échelle de 5)
 
@@ -123,13 +129,19 @@ en texte sur un panneau elle ne passe pas. Règle unique et reproductible :
 | Ennemi | `#D64545` | `#DE8980` | 4.64:1 |
 | Or | `#D4A537` | `#DDBE78` | 6.80:1 |
 
-**Exceptions mesurées** (la règle des 45 % ne suffit pas) :
+**Une seule exception, mesurée** (je reviens à la règle partout ailleurs) :
 
 - **Cible invalide / PV** `#B83B3B` → encre `#D68F87`. À 45 %, `#CE837A` ne
-  donne que 4.15:1.
-- **PA** `#3B6FB8` → encre `#7EA0D0` (**4.54:1**) — la règle des 45 % donne
-  `#74A0D4`, 4.34:1, insuffisant.
-- **PM** `#4A8C4A` → encre `#79AA79` (**4.55:1**) — même raison.
+  donne que **4.15:1** : la règle, appliquée telle quelle, **échoue ici**. On
+  prend donc l'encre voisine qui passe (4.72:1) et on l'appelle `ink-danger`,
+  parce que ce rouge sert aussi au texte des PV et des lignes « ennemi ».
+
+**PA et PM suivent la règle, sans exception** : `#3B6FB8` → `#89A0BF`
+(**4.55:1**) et `#4A8C4A` → `#91B083` (**5.07:1**). J'avais d'abord retenu
+`#7EA0D0` / `#79AA79`, qui sont des mélanges au **blanc** et non au Neutre :
+c'était une incohérence de méthode, pas une nécessité de contraste — la règle
+suffit pour ces deux-là. Une règle, une exception ; l'exception est chiffrée
+au-dessus.
 
 ### 1.6 Ratios mesurés — paires texte/fond
 
@@ -147,7 +159,7 @@ Seuil texte = **4,5:1**, seuil bordure/composant = **3:1**.
 | `ink-danger` `#D68F87` sur `surface-2` | 4.72:1 | ✅ |
 | `ink-danger` `#D68F87` sur `surface-1` | 5.93:1 | ✅ |
 | `line-gold` `#D4A537` sur `surface-2` | 5.36:1 | ✅ |
-| `ink-3` `#B09A7F` sur `surface-3` `#4A4034` | 3.90:1 | ❌ **interdit** : `ink-3` ne va jamais sur `surface-3` |
+| `ink-3` `#B09A7F` sur `surface-3` `#4A4034` | 3.75:1 | ❌ **interdit** : `ink-3` ne va jamais sur `surface-3` |
 | `#2B241D` sur bouton or `#D4A537` | 6.73:1 | ✅ état normal |
 | `#2B241D` sur bouton or survolé `#E8DCC8` | 11.29:1 | ✅ état survol |
 | `#2B241D` sur bouton or actif `#C79A2F` | 5.89:1 | ✅ état actif |
@@ -159,8 +171,10 @@ Seuil texte = **4,5:1**, seuil bordure/composant = **3:1**.
 | `#8C6D46` (line) sur `surface-2` | 2.55:1 | ❌ **interdit** : utiliser `line-strong` |
 | PV remplissage `#B83B3B` sur piste `#1A1512` | 3.21:1 | ✅ composant |
 | PV en texte `#B83B3B` sur `surface-2` | 2.16:1 | ❌ **interdit** : utiliser `#D68F87` |
-| PA en texte `#3B6FB8` sur `surface-2` | 2.41:1 | ❌ **interdit** : utiliser `#7EA0D0` |
-| PM en texte `#4A8C4A` sur `surface-2` | 2.98:1 | ❌ **interdit** : utiliser `#79AA79` |
+| PA en texte `#3B6FB8` sur `surface-2` | 2.41:1 | ❌ **interdit** : utiliser l'encre `#89A0BF` |
+| PM en texte `#4A8C4A` sur `surface-2` | 2.98:1 | ❌ **interdit** : utiliser l'encre `#91B083` |
+| Encre PA `#89A0BF` sur `surface-2` | 4.55:1 | ✅ règle des 45 % appliquée |
+| Encre PM `#91B083` sur `surface-2` | 5.07:1 | ✅ règle des 45 % appliquée |
 | `#F2D64B` (anneau de focus) sur `surface-1` | 10.56:1 | ✅ |
 | Variante A — `#F0E3C8` sur bois `#4A3728` | 8.85:1 | ✅ |
 | Variante B — `#E4E8EA` sur pierre `#3B3F44` | 8.60:1 | ✅ |
@@ -206,12 +220,70 @@ pas `src/`** : le bloc est donné pour que la PR suivante le colle tel quel.
   --color-hp: #B83B3B;
   --color-ap: #3B6FB8;
   --color-mp: #4A8C4A;
+  --color-ink-ap: #89A0BF;
+  --color-ink-mp: #91B083;
+
+  /* Les tokens de matière du §1.8 (edge-high, wood-face, stone-line…) se
+     déclarent dans ce même bloc, avec les mêmes noms. */
 }
 ```
 
 `HUD_COLORS` (`src/ui/hudHelpers.ts`) garde **ses clés actuelles** (`stone`,
 `copper`, `parchment`, `text`, `hpRed`, `apBlue`, `mpGreen`, `gold`) et reçoit
 les nouvelles **en plus** : changer une clé existante casserait les imports.
+
+### 1.8 Tokens de matière — la liste est close
+
+Le §2 et le §3 ont besoin de plus que des surfaces : des arêtes de relief, des
+faces de bouton, des liserés internes, des faces de variante. **Ils sont
+déclarés ici**, dans le §1, et **nulle part ailleurs** : c'est ce qui rend
+l'interdit I9 (« aucun hex hors du §1 ») **satisfiable par ce document
+lui-même** — un agent qui applique le §6 n'écrit aucun hex qui ne soit pas dans
+ce tableau.
+
+| Famille | Token | Hex | Rôle |
+|---|---|---|---|
+| relief | `edge-high` | `#6B5C49` | arête haute du panneau (`inset 0 1px 0`) |
+| relief | `edge-low` | `#2E2720` | arête basse du panneau (`inset 0 -2px 0`) |
+| relief | `inner-line` | `#4F4437` | filet interne du panneau (`inset 0 0 0 1px`) |
+| creux | `line-field` | `#57452F` | bordure 1 px d'un creux, piste de barre |
+| creux | `field-inset` | `#0A0806` | ombre interne d'un creux (`inset 0 1px 0`) |
+| bouton | `btn-face-active` | `#C79A2F` | fond de l'état actif |
+| bouton | `btn-top-normal` | `#F4E9D4` | arête haute, état normal |
+| bouton | `btn-bottom-normal` | `#A87C22` | arête basse, état normal |
+| bouton | `btn-top-hover` | `#FFF7E7` | arête haute, état survol |
+| bouton | `btn-bottom-hover` | `#B9A98F` | arête basse, état survol |
+| bouton | `btn-inset-active` | `#7A5A14` | ombre interne, état actif |
+| bouton | `btn-disabled-ink` | `#8A7E6E` | texte de l'état désactivé |
+| danger | `danger-face` | `#9C2F2F` | fond du bouton danger |
+| danger | `danger-face-hover` | `#8F2B2B` | fond du bouton danger, survol |
+| danger | `danger-inset` | `#4A1010` | ombre interne, danger actif |
+| barre | `bar-hp-high` | `#D64545` | arête haute du remplissage PV (= cerclage ennemi) |
+| barre | `bar-ap-high` | `#5A8ACF` | arête haute du remplissage PA |
+| barre | `bar-mp-high` | `#67A867` | arête haute du remplissage PM |
+| encre | `ink-ap` | `#89A0BF` | chiffres PA (règle §1.5) |
+| encre | `ink-mp` | `#91B083` | chiffres PM (règle §1.5) |
+| sort | `slot-disabled-face` | `#332C24` | fond d'une case de sort désactivée |
+| variante A | `wood-face` | `#4A3728` | bois de la carte |
+| variante A | `wood-joint` | `#33261B` | joint de planche |
+| variante A | `wood-line` | `#8A6A45` | bordure de carte |
+| variante A | `wood-high` | `#6B5138` | arête haute |
+| variante A | `wood-low` | `#2E2118` | arête basse |
+| variante A | `wood-ink` | `#F0E3C8` | texte (8.85:1) |
+| variante B | `stone-face` | `#3B3F44` | pierre de la carte |
+| variante B | `stone-joint` | `#2A2D31` | joint de pierre |
+| variante B | `stone-line` | `#6E7681` | bordure de carte |
+| variante B | `stone-high` | `#575C63` | arête haute |
+| variante B | `stone-ink` | `#E4E8EA` | texte (8.60:1) |
+| variante C | `parch-face` | `#E3D3AE` | papier |
+| variante C | `parch-fold` | `#F2E8CC` | repli du papier (`inset 0 0 0 3px`) |
+| variante C | `parch-line` | `#B08D5E` | bordure |
+| variante C | `parch-ink` | `#3A2E1E` | encre (8.93:1) |
+
+Deux hex restent dans le code mais **sortent** de la palette ; ils ne figurent
+ici que pour être déclarés une fois et bannis : `#020617` (`bg-slate-950` des
+coques de `App.tsx`) et `#E2E8F0` (le `color` de `src/styles.css`). Avec eux,
+**tout hex du document est au §1** : I9 est satisfiable sans exception.
 
 ---
 
@@ -301,8 +373,8 @@ cerner la souris.
 | Barre | Remplissage | Piste | Filet | Hauteur | Texte chiffré |
 |---|---|---|---|---|---|
 | PV | `#B83B3B` (+ `inset 0 1px 0 #D64545`) | `#1A1512` | 1 px `#57452F` | 8 px (dock), 4 px (mini-carte) | `#D68F87` |
-| PA | `#3B6FB8` (+ `inset 0 1px 0 #5A8ACF`) | `#1A1512` | 1 px `#57452F` | 6 px | `#7EA0D0` |
-| PM | `#4A8C4A` (+ `inset 0 1px 0 #67A867`) | `#1A1512` | 1 px `#57452F` | 6 px | `#79AA79` |
+| PA | `#3B6FB8` (+ `inset 0 1px 0 #5A8ACF`) | `#1A1512` | 1 px `#57452F` | 6 px | `#89A0BF` |
+| PM | `#4A8C4A` (+ `inset 0 1px 0 #67A867`) | `#1A1512` | 1 px `#57452F` | 6 px | `#91B083` |
 
 - Rayon **1 px**, pas d'arrondi en bout de remplissage (une barre de jeu n'est
   pas une pilule).
@@ -328,7 +400,7 @@ cerner la souris.
 | désactivée | `#332C24` | 2 px `#57452F` | `#8A7E6E` |
 
 Contenu : numéro de raccourci **9 px / 700 / `ink-3`** en haut-gauche, nom du
-sort **10 px / 600** sur deux lignes, coût PA **10 px / 700 / `#7EA0D0`** en
+sort **10 px / 600** sur deux lignes, coût PA **10 px / 700 / `#89A0BF`** en
 bas-droite. Le coût PA reste **écrit** (contrairement à 1.29 où il est en
 infobulle) : c'est une décision déjà prise dans le code, elle n'est pas rouverte
 ici.
@@ -364,9 +436,18 @@ du bruit actuel.
 
 ## 3. Trois variantes de la carte de combattant
 
-C'est un **goût**, pas un calcul : le propriétaire choisit. Les trois respectent
-le même gabarit (**240 × 62 px**, rayon 2 px, bordure 2 px, nom 11 px, ligne de
-PV 10 px monospace, mini-barre 4 px) et ne changent que la **matière**.
+> **Variante retenue : A — Pont de navire (décision du propriétaire, 2026-11-22).**
+> Les variantes B et C restent documentées ci-dessous, telle quelles : elles
+> tracent la décision (« pourquoi pas B / pas C ») et servent si la direction
+> change. Ce n'est pas un menu à relire avant chaque PR.
+
+C'est un **goût**, pas un calcul : le propriétaire a choisi. Les trois respectent
+le même gabarit (**240 px de large, ≈ 44 px de haut**, rayon 2 px, bordure 2 px,
+nom 11 px, ligne de PV 10 px monospace, mini-barre 4 px) et ne changent que la
+**matière**. Les **62 px** de `ui-dofus-retro.md` §5 sont la hauteur de la
+**bande** d'initiative qui contient la carte (marge et alignement compris), pas
+la carte elle-même.
+
 
 ### A — « Pont de navire »
 
@@ -445,8 +526,11 @@ Formulés comme des **interdits**, pas des préférences. Dérivés de
   « fondre ».
 - **I8 — `transition-all`.** Toute transition nomme ses propriétés et sa durée
   (§2.2). Durée maximale **120 ms**.
-- **I9 — Couleur hors palette.** Aucun hex littéral hors du §1 ; aucun
-  `bg-slate-*`, `text-amber-*`, `text-neutral-*`. `#0f172a`, `#020617`,
+- **I9 — Couleur hors du §1.** Aucun hex littéral qui ne soit déclaré au §1 :
+  surfaces §1.2, lignes §1.3, textes §1.4, encres §1.5, tokens de matière §1.8.
+  Le §1 est **exhaustif** et le §6 n'emploie que ses tokens : la règle se
+  vérifie en relisant ce document, elle n'est pas une intention. Aucune classe
+  `bg-slate-*`, `text-amber-*`, `text-neutral-*` ; `#0f172a`, `#020617`,
   `#e2e8f0`, `text-slate-400` et `text-amber-200` disparaissent.
 - **I10 — État désactivé par `opacity`.** Quatre valeurs explicites (§2.2).
 - **I11 — Emoji comme icône structurelle.** `❤ ★ 👢` en **icône de ligne de
@@ -544,7 +628,7 @@ interface TimelineCardProps {
   isActive: boolean;
 }
 
-/** Variante A — « Pont de navire ». Gabarit 240 × 62 px, rayon 2 px. */
+/** Variante A — « Pont de navire ». Carte 240 px × ≈ 44 px, rayon 2 px. */
 const CARD_BASE =
   "w-60 min-w-0 shrink-0 rounded-[2px] border-2 border-[#8A6A45] bg-[#4A3728] " +
   "bg-[repeating-linear-gradient(0deg,#33261B_0_1px,transparent_1px_6px)] " +
@@ -604,10 +688,14 @@ dupliqué dans le composant).
 
 ## 7. Ce que ce document ne tranche pas
 
-À arbitrer par le propriétaire, puis à figer par `ui-designer` :
+À arbitrer par le propriétaire, puis à figer par `ui-designer`.
 
-1. **La variante** (A / B / C, et éventuellement une variante par surface).
-   Recommandation §3 : A pour les cartes, C pour la fiche et le journal.
+**Tranché :** la variante de la carte de combattant est **A — Pont de navire**
+(§3). Les points ci-dessous restent ouverts.
+
+1. **La variante des autres surfaces.** A est retenue pour la carte
+   d'initiative ; C (parchemin) reste la candidate pour la fiche de héros et le
+   journal, B n'est pas retenue.
 2. **Rayon 2 px ou 0 px.** 0 px est plus proche de 1.29, 2 px pardonne mieux les
    bords de bordure à l'écran. Je propose 2 px, je ne l'impose pas.
 3. **Serif pour les titres** (Georgia) ou tout en sans-système. Le serif aide le
