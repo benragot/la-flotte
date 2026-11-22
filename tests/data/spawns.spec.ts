@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseRecipesYaml } from "../../src/schemas/recipeSchema";
-import { parseSpawnsYaml } from "../../src/schemas/spawnSchema";
+import { parseSpawnsYaml, spawnsFileSchema } from "../../src/schemas/spawnSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
 const KEY_ID = "cle_donjon_ile_de_la_ferraille";
@@ -81,5 +82,65 @@ describe("data/spawns.yaml — intégrité référentielle", () => {
 describe("data/spawns.yaml — la clef du donjon devient farmable", () => {
   it.each(keyIngredientIds())("fait tomber %s depuis l'exploration", (itemId) => {
     expect(farmableDroppers(itemId), `${itemId} n'est lâché par aucun monstre de spawns.yaml`).not.toEqual([]);
+  });
+});
+
+/**
+ * Le compte de groupes et la taille d'un groupe sont des **données** de zone :
+ * sans elles, une carte ne pouvait faire apparaître qu'un seul groupe. Le
+ * schéma les borne (`min ≥ 1`, `max ≥ min`, entiers, aucune clef en plus) et
+ * pose un repli `{ min: 1, max: 1 }` pour ne casser aucune zone existante.
+ */
+describe("data/spawns.yaml — le compte de groupes est une donnée bornée", () => {
+  const parseZone = (extra: string) => {
+    const raw = `zones:
+  - id: zone_test
+    mapId: map_test
+${extra}
+    monsters:
+      - { monsterId: piou_mazoute, weight: 1 }
+`;
+    return spawnsFileSchema.parse(yaml.load(raw)).zones[0];
+  };
+
+  it("replie une zone muette sur un groupe d'un monstre", () => {
+    expect(parseZone("")?.groups).toEqual({ min: 1, max: 1 });
+    expect(parseZone("")?.members).toEqual({ min: 1, max: 1 });
+  });
+
+  it("accepte trois à quatre groupes de un à trois monstres", () => {
+    const zone = parseZone("    groups: { min: 3, max: 4 }\n    members: { min: 1, max: 3 }");
+    expect(zone?.groups).toEqual({ min: 3, max: 4 });
+    expect(zone?.members).toEqual({ min: 1, max: 3 });
+  });
+
+  it("refuse un minimum nul", () => {
+    expect(() => parseZone("    groups: { min: 0, max: 4 }")).toThrow();
+  });
+
+  it("refuse un max inférieur au min", () => {
+    expect(() => parseZone("    groups: { min: 4, max: 3 }")).toThrow();
+  });
+
+  it("refuse une borne non entière", () => {
+    expect(() => parseZone("    groups: { min: 3.5, max: 4 }")).toThrow();
+  });
+
+  it("refuse une clef inconnue dans les bornes", () => {
+    expect(() => parseZone("    groups: { min: 3, max: 4, extra: 2 }")).toThrow();
+  });
+
+});
+
+describe("data/spawns.yaml — les cartes d'extérieur déclarent le compte", () => {
+  it("déclare trois à quatre groupes de un à trois monstres sur les trois cartes d'extérieur", () => {
+    const zones = loadSpawns();
+    expect(zones.map((zone) => zone.mapId).sort()).toEqual(["ferraille_cale_03", "ferraille_plage_01", "ferraille_quai_02"]);
+    zones.forEach((zone) => {
+      expect(zone.groups.min, zone.mapId).toBeGreaterThanOrEqual(3);
+      expect(zone.groups.max, zone.mapId).toBeLessThanOrEqual(4);
+      expect(zone.members.min, zone.mapId).toBe(1);
+      expect(zone.members.max, zone.mapId).toBe(3);
+    });
   });
 });
