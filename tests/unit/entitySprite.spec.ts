@@ -117,4 +117,13 @@ describe("EntitySprite — feuille tardive et orientation", () => {
     actor.update(placement("idle", "static"));
     expect(actor.node.scale.x).toBe(1);
   });
+
+  it("applique l'échelle du décor sans perdre le retournement", () => {
+    const { actor } = spawn();
+    actor.update({ ...placement("idle", "static"), facing: "left", scale: 2 });
+    expect(actor.node.scale.x).toBe(-2);
+    expect(actor.node.scale.y).toBe(2);
+    actor.update({ ...placement("idle", "static"), scale: 2 });
+    expect(actor.node.scale.x).toBe(2);
+  });
 });

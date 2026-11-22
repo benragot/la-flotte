@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { GridSize, IsoOrigin } from "../../src/renderer/gridProjection";
 import {
   TILE_H,
   TILE_W,
+  arenaScale,
   centeredOrigin,
   gridDiamond,
   gridToIso,
@@ -27,6 +29,20 @@ import { combatCanvasSize, FALLBACK_GRID } from "../../src/renderer/combatCanvas
 
 const DEMO_SIZE = { width: 12, height: 12 };
 const VIEWPORT = { width: 1024, height: 768 };
+/**
+ * Arènes réellement mesurées dans le navigateur : canvas 1024x480 pour une
+ * fenêtre 1280x720, 1664x840 pour 1920x1080, plus le 1024x570 rapporté en jeu.
+ * Le losange 2:1 y est contraint par la largeur (ratio > 2) ou par la hauteur.
+ */
+const ARENAS = [
+  { width: 1024, height: 480 },
+  { width: 1664, height: 840 },
+  { width: 1024, height: 570 },
+];
+/** Arène de référence pour les assertions d'origine. */
+const ARENA = ARENAS[0] as GridSize;
+/** Carte volontairement non carrée : l'origine ne doit pas supposer `width === height`. */
+const RECT = { width: 5, height: 9 };
 const ORIGIN = { x: 116, y: 108 };
 
 function yamlDemoSize(): { width: number; height: number } {
@@ -35,12 +51,49 @@ function yamlDemoSize(): { width: number; height: number } {
   return { width: map?.width ?? 0, height: map?.height ?? 0 };
 }
 
-function allCells(): { x: number; y: number }[] {
+function cellsOf(map: GridSize): { x: number; y: number }[] {
   const cells: { x: number; y: number }[] = [];
-  for (let y = 0; y < DEMO_SIZE.height; y += 1) {
-    for (let x = 0; x < DEMO_SIZE.width; x += 1) cells.push({ x, y });
+  for (let y = 0; y < map.height; y += 1) {
+    for (let x = 0; x < map.width; x += 1) cells.push({ x, y });
   }
   return cells;
+}
+
+function allCells(): { x: number; y: number }[] {
+  return cellsOf(DEMO_SIZE);
+}
+
+interface Bounds {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/** Boîte d'encre du losange complet, mesurée sur les quatre sommets de chaque case. */
+function inkBounds(map: GridSize, origin: IsoOrigin): Bounds {
+  const corners = cellsOf(map).flatMap((cell) => gridDiamond({ ...cell, origin }).points);
+  const xs = corners.filter((_, index) => index % 2 === 0);
+  const ys = corners.filter((_, index) => index % 2 === 1);
+  return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
+}
+
+function margins(box: Bounds, viewport: GridSize): Bounds {
+  return { left: box.left, right: viewport.width - box.right, top: box.top, bottom: viewport.height - box.bottom };
+}
+
+/** Marge gauche ≈ marge droite, marge haute ≈ marge basse : le losange est centré. */
+function expectCentered(box: Bounds, viewport: GridSize): void {
+  const m = margins(box, viewport);
+  expect(Math.abs(m.left - m.right)).toBeLessThanOrEqual(1);
+  expect(Math.abs(m.top - m.bottom)).toBeLessThanOrEqual(1);
+}
+
+/** Part de viewport couverte par l'encre, sur l'axe le plus défavorable. */
+function minCoverage(box: Bounds, viewport: GridSize): number {
+  const width = (box.right - box.left) / viewport.width;
+  const height = (box.bottom - box.top) / viewport.height;
+  return Math.min(width, height);
 }
 
 const BASE_INPUT = { cell: ".", isMoveCell: false, isCastCell: false, isHovered: false } as const;
@@ -63,25 +116,58 @@ describe("gridProjection — losanges 2:1", () => {
     expect(isoMapSize({ width: 1, height: 1 })).toEqual({ width: 64, height: 32 });
   });
 
-  it("centre la bounding box dans un viewport large (origine positive)", () => {
-    const origin = centeredOrigin({ ...isoMapSize(DEMO_SIZE), viewport: VIEWPORT });
-    expect(origin).toEqual({ x: 128, y: 192 });
-    expect(origin.x).toBeGreaterThan(0);
-    expect(origin.y).toBeGreaterThan(0);
-  });
-
-  it("accepte une origine négative quand le viewport est plus petit que la carte", () => {
-    const origin = centeredOrigin({ ...isoMapSize(DEMO_SIZE), viewport: { width: 320, height: 200 } });
-    expect(origin).toEqual({ x: -224, y: -92 });
-    expect(origin.x).toBeLessThan(0);
-  });
-
-  it("déduit l'origine de scène depuis la taille de la carte et le viewport", () => {
-    expect(sceneOrigin(DEMO_SIZE, VIEWPORT)).toEqual(centeredOrigin({ ...isoMapSize(DEMO_SIZE), viewport: VIEWPORT }));
+  it("isoMapSize mesure bien l'encre, demi-tuiles de bord comprises", () => {
+    const box = inkBounds(DEMO_SIZE, { x: 0, y: 0 });
+    expect(box.right - box.left).toBe(isoMapSize(DEMO_SIZE).width);
+    expect(box.bottom - box.top).toBe(isoMapSize(DEMO_SIZE).height);
   });
 
   it("reste aligné sur les dimensions de la carte YAML de démonstration", () => {
     expect(yamlDemoSize()).toEqual(DEMO_SIZE);
+  });
+});
+
+describe("gridProjection — caméra d'arène centrée", () => {
+  it("centre le losange d'encre dans l'arène (marges égales à 1 px près)", () => {
+    ARENAS.forEach((viewport) => expectCentered(inkBounds(DEMO_SIZE, sceneOrigin(DEMO_SIZE, viewport)), viewport));
+  });
+
+  it("centre aussi une carte non carrée 5x9", () => {
+    ARENAS.forEach((viewport) => expectCentered(inkBounds(RECT, sceneOrigin(RECT, viewport)), viewport));
+  });
+
+  it("déduit l'origine de scène depuis la carte et le viewport", () => {
+    const origin = sceneOrigin(DEMO_SIZE, ARENA);
+    expect(origin.scale).toBe(arenaScale(DEMO_SIZE, ARENA));
+    expect(origin).toEqual(centeredOrigin({ map: DEMO_SIZE, viewport: ARENA, scale: arenaScale(DEMO_SIZE, ARENA) }));
+  });
+
+  it("accepte une origine négative quand le losange dépasse un petit viewport", () => {
+    const origin = centeredOrigin({ map: DEMO_SIZE, viewport: { width: 320, height: 200 } });
+    expect(origin).toEqual({ x: 160, y: -92, scale: 1 });
+    expect(origin.y).toBeLessThan(0);
+  });
+});
+
+describe("gridProjection — couverture de l'arène", () => {
+  it("met la carte à l'échelle pour couvrir au moins 95 % de l'arène", () => {
+    ARENAS.forEach((viewport) => {
+      const box = inkBounds(DEMO_SIZE, sceneOrigin(DEMO_SIZE, viewport));
+      expect(minCoverage(box, viewport)).toBeGreaterThanOrEqual(0.95);
+    });
+  });
+
+  it("garde le centre de chaque case dans l'arène : la case du héros reste visible", () => {
+    ARENAS.forEach((viewport) => {
+      const origin = sceneOrigin(DEMO_SIZE, viewport);
+      allCells().forEach((cell) => {
+        const point = gridToIso({ ...cell, origin });
+        expect(point.x).toBeGreaterThanOrEqual(-0.5);
+        expect(point.x).toBeLessThanOrEqual(viewport.width + 0.5);
+        expect(point.y).toBeGreaterThanOrEqual(-0.5);
+        expect(point.y).toBeLessThanOrEqual(viewport.height + 0.5);
+      });
+    });
   });
 });
 
@@ -105,6 +191,28 @@ describe("gridProjection — inverse", () => {
     const center = gridToIso({ x: 5, y: 7, origin: ORIGIN });
     const picked = isoToGrid({ px: center.x + 12, py: center.y + 5, origin: ORIGIN, ...DEMO_SIZE });
     expect(picked).toEqual({ x: 5, y: 7 });
+  });
+});
+
+describe("gridProjection — inverse à l'échelle de la caméra", () => {
+  it("fait l'aller-retour sur toutes les cases aux trois échelles de caméra", () => {
+    ARENAS.forEach((viewport) => {
+      const origin = sceneOrigin(DEMO_SIZE, viewport);
+      allCells().forEach((cell) => {
+        const center = gridToIso({ ...cell, origin });
+        expect(isoToGrid({ px: center.x, py: center.y, origin, ...DEMO_SIZE })).toEqual(cell);
+      });
+    });
+  });
+
+  it("fait l'aller-retour sur une carte non carrée, échelle cover comprise", () => {
+    ARENAS.forEach((viewport) => {
+      const origin = sceneOrigin(RECT, viewport);
+      cellsOf(RECT).forEach((cell) => {
+        const center = gridToIso({ ...cell, origin });
+        expect(isoToGrid({ px: center.x, py: center.y, origin, ...RECT })).toEqual(cell);
+      });
+    });
   });
 });
 
