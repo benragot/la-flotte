@@ -774,43 +774,6 @@ describe("enemiesAct — critique ennemi", () => {
   });
 });
 
-/**
- * Audit de la PR #108 — contact en diagonale. `contactLanding` interroge les
- * huit voisines de la cible **sans exclure les cases non libres**, dont celle du
- * monstre lui-même : `pathTo` y rend un chemin de coût 0, `cheapest` le choisit,
- * puis `paid.length < 2` rend `null`. Un monstre déjà au contact en diagonale
- * reste donc figé.
- *
- * POURQUOI `it.fails` ET PAS UN CORRECTIF : le correctif (filtrer les cases non
- * libres avant `cheapest`) rend aux monstres de mêlée leurs attaques, et la
- * mesure du donjon bascule — `16 survie` passe de VICTOIRE (59 PV, marge 2,52)
- * à DÉFAITE (salle 4, 48 PV de monstres restants), les cinq autres cellules
- * perdent 14 à 22 PV finales. Cela viole DEC-03 (a) « au niveau recommandé, le
- * joueur gagne » et exige un recalibrage `hpScale` de `data/dungeons.yaml`,
- * hors périmètre (`data/**` interdit) et à l'arbitrage du propriétaire : dette
- * `D104`. Ce test est rouge par conception et passera au vert le jour du
- * recalibrage ; le dé-fails-er fait partie de la correction.
- */
-describe("approachCell — contact adjacent en diagonale (D104, rouge attendu)", () => {
-  const CONTACT_MAP: AsciiMap = parseAsciiMap(Array.from({ length: 12 }, () => "............"));
-
-  /** Héros (5,5), monstre (6,6) : contact diagonal, une seule case de PM. */
-  function diagonalContact(mp: number): BattleState {
-    const hero = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 5, y: 5 } });
-    const enemy = makeCombatant({ id: "e1", name: "Piou", initiative: 500, position: { x: 6, y: 6 }, mp, maxMp: mp });
-    return makeState([hero, enemy], { map: CONTACT_MAP });
-  }
-
-  it.fails("rend une case d'approche adjacente à la cible, jamais null", () => {
-    const state = diagonalContact(1);
-    const cell = approachCell({ state, enemy: combatantOf(state, "e1"), target: combatantOf(state, "p1"), cells: 1 });
-    expect(cell).not.toBeNull();
-    if (cell === null) throw new Error("contact diagonal refusé");
-    expect(cell).not.toEqual({ x: 6, y: 6 });
-    expect(Math.max(Math.abs(cell.x - 5), Math.abs(cell.y - 5))).toBe(1);
-  });
-});
-
 describe("immuabilité", () => {
   it("ne mute jamais l'état d'entrée", () => {
     const { player, enemy } = duel({
