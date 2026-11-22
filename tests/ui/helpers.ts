@@ -73,26 +73,29 @@ export interface StableBoxInput {
   attempts?: number;
 }
 
-/** Deux mesures identiques à 0,5 px près : la géométrie ne bouge plus. */
-function sameBox(a: Box, b: Box): boolean {
-  const close = (left: number, right: number) => Math.abs(left - right) <= 0.5;
-  return close(a.x, b.x) && close(a.y, b.y) && close(a.width, b.width) && close(a.height, b.height);
+/** Taille de premier paint : le canvas Pixi vaut 1×1 avant son resize. */
+const DEGENERATE_SIZE = 1.5;
+
+function isDegenerate(box: Box): boolean {
+  return box.width <= DEGENERATE_SIZE || box.height <= DEGENERATE_SIZE;
 }
 
 /**
  * D84 : `boxOf` mesurait **une seule fois**, parfois le canvas encore en 1×1
- * avant que Pixi ne le redimensionne. On relit jusqu'à deux mesures identiques,
- * en laissant une frame entre chaque lecture. Aucun seuil de géométrie changé.
+ * avant que Pixi ne le redimensionne. On ne paie une frame d'attente que pour
+ * une boîte dégénérée : les mesures saines restent immédiates (pas de suite
+ * ralentie). Aucun seuil de géométrie changé.
  */
 export async function readSettledBox(input: StableBoxInput): Promise<Box> {
-  let previous = await input.read();
-  for (let attempt = 0; attempt < (input.attempts ?? 4); attempt += 1) {
+  const box = await input.read();
+  if (!isDegenerate(box)) return box;
+  let current = box;
+  for (let attempt = 0; attempt < (input.attempts ?? 3); attempt += 1) {
     await input.settle();
-    const next = await input.read();
-    if (sameBox(previous, next)) return next;
-    previous = next;
+    current = await input.read();
+    if (!isDegenerate(current)) return current;
   }
-  return previous;
+  return current;
 }
 
 /** Deux frames + polices prêtes : Pixi a redimensionné son canvas avant la mesure. */
