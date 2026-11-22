@@ -58,6 +58,7 @@ Feu = **rouge** · Air = **vert** · Eau = **bleu** · Terre = **brun** · Neutr
 | Élément | Couleur | Forme |
 |---|---|---|
 | Case survolée | `#F2D64B` | **contour** 1,5 px, **aucun aplat** |
+| Entité survolée (héros, monstre, PNJ) | `#F2D64B` α **0.12** + liseré α **0.55** | **aplat** + **contour** 1,5 px, **statique**, **sous** les jetons |
 | Chemin prévisualisé | `#F0B429` α 0.32 | **pastille ronde** 3 px, sans contour |
 | Cible valide | `#F2D64B` | contour + chevron |
 | Cible invalide | `#B83B3B` α 0.85 | contour + **croix** |
@@ -67,6 +68,14 @@ Feu = **rouge** · Air = **vert** · Eau = **bleu** · Terre = **brun** · Neutr
 | Combattant actif | `#F2D64B` | anneau **double** + portrait agrandi |
 | Mort / fantôme | `#6B6B6B` | sprite gris α 0.5, portrait barré |
 | Étoiles de groupe | `#E2C044` | étoile dessinée 9 px, arc au-dessus du sprite |
+
+> **Entité survolée** — état **distinct** de la **case survolée** (ligne ci-dessus), qui reste un contour 1,5 px **sans aplat** : l'aplat n'apparaît **que** si un jeton occupe la case.
+> Constantes du code (`src/renderer/entityHover.ts`) : `ENTITY_HOVER_ALPHA = 0.12`, `ENTITY_HOVER_STROKE_WIDTH = 1.5`, `ENTITY_HOVER_STROKE_ALPHA = 0.55`, teinte `ENTITY_HOVER_COLOR = #F2D64B`.
+> **Statique** : aucune animation, aucun clignotement — une entité se devine, elle ne pulse pas. **Une seule** entité survolée à la fois (le premier jeton dont la case logique est la case survolée).
+> **Sous** les jetons : couche `hover` de `SCENE_LAYER_ORDER`, **avant** `tokens`, `actors`, `hpBars` et `labels` ⇒ l'aplat ne masque ni un nom, ni une barre de vie.
+> **Pourquoi un aplat alors que la case n'en a pas** : le liseré seul **disparaît sur le sable clair** ; l'aplat à 0,12 garantit que le survol se **lit** sans allumer la case comme un projecteur.
+> Teinte issue de la palette : `docs/design/specs/ui-visual-direction.md` (variante A, §3.2, « case survolée »).
+> **Limite assumée** : la **salle de donjon n'est pas couverte** — la scène peinte n'y est pas la carte d'exploration.
 
 ## 4. Ce qui **n'existe pas** en 1.29 (anti-anachronisme)
 
