@@ -95,12 +95,11 @@ describe("useCombatStore — exploration branchée sur data/spawns.yaml", () => 
     expect(useCombatStore.getState().exploration?.monsterGroups[0]?.monsterIds).toEqual(["piou_mazoute"]);
   });
 
-  // Un tirage haut ouvre trois monstres (borne `members.max` de la donnée) :
-  // c'est le premier membre qui prouve le câblage sur la zone, pas la taille.
+  // `members` vaut 1-1 (le 1v1 ne fait entrer qu'un monstre) : le groupe porte
+  // exactement le monstre du tirage, comme avant la donnée `groups`.
   it("atteint l'Écrou-Baton sur un tirage haut, sans dépendre du donjon", () => {
     useCombatStore.getState().startExploration(rngOf(0.999));
     const group = useCombatStore.getState().exploration?.monsterGroups[0];
-    expect(group?.monsterIds[0]).toBe("fer_boulon_pousseur");
-    expect(group?.monsterIds).toEqual(["fer_boulon_pousseur", "fer_boulon_pousseur", "fer_boulon_pousseur"]);
+    expect(group?.monsterIds).toEqual(["fer_boulon_pousseur"]);
   });
 });

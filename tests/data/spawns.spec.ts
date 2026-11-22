@@ -133,14 +133,15 @@ ${extra}
 });
 
 describe("data/spawns.yaml — les cartes d'extérieur déclarent le compte", () => {
-  it("déclare trois à quatre groupes de un à trois monstres sur les trois cartes d'extérieur", () => {
+  it("déclare trois à quatre groupes d'un monstre sur les trois cartes d'extérieur", () => {
     const zones = loadSpawns();
     expect(zones.map((zone) => zone.mapId).sort()).toEqual(["ferraille_cale_03", "ferraille_plage_01", "ferraille_quai_02"]);
     zones.forEach((zone) => {
       expect(zone.groups.min, zone.mapId).toBeGreaterThanOrEqual(3);
       expect(zone.groups.max, zone.mapId).toBeLessThanOrEqual(4);
-      expect(zone.members.min, zone.mapId).toBe(1);
-      expect(zone.members.max, zone.mapId).toBe(3);
+      // Le schéma accepte 1-3 membres (prouvé ci-dessus), mais le combat 1v1
+      // n'en fait entrer qu'un : la donnée reste donc à un seul monstre.
+      expect(zone.members.max, zone.mapId).toBe(1);
     });
   });
 });
