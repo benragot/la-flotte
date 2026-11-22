@@ -254,7 +254,6 @@ describe("useGameStore — persistance", () => {
   it("ignore les items et emplacements inconnus d'une sauvegarde", () => {
     const hero = createHeroInStore();
     const storage = new MemoryStorage();
-    const options = { savedAt: SAVED_AT, flags: {}, hero: heroToSnapshot(hero) };
     const inventory = {
       stacks: [
         { itemId: "plume_mazoutee", quantity: 1 },
@@ -262,7 +261,10 @@ describe("useGameStore — persistance", () => {
       ],
       equipment: { hat: "chapeau_piou_mazoute", ring1: "anneau_fantome", gouffre: "x" },
     };
-    storage.setItem(SAVE_KEY, serializeSave(createSave({ ...options, inventory })));
+    const character = { id: "char-1", hero: heroToSnapshot(hero), inventory, position: null };
+    const save = { savedAt: SAVED_AT, characters: [character] };
+    const options = { ...save, bank: { stacks: [], equipment: {} }, flags: {}, lastPlayedCharacterId: "char-1" };
+    storage.setItem(SAVE_KEY, serializeSave(createSave(options)));
     useGameStore.getState().resetGame();
     expect(useGameStore.getState().loadGame(storage)).toBe(true);
     const loaded = useGameStore.getState().inventory;
