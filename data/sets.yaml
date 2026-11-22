@@ -1,0 +1,18 @@
+# Panoplies de la Flotte (Vague 4).
+# bonuses : paliers strictement croissants (2, 3 puis 4 pièces équipées).
+sets:
+  - id: panoplie_piou_mazoute
+    name: Panoplie du Piou Mazouté
+    description: "Quatre pièces récupérées sur un oiseau qui réclame des comptes. Elle ne rend pas plus fort, elle rend surtout plus glissant."
+    pieceIds:
+      - chapeau_piou_mazoute
+      - cape_graisseuse
+      - amulette_de_la_coupure
+      - bottes_de_fond_de_cale
+    bonuses:
+      - pieces: 2
+        stats: { vitality: 20 }
+      - pieces: 3
+        stats: { strength: 10, flatRes: 5 }
+      - pieces: 4
+        stats: { ap: 1, prospection: 10 }
