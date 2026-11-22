@@ -117,6 +117,16 @@ describe("cooldown — recharge portée par la bataille", () => {
     const turn4 = enemyTurn(turn3, spell);
     expect([hits(turn1), hits(turn2), hits(turn3), hits(turn4)]).toEqual([1, 1, 1, 2]);
   });
+
+  it("castsPerTurn: 2 + cooldown: 2 : la recharge n'ampute pas le quota du tour", () => {
+    const spell = testSpell({ castsPerTurn: 2, cooldown: 2 });
+    const turn1 = enemyTurn(stateOf([hero(), enemy()]), spell);
+    const turn2 = enemyTurn(turn1, spell);
+    const turn3 = enemyTurn(turn2, spell);
+    const turn4 = enemyTurn(turn3, spell);
+    expect(hits(turn1)).toBe(2);
+    expect([hits(turn2), hits(turn3), hits(turn4)]).toEqual([2, 2, 4]);
+  });
 });
 
 describe("état remis à zéro au nouveau tour", () => {
