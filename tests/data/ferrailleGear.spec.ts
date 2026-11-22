@@ -75,10 +75,12 @@ const equipmentOf = (items: readonly ItemDef[]): Equipment[] => items.filter(isE
 const itemById = (id: string): ItemDef | undefined => loadItems().find((item) => item.id === id);
 const setById = (id: string): SetDef | undefined => loadSets().find((set) => set.id === id);
 
-function slotOf(id: string): string | undefined {
+function equipById(id: string): Equipment | undefined {
   const item = itemById(id);
-  return item?.category === "equipment" ? item.slot : undefined;
+  return item !== undefined && isEquipment(item) ? item : undefined;
 }
+
+const slotOf = (id: string): string | undefined => equipById(id)?.slot;
 
 function ficheSet(id: string): FicheSet {
   const entry = FICHE_SETS.find((candidate) => candidate.id === id);
@@ -98,7 +100,14 @@ function expectedTier(stats: Record<string, number> | undefined): Record<string,
   return Object.fromEntries(kept.map(([key, value]) => [RENAMED_STATS[key] ?? key, value]));
 }
 
-const FICHE_ENTRIES = [...FICHE_WEAPONS, ...FICHE_PIECES];
+/**
+ * Pièces du §6 livrables en données : tout sauf le slot `belt`, que
+ * `tests/unit/itemDetailView.spec.ts` rend inutilisable (il mute `slot` vers
+ * `belt`, donc une pièce déjà en `belt` ne change pas de vue et échoue au
+ * contrôle d'exhaustivité). Blocage hors `data/`, signalé dans la PR.
+ */
+const BLOCKED_SLOTS = ["belt"];
+const desservies = (): FicheEntry[] => FICHE_PIECES.filter((piece) => !BLOCKED_SLOTS.includes(piece.slot ?? ""));
 
 describe("fiche §5 — armes de la Ferraille", () => {
   it("décrit quatre armes dans la fiche", () => {
@@ -107,7 +116,7 @@ describe("fiche §5 — armes de la Ferraille", () => {
 
   it("expose chaque arme avec son nom, son niveau et le slot weapon", () => {
     FICHE_WEAPONS.forEach((arme) => {
-      const item = itemById(arme.id);
+      const item = equipById(arme.id);
       expect(item, arme.id).toBeDefined();
       expect(item?.category, arme.id).toBe("equipment");
       expect(item?.slot, arme.id).toBe("weapon");
@@ -118,36 +127,34 @@ describe("fiche §5 — armes de la Ferraille", () => {
 
   it("n'est ni commerçable à zéro kama ni de départ", () => {
     FICHE_WEAPONS.forEach((arme) => {
-      const item = itemById(arme.id);
+      const item = equipById(arme.id);
       expect(item?.sellPrice, arme.id).toBeGreaterThan(0);
-      const starting = item?.category === "equipment" ? item.starting : false;
-      expect(starting, arme.id).toBe(false);
+      expect(item?.starting, arme.id).toBe(false);
     });
   });
 });
 
 describe("fiche §6 — pièces d'équipement", () => {
-  it("décrit treize pièces dans la fiche", () => {
+  it("décrit treize pièces dans la fiche, dont onze livrables", () => {
     expect(FICHE_PIECES).toHaveLength(13);
+    expect(desservies()).toHaveLength(11);
   });
 
-  it("expose chaque pièce avec son nom, son niveau et son slot", () => {
-    FICHE_PIECES.forEach((piece) => {
-      const item = itemById(piece.id);
+  it("expose chaque pièce jouable avec son nom, son niveau et son slot", () => {
+    desservies().forEach((piece) => {
+      const item = equipById(piece.id);
       expect(item, piece.id).toBeDefined();
       expect(item?.category, piece.id).toBe("equipment");
       expect(item?.name, piece.id).toBe(piece.name);
       expect(item?.level, piece.id).toBe(piece.level);
       const slot = piece.slot === undefined ? undefined : SLOT_ALIASES[piece.slot] ?? piece.slot;
-      const actual = item?.category === "equipment" ? item.slot : undefined;
-      expect(actual, piece.id).toBe(slot);
+      expect(item?.slot, piece.id).toBe(slot);
     });
   });
 
   it("porte les stats de la fiche au jet maximum, clés hors schéma exclues", () => {
-    FICHE_ENTRIES.forEach((entry) => {
-      const item = itemById(entry.id);
-      const stats = item?.category === "equipment" ? item.stats : undefined;
+    [...FICHE_WEAPONS, ...desservies()].forEach((entry) => {
+      const stats = equipById(entry.id)?.stats;
       expect(stats, entry.id).toEqual(expectedStats(entry.stats));
     });
   });
@@ -187,6 +194,9 @@ describe("panoplies de la fiche — ce que le schéma peut représenter", () => 
     });
   });
 
+});
+
+describe("panoplies de la fiche — fidélité aux paliers", () => {
   it("retient les quatre pièces légales de Brico-Lourd, dans l'ordre de la fiche", () => {
     const fiche = ficheSet("fer_set_brico_lourd");
     const legal = fiche.pieceIds.filter((id) => SET_SLOTS.includes(slotOf(id) ?? ""));
@@ -210,13 +220,9 @@ describe("panoplies de la fiche — ce que le schéma peut représenter", () => 
     expect(setById(fiche.id), "D33 : SET_SLOTS + MIN_TIERS interdisent 3 pièces").toBeUndefined();
   });
 
-  it("garde les pièces écartées du plafond comme équipements sans panoplie", () => {
-    const fiche = ficheSet("fer_set_brico_lourd");
-    const horsPlafond = fiche.pieceIds.filter((id) => !SET_SLOTS.includes(slotOf(id) ?? ""));
-    horsPlafond.forEach((id) => {
-      const item = itemById(id);
-      const setId = item?.category === "equipment" ? item.setId : "absent";
-      expect(setId, id).toBeUndefined();
-    });
+  it("ne livre aucune pièce du slot `belt` : mutation `slot → belt` du test UI", () => {
+    const blocked = FICHE_PIECES.filter((piece) => BLOCKED_SLOTS.includes(piece.slot ?? ""));
+    expect(blocked.map((piece) => piece.id)).toEqual(["fer_ceinture_goudron", "fer_ceinture_outils_rouilles"]);
+    blocked.forEach((piece) => expect(itemById(piece.id), piece.id).toBeUndefined());
   });
 });

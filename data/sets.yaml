@@ -16,3 +16,33 @@ sets:
         stats: { strength: 10, flatRes: 5 }
       - pieces: 4
         stats: { ap: 1, prospection: 10 }
+
+  # Fiche §6 l.938-950. Quatre pièces = le plafond du schéma : la 5e du dossier
+  # (`fer_ceinture_outils_rouilles`, slot `belt`) n'est pas livrée, faute de
+  # pouvoir porter le slot `belt` sans casser le test d'exhaustivité de l'UI.
+  # Les paliers sont ceux de `bonusesByCount` 2/3/4, amputés de `flatDamage`
+  # (clé absente de `itemStatsSchema`, cf. §10.16) ; le palier 5 est hors
+  # plafond (`MAX_TIER_PIECES`) et n'a donc pas de représentation.
+  - id: fer_set_brico_lourd
+    name: Panoplie Brico-Lourd
+    description: "Quatre pièces de chantier pour un héros qui a compris que le poids fait le sérieux. La rouille fait le reste, et le reste tient plutôt bien."
+    pieceIds:
+      - fer_amulette_ecrou_geante
+      - fer_cape_bache_trouee
+      - fer_casque_chantier_cabosse
+      - fer_bottes_securite_fer
+    bonuses:
+      # fiche l.947 : `flatDamage: 2` omis
+      - pieces: 2
+        stats: { strength: 10, vitality: 15 }
+      # fiche l.948 : `flatDamage: 2` omis
+      - pieces: 3
+        stats: { strength: 20, vitality: 25 }
+      # fiche l.949 : `flatDamage: 4` omis
+      - pieces: 4
+        stats: { strength: 30, vitality: 40 }
+
+  # `fer_set_goudron_plumes` (fiche §6 l.925-937) n'est PAS créée : sur ses cinq
+  # pièces, seules `cloak`, `hat` et `boots` sont acceptées par `SET_SLOTS`, et
+  # `setSchema` exige 3 paliers (2/3/4) donc 4 pièces. Bloqué par D33 côté
+  # `src/schemas/` : les 5 pièces sont livrées en équipements autonomes.
