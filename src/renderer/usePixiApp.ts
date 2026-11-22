@@ -1,16 +1,15 @@
 import { Application } from "pixi.js";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { isApplicationAlive } from "./appLifecycle";
+import type { GridSize } from "./gridProjection";
 
 export interface PixiAppOptions {
   background: number;
-  width: number;
-  height: number;
+  size: GridSize;
 }
 
 export interface PixiAppHandle {
-  host: RefObject<HTMLDivElement>;
   app: Application | null;
   error: string | null;
 }
@@ -28,7 +27,7 @@ interface MountState {
 
 interface MountContext {
   host: HTMLDivElement;
-  options: PixiAppOptions;
+  options: { background: number; width: number; height: number };
   state: MountState;
   onReady: (app: Application) => void;
   onError: (message: string) => void;
@@ -47,7 +46,7 @@ export function destroyApp(app: Application | null): void {
   app.destroy(true, { children: true });
 }
 
-async function initApp(options: PixiAppOptions): Promise<Application | null> {
+async function initApp(options: MountContext["options"]): Promise<Application | null> {
   const app = new Application();
   try {
     await app.init({ ...options, antialias: true, autoStart: false });
@@ -105,7 +104,8 @@ function usePixiEffect(input: LifecycleInput): void {
   }, [host, background, setApp, setError]);
 }
 
-function usePixiResize(app: Application | null, width: number, height: number): void {
+function usePixiResize(app: Application | null, size: GridSize): void {
+  const { width, height } = size;
   useEffect(() => {
     if (!isApplicationAlive(app)) return;
     app.renderer.resize(width, height);
@@ -114,12 +114,11 @@ function usePixiResize(app: Application | null, width: number, height: number): 
   }, [app, width, height]);
 }
 
-/** Monte une application PixiJS v8 unique, conservée à travers les changements de taille. */
-export function usePixiApp(background: number, width: number, height: number): PixiAppHandle {
-  const host = useRef<HTMLDivElement>(null);
+/** Monte une application PixiJS v8 unique dans `host`, conservée à travers les changements de taille. */
+export function usePixiApp(host: RefObject<HTMLDivElement>, options: PixiAppOptions): PixiAppHandle {
   const [app, setApp] = useState<Application | null>(null);
   const [error, setError] = useState<string | null>(null);
-  usePixiEffect({ host, background, setApp, setError });
-  usePixiResize(app, width, height);
-  return { host, app, error };
+  usePixiEffect({ host, background: options.background, setApp, setError });
+  usePixiResize(app, options.size);
+  return { app, error };
 }

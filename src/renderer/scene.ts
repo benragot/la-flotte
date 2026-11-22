@@ -1,14 +1,16 @@
-import type { Graphics } from "pixi.js";
+import type { CellType } from "../schemas/mapSchema";
 import type { AsciiMap, Position } from "../engine/grid";
 import { getCell } from "../engine/grid";
 import { allPositions } from "../engine/combatLoop/cells";
+import type { IsoOrigin, PixelPoint } from "./gridProjection";
+import { gridDiamond } from "./gridProjection";
 import type { TileStyle } from "./tileStyle";
-import { GRID_LINE, GRID_LINE_ALPHA, resolveTileStyle } from "./tileStyle";
-import type { PixelPoint } from "./gridProjection";
-import { TILE_SIZE, gridToScreenOrigin } from "./gridProjection";
+import { resolveTileStyle } from "./tileStyle";
 
 export interface TileView {
-  origin: PixelPoint;
+  cell: CellType;
+  center: PixelPoint;
+  points: number[];
   style: TileStyle;
 }
 
@@ -21,6 +23,7 @@ export interface GridHighlight {
 export interface SceneInput {
   map: AsciiMap;
   highlight: GridHighlight;
+  origin: IsoOrigin;
 }
 
 export interface SceneModel {
@@ -38,14 +41,26 @@ export function cellKey(position: Position): string {
   return `${position.x}:${position.y}`;
 }
 
-function tileStyleAt(input: SceneInput, position: Position, flags: TileFlags): TileStyle {
-  const cell = getCell(input.map, position) ?? ".";
-  const isHovered = input.highlight.hover === cellKey(position);
-  return resolveTileStyle({ cell, isHovered, ...flags });
+function depthOf(position: Position): number {
+  return position.x + position.y;
+}
+
+function depthOrder(a: Position, b: Position): number {
+  const delta = depthOf(a) - depthOf(b);
+  return delta === 0 ? a.y - b.y : delta;
+}
+
+/** Ordre peintre : cases du haut de l'écran d'abord (`x + y` croissant). */
+export function painterOrder(positions: readonly Position[]): Position[] {
+  return [...positions].sort(depthOrder);
 }
 
 function tileAt(input: SceneInput, position: Position, flags: TileFlags): TileView {
-  return { origin: gridToScreenOrigin(position), style: tileStyleAt(input, position, flags) };
+  const cell = getCell(input.map, position) ?? ".";
+  const diamond = gridDiamond({ ...position, origin: input.origin });
+  const isHovered = input.highlight.hover === cellKey(position);
+  const center = { x: diamond.cx, y: diamond.cy };
+  return { cell, center, points: diamond.points, style: resolveTileStyle({ cell, isHovered, ...flags }) };
 }
 
 function highlightTile(input: SceneInput, position: Position): TileView | null {
@@ -59,40 +74,10 @@ function isTileView(view: TileView | null): view is TileView {
   return view !== null;
 }
 
-/** Modèle d'affichage complet : tuiles de base puis surbrillances. */
+/** Modèle d'affichage complet : tuiles de base puis surbrillances, en ordre peintre. */
 export function buildSceneModel(input: SceneInput): SceneModel {
-  const positions = allPositions(input.map);
+  const positions = painterOrder(allPositions(input.map));
   const base: TileFlags = { isMoveCell: false, isCastCell: false };
   const highlights = positions.map((cell) => highlightTile(input, cell)).filter(isTileView);
   return { tiles: positions.map((cell) => tileAt(input, cell, base)), highlights };
-}
-
-function paintOutline(graphics: Graphics, view: TileView): void {
-  const { x, y } = view.origin;
-  const { stroke, strokeAlpha } = view.style;
-  graphics.rect(x, y, TILE_SIZE, TILE_SIZE);
-  const color = stroke ?? GRID_LINE;
-  const alpha = stroke === null ? GRID_LINE_ALPHA : strokeAlpha;
-  graphics.stroke({ width: stroke === null ? 1 : 3, color, alpha });
-}
-
-function paintTile(graphics: Graphics, view: TileView): void {
-  const { x, y } = view.origin;
-  graphics.rect(x, y, TILE_SIZE, TILE_SIZE);
-  graphics.fill({ color: view.style.fill, alpha: view.style.alpha });
-  paintOutline(graphics, view);
-}
-
-function paintTiles(graphics: Graphics, views: readonly TileView[]): void {
-  views.forEach((view) => paintTile(graphics, view));
-}
-
-/** Peint le sol et ses contours. */
-export function drawGrid(graphics: Graphics, views: readonly TileView[]): void {
-  paintTiles(graphics, views);
-}
-
-/** Peint par-dessus les surbrillances de déplacement et de ciblage. */
-export function drawHighlights(graphics: Graphics, views: readonly TileView[]): void {
-  paintTiles(graphics, views);
 }
