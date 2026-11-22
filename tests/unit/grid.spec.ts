@@ -102,7 +102,9 @@ describe("findPath", () => {
   it("contourne un mur", () => {
     const map = parseAsciiMap(["..#..", "..#..", ".....", "..#..", "..#.."]);
     const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 4, y: 0 }, maxPm: 12 });
-    expect(path).toHaveLength(9);
+    // Mesure 8 directions : 5 cases (4 pas) — (0,0)→(1,1)→(2,2)→(3,1)→(4,0),
+    // distance de Chebyshev 4, donc 4 PM. C'était 9 cases en 4 directions.
+    expect(path).toHaveLength(5);
     expect(path?.some((cell) => cell.x === 2 && cell.y === 0)).toBe(false);
   });
 
@@ -115,7 +117,9 @@ describe("findPath", () => {
     const map = parseAsciiMap(OPEN);
     const occupied = [{ x: 0, y: 1 }];
     const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 0, y: 2 }, maxPm: 6, occupied });
-    expect(path).toHaveLength(5);
+    // Mesure 8 directions : 3 cases (2 pas) — (0,0)→(1,1)→(0,2). C'était 5
+    // cases en 4 directions ; la case occupée (0,1) reste hors du chemin.
+    expect(path).toHaveLength(3);
     expect(path?.some((cell) => cell.x === 0 && cell.y === 1)).toBe(false);
   });
 
@@ -128,6 +132,51 @@ describe("findPath", () => {
     const map = parseAsciiMap(OPEN);
     const same = findPath({ map, from: { x: 1, y: 1 }, to: { x: 1, y: 1 }, maxPm: 0 });
     expect(same).toEqual([{ x: 1, y: 1 }]);
+  });
+});
+
+describe("findPath — diagonales ouvertes", () => {
+  it("marche en diagonale pour 1 PM", () => {
+    const map = parseAsciiMap(OPEN);
+    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 });
+    expect(path).toEqual([
+      { x: 1, y: 1 },
+      { x: 2, y: 2 },
+    ]);
+  });
+
+  it("autorise la diagonale même avec les deux coins bloqués", () => {
+    const map = parseAsciiMap(["...", ".P#", ".#."]);
+    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 });
+    expect(path).toHaveLength(2);
+    expect(path?.[1]).toEqual({ x: 2, y: 2 });
+  });
+
+  it("refuse la diagonale dont la cible est un mur", () => {
+    const map = parseAsciiMap(["...", ".P#", "..#"]);
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 })).toBeNull();
+  });
+});
+
+describe("findPath — contours et déterminisme", () => {
+  it("contourne un mur sans traverser une case occupée", () => {
+    const map = parseAsciiMap(["P....", "####.", ".....", ".....", "....."]);
+    const occupied = [{ x: 1, y: 2 }];
+    const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 0, y: 2 }, maxPm: 12, occupied });
+    expect(path).not.toBeNull();
+    expect((path?.length ?? 0) - 1).toBeGreaterThan(2);
+    expect(path?.some((cell) => cell.x === 1 && cell.y === 2)).toBe(false);
+  });
+
+  it("refuse une diagonale quand le budget de PM est dépassé", () => {
+    const map = parseAsciiMap(OPEN);
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 3, y: 3 }, maxPm: 1 })).toBeNull();
+  });
+
+  it("rend le même chemin à chaque appel", () => {
+    const map = parseAsciiMap(["..#..", "..#..", ".....", "..#..", "..#.."]);
+    const input = { map, from: { x: 0, y: 0 }, to: { x: 4, y: 4 }, maxPm: 12 };
+    expect(findPath(input)).toEqual(findPath(input));
   });
 });
 

@@ -37,21 +37,34 @@ function cellKey(position: Position): string {
   return `${position.x},${position.y}`;
 }
 
-function manhattan(a: Position, b: Position): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+/**
+ * Distance en pas sur une grille à huit directions : la diagonale coûte 1,
+ * donc `max(|dx|, |dy|)` (Chebyshev) et jamais `manhattan`. C'est la mesure
+ * de référence pour facturer un déplacement, pas seulement pour l'heuristique.
+ */
+export function stepDistance(a: Position, b: Position): number {
+  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 function score(node: Node, target: Position): number {
-  return node.g + manhattan(node.pos, target);
+  return node.g + stepDistance(node.pos, target);
 }
 
+/** Décalages des huit voisins, dans un ordre figé (déterminisme du chemin). */
+const OFFSETS: Position[] = [
+  { x: 0, y: -1 },
+  { x: 1, y: 0 },
+  { x: 0, y: 1 },
+  { x: -1, y: 0 },
+  { x: 1, y: -1 },
+  { x: 1, y: 1 },
+  { x: -1, y: 1 },
+  { x: -1, y: -1 },
+];
+
+/** Diagonale = 1 PM, comme l'orthogonal ; le coin bloqué ne la ferme jamais. */
 function neighbors(position: Position): Position[] {
-  return [
-    { x: position.x, y: position.y - 1 },
-    { x: position.x + 1, y: position.y },
-    { x: position.x, y: position.y + 1 },
-    { x: position.x - 1, y: position.y },
-  ];
+  return OFFSETS.map((offset) => ({ x: position.x + offset.x, y: position.y + offset.y }));
 }
 
 function isOccupied(occupied: Position[] | undefined, position: Position): boolean {

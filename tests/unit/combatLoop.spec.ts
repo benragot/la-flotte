@@ -12,6 +12,7 @@ import { endPlayerTurn } from "../../src/engine/combatLoop/turn";
 import type { CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import { isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
+import { findPath } from "../../src/engine/grid/pathfinding";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -53,6 +54,10 @@ const buildState = (rows: readonly string[] = []): CombatState =>
 
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+
+/** Huit directions : un PM couvre aussi un pas diagonal, la borne est donc Chebyshev. */
+const chebyshev = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 const hasCell = (cells: readonly { x: number; y: number }[], x: number, y: number) =>
   cells.some((cell) => cell.x === x && cell.y === y);
@@ -99,7 +104,7 @@ describe("getReachableCells", () => {
       expect(isWalkableCell(state.map, cell)).toBe(true);
       expect(samePosition(cell, state.player.position)).toBe(false);
       expect(samePosition(cell, state.enemy.position)).toBe(false);
-      expect(distance(cell, state.player.position)).toBeLessThanOrEqual(3);
+      expect(chebyshev(cell, state.player.position)).toBeLessThanOrEqual(3);
     });
   });
 
@@ -173,6 +178,13 @@ describe("getCastableCells : sorts de dégâts", () => {
   it("laisse passer la ligne de vue au-dessus de l'eau", () => {
     const state = buildState(["P~M."]);
     expect(getCastableCells(state, "pression")).toEqual([{ x: 2, y: 0 }]);
+  });
+
+  it("garde la portée en losange, jamais en carré", () => {
+    const state = buildState(["P...", "....", "..M.", "...."]);
+    const walk = findPath({ map: state.map, from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, maxPm: 2 });
+    expect(walk).toHaveLength(3);
+    expect(getCastableCells(state, "pression")).toEqual([]);
   });
 
   it("respecte la portée 1 du Bec Mazouté", () => {

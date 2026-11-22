@@ -641,6 +641,62 @@ describe("enemiesAct — bornes", () => {
   });
 });
 
+/** Carte 12×12 vide : les diagonales y sont libres, aucun mur ne fausse la mesure. */
+const ROAM_MAP: AsciiMap = parseAsciiMap(Array.from({ length: 12 }, () => "............"));
+
+/** Héros en (0,0) ; l'ennemi en (5,5) : (3,2) est à 3 pas diagonaux, manhattan 5. */
+function diagonalFixture(mp: number): BattleState {
+  const hero = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 0, y: 0 } });
+  const enemy = makeCombatant({ id: "e1", name: "Piou", initiative: 500, position: { x: 5, y: 5 }, mp, maxMp: 3 });
+  return makeState([hero, enemy], { map: ROAM_MAP });
+}
+
+const JUMP_DIAGONAL = (): EnemyAction => ({ kind: "move", to: { x: 3, y: 2 } });
+
+/** Stratégie de production : approcher d'autant de pas que de PM, sinon refuser. */
+function approachStrategy(current: BattleState, enemyId: string): EnemyAction {
+  const enemy = combatantOf(current, enemyId);
+  const target = combatantOf(current, "p1");
+  const cell = approachCell({ state: current, enemy, target, cells: enemy.mp });
+  return cell === null ? { kind: "blocked", reason: "chemin absent" } : { kind: "move", to: cell };
+}
+
+describe("enemiesAct — facturation du pas diagonal", () => {
+  it("paie le chemin (3 pas), pas l'écart orthogonal (manhattan 5)", () => {
+    const next = enemiesAct({ state: diagonalFixture(3), rng: () => 0.99, strategy: JUMP_DIAGONAL });
+    expect(positionOf(next, "e1")).toEqual({ x: 3, y: 2 });
+    expect(combatantOf(next, "e1").mp).toBe(0);
+    expect(next.log).toContain("Piou se déplace de 3 case(s).");
+    expect(next.log.some((line) => line.includes("ne peut pas atteindre"))).toBe(false);
+  });
+
+  it("refuse le même saut avec 2 PM et ne consomme rien", () => {
+    const state = diagonalFixture(2);
+    const next = enemiesAct({ state, rng: () => 0.99, strategy: JUMP_DIAGONAL });
+    expect(next).toBe(state);
+    expect(positionOf(next, "e1")).toEqual({ x: 5, y: 5 });
+    expect(combatantOf(next, "e1").mp).toBe(2);
+  });
+
+  it("journalise le refus quand la stratégie renonce", () => {
+    const strategy = (): EnemyAction => ({ kind: "blocked", reason: "PM trop courts" });
+    const next = enemiesAct({ state: diagonalFixture(2), rng: () => 0.99, strategy });
+    expect(next.log).toContain("Piou ne peut pas atteindre le héros (PM trop courts).");
+  });
+
+  it("ne laisse aucun monstre figé quand un chemin existe", () => {
+    const spawns = [{ x: 5, y: 5 }, { x: 9, y: 2 }, { x: 10, y: 8 }];
+    const enemies = spawns.map((position, index) => makeCombatant({ id: `e${index}`, position, initiative: 100 - index }));
+    const hero = makeCombatant({ id: "p1", side: "player", position: { x: 0, y: 0 }, initiative: 10 });
+    const state = makeState([hero, ...enemies], { map: ROAM_MAP });
+    for (const enemy of enemies) {
+      const turn = withActive(state, enemy.id);
+      const next = enemiesAct({ state: turn, rng: () => 0.99, strategy: approachStrategy });
+      expect(positionOf(next, enemy.id), `${enemy.id} figé`).not.toEqual(enemy.position);
+    }
+  });
+});
+
 describe("enemiesAct — arrêts", () => {
   it("s'arrête quand l'état ne change plus", () => {
     const state = enemyTurnFixture();
