@@ -1,5 +1,6 @@
 import { AnimatedSprite, Container, Graphics } from "pixi.js";
 import type { PixelPoint } from "../gridProjection";
+import { displayScaleFor } from "./frameMath";
 import type { Facing, SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "./types";
 
 /** Pieds de la cellule : l'ancre tombe sur le centre du losange isométrique. */
@@ -90,7 +91,7 @@ export class EntitySprite {
 
   /** Positionne l'acteur sur le centre du losange, à l'échelle du décor, et applique le retournement. */
   update(placement: ActorPlacement): void {
-    const scale = placement.scale ?? 1;
+    const scale = displayScaleFor(this.spec.frameWidth, placement.scale ?? 1);
     this.node.position.set(placement.point.x, placement.point.y);
     this.node.scale.x = placement.facing === "left" ? -scale : scale;
     this.node.scale.y = scale;
