@@ -96,6 +96,9 @@ function duel(overrides: DuelOverrides = {}): { player: CombatantLike; enemy: Co
   return { player, enemy };
 }
 
+const adjacentDuel = () =>
+  duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 2, y: 1 } } });
+
 const WALL_MAP = parseAsciiMap([".....", "...#."]);
 const FREE_MAP = parseAsciiMap([".....", "....."]);
 
@@ -167,7 +170,7 @@ describe("advanceTurn", () => {
   });
 });
 
-describe("resolveAttack", () => {
+describe("resolveAttack — refus", () => {
   it("refuse un attaquant non actif (même référence)", () => {
     const { player, enemy } = duel();
     const state = makeState([player, enemy]);
@@ -188,7 +191,9 @@ describe("resolveAttack", () => {
     const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec(), rng: () => 0.99 });
     expect(next).toBe(state);
   });
+});
 
+describe("resolveAttack — dégâts", () => {
   it("applique exactement computeDamage et débite les PA", () => {
     const { player, enemy } = duel();
     const state = makeState([player, enemy]);
@@ -210,7 +215,9 @@ describe("resolveAttack", () => {
     expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
     expect(rng.calls()).toBe(0);
   });
+});
 
+describe("resolveAttack — mort et poussée", () => {
   it("retire la cible morte des cibles", () => {
     const { player } = duel();
     const weak = makeCombatant({ id: "e1", side: "enemy", hp: 5, maxHp: 5, initiative: 40 });
@@ -240,11 +247,9 @@ describe("resolveAttack", () => {
   });
 });
 
-describe("resolveTackle", () => {
-  const adjacent = () => duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 2, y: 1 } } });
-
+describe("resolveTackle — contact", () => {
   it("tacle réussi : déplacement refusé et perte de PA", () => {
-    const { player, enemy } = adjacent();
+    const { player, enemy } = adjacentDuel();
     const state = makeState([player, enemy]);
     const result = resolveTackle({ state, moverId: "p1", move: { x: 0, y: 1 }, rng: sequence(0.99, 0) });
     const escaped = computeTackleEscapePercent({ fleeAgility: 100, tackleAgility: 100 });
@@ -258,7 +263,7 @@ describe("resolveTackle", () => {
   });
 
   it("tacle raté : le déplacement passe sans perte de PA", () => {
-    const { player, enemy } = adjacent();
+    const { player, enemy } = adjacentDuel();
     const state = makeState([player, enemy]);
     const result = resolveTackle({ state, moverId: "p1", move: { x: 0, y: 1 }, rng: sequence(0) });
     expect(result.moved).toBe(true);
@@ -266,7 +271,9 @@ describe("resolveTackle", () => {
     expect(result.state.combatants[0]?.position).toEqual({ x: 0, y: 1 });
     expect(result.state.combatants[0]?.ap).toBe(player.ap);
   });
+});
 
+describe("resolveTackle — refus et absence de contact", () => {
   it("sans adversaire adjacent : déplacement libre sans jet", () => {
     const { player, enemy } = duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 5, y: 5 } } });
     const state = makeState([player, enemy]);
@@ -278,7 +285,7 @@ describe("resolveTackle", () => {
   });
 
   it("refuse un déplacement si l'entité n'est pas active", () => {
-    const { player, enemy } = adjacent();
+    const { player, enemy } = adjacentDuel();
     const state = makeState([player, enemy]);
     const result = resolveTackle({ state, moverId: "e1", move: { x: 3, y: 1 }, rng: sequence(0) });
     expect(result.state).toBe(state);
@@ -311,7 +318,7 @@ function enemyTurnFixture(): BattleState {
   return makeState([player, enemy]);
 }
 
-describe("enemiesAct", () => {
+describe("enemiesAct — bornes", () => {
   it("borne un tour ennemi à 10 actions", () => {
     const state = enemyTurnFixture();
     let calls = 0;
@@ -342,7 +349,9 @@ describe("enemiesAct", () => {
     expect(next.combatants.find((entry) => entry.id === "p1")?.hp).toBe(0);
     expect(isDefeat(next)).toBe(true);
   });
+});
 
+describe("enemiesAct — arrêt", () => {
   it("s'arrête quand l'état ne change plus", () => {
     const state = enemyTurnFixture();
     const broke = { ...state, combatants: state.combatants.map((entry) => ({ ...entry, ap: 0 })) };
