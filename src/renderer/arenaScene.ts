@@ -7,6 +7,7 @@ import { buildBattleViewModel } from "./battleSceneModel";
 import type { ExplorationView } from "./explorationScene";
 import { buildExplorationViewModel } from "./explorationScene";
 import type { GridSize } from "./gridProjection";
+import type { TrailBatch } from "../store/trails";
 
 export type ArenaMode = "combat" | "exploration";
 
@@ -20,24 +21,27 @@ export interface ArenaSceneInput {
   mode: ArenaMode;
   exploration?: ExplorationView;
   heroSpriteId?: string | null;
+  /** Trajets reçus du store, à attacher aux jetons de la vue retenue. */
+  trails?: TrailBatch;
 }
 
 function battleModel(input: ArenaSceneInput): ViewModel | null {
   if (input.battle === null) return null;
-  const view = { battle: input.battle, viewport: input.viewport, heroSpriteId: input.heroSpriteId };
+  const view = { battle: input.battle, viewport: input.viewport, heroSpriteId: input.heroSpriteId, trails: input.trails };
   return buildBattleViewModel(view);
 }
 
 /** Le 1v1 ne se dessine qu'en mode combat : en exploration, la carte est celle du héros. */
 function combatModel(input: ArenaSceneInput): ViewModel | null {
   if (input.combat === null || input.mode === "exploration") return null;
-  const { combat, selectedSpellId, hoveredCell, viewport } = input;
-  return buildViewModel({ combat, selectedSpellId, hoveredCell, viewport });
+  const { combat, selectedSpellId, hoveredCell, viewport, trails } = input;
+  return buildViewModel({ combat, selectedSpellId, hoveredCell, viewport, trails });
 }
 
 function explorationModel(input: ArenaSceneInput): ViewModel | null {
   if (input.exploration === undefined) return null;
-  return buildExplorationViewModel({ exploration: input.exploration, viewport: input.viewport });
+  const view = { exploration: input.exploration, viewport: input.viewport, trails: input.trails };
+  return buildExplorationViewModel(view);
 }
 
 /**

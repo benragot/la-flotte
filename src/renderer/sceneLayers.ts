@@ -18,7 +18,7 @@ import {
 import { ActorStage } from "./sprites/actorStage";
 import type { ActorSyncInput } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
-import { walkField } from "./sprites/walkPath";
+import { cellCenters } from "./walkTrail";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
@@ -194,11 +194,11 @@ export interface RenderInput {
   scene?: object | null;
 }
 
-/** Demande de synchronisation des acteurs : cases praticables, carte et rappel de chargement. */
+/** Demande de synchronisation des acteurs : centres de cases, carte et rappel de chargement. */
 function actorSyncInput(app: Application, view: ViewModel, input: RenderInput): ActorSyncInput {
-  const field = walkField(view.scene.tiles, view.scene.outlines);
+  const centers = cellCenters(view.scene.tiles);
   const onReady = (): void => renderScene(app, view, input);
-  return { tokens: view.tokens, onReady, field, scene: input.scene };
+  return { tokens: view.tokens, onReady, centers, scene: input.scene };
 }
 
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */

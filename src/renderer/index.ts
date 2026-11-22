@@ -57,13 +57,10 @@ export {
   peekSpriteSheet,
   sheetPlan,
   WALK_MS_PER_CELL,
-  findWalkPath,
   interpolatedCell,
   pathAt,
   stepProgress,
-  walkField,
   walkPlan,
-  walkPlanAlong,
 } from "./sprites";
 export type {
   ActorPlacement,
@@ -77,7 +74,6 @@ export type {
   SpriteAnimationName,
   SpriteSheetFrames,
   SpriteSheetSpec,
-  WalkField,
   WalkPlan,
   WalkSample,
   WalkState,
@@ -94,6 +90,8 @@ export {
 } from "./tokens";
 export type { HpBar, TokenSprite, TokenView } from "./tokens";
 export { depthOf, painterOrder } from "./scene";
+export { attachTrails, cellCenters, trailPlan } from "./walkTrail";
+export type { TokenTrail } from "./tokens";
 export type { GridHighlight, SceneModel, TileView } from "./scene";
 export { hashInt, hashUnit } from "./cellHash";
 export { MATERIAL_COLORS, MATERIAL_KINDS, materialAt, shiftColor, waterTone } from "./tileMaterials";

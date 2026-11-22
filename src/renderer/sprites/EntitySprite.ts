@@ -126,6 +126,14 @@ export class EntitySprite {
     return true;
   }
 
+  /**
+   * Interrompt un glissement : le prochain `update` repose l'acteur sur sa case
+   * logique. Utilisé quand la carte change au milieu du trajet.
+   */
+  cancelWalk(): void {
+    this.walk = null;
+  }
+
   /** Fin de trajet : l'acteur est posé et respire, sans rejouer le walk déjà consommé. */
   private finishWalk(): void {
     this.walk = null;

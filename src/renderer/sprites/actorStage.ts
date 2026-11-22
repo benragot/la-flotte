@@ -1,18 +1,16 @@
 import { Container } from "pixi.js";
-import type { Position } from "../../engine/grid";
-import { cellKey } from "../scene";
+import type { PixelPoint } from "../gridProjection";
 import type { TokenView } from "../tokens";
+import { trailPlan } from "../walkTrail";
 import { EntitySprite } from "./EntitySprite";
 import { ensureSpriteSheet } from "./spriteLoader";
 import type { SpriteSheetSpec } from "./types";
-import type { WalkField } from "./walkPath";
-import { findWalkPath, walkPlanAlong } from "./walkPath";
 
 export interface ActorSyncInput {
   tokens: readonly TokenView[];
   onReady: () => void;
-  /** Cases praticables de la scène : sans champ, aucun glissement n'est tenté. */
-  field?: WalkField;
+  /** Centres écran des cases de la scène : projection pure, recalculée à chaque image. */
+  centers?: ReadonlyMap<string, PixelPoint>;
   /** Identité de la carte affichée : un changement invalide tous les trajets en cours. */
   scene?: object | null;
 }
@@ -42,8 +40,14 @@ function actorKeys(tokens: readonly TokenView[]): ReadonlySet<string> {
  * meute partageant la même feuille. Les jetons sans feuille (groupes
  * d'exploration) restent dessinés en géométrique par la couche `tokens`.
  *
- * Le glissement est **purement visuel** : la case logique du jeton arrive d'un
- * coup, ce plateau garde la dernière case vue pour peindre le trajet.
+ * Le glissement est **purement visuel** et **entièrement reçu** : le store porte
+ * le trajet (`TokenView.trail`), ce plateau ne fait que le projeter puis le
+ * jouer. Il ne calcule aucun chemin — la diagonale du moteur reste un pas.
+ *
+ * ⚠️ Limite assumée : un second trajet qui arrive **pendant** un glissement
+ * repart de la case **logique** validée par la règle, pas du pixel courant. Le
+ * sprite peut donc sauter en avant d'une case au plus. Aucun tween n'est
+ * empilé, et la règle reste maîtresse du placement.
  */
 export class ActorStage {
   readonly container = new Container();
@@ -51,9 +55,9 @@ export class ActorStage {
   readonly sheetIds: ReadonlySet<string>;
   private readonly specs: ReadonlyMap<string, SpriteSheetSpec>;
   private readonly actors = new Map<string, EntitySprite>();
-  /** Dernière case logique par acteur : `undefined` = jamais vu, donc aucun trajet. */
-  private readonly cells = new Map<string, Position>();
-  private field: WalkField = new Map();
+  /** Dernière signature de trajet **jouée** par acteur : elle seule décide d'un rejeu. */
+  private readonly played = new Map<string, string>();
+  private centers: ReadonlyMap<string, PixelPoint> = new Map();
   private scene: object | null | undefined;
   private clock = 0;
   private notify: () => void = () => undefined;
@@ -66,19 +70,11 @@ export class ActorStage {
   /** Met à jour chaque acteur puis rétablit l'ordre peintre de la couche. */
   sync(input: ActorSyncInput): void {
     this.notify = input.onReady;
-    this.field = input.field ?? new Map();
+    this.centers = input.centers ?? new Map();
     this.switchScene(input.scene);
     input.tokens.forEach((token) => this.syncToken(token));
     this.orderChildren(input.tokens);
     this.forget(actorKeys(input.tokens));
-  }
-
-  /** Nouvelle carte : les cases vues appartiennent à l'ancienne, aucun trajet ne la traverse. */
-  private switchScene(scene: object | null | undefined): void {
-    if (scene === undefined) return;
-    if (scene === this.scene) return;
-    this.scene = scene;
-    this.cells.clear();
   }
 
   /** Avance les glissements ; `true` si un acteur bouge encore (il faut repeindre). */
@@ -88,28 +84,34 @@ export class ActorStage {
     return moving.some(Boolean);
   }
 
+  /**
+   * Nouvelle carte : les glissements en cours appartiennent à l'ancienne. Ils
+   * sont annulés puis reposés sur la case logique au même `sync` — sans cela le
+   * héros finissait son trajet au pixel de la carte précédente.
+   */
+  private switchScene(scene: object | null | undefined): void {
+    if (scene === undefined) return;
+    if (scene === this.scene) return;
+    this.scene = scene;
+    this.played.clear();
+    this.actors.forEach((actor) => actor.cancelWalk());
+  }
+
   private syncToken(token: TokenView): void {
     const actor = this.actorFor(token);
     if (actor === null) return;
-    this.walkIfMoved(token, actor);
+    this.walkIfTrail(token, actor);
     const { center, facing, animation, animationKey, scale } = token;
     actor.update({ point: center, facing, animation, signature: animationKey, scale });
   }
 
-  /** Un saut de case devient un trajet peint ; un spawn (jamais vu) se pose sans glisser. */
-  private walkIfMoved(token: TokenView, actor: EntitySprite): void {
+  private walkIfTrail(token: TokenView, actor: EntitySprite): void {
+    const trail = token.trail;
+    if (!trail) return;
     const key = actorKey(token);
-    const previous = this.cells.get(key);
-    this.cells.set(key, token.cell);
-    if (previous === undefined) return;
-    if (cellKey(previous) === cellKey(token.cell)) return;
-    this.startWalk(actor, previous, token.cell);
-  }
-
-  private startWalk(actor: EntitySprite, from: Position, to: Position): void {
-    const cells = findWalkPath(this.field, from, to);
-    if (cells === null) return;
-    const plan = walkPlanAlong(this.field, cells);
+    if (this.played.get(key) === trail.signature) return;
+    this.played.set(key, trail.signature);
+    const plan = trailPlan(trail, this.centers);
     if (plan !== null) actor.walkAlong(plan, this.clock);
   }
 
@@ -119,7 +121,7 @@ export class ActorStage {
   }
 
   private dropActor(key: string): void {
-    this.cells.delete(key);
+    this.played.delete(key);
     const actor = this.actors.get(key);
     if (actor === undefined) return;
     this.actors.delete(key);

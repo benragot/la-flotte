@@ -68,6 +68,8 @@ import {
   spellStrategy,
 } from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
+import type { MovementTrail, TrailBatch } from "./trails";
+import { NO_TRAILS, battleTrails, combatTrails, nextBatch } from "./trails";
 import { dungeonById, dungeonEntry, fallenMonsterIds } from "./dungeonSelectors";
 import type { DungeonEntryOutcome } from "./dungeonSelectors";
 
@@ -93,6 +95,12 @@ interface CombatStore {
   selectedSpellId: string | null;
   hoveredCell: Position | null;
   rewards: CombatRewards | null;
+  /**
+   * Trajets du dernier mouvement, lus par le rendu : le moteur d'exploration
+   * rend son chemin, les deux autres le voient redéduit ici par `findPath`.
+   * `version` sert de clé de rejeu — un trajet identique rejoue quand même.
+   */
+  trails: TrailBatch;
   startDemoCombat: () => void;
   /**
    * Entrée en exploration : groupes tirés de `data/spawns.yaml`. `rng` est
@@ -291,10 +299,11 @@ function castOrMove(state: CombatState, spellId: string | null, target: Position
 
 function stateUpdate(store: CombatStore, next: CombatState): Partial<CombatStore> {
   if (store.combat === next) return {};
-  if (next.phase !== "victory") return { combat: next, selectedSpellId: null };
+  const trails = nextBatch(store.trails, combatTrails(store.combat, next));
+  if (next.phase !== "victory") return { combat: next, selectedSpellId: null, trails };
   const rewards = rewardsFor(next, store.activeGroup, store.mapId);
   creditVictory(rewards);
-  return { combat: next, rewards, selectedSpellId: null };
+  return { combat: next, rewards, selectedSpellId: null, trails };
 }
 
 /**
@@ -308,7 +317,7 @@ export const EXIT_REFUSED = "Transition refusée : termine le combat ou le donjo
 
 function combatUpdate(store: CombatStore, group: MonsterGroup): Partial<CombatStore> {
   const combatBase = { mode: "combat" as const, combat: buildGroupCombat(group, store.mapId), activeGroup: group };
-  return { ...combatBase, rewards: null, selectedSpellId: null };
+  return { ...combatBase, rewards: null, selectedSpellId: null, trails: NO_TRAILS };
 }
 
 function blockedUpdate(exploration: ExplorationState): Partial<CombatStore> {
@@ -316,10 +325,21 @@ function blockedUpdate(exploration: ExplorationState): Partial<CombatStore> {
   return { exploration: { ...exploration, log: [...exploration.log, BLOCKED_MOVE_LOG] }, hoveredCell: null };
 }
 
-function movedUpdate(exploration: ExplorationState, target: Position): Partial<CombatStore> {
+/** Id du jeton du héros d'exploration : `playerTokenView` le fixe à `player`. */
+const HERO_TRAIL_ID = "player";
+
+function heroTrail(path: readonly Position[]): MovementTrail {
+  return { id: HERO_TRAIL_ID, cells: path };
+}
+
+/** Le chemin **rendu par le moteur** part tel quel au rendu : aucune case ajoutée. */
+function movedUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
+  const exploration = store.exploration;
+  if (exploration === null) return {};
   const { state, path } = moveHeroOnMap(exploration, target);
   if (path.length === 0) return blockedUpdate(exploration);
-  return { exploration: state, hoveredCell: null };
+  const trails = nextBatch(store.trails, [heroTrail(path)]);
+  return { exploration: state, hoveredCell: null, trails };
 }
 
 /** Sorties de la carte courante, lues dans `data/maps.yaml` : aucun id en dur. */
@@ -357,7 +377,7 @@ function travelUpdate(state: ExplorationState, exit: ExitSpec): Partial<CombatSt
   const fresh = arrivalExploration({ mapId: destination.id, map });
   const log = [arrivalLine(destination.name, landing)];
   const exploration = { ...fresh, playerPos: landing.position, log };
-  return { mapId: destination.id, exploration, hoveredCell: null };
+  return { mapId: destination.id, exploration, hoveredCell: null, trails: NO_TRAILS };
 }
 
 /** Le héros rejoint la sortie à pied ; une sortie injoignable reste un clic bloqué. */
@@ -378,7 +398,7 @@ function explorationUpdate(store: CombatStore, target: Position): Partial<Combat
   const group = getMonsterGroupAt(exploration, target);
   if (group !== null) return combatUpdate(store, group);
   const exit = exitAt(exitsOf(store.mapId), target);
-  return exit === null ? movedUpdate(exploration, target) : exitUpdate(store, exit);
+  return exit === null ? movedUpdate(store, target) : exitUpdate(store, exit);
 }
 
 function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
@@ -402,7 +422,7 @@ function groupId(group: MonsterGroup | null): string {
 
 function explorationReturn(exploration: ExplorationState | null): Partial<CombatStore> {
   const base = { mode: "exploration" as const, exploration, combat: null };
-  return { ...base, rewards: null, activeGroup: null, selectedSpellId: null, hoveredCell: null };
+  return { ...base, rewards: null, activeGroup: null, selectedSpellId: null, hoveredCell: null, trails: NO_TRAILS };
 }
 
 function victoryReturn(store: CombatStore): Partial<CombatStore> {
@@ -452,9 +472,11 @@ function battleFromRoom(room: DungeonRoom, opening: string | null = null): Battl
   return castRange === undefined ? base : { ...base, castRange };
 }
 
-function battleUpdate(previous: BattleState | null, next: BattleState | null): Partial<CombatStore> {
+function battleUpdate(store: CombatStore, next: BattleState | null): Partial<CombatStore> {
+  const previous = store.battle;
   if (previous === next) return {};
-  return { battle: next };
+  const trails = nextBatch(store.trails, battleTrails(previous, next));
+  return { battle: next, trails };
 }
 
 /** Sort de dégâts du héros, lu dans `data/spells.yaml` : l'UI n'invente aucun chiffre. */
@@ -481,7 +503,7 @@ function spellAttackUpdate(store: CombatStore, input: { targetId: string; rng?: 
   const state = store.battle;
   const spell = heroDamageSpell();
   if (state === null || !canCastHeroSpell(state, spell)) return {};
-  return battleUpdate(state, castHeroSpell(state, input, spell));
+  return battleUpdate(store, castHeroSpell(state, input, spell));
 }
 
 /** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */
@@ -492,7 +514,7 @@ function attackUpdate(
   const state = store.battle;
   if (state === null) return {};
   const options = { state, targetId: input.targetId, attack: input.attack, rng: input.rng ?? Math.random };
-  return battleUpdate(state, resolveBattleAttack(options));
+  return battleUpdate(store, resolveBattleAttack(options));
 }
 
 function enemyTurnUpdate(
@@ -501,13 +523,13 @@ function enemyTurnUpdate(
 ): Partial<CombatStore> {
   const state = store.battle;
   if (state === null) return {};
-  return battleUpdate(state, resolveBattleEnemyTurn({ state, strategy: input.strategy, rng: input.rng ?? Math.random }));
+  return battleUpdate(store, resolveBattleEnemyTurn({ state, strategy: input.strategy, rng: input.rng ?? Math.random }));
 }
 
 function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
   const state = store.battle;
   if (state === null) return {};
-  return battleUpdate(state, advanceTurn(state));
+  return battleUpdate(store, advanceTurn(state));
 }
 
 /** Sorts du combattant ennemi, résolus par id dans `data/spells.yaml`. */
@@ -537,7 +559,7 @@ function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLik
   const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
   const next = resolveEnemyTurns({ state, strategyFor, rng });
   if (isDefeat(next)) restoreHeroHp(storage);
-  return battleUpdate(state, next);
+  return battleUpdate(store, next);
 }
 
 function heroStatsFor(hero: Hero) {
@@ -784,6 +806,7 @@ const DEFAULT_STATE = {
   selectedSpellId: null,
   hoveredCell: null,
   rewards: null,
+  trails: NO_TRAILS,
 } satisfies Omit<
   CombatStore,
   | "startDemoCombat"
@@ -820,7 +843,7 @@ function resetActions(set: StoreSetter): ResetActions {
 
 function demoUpdate(mapId: string): Partial<CombatStore> {
   const base = { mode: "combat" as const, combat: buildDemoCombat(mapId), activeGroup: null };
-  return { ...base, mapId, selectedSpellId: null, hoveredCell: null, rewards: null };
+  return { ...base, mapId, selectedSpellId: null, hoveredCell: null, rewards: null, trails: NO_TRAILS };
 }
 
 /** Zone de spawn choisie par le `mapId` courant du store, jamais par une constante. */
@@ -839,7 +862,7 @@ function startExplorationState(input: { mapId: string; rng?: Rng }): Exploration
 function explorationStartUpdate(input: { mapId: string; rng?: Rng }): Partial<CombatStore> {
   const exploration = startExplorationState(input);
   const header = { mode: "exploration" as const, exploration, combat: null, activeGroup: null };
-  return { ...header, mapId: input.mapId, selectedSpellId: null, hoveredCell: null, rewards: null };
+  return { ...header, mapId: input.mapId, selectedSpellId: null, hoveredCell: null, rewards: null, trails: NO_TRAILS };
 }
 
 function endTurnAction(store: CombatStore): Partial<CombatStore> {

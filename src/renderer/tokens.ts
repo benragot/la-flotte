@@ -48,9 +48,19 @@ export const STATIC_TOKEN_SPRITE: TokenSprite = {
   animationKey: "static",
 };
 
+/** Trajet réellement parcouru, tel que le moteur l'a rendu. */
+export interface TokenTrail {
+  /** Cases traversées, départ inclus, arrivée incluse. */
+  cells: readonly Position[];
+  /** Clé de rejeu : change à chaque mouvement, même identique. */
+  signature: string;
+}
+
 export interface TokenView extends TokenSprite {
   /** Identité stable du jeton : deux monstres identiques en ont deux. */
   id: string;
+  /** Trajet reçu du store ; absent pour un spawn ou un jeton immobile. */
+  trail?: TokenTrail | null;
   /** Case logique du jeton : la règle décide, le rendu ne fait que glisser. */
   cell: Position;
   center: PixelPoint;
