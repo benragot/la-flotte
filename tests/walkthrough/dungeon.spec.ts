@@ -236,10 +236,13 @@ interface Traversal {
   xp: number;
 }
 
-// `attemptRoom` est appelé DIRECTEMENT par ce test : il n'a aucun appelant de
-// production aujourd'hui. La traversée n'est donc pas une chaîne câblée de bout
-// en bout — c'est le moteur de donjon piloté manuellement. Le câblage
-// store/UI arrive en 5C/5D.
+// `attemptRoom` a désormais un appelant de production (5D-a) :
+// `useCombatStore.attemptCurrentRoom` l'appelle depuis `settleDungeonRoom`, avec
+// les IDs lus dans l'état de bataille. Ce walkthrough garde un pilotage direct du
+// moteur pour vérifier `attemptRoom` seul (occurrences, refus partiel) ; le
+// parcours câblé de bout en bout est couvert par `tests/unit/dungeonEntry.spec.ts`.
+// Dette D71 : ces 4 salles restent infaisables au niveau 16 réel (l'équilibrage
+// n'est pas prouvé ici, le walkthrough mesure le moteur, pas la viabilité).
 function traverseDungeon(dungeon: DungeonDef, start: DungeonRunState): Traversal {
   const traversal: Traversal = { run: start, hpTrail: [], enemyCounts: [], xp: 0 };
   for (const room of dungeon.rooms) {
