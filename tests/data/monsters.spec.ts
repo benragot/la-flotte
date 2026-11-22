@@ -72,14 +72,39 @@ describe("bestiaire — faiblesses, boss et IA", () => {
     expect(monsterById("fer_boss_yvon_rouiller")?.ai?.bossMechanic).toMatch(/Carapace Oxydée/);
   });
 
-  it("documente l'archétype IA et trois règles par monstre", () => {
+  it("documente l'archétype IA de chaque monstre", () => {
     const aiOf = (id: string) => monsterById(id)?.ai;
     expect(aiOf("fer_rat_de_cale")?.archetype).toBe("melee_rusher");
     expect(aiOf("fer_crabe_cle_molette")?.archetype).toBe("tank_tackler");
     expect(aiOf("fer_marmite_fuyarde")?.archetype).toBe("support_healer");
     expect(aiOf("fer_boulon_pousseur")?.archetype).toBe("pusher_control");
     expect(aiOf("fer_boss_yvon_rouiller")?.archetype).toBe("boss_custom");
-    FERRAILLE.forEach((expected) => expect(aiOf(expected.id)?.behaviorRules).toHaveLength(3));
+  });
+
+  it("donne trois règles aux monstres normaux et quatre au boss", () => {
+    const aiOf = (id: string) => monsterById(id)?.ai;
+    FERRAILLE.filter((expected) => expected.id !== "fer_boss_yvon_rouiller").forEach((expected) => {
+      expect(aiOf(expected.id)?.behaviorRules, expected.id).toHaveLength(3);
+    });
+    expect(aiOf("fer_boss_yvon_rouiller")?.behaviorRules).toHaveLength(4);
+    expect(aiOf("fer_boss_yvon_rouiller")?.behaviorRules?.[3]).toMatch(/enclume/);
+  });
+});
+
+describe("monsterSchema — fail-fast sur les clés inconnues", () => {
+  const drop = { itemId: "plume_mazoutee", baseDropRate: 0.4, ppThreshold: 100 };
+
+  it("refuse `drops` au lieu de `loot`", () => {
+    expect(() => monsterSchema.parse({ ...baseMonster, drops: [drop] })).toThrow(/drops/);
+  });
+
+  it("refuse `quantity` dans une entrée de butin", () => {
+    const loot = [{ ...drop, quantity: 2 }];
+    expect(() => monsterSchema.parse({ ...baseMonster, loot })).toThrow(/quantity/);
+  });
+
+  it("refuse une clé inconnue arbitraire", () => {
+    expect(() => monsterSchema.parse({ ...baseMonster, foobar: 1 })).toThrow(/foobar/);
   });
 });
 

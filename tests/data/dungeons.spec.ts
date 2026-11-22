@@ -16,8 +16,10 @@ const mapIds = new Set(maps.map((map) => map.id));
 const monsterIds = new Set(parseMonstersYaml(read("monsters.yaml")).map((monster) => monster.id));
 const itemIds = new Set(parseItemsYaml(read("items.yaml")).map((item) => item.id));
 
-// D34 : `itemSchema` ne connaît pas encore la catégorie `key` (hors périmètre 5A).
-// La clef de la Casse rejoint items.yaml dès que cette branche existe.
+// D48 (2026-11-22) : `itemSchema` n'a pas de catégorie `key`, donc
+// `cle_donjon_ile_de_la_ferraille` ne peut pas encore vivre dans items.yaml.
+// Allowlist fail-closed : un seul id, absent des items, et ce test casse
+// dès que la clef est réellement livrée (il faudra supprimer l'allowlist).
 const PENDING_KEY_ITEM_IDS = ["cle_donjon_ile_de_la_ferraille"];
 
 const baseRoom = {
@@ -93,6 +95,11 @@ describe("dungeons.yaml — références et praticabilité", () => {
     });
   });
 
+  it("garde l'allowlist de clefs fail-closed (D48)", () => {
+    expect(PENDING_KEY_ITEM_IDS).toHaveLength(1);
+    PENDING_KEY_ITEM_IDS.forEach((id) => expect(itemIds.has(id), `${id} est livré : retire l'allowlist`).toBe(false));
+  });
+
   it("garde chaque salle praticable du placement joueur au placement monstre", () => {
     allRooms().forEach((room) => {
       const map = maps.find((entry) => entry.id === room.mapId);
@@ -126,5 +133,14 @@ describe("rejets Zod du dungeonSchema", () => {
 
   it("refuse une clef vide", () => {
     expect(() => dungeonSchema.parse({ ...baseDungeon, keyItemId: "" })).toThrow(/keyItemId/);
+  });
+
+  it("refuse `quantity` au lieu de `count`", () => {
+    const monsters = [{ monsterId: "piou_mazoute", quantity: 2 }];
+    expect(() => dungeonSchema.parse({ ...baseDungeon, rooms: [{ ...baseRoom, monsters }] })).toThrow(/count/);
+  });
+
+  it("refuse une clé inconnue à la racine d'un donjon", () => {
+    expect(() => dungeonSchema.parse({ ...baseDungeon, drops: [] })).toThrow(/drops/);
   });
 });
