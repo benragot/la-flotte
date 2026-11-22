@@ -48,8 +48,7 @@ function startEntry(entry: DemoEntry | null, actions: DemoActions): void {
 function runEntryOnce(guard: OnceGuard, actions: DemoActions): void {
   if (guard.current) return;
   guard.current = true;
-  if (!import.meta.env.DEV) return;
-  startEntry(demoEntryFrom(window.location.search, true), actions);
+  startEntry(demoEntryFrom(window.location.search, import.meta.env.DEV), actions);
 }
 
 /** Branche le point d'entrée de démo au montage, une seule fois (StrictMode). */
