@@ -33,6 +33,7 @@ interface Task {
   updated_at?: string;
   pr?: number;
   depends_on?: string[];
+  notes?: string;
 }
 
 interface Phase {
@@ -56,6 +57,7 @@ interface Debt {
   severity: string;
   target: string;
   owner?: string;
+  notes?: string;
 }
 
 interface Meta {
@@ -658,8 +660,8 @@ describe("backlog — vague 5B livrée", () => {
     expect(task?.depends_on).toEqual(["5B-f"]);
   });
 
-  it("versionne le backlog en 15", () => {
-    expect(readBacklog().meta.version).toBe(15);
+  it("versionne le backlog en 16", () => {
+    expect(readBacklog().meta.version).toBe(16);
   });
 });
 
@@ -678,5 +680,68 @@ describe("backlog — dettes versées en v15", () => {
     const fixture = fixtureBacklog([fixturePhase("5B", "in_progress")]);
     fixture.debts = [{ id: "D01", title: "Dette mal gradée", severity: "critical", target: "5B" }];
     expect(invalidDebtSeverities(fixture)).toEqual(["D01"]);
+  });
+});
+
+describe("backlog — vague 5C/5D ouverte en v16", () => {
+  const DELIVERED: Array<[string, number, string]> = [
+    ["5C-a", 44, "f6a113e"],
+    ["5C-e", 45, "8a84b15"],
+  ];
+
+  function deliveryGaps(backlog: Backlog): string[] {
+    return DELIVERED.flatMap(([id, pr, squash]) => {
+      const task = taskById(backlog, id);
+      const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
+      return ok ? [] : [`${id}:${task?.status ?? "absent"}`];
+    });
+  }
+
+  it("enregistre les livraisons 5C-a et 5C-e avec leur squash", () => {
+    expect(deliveryGaps(readBacklog())).toEqual([]);
+  });
+
+  it("ouvre les tâches 5C-b, 5C-c, 5C-d et 5D-a", () => {
+    const backlog = readBacklog();
+    expect(taskIdsOf(backlog, "5C")).toEqual(expect.arrayContaining(["5C-b", "5C-c", "5C-d"]));
+    expect(taskIdsOf(backlog, "5D")).toEqual(expect.arrayContaining(["5D-a"]));
+  });
+
+  it("déclare les dépendances de la suite", () => {
+    const backlog = readBacklog();
+    expect(taskById(backlog, "5C-c")?.depends_on).toEqual(["5C-b", "5C-a"]);
+    expect(taskById(backlog, "5C-d")?.depends_on).toEqual(["5C-a"]);
+    expect(taskById(backlog, "5D-a")?.depends_on).toEqual(["5C-c", "5C-d", "5B-g"]);
+  });
+
+  it("versionne le backlog en 16", () => {
+    expect(readBacklog().meta.version).toBe(16);
+  });
+});
+
+describe("backlog — dettes des audits #44/#45", () => {
+  const AUDITS: Array<[string, string, string]> = [
+    ["D59", "medium", "5B"],
+    ["D60", "low", "5C"],
+    ["D61", "high", "5D-a"],
+    ["D62", "low", "5C"],
+    ["D63", "medium", "5C"],
+    ["D64", "high", "5C-d"],
+  ];
+
+  function auditGaps(backlog: Backlog): string[] {
+    return AUDITS.flatMap(([id, severity, target]) => {
+      const debt = debtById(backlog, id);
+      return debt?.severity === severity && debt.target === target ? [] : [id];
+    });
+  }
+
+  it("verse les six dettes avec leur sévérité et leur cible", () => {
+    expect(auditGaps(readBacklog())).toEqual([]);
+  });
+
+  it("joint une note factuelle à chaque dette versée", () => {
+    const missing = AUDITS.filter(([id]) => !isFilled(debtById(readBacklog(), id)?.notes)).map(([id]) => id);
+    expect(missing).toEqual([]);
   });
 });
