@@ -19,32 +19,38 @@ const resistanceValueSchema = z
   .min(RESISTANCE_MIN, `une résistance doit être ≥ ${RESISTANCE_MIN}`)
   .max(RESISTANCE_MAX, `une résistance doit être ≤ ${RESISTANCE_MAX}`);
 
-const resistanceSchema = z.object({
-  earth: resistanceValueSchema,
-  fire: resistanceValueSchema,
-  water: resistanceValueSchema,
-  air: resistanceValueSchema,
-  neutral: resistanceValueSchema,
-});
+const resistanceSchema = z
+  .object({
+    earth: resistanceValueSchema,
+    fire: resistanceValueSchema,
+    water: resistanceValueSchema,
+    air: resistanceValueSchema,
+    neutral: resistanceValueSchema,
+  })
+  .strict();
 
-export const lootEntrySchema = z.object({
-  itemId: z
-    .string()
-    .min(1)
-    .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, "itemId doit être en snake_case"),
-  baseDropRate: z.number().gt(0).lte(1),
-  ppThreshold: z.number().int().nonnegative(),
-});
+export const lootEntrySchema = z
+  .object({
+    itemId: z
+      .string()
+      .min(1)
+      .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/, "itemId doit être en snake_case"),
+    baseDropRate: z.number().gt(0).lte(1),
+    ppThreshold: z.number().int().nonnegative(),
+  })
+  .strict();
 
 /** Distance préférée : numérique en cases, ou indication libre (`3–4`, `contact`). */
 const preferredDistanceSchema = z.union([z.number().int().nonnegative(), z.string().min(1)]);
 
-export const monsterAiSchema = z.object({
-  archetype: z.string().min(1),
-  preferredDistance: preferredDistanceSchema.optional(),
-  behaviorRules: z.array(z.string().min(1)).optional(),
-  bossMechanic: z.string().min(1).optional(),
-});
+export const monsterAiSchema = z
+  .object({
+    archetype: z.string().min(1),
+    preferredDistance: preferredDistanceSchema.optional(),
+    behaviorRules: z.array(z.string().min(1)).optional(),
+    bossMechanic: z.string().min(1).optional(),
+  })
+  .strict();
 
 export type CombatStats = z.infer<typeof combatStatsSchema>;
 export type LootEntry = z.infer<typeof lootEntrySchema>;
@@ -85,7 +91,7 @@ export const monsterSchema = z
     ap: z.number().int().positive(),
     mp: z.number().int().positive(),
     stats: combatStatsSchema,
-    resistances: z.object({ flat: resistanceSchema, percent: resistanceSchema }),
+    resistances: z.object({ flat: resistanceSchema, percent: resistanceSchema }).strict(),
     baseXp: z.number().int().positive(),
     isBoss: z.boolean().default(false),
     kamasMin: z.number().int().nonnegative().optional(),
@@ -97,6 +103,7 @@ export const monsterSchema = z
     // 7B : les butins de la fiche référencent des items qui n'existent pas encore.
     loot: z.array(lootEntrySchema).default([]),
   })
+  .strict()
   .superRefine((monster, ctx) => {
     checkLoot(monster.loot, ctx);
     checkKamasRange(monster, ctx);

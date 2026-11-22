@@ -7,18 +7,22 @@ const SNAKE_CASE_MESSAGE = "doit être en snake_case";
 
 const idSchema = z.string().min(1).regex(ID_PATTERN, SNAKE_CASE_MESSAGE);
 
-const roomMonsterSchema = z.object({
-  monsterId: idSchema,
-  count: z.number().int().positive(),
-});
+const roomMonsterSchema = z
+  .object({
+    monsterId: idSchema,
+    count: z.number().int().positive(),
+  })
+  .strict();
 
-const dungeonRoomSchema = z.object({
-  roomNumber: z.number().int().positive(),
-  name: z.string().min(1),
-  mapId: idSchema,
-  isBossRoom: z.boolean().default(false),
-  monsters: z.array(roomMonsterSchema).min(1),
-});
+const dungeonRoomSchema = z
+  .object({
+    roomNumber: z.number().int().positive(),
+    name: z.string().min(1),
+    mapId: idSchema,
+    isBossRoom: z.boolean().default(false),
+    monsters: z.array(roomMonsterSchema).min(1),
+  })
+  .strict();
 
 type Rooms = readonly z.infer<typeof dungeonRoomSchema>[];
 type IssueSink = z.RefinementCtx;
@@ -49,13 +53,15 @@ function checkBossRoom(rooms: Rooms, ctx: IssueSink): void {
   addIssue(ctx, ["rooms"], "la dernière salle doit être la boss room");
 }
 
-const dungeonFieldsSchema = z.object({
-  id: idSchema,
-  name: z.string().min(1),
-  recommendedLevel: z.number().int().positive(),
-  keyItemId: z.string().min(1, "keyItemId doit être non vide").regex(ID_PATTERN, SNAKE_CASE_MESSAGE),
-  rooms: z.array(dungeonRoomSchema).min(1),
-});
+const dungeonFieldsSchema = z
+  .object({
+    id: idSchema,
+    name: z.string().min(1),
+    recommendedLevel: z.number().int().positive(),
+    keyItemId: z.string().min(1, "keyItemId doit être non vide").regex(ID_PATTERN, SNAKE_CASE_MESSAGE),
+    rooms: z.array(dungeonRoomSchema).min(1),
+  })
+  .strict();
 
 export const dungeonSchema = dungeonFieldsSchema.superRefine((dungeon, ctx) => {
   checkRoomNumbers(dungeon.rooms, ctx);

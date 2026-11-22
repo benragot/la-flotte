@@ -138,4 +138,5 @@ monsters:
         - "Ouvre par Tôle Blindée au tour 1, puis avance vers la cible la plus proche."
         - "Clef à Choc sert à projeter une cible contre un mur `#` tant que le bouclier est actif : bouclier dissipé et −2 PA au prochain tour."
         - "Appel à la Casse dès qu'il tombe sous 50 % de PV ou qu'il reste au plus deux assaillants."
+        - "Ne s'éloigne jamais de plus de 2 cases de l'enclume ; sans poussée, son point faible est l'Eau (−10 % de résistance)."
       bossMechanic: "Carapace Oxydée : Tôle Blindée (+20 bouclier, 2 tours). Dégâts de poussée contre un mur `#` pendant que le bouclier est actif ⇒ bouclier dissipé + perte de 2 PA au prochain tour. Sans poussée, −10 % résistance Eau = point faible."
