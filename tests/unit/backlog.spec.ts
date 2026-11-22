@@ -33,6 +33,8 @@ interface Task {
   updated_at?: string;
   pr?: number;
   depends_on?: string[];
+  /** Périmètre d'écriture : `external` renvoie l'action à `owner` (humain). */
+  target?: string;
   notes?: string;
 }
 
@@ -1070,8 +1072,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 25", () => {
-    expect(readBacklog().meta.version).toBe(25);
+  it("versionne le backlog en 26", () => {
+    expect(readBacklog().meta.version).toBe(26);
   });
 });
 
@@ -1631,13 +1633,15 @@ const DECISION_NUMBERS = [
   "DEC-07",
   "DEC-08",
   "DEC-09",
+  "DEC-10",
 ];
 
-/** Les décisions du propriétaire sont normatives : leur suppression doit casser la CI. */
+/** Les décisions du propriétaire sont normatives : leur suppression doit casser la CI.
+ *  `DEC-10` épuise le préfixe à un chiffre : la numérotation accepte deux chiffres. */
 function decisionHeadings(): string[] {
   const path = join(process.cwd(), DECISIONS_PATH);
   if (!existsSync(path)) return [];
-  return [...readFileSync(path, "utf8").matchAll(/^## (DEC-0\d) — /gm)].map((match) => match[1] ?? "");
+  return [...readFileSync(path, "utf8").matchAll(/^## (DEC-\d{2}) — /gm)].map((match) => match[1] ?? "");
 }
 
 /** Une clause `**Interdit**` par décision : le corps ne peut pas être vidé sans rougir. */
@@ -1659,7 +1663,7 @@ function negatedInterdits(): string[] {
 }
 
 describe("backlog — décisions du propriétaire (v21)", () => {
-  it("garde le fichier normatif et numérote DEC-01 à DEC-09", () => {
+  it("garde le fichier normatif et numérote DEC-01 à DEC-10", () => {
     expect(existsSync(join(process.cwd(), DECISIONS_PATH))).toBe(true);
     expect(decisionHeadings()).toEqual(DECISION_NUMBERS);
   });
@@ -1812,5 +1816,149 @@ describe("design — direction visuelle du HUD (v24)", () => {
 
   it("colle au moins vingt ratios de contraste mesurés", () => {
     expect(measuredRatios(visionText())).toBeGreaterThanOrEqual(20);
+  });
+});
+
+/**
+ * Quatre retours de playtest du propriétaire : des barres de vie en exploration
+ * qu'il juge inutiles, un survol qui ne distingue pas l'entité visée, des lignes
+ * de dégâts qui s'empilent plus vite qu'il ne les lit, et un déplacement diagonal
+ * trop long. Le quatrième est un arbitrage, pas une tâche : il devient `DEC-10`
+ * et laisse le recalibrage des portées ouvert.
+ */
+const PLAYTEST_TASKS: Array<[string, string, string]> = [
+  ["5C-explore-hp", "high", "src/renderer/**"],
+  ["5C-hover-highlight", "high", "ombre elliptique"],
+  ["5C-cast-cadence", "high", "constante unique"],
+  ["5C-spell-range-rebalance", "medium", "data/spells.yaml"],
+];
+
+function playtestTaskGaps(backlog: Backlog): string[] {
+  return PLAYTEST_TASKS.flatMap(([id, priority, keyword]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const graded = task.priority === priority ? [] : [`${id}:${task.priority}`];
+    const noted = (task.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    return [...graded, ...noted];
+  });
+}
+
+describe("backlog — retours de playtest : rendu et exploration (v26)", () => {
+  it("verse les quatre tâches dans la phase 5C avec leur priorité et leur note", () => {
+    const backlog = readBacklog();
+    expect(playtestTaskGaps(backlog)).toEqual([]);
+    const ids = taskIdsOf(backlog, "5C");
+    expect(PLAYTEST_TASKS.map(([id]) => id).filter((id) => !ids.includes(id))).toEqual([]);
+  });
+
+  it("masque les barres de vie en exploration sans dépendre de la barre de combat", () => {
+    const task = taskById(readBacklog(), "5C-explore-hp");
+    expect(task?.status).toBe("todo");
+    expect(task?.owner).toBe("tdd-coder");
+    expect(task?.depends_on ?? []).toEqual([]);
+    const text = `${task?.title} ${task?.notes}`;
+    expect(text).toContain("5C-hover-hp");
+    expect(text).toContain("barres de vie");
+  });
+
+  it("distingue l'entité survolée sans toucher à l'ombre elliptique gelée", () => {
+    const task = taskById(readBacklog(), "5C-hover-highlight");
+    expect(task?.owner).toBe("tdd-coder");
+    const text = `${task?.title} ${task?.notes}`;
+    expect(text).toContain("render-designer");
+    expect(text).toContain("anneau");
+    expect(text).toContain("gelée");
+  });
+});
+
+describe("backlog — retours de playtest : cadence et portées (v26)", () => {
+  it("borne la cadence des sorts par une constante unique et injectable", () => {
+    const task = taskById(readBacklog(), "5C-cast-cadence");
+    expect(task?.status).toBe("todo");
+    const text = `${task?.title} ${task?.notes}`;
+    expect(text).toContain("0,75 s");
+    expect(text).toContain("injectable");
+    expect(text).toContain("setTimeout");
+    expect(text).toContain("src/engine/**");
+    expect(text).toContain("animation");
+  });
+
+  it("bloque le recalibrage des portées sur l'arbitrage du propriétaire", () => {
+    const task = taskById(readBacklog(), "5C-spell-range-rebalance");
+    expect(task?.status).toBe("blocked");
+    expect(task?.owner).toBe("user");
+    expect(task?.target).toBe("external");
+    const text = `${task?.title} ${task?.notes}`;
+    expect(text).toContain("D71");
+    expect(text).toContain("DEC-10");
+    expect(text).toContain("mobilité");
+  });
+});
+
+/** Le corps d'une décision, du titre jusqu'au titre suivant : rien hors section. */
+function decisionSection(id: string): string {
+  const path = join(process.cwd(), DECISIONS_PATH);
+  if (!existsSync(path)) return "";
+  return (readFileSync(path, "utf8").split(`## ${id} — `)[1] ?? "").split("\n## ")[0] ?? "";
+}
+
+describe("backlog — DEC-10 : la diagonale coûte deux PM (v26)", () => {
+  it("norme le coût du pas, l'écart assumé à Dofus 1.29 et la facture réelle", () => {
+    const section = decisionSection("DEC-10");
+    expect(section).toContain("1 PM par pas");
+    expect(section).toContain("2 PM par pas");
+    expect(section).toContain("somme");
+    expect(section).toContain("chemin réellement trouvé");
+    expect(section).toContain("écart assumé à Dofus 1.29");
+    expect(section).toContain("chaque case entrée coûte **1 PM**");
+  });
+
+  it("interdit de couper un coin et n'asymétrise pas héros et monstres", () => {
+    const section = decisionSection("DEC-10");
+    expect(section).toContain("deux cases orthogonales adjacentes");
+    expect(section).toContain("aucune asymétrie");
+  });
+
+  it("laisse le recalibrage des portées ouvert à l'arbitrage du propriétaire", () => {
+    const section = decisionSection("DEC-10");
+    expect(section).toContain("ouvert");
+    expect(section).toContain("propriétaire");
+    expect(section).toContain("recalibr");
+  });
+});
+
+describe("backlog — dettes de déplacement recadrées par DEC-10 (v26)", () => {
+  it("réduit D96 à la facture et à la règle de coin, confirmation en jeu comprise", () => {
+    const debt = debtById(readBacklog(), "D96");
+    expect(debt?.severity).toBe("medium");
+    expect(debt?.target).toBe("5C-path-8dirs");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("src/engine/multiCombat/enemies.ts");
+    expect(text).toContain("Chebyshev");
+    expect(text).toContain("déjà 8-voisins");
+    expect(text).toContain("confirmation");
+    expect(text).toContain("règle de coin");
+  });
+
+  it("corrige D68 : findPath est déjà 8-voisins à HEAD", () => {
+    const debt = debtById(readBacklog(), "D68");
+    expect(debt?.severity).toBe("high");
+    expect(debt?.target).toBe("5C-path-8dirs");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("findPath");
+    expect(text).toContain("8-voisins");
+    expect(text).toContain("règle de coin");
+    expect(text).not.toContain("4-voisins");
+  });
+
+  it("verse la documentation manquante de la règle PM hors périmètre agent", () => {
+    const debt = debtById(readBacklog(), "D102");
+    expect(debt?.severity).toBe("medium");
+    expect(debt?.target).toBe("external");
+    expect(debt?.owner).toBe("user");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("dofus-129-combat");
+    expect(text).toContain(".opencode/skills/");
+    expect(text).toContain("DEC-10");
   });
 });
