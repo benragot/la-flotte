@@ -7,11 +7,40 @@ import type { SaveResult } from "./types";
 
 type Migration = (raw: JsonRecord) => JsonRecord;
 
+const FIRST_CHARACTER_ID = "char-1";
+const ROSTER_FORMAT_VERSION = 2;
+
+function emptyLegacyInventory(): JsonRecord {
+  return { stacks: [], equipment: {} };
+}
+
+/** Le champ `bank` n'existait pas en v1 : s'il est là, il est repris tel quel. */
+function legacyBank(raw: JsonRecord): unknown {
+  const bank = raw["bank"];
+  return isPlainObject(bank) ? bank : emptyLegacyInventory();
+}
+
+function legacyCharacter(raw: JsonRecord): JsonRecord {
+  return { id: FIRST_CHARACTER_ID, hero: raw["hero"], inventory: raw["inventory"], position: null };
+}
+
+/** v1 (un héros) → v2 (roster) : le héros devient le premier personnage, sans perte. */
+function migrateV1ToV2(raw: JsonRecord): JsonRecord {
+  return {
+    saveVersion: ROSTER_FORMAT_VERSION,
+    savedAt: raw["savedAt"],
+    characters: [legacyCharacter(raw)],
+    bank: legacyBank(raw),
+    flags: raw["flags"] ?? {},
+    lastPlayedCharacterId: FIRST_CHARACTER_ID,
+  };
+}
+
 /**
  * Point d'extension des migrations : `MIGRATIONS[n]` transforme une sauvegarde
- * de version `n` en version `n + 1`. Vide tant que `SAVE_VERSION` vaut 1.
+ * de version `n` en version `n + 1`.
  */
-const MIGRATIONS: Readonly<Record<number, Migration>> = {};
+const MIGRATIONS: Readonly<Record<number, Migration>> = { 1: migrateV1ToV2 };
 
 function readVersion(value: unknown): number | null {
   if (!isPlainObject(value)) return null;

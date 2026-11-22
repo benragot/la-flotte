@@ -1,4 +1,4 @@
-import { deserializeSave } from "./deserializeSave";
+import { migrateSave } from "./migrateSave";
 import { serializeSave } from "./serializeSave";
 import { SAVE_ERROR_MISSING } from "./types";
 import type { SaveResult, SaveToStorageInput, StorageLocation } from "./types";
@@ -13,11 +13,11 @@ export function saveToStorage(input: SaveToStorageInput): boolean {
   }
 }
 
-/** Relit la sauvegarde ; distingue clé absente et contenu invalide. */
+/** Relit la sauvegarde ; migre un ancien format, distingue clé absente et contenu invalide. */
 export function loadFromStorage(location: StorageLocation): SaveResult {
   const raw = location.storage.getItem(location.key);
   if (raw === null) return { ok: false, reason: SAVE_ERROR_MISSING };
-  return deserializeSave(raw);
+  return migrateSave(raw);
 }
 
 export function clearSave(location: StorageLocation): void {

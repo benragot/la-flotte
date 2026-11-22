@@ -1,4 +1,4 @@
-import { deserializeSave } from "./deserializeSave";
+import { migrateSave } from "./migrateSave";
 import { stableStringify } from "./stableJson";
 import type { SaveData, SaveResult } from "./types";
 
@@ -9,7 +9,7 @@ export function exportSaveJson(save: SaveData): string {
   return stableStringify(save, EXPORT_INDENT);
 }
 
-/** Importe un JSON exporté, avec la même validation qu'une lecture de stockage. */
+/** Importe un JSON exporté (migré si ancien), avec la même validation qu'une lecture. */
 export function importSaveJson(raw: string): SaveResult {
-  return deserializeSave(raw);
+  return migrateSave(raw);
 }
