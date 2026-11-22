@@ -15,6 +15,9 @@ const EXPLORATION_BANNER = 'header:has-text("Mode Exploration")';
 /** Colonne gauche de l'exploration (#51) : le journal n'est plus dans le dock. */
 const EXPLORATION_JOURNAL = 'aside[aria-label="Journal d’exploration"]';
 const COMBAT_JOURNAL = 'section[aria-label="Journal de combat"]';
+/** Fiche d'entrée de donjon (5D-a), atteinte sans `?demo=`. */
+const DUNGEON_ENTRY_BUTTON = 'button:has-text("Donjons")';
+const DUNGEON_ENTRY_SHEET = 'section[aria-label="Donjons disponibles"]';
 
 const VITALS = 'section[aria-label="Ressources du héros"]';
 /** Le HUD 1.29 n'écrit pas « PA » : la rangée PV/PA/PM est le premier bloc de la section. */
@@ -56,6 +59,13 @@ test.describe("exploration", () => {
     await expect(page.locator(EXPLORATION_BANNER)).toContainText("La Flotte");
     await expectNoOverlap(page, [[EXPLORATION_BANNER, EXPLORATION_JOURNAL]]);
     await expectInsideViewport(page, EXPLORATION_BANNER);
+  });
+
+  test("la fiche d'entrée de donjon tient dans le viewport avec son bouton Entrer", async ({ page }) => {
+    await page.locator(DUNGEON_ENTRY_BUTTON).click();
+    await expect(page.locator(DUNGEON_ENTRY_SHEET)).toBeVisible();
+    await expectInsideViewport(page, DUNGEON_ENTRY_SHEET);
+    await expectInsideViewport(page, `${DUNGEON_ENTRY_SHEET} button:has-text("Entrer")`);
   });
 });
 

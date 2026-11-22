@@ -17,11 +17,14 @@ const BUTTON =
 const CLOSE_BUTTON =
   "rounded border border-[#8c6d46] bg-[#2b241d]/90 px-2 py-1 text-xs text-[#e8dcc8] transition hover:bg-[#d4a537] hover:text-[#2b241d]";
 const WARNING = "text-xs text-[#d4a537]";
+const REFUSAL = "rounded border-2 border-[#e8dcc8] bg-[#b83b3b] px-2 py-1 text-sm font-bold text-[#fff8e7]";
 const NOTICE = "pointer-events-none absolute right-2 top-10 z-30 text-xs text-[#e8dcc8]";
 
 export interface DungeonEntrySheetProps {
   entries: readonly DungeonEntryView[];
   heroLevel: number;
+  /** Refus d'entrée : rendu **dans** la fiche, la nappe modale ne peut plus le cacher. */
+  notice: string | null;
   onEnter: (dungeonId: string) => void;
   onClose: () => void;
 }
@@ -29,7 +32,14 @@ export interface DungeonEntrySheetProps {
 interface EntryCardProps {
   entry: DungeonEntryView;
   heroLevel: number;
+  notice: string | null;
   onEnter: (dungeonId: string) => void;
+}
+
+interface CardMetaProps {
+  entry: DungeonEntryView;
+  heroLevel: number;
+  notice: string | null;
 }
 
 interface LevelLineProps {
@@ -54,6 +64,12 @@ function KeyLine({ entry }: { entry: DungeonEntryView }) {
   return <p className="text-xs">Clef : {entry.keyName} — {state}</p>;
 }
 
+/** Refus d'entrée rendu **dans** la fiche, juste sous la ligne de clef. */
+function RefusalNotice({ notice }: { notice: string | null }) {
+  if (notice === null) return null;
+  return <p role="alert" aria-label="Refus d’entrée" className={REFUSAL}>{notice}</p>;
+}
+
 function EnterButton({ dungeonId, onEnter }: { dungeonId: string; onEnter: (id: string) => void }) {
   return (
     <button type="button" className={BUTTON} onClick={() => onEnter(dungeonId)}>
@@ -62,12 +78,21 @@ function EnterButton({ dungeonId, onEnter }: { dungeonId: string; onEnter: (id: 
   );
 }
 
-function EntryCard({ entry, heroLevel, onEnter }: EntryCardProps) {
+function CardMeta({ entry, heroLevel, notice }: CardMetaProps) {
+  return (
+    <>
+      <LevelLine recommendedLevel={entry.recommendedLevel} heroLevel={heroLevel} />
+      <KeyLine entry={entry} />
+      <RefusalNotice notice={notice} />
+    </>
+  );
+}
+
+function EntryCard({ entry, heroLevel, notice, onEnter }: EntryCardProps) {
   return (
     <li className={CARD}>
       <p className="text-sm font-bold">{entry.name}</p>
-      <LevelLine recommendedLevel={entry.recommendedLevel} heroLevel={heroLevel} />
-      <KeyLine entry={entry} />
+      <CardMeta entry={entry} heroLevel={heroLevel} notice={notice} />
       <EnterButton dungeonId={entry.id} onEnter={onEnter} />
     </li>
   );
@@ -82,23 +107,24 @@ function SheetHead({ onClose }: { onClose: () => void }) {
   );
 }
 
-function EntryCards({ entries, heroLevel, onEnter }: Omit<DungeonEntrySheetProps, "onClose">) {
+function EntryCards({ entries, heroLevel, notice, onEnter }: Omit<DungeonEntrySheetProps, "onClose">) {
   return (
     <ul className="flex flex-col gap-2">
       {entries.map((entry) => (
-        <EntryCard key={entry.id} entry={entry} heroLevel={heroLevel} onEnter={onEnter} />
+        <EntryCard key={entry.id} entry={entry} heroLevel={heroLevel} notice={notice} onEnter={onEnter} />
       ))}
     </ul>
   );
 }
 
 /** Panneau pur (props seulement) : testable en rendu statique, sans jsdom. */
-export function DungeonEntrySheet({ entries, heroLevel, onEnter, onClose }: DungeonEntrySheetProps) {
+export function DungeonEntrySheet({ entries, heroLevel, notice, onEnter, onClose }: DungeonEntrySheetProps) {
   if (entries.length === 0) return null;
+  const cards = { entries, heroLevel, notice, onEnter };
   return (
     <section aria-label="Donjons disponibles" className={SHEET}>
       <SheetHead onClose={onClose} />
-      <EntryCards entries={entries} heroLevel={heroLevel} onEnter={onEnter} />
+      <EntryCards {...cards} />
     </section>
   );
 }
@@ -117,12 +143,20 @@ export function DungeonNotice() {
   return <DungeonNoticeLine notice={notice} />;
 }
 
-function useEntryState() {
+function useEntryContext() {
   const hero = useGameStore((state) => state.hero);
   const inventory = useGameStore((state) => state.inventory);
   const run = useCombatStore((state) => state.dungeonRun);
+  return { hero, inventory, runActive: run !== null };
+}
+
+function useEntryActions() {
+  const battle = useCombatStore((state) => state.battle);
+  const combat = useCombatStore((state) => state.combat);
+  const notice = useCombatStore((state) => state.dungeonNotice);
   const enter = useCombatStore((state) => state.enterDungeonRun);
-  return { hero, inventory, runActive: run !== null, enter };
+  const inCombat = combat !== null || battle !== null;
+  return { notice, inCombat, enter };
 }
 
 /** Ferme le panneau seulement si le run a démarré : un refus reste annoncé. */
@@ -135,14 +169,15 @@ function closingStart(enter: (input: { dungeonId: string }) => boolean, onClose:
 
 /**
  * Entrée de donjon depuis l'exploration. Rien n'est rendu hors contexte : sans
- * héros, run déjà en cours ou catalogue vide. Le panneau se ferme après une
- * entrée acceptée ; un refus laisse la région `aria-live` parler.
+ * héros, run, combat en cours ou catalogue vide. Le panneau se ferme après une
+ * entrée acceptée ; un refus est rendu **dans** la fiche (jamais derrière la nappe).
  */
 export default function DungeonEntryPanel({ onClose }: { onClose: () => void }) {
-  const { hero, inventory, runActive, enter } = useEntryState();
+  const { hero, inventory, runActive } = useEntryContext();
+  const { notice, inCombat, enter } = useEntryActions();
   const entries = dungeonEntries({ dungeons: DUNGEON_CATALOG, items: GAME_CATALOG.items, inventory });
-  const available = canEnterDungeon({ hasHero: hero !== null, runActive, dungeonCount: entries.length });
+  const available = canEnterDungeon({ hasHero: hero !== null, runActive, inCombat, dungeonCount: entries.length });
   if (!available || hero === null) return null;
-  const start = closingStart(enter, onClose);
-  return <DungeonEntrySheet entries={entries} heroLevel={hero.level} onEnter={start} onClose={onClose} />;
+  const props = { entries, heroLevel: hero.level, notice, onEnter: closingStart(enter, onClose), onClose };
+  return <DungeonEntrySheet {...props} />;
 }

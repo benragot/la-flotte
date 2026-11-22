@@ -48,6 +48,8 @@ export interface LevelWarningInput {
 export interface EntryAvailabilityInput {
   hasHero: boolean;
   runActive: boolean;
+  /** Un 1v1 ou une salle de donjon ouverte : les deux HUD ne doivent pas cohabiter. */
+  inCombat: boolean;
   dungeonCount: number;
 }
 
@@ -98,7 +100,8 @@ export function fallenMonsterIds(state: BattleState): string[] {
   return fallen.map((entry) => entry.id.replace(/-\d+$/, ""));
 }
 
-/** Le panneau ne rend rien hors contexte : pas de héros, run en cours, catalogue vide. */
+/** Le panneau ne rend rien hors contexte : pas de héros, run, combat, catalogue vide. */
 export function canEnterDungeon(input: EntryAvailabilityInput): boolean {
-  return input.hasHero && !input.runActive && input.dungeonCount > 0;
+  const blocked = !input.hasHero || input.runActive || input.inCombat;
+  return blocked ? false : input.dungeonCount > 0;
 }

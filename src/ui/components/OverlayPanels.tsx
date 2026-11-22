@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Hero } from "../../engine/createHero";
+import { useCombatStore } from "../../store/useCombatStore";
 import { GAME_CATALOG, useGameStore } from "../../store/useGameStore";
 import type { ClassDef } from "../../schemas/classSchema";
 import { StatAllocation } from "./hero";
@@ -18,20 +19,35 @@ const LAYER =
 const SHEET =
   "flex max-h-full w-full max-w-xl flex-col gap-2 overflow-auto rounded border-2 border-[#8c6d46] bg-[#2b241d] p-3 text-[#e8dcc8]";
 
-function AccessButton({ label, onClick }: { label: string; onClick: () => void }) {
+interface AccessButtonProps {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+function AccessButton({ label, onClick, disabled = false }: AccessButtonProps) {
+  const text = disabled ? `${label} — combat en cours` : label;
   return (
-    <button type="button" onClick={onClick} className={ACCESS_BUTTON}>
-      {label}
+    <button type="button" onClick={onClick} className={ACCESS_BUTTON} disabled={disabled}>
+      {text}
     </button>
   );
 }
 
+/** Un 1v1 ou une salle ouverte bloque l'entrée : les deux HUD ne cohabitent pas. */
+function useLiveCombat(): boolean {
+  const combat = useCombatStore((state) => state.combat);
+  const battle = useCombatStore((state) => state.battle);
+  return combat !== null || battle !== null;
+}
+
 function AccessBar({ onOpen }: { onOpen: (panel: PanelId) => void }) {
+  const blocked = useLiveCombat();
   return (
     <div className={ACCESS_BAR}>
       <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} />
       <AccessButton label="Fiche perso" onClick={() => onOpen("hero")} />
-      <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} />
+      <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} disabled={blocked} />
     </div>
   );
 }
@@ -85,6 +101,15 @@ function PanelContent({ active, onClose }: { active: PanelId; onClose: () => voi
   return hero === null ? null : <HeroSheet hero={hero} onClose={onClose} />;
 }
 
+/** Ouvre un panneau ; l'entrée de donjon purge sa notice périmée avant affichage. */
+function usePanelOpener(setActive: (panel: PanelId) => void) {
+  const clearNotice = useCombatStore((state) => state.clearDungeonNotice);
+  return (panel: PanelId) => {
+    if (panel === "dungeon") clearNotice();
+    setActive(panel);
+  };
+}
+
 function Overlay({ active, onClose }: { active: PanelId | null; onClose: () => void }) {
   if (active === null) return null;
   return (
@@ -107,9 +132,10 @@ function OverlayLayers({ active, onClose }: { active: PanelId | null; onClose: (
 /** Boutons d'accès discrets + panneaux fermables, posés au-dessus de l'arène. */
 export default function OverlayPanels() {
   const [active, setActive] = useState<PanelId | null>(null);
+  const open = usePanelOpener(setActive);
   return (
     <>
-      <AccessBar onOpen={setActive} />
+      <AccessBar onOpen={open} />
       <OverlayLayers active={active} onClose={() => setActive(null)} />
     </>
   );

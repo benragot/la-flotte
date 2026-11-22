@@ -91,8 +91,11 @@ interface CombatStore {
   /**
    * NOUVEAU (5D-a) : entrée de donjon par le catalogue réel. Sans la clef, rien
    * n'est modifié (`false`) ; sinon la clef est consommée et la salle 1 démarre.
+   * Refusée pendant un 1v1 ou une salle ouverte : les deux HUD ne cohabitent pas.
    */
   enterDungeonRun: (input: { dungeonId: string }) => boolean;
+  /** Purge la notice périmée à l'ouverture du panneau ou après une entrée réussie. */
+  clearDungeonNotice: () => void;
   /** `rng` injectable (défaut `Math.random`) pour des combats déterministes en test. */
   battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) => void;
   battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) => void;
@@ -433,6 +436,7 @@ function battleHeroHp(state: BattleState): number | undefined {
 const ROOM_REFUSED = "La salle n'est pas nettoyée : le donjon reste ouvert.";
 const DUNGEON_LEFT = "Donjon quitté : la salle reste aux monstres.";
 const UNKNOWN_DUNGEON = "Donjon inconnu.";
+const COMBAT_REFUSED = "Entrée refusée : termine le combat en cours d'abord.";
 
 interface RoomAdvance {
   run: DungeonRunState;
@@ -504,12 +508,18 @@ function startedRunUpdate(outcome: DungeonEntryOutcome): Partial<CombatStore> {
   if (result.run === null) return { dungeonNotice: keyRefusal(dungeon) };
   useGameStore.setState({ inventory: result.inventory });
   const battle = roomBattleAt(result.run, dungeon);
-  return { dungeonRun: result.run, battle, dungeonNotice: `Entrée dans ${dungeon.name}.` };
+  return { dungeonRun: result.run, battle, dungeonNotice: null };
+}
+
+/** Un 1v1 ou une salle de donjon déjà ouverte interdit l'entrée. */
+function inLiveCombat(store: CombatStore): boolean {
+  return store.combat !== null || store.battle !== null;
 }
 
 /** Entrée : catalogue déjà parsé, aucun id de donjon ni de clef écrit ici. */
 function enterUpdate(store: CombatStore, input: { dungeonId: string }): Partial<CombatStore> {
   if (store.dungeonRun !== null) return {};
+  if (inLiveCombat(store)) return { dungeonNotice: COMBAT_REFUSED };
   const inventory = useGameStore.getState().inventory;
   const outcome = dungeonEntry({ dungeonId: input.dungeonId, inventory });
   return outcome === null ? { dungeonNotice: UNKNOWN_DUNGEON } : startedRunUpdate(outcome);
@@ -584,7 +594,7 @@ function battleActions(set: StoreSetter): BattleActions {
   return { ...battlePlayActions(set), ...battleTurnActions(set), ...battleCloseActions(set) };
 }
 
-type DungeonActions = Pick<CombatStore, "enterDungeonRun">;
+type DungeonActions = Pick<CombatStore, "enterDungeonRun" | "clearDungeonNotice">;
 
 /** Entrée de donjon : l'action rend `true` seulement si un run a démarré (clef consommée). */
 function dungeonActions(set: StoreSetter, get: () => CombatStore): DungeonActions {
@@ -594,6 +604,7 @@ function dungeonActions(set: StoreSetter, get: () => CombatStore): DungeonAction
       set(update);
       return update.dungeonRun !== null && update.dungeonRun !== undefined;
     },
+    clearDungeonNotice: () => set({ dungeonNotice: null }),
   };
 }
 
@@ -620,6 +631,7 @@ const DEFAULT_STATE = {
   | "endTurn"
   | "startDungeonRoom"
   | "enterDungeonRun"
+  | "clearDungeonNotice"
   | "battleAttack"
   | "battleSpellAttack"
   | "battleEnemyTurn"
