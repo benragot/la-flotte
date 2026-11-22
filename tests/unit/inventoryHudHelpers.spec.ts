@@ -284,7 +284,6 @@ describe("statApplicationStatus", () => {
     "ap",
     "mp",
     "prospection",
-    "percentDmg",
     "hp",
   ];
 
@@ -292,6 +291,10 @@ describe("statApplicationStatus", () => {
     expect(statApplicationStatus("vitality")).toBe("pending");
     expect(statApplicationStatus("flatRes")).toBe("pending");
     expect(statApplicationStatus("percentRes")).toBe("pending");
+  });
+
+  it("classe percentDmg en pending : combatantFromHero ne le transporte pas", () => {
+    expect(statApplicationStatus("percentDmg")).toBe("pending");
   });
 
   it("déclare applied les stats réellement lues par combatantFromHero", () => {
