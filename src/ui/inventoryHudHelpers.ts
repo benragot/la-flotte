@@ -277,7 +277,7 @@ const REFUSAL_LABELS: Record<Exclude<EquipRefusal, "level">, string> = {
 /** Texte lisible du refus ; `null` quand l'objet est équipable. */
 export function equipRefusalLabel(verdict: EquipVerdict): string | null {
   if (verdict.refusal === null) return null;
-  if (verdict.refusal === "level") return `Niveau ${verdict.requiredLevel ?? 1} requis`;
+  if (verdict.refusal === "level") return `Niveau ${verdict.requiredLevel} requis`;
   return REFUSAL_LABELS[verdict.refusal];
 }
 

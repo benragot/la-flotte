@@ -10,12 +10,29 @@ import type {
 /** Raison typée d'un refus : l'interface en dérive un texte lisible. */
 export type EquipRefusal = "notEquipment" | "noSlot" | "level" | "missing";
 
-/** Verdict d'équipement : slot résolu, refus éventuel, niveau exigé si refus de niveau. */
-export interface EquipVerdict {
+interface VerdictBase {
   slot: EquipmentSlot | null;
-  refusal: EquipRefusal | null;
-  requiredLevel: number | null;
 }
+
+/** Objet équipable : aucun refus. */
+interface LegalVerdict extends VerdictBase {
+  refusal: null;
+  requiredLevel: null;
+}
+
+/** Refus de niveau : `requiredLevel` est toujours renseigné (pas de repli à l'affichage). */
+interface LevelVerdict extends VerdictBase {
+  refusal: "level";
+  requiredLevel: number;
+}
+
+interface ShapeVerdict extends VerdictBase {
+  refusal: Exclude<EquipRefusal, "level">;
+  requiredLevel: null;
+}
+
+/** Verdict d'équipement : union discriminée, le niveau exigé n'existe qu'avec `"level"`. */
+export type EquipVerdict = LegalVerdict | LevelVerdict | ShapeVerdict;
 
 /** Slot occupé par `itemId`, quel qu'il soit. */
 export function wornSlot(equipment: EquipmentState, itemId: string): EquipmentSlot | undefined {
@@ -54,11 +71,12 @@ function shapeRefusal(input: EquipVerdictInput): EquipRefusal | null {
 
 /**
  * Verdict pur d'un équipement : seul point de vérité, partagé par `equipItem`
- * (qui refuse alors par identité) et par l'inventaire (qui affiche la raison).
+ * (qui refuse alors par identité), par le chargement d'une sauvegarde (qui
+ * déséquipe les pièces illégales) et par l'inventaire (qui affiche la raison).
  */
 export function equippable(input: EquipVerdictInput): EquipVerdict {
   const slot = slotOf(input.item, input.slot);
   const refusal = shapeRefusal(input) ?? heroRefusal(input);
-  if (refusal !== "level") return { slot, refusal, requiredLevel: null };
-  return { slot, refusal, requiredLevel: itemLevel(input.item) };
+  if (refusal === "level") return { slot, refusal, requiredLevel: itemLevel(input.item) };
+  return { slot, refusal, requiredLevel: null };
 }

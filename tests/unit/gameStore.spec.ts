@@ -605,13 +605,13 @@ describe("inventaire — slots canoniques du schéma", () => {
     const stacks = [{ itemId: "chapeau_piou_mazoute", quantity: 1 }];
     EQUIPMENT_SLOTS.forEach((slot) => {
       const equipment = { [slot]: "chapeau_piou_mazoute" };
-      expect(inventoryFromSnapshot({ stacks, equipment }, items).equipment).toEqual(equipment);
+      expect(inventoryFromSnapshot({ stacks, equipment }, items, 1).equipment).toEqual(equipment);
     });
   });
 
   it("rejette un slot absent du tuple et un item inconnu", () => {
     const equipment = { gouffre: "chapeau_piou_mazoute", hat: "objet_fantome" };
-    expect(inventoryFromSnapshot({ stacks: [], equipment }, items).equipment).toEqual({});
+    expect(inventoryFromSnapshot({ stacks: [], equipment }, items, 1).equipment).toEqual({});
   });
 });
 

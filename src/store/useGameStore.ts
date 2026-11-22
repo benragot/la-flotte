@@ -302,7 +302,8 @@ function gameFromSave(save: SaveData): GameState | null {
   const classDef = classDefFor(save.hero.classId);
   if (classDef === undefined) return null;
   const hero = heroFromSnapshot(save.hero, classDef);
-  return { hero, inventory: inventoryFromSnapshot(save.inventory, items), flags: { ...save.flags } };
+  const inventory = inventoryFromSnapshot(save.inventory, items, hero.level);
+  return { hero, inventory, flags: { ...save.flags } };
 }
 
 /**

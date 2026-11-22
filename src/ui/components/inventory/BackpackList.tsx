@@ -14,24 +14,32 @@ import {
 } from "./inventoryTheme";
 
 /** Raison lisible du refus, affichée à côté du bouton (badge rouge). */
-function EquipHint({ hint }: { hint: string | null }) {
+function EquipHint({ id, hint }: { id: string; hint: string | null }) {
   if (hint === null) return null;
-  return <span className={TEXT_KO}>{hint}</span>;
+  return <span id={id} className={TEXT_KO}>{hint}</span>;
 }
 
-/** Le bouton reste rendu mais désactivé : l'objet non équipable est signalé, pas masqué. */
-function EquipTrigger({ hint, onClick }: { hint: string | null; onClick: () => void }) {
+interface EquipTriggerProps {
+  hint: string | null;
+  hintId: string;
+  onClick: () => void;
+}
+
+/** `title` n'est pas fiable sur un bouton `disabled` : le badge est lié par `aria-describedby`. */
+function EquipTrigger({ hint, hintId, onClick }: EquipTriggerProps) {
+  const describedBy = hint === null ? undefined : hintId;
   return (
-    <button type="button" className={SMALL_BUTTON} disabled={hint !== null} title={hint ?? undefined} onClick={onClick}>Équiper</button>
+    <button type="button" className={SMALL_BUTTON} disabled={hint !== null} title={hint ?? undefined} aria-describedby={describedBy} onClick={onClick}>Équiper</button>
   );
 }
 
 function EquipButton({ itemId, hint }: { itemId: string; hint: string | null }) {
   const equip = useGameStore((state) => state.equip);
+  const hintId = `equip-hint-${itemId}`;
   return (
     <span className={ROW}>
-      <EquipHint hint={hint} />
-      <EquipTrigger hint={hint} onClick={() => equip({ itemId })} />
+      <EquipHint id={hintId} hint={hint} />
+      <EquipTrigger hint={hint} hintId={hintId} onClick={() => equip({ itemId })} />
     </span>
   );
 }
