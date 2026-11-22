@@ -460,19 +460,19 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 3", () => 
     expect(first.hpEnd).toBeLessThan(first.hpStart);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(2);
-    expect(first.hpEnd).toBe(50);
+    expect(first.hpEnd).toBe(98);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(2);
-    // DEC-03 : 50 PV + ceil(130 × 0,5) = 115 PV à la porte de la salle 2.
-    expect(second.hpStart).toBe(115);
+    // DEC-03 : 98 PV + ceil(130 × 0,5), plafonné au maximum effectif = 130 PV.
+    expect(second.hpStart).toBe(130);
     expect(second.victory).toBe(true);
-    expect(second.hpEnd).toBe(49);
+    expect(second.hpEnd).toBe(22);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(3);
     const third = playRoom(currentRoomNumber(), storage);
     expect(third.roomNumber).toBe(DEATH_ROOM);
-    // DEC-03 : 49 PV + ceil(130 × 0,5) = 114 PV à la porte de la salle 3.
-    expect(third.hpStart).toBe(114);
+    // DEC-03 : 22 PV + ceil(130 × 0,5) = 87 PV à la porte de la salle 3.
+    expect(third.hpStart).toBe(87);
     expect(third.defeat).toBe(true);
     expect(third.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();

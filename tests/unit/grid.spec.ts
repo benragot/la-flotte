@@ -7,7 +7,7 @@ import {
   parseAsciiMap,
 } from "../../src/engine/grid/asciiMap";
 import { hasLineOfSight } from "../../src/engine/grid/lineOfSight";
-import { findPath } from "../../src/engine/grid/pathfinding";
+import { findPath, pathCost } from "../../src/engine/grid/pathfinding";
 import { mapSchema, parseMapsYaml } from "../../src/schemas/mapSchema";
 
 const ISLAND = ["P..#", ".#..", "..M~", "~~~."];
@@ -102,9 +102,10 @@ describe("findPath", () => {
   it("contourne un mur", () => {
     const map = parseAsciiMap(["..#..", "..#..", ".....", "..#..", "..#.."]);
     const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 4, y: 0 }, maxPm: 12 });
-    // Mesure 8 directions : 5 cases (4 pas) — (0,0)→(1,1)→(2,2)→(3,1)→(4,0),
-    // distance de Chebyshev 4, donc 4 PM. C'était 9 cases en 4 directions.
-    expect(path).toHaveLength(5);
+    // Mesure 8 directions : 5 cases — (0,0)→(1,1)→(2,2)→(3,1)→(4,0), soit quatre
+    // pas diagonaux à 2 PM = 8 PM depuis DEC-10 (c'était 4 PM du temps où la
+    // diagonale valait 1 PM). C'était 9 cases en 4 directions.
+    expect({ cells: path?.length, cost: pathCost(path ?? []) }).toEqual({ cells: 5, cost: 8 });
     expect(path?.some((cell) => cell.x === 2 && cell.y === 0)).toBe(false);
   });
 
@@ -117,9 +118,10 @@ describe("findPath", () => {
     const map = parseAsciiMap(OPEN);
     const occupied = [{ x: 0, y: 1 }];
     const path = findPath({ map, from: { x: 0, y: 0 }, to: { x: 0, y: 2 }, maxPm: 6, occupied });
-    // Mesure 8 directions : 3 cases (2 pas) — (0,0)→(1,1)→(0,2). C'était 5
-    // cases en 4 directions ; la case occupée (0,1) reste hors du chemin.
-    expect(path).toHaveLength(3);
+    // Mesure 8 directions : 3 cases — (0,0)→(1,1)→(0,2) : deux pas diagonaux à
+    // 2 PM = 4 PM depuis DEC-10. C'était 5 cases en 4 directions ; la case
+    // occupée (0,1) reste hors du chemin.
+    expect({ cells: path?.length, cost: pathCost(path ?? []) }).toEqual({ cells: 3, cost: 4 });
     expect(path?.some((cell) => cell.x === 0 && cell.y === 1)).toBe(false);
   });
 
@@ -135,21 +137,21 @@ describe("findPath", () => {
   });
 });
 
-describe("findPath — diagonales ouvertes", () => {
-  it("marche en diagonale pour 1 PM", () => {
+describe("findPath — diagonales à 2 PM (DEC-10)", () => {
+  it("paie la diagonale 2 PM : elle ne fait plus gagner de temps", () => {
     const map = parseAsciiMap(OPEN);
-    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 });
+    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 2 });
     expect(path).toEqual([
       { x: 1, y: 1 },
       { x: 2, y: 2 },
     ]);
+    // DEC-10 : une diagonale vaut deux orthogonaux, donc 1 PM ne suffit plus.
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 })).toBeNull();
   });
 
-  it("autorise la diagonale même avec les deux coins bloqués", () => {
+  it("interdit de couper un coin dont les deux orthogonaux sont bloqués", () => {
     const map = parseAsciiMap(["...", ".P#", ".#."]);
-    const path = findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 1 });
-    expect(path).toHaveLength(2);
-    expect(path?.[1]).toEqual({ x: 2, y: 2 });
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 2, y: 2 }, maxPm: 2 })).toBeNull();
   });
 
   it("refuse la diagonale dont la cible est un mur", () => {
@@ -170,7 +172,9 @@ describe("findPath — contours et déterminisme", () => {
 
   it("refuse une diagonale quand le budget de PM est dépassé", () => {
     const map = parseAsciiMap(OPEN);
-    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 3, y: 3 }, maxPm: 1 })).toBeNull();
+    // Deux diagonales = 4 PM depuis DEC-10 : 1 PM ne paie plus ce saut.
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 3, y: 3 }, maxPm: 3 })).toBeNull();
+    expect(findPath({ map, from: { x: 1, y: 1 }, to: { x: 3, y: 3 }, maxPm: 4 })).not.toBeNull();
   });
 
   it("rend le même chemin à chaque appel", () => {

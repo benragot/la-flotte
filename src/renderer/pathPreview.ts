@@ -1,5 +1,5 @@
 import type { AsciiMap, Position } from "../engine/grid";
-import { findPath, getCell, samePosition } from "../engine/grid";
+import { findPath, getCell, pathCost, samePosition } from "../engine/grid";
 import type { CellType } from "../schemas/mapSchema";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
 import { gridToIso } from "./gridProjection";
@@ -18,7 +18,7 @@ export type BlockReason = "occupied" | "wall" | "water" | "range";
 export interface PathPreview {
   reachable: boolean;
   path: Position[];
-  /** Cases réellement consommées (`path.length - 1`), 0 si inatteignable. */
+  /** Coût en PM facturé par `pathCost` (1 orthogonal, 2 diagonal), 0 si inatteignable. */
   cost: number;
   blockedBy: BlockReason | null;
   remainingPm: number;
@@ -61,7 +61,7 @@ function blockedReason(input: PathPreviewInput): BlockReason {
 }
 
 function reached(path: Position[], maxPm: number): PathPreview {
-  const cost = path.length - 1;
+  const cost = pathCost(path);
   return { reachable: true, path, cost, blockedBy: null, remainingPm: maxPm - cost };
 }
 
