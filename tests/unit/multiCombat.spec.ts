@@ -10,6 +10,7 @@ import { parseAsciiMap } from "../../src/engine/grid";
 import {
   activeCombatant,
   advanceTurn,
+  approachCell,
   buildTimeline,
   enemiesAct,
   isCritical,
@@ -127,6 +128,46 @@ function pushedBy(state: BattleState, attack: AttackSpec): BattleState {
 
 const basePushDamage = (attack: AttackSpec): number =>
   computeDamage({ base: attack.base, stat: STATS.strength });
+
+function combatantOf(state: BattleState, id: string): CombatantLike {
+  const found = state.combatants.find((entry) => entry.id === id);
+  if (found === undefined) throw new Error(`${id} absent de la bataille`);
+  return found;
+}
+
+const positionOf = (state: BattleState, id: string) => combatantOf(state, id).position;
+
+/** Paires de vivants qui partagent une case : doit toujours être vide. */
+function sharedCells(state: BattleState): string[] {
+  const living = state.combatants.filter((entry) => entry.hp > 0);
+  return living.flatMap((first, index) =>
+    living
+      .slice(index + 1)
+      .filter((second) => second.position.x === first.position.x)
+      .filter((second) => second.position.y === first.position.y)
+      .map((second) => `${first.id}/${second.id}`),
+  );
+}
+
+function withActive(state: BattleState, id: string): BattleState {
+  return { ...state, activeIndex: state.order.indexOf(id) };
+}
+
+/** Héros en (1,1), cible en (2,1), tiers en (4,1) : la poussée les sépare de 2 cases. */
+function crowdedPushState(): BattleState {
+  const attacker = makeCombatant({ id: "p1", side: "player", initiative: 300, position: { x: 1, y: 1 } });
+  const target = makeCombatant({ id: "e1", side: "enemy", initiative: 60, position: { x: 2, y: 1 } });
+  const third = makeCombatant({ id: "e2", side: "enemy", initiative: 50, position: { x: 4, y: 1 } });
+  return makeState([attacker, target, third], { map: OPEN_MAP });
+}
+
+/** Incohérence héritée : le rat squatte la case du héros, un second monstre attend au loin. */
+function overlapState(): BattleState {
+  const hero = makeCombatant({ id: "p1", side: "player", initiative: 300, position: { x: 2, y: 2 } });
+  const rat = makeCombatant({ id: "e1", side: "enemy", initiative: 60, position: { x: 2, y: 2 } });
+  const other = makeCombatant({ id: "e2", side: "enemy", initiative: 50, position: { x: 6, y: 1 } });
+  return withActive(makeState([hero, rat, other], { map: OPEN_MAP }), "e1");
+}
 
 function enemyTurnFixture(): BattleState {
   const player = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 0, y: 0 } });
@@ -383,6 +424,65 @@ describe("resolveAttack — mort et poussée", () => {
     const next = pushedBy(pushState(OPEN_MAP), attack);
     expect(next.combatants[1]?.position).toEqual({ x: 5, y: 1 });
     expect(next.combatants[1]?.hp).toBe(200 - basePushDamage(attack));
+  });
+});
+
+/**
+ * Softlock « deux combattants sur la même case » : `applyPush` ne connaissait que
+ * le mur et le lanceur, une poussée posait donc la cible sur un tiers. La cible
+ * s'arrête désormais AVANT la case occupée, et les dégâts de collision gardent la
+ * convention existante (`remainingCells = travelled`).
+ */
+describe("applyPush — aucune case partagée", () => {
+  it("pushCells 3 : s'arrête avant un tiers au lieu de le traverser", () => {
+    const attack = attackSpec({ pushCells: 3, roll: 20 });
+    const next = pushedBy(crowdedPushState(), attack);
+    const collision = computePushbackDamage({ casterLevel: LEVEL, roll: 20, remainingCells: 1 });
+    expect(positionOf(next, "e1")).toEqual({ x: 3, y: 1 });
+    expect(positionOf(next, "e2")).toEqual({ x: 4, y: 1 });
+    expect(sharedCells(next)).toEqual([]);
+    expect(combatantOf(next, "e1").hp).toBe(200 - basePushDamage(attack) - collision);
+  });
+
+  it("pushCells 2 : la case d'arrivée ne peut pas être celle du tiers", () => {
+    const next = pushedBy(crowdedPushState(), attackSpec({ pushCells: 2, roll: 20 }));
+    expect(positionOf(next, "e1")).toEqual({ x: 3, y: 1 });
+    expect(sharedCells(next)).toEqual([]);
+  });
+});
+
+describe("invariant — aucune case partagée", () => {
+  it("ni la poussée ni le déplacement ne créent une case partagée", () => {
+    const pushed = pushedBy(crowdedPushState(), attackSpec({ pushCells: 2, roll: 20 }));
+    expect(sharedCells(pushed)).toEqual([]);
+    const strategy = () => ({ kind: "move" as const, to: positionOf(pushed, "e1") });
+    const next = enemiesAct({ state: withActive(pushed, "e2"), rng: () => 0.99, strategy });
+    expect(positionOf(next, "e2")).toEqual({ x: 4, y: 1 });
+    expect(sharedCells(next)).toEqual([]);
+  });
+});
+
+/**
+ * Défense en profondeur : une sauvegarde peut déjà contenir deux vivants sur la
+ * même case. Le moteur ne gèle plus : au tour ennemi, l'ennemi qui squatte rejoint
+ * la case libre la plus proche (BFS, ordre haut/droite/bas/gauche) ; sans case
+ * libre il passe son tour.
+ */
+describe("case partagée héritée", () => {
+  it("le tour ennemi dégage le squatter et la mêlée repart", () => {
+    const state = overlapState();
+    const next = enemiesAct({ state, rng: () => 0.99, strategy: () => null });
+    expect(sharedCells(next)).toEqual([]);
+    expect(next).not.toBe(state);
+    expect(isVictory(next) || isDefeat(next)).toBe(false);
+  });
+
+  it("les autres monstres retrouvent un chemin vers le héros", () => {
+    const state = overlapState();
+    expect(approachCell({ state, enemy: combatantOf(state, "e2"), target: combatantOf(state, "p1"), cells: 3 })).toBeNull();
+    const next = enemiesAct({ state, rng: () => 0.99, strategy: () => null });
+    const options = { state: next, enemy: combatantOf(next, "e2"), target: combatantOf(next, "p1"), cells: 3 };
+    expect(approachCell(options)).not.toBeNull();
   });
 });
 
