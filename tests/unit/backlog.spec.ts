@@ -413,7 +413,7 @@ describe("backlog — inbox", () => {
   });
 });
 
-describe("backlog — garde-fous sur fixtures synthétiques", () => {
+describe("backlog — garde-fous de dépendance sur fixtures", () => {
   it("détecte une phase non blocked dont la dépendance n'est pas done", () => {
     const done = fixtureBacklog([
       fixturePhase("4A", "done", { tasks: [fixtureTask("4A-a", "done", 3)] }),
@@ -440,6 +440,9 @@ describe("backlog — garde-fous sur fixtures synthétiques", () => {
     expect(prematurePhases(gap)).toEqual(["4B:todo"]);
   });
 
+});
+
+describe("backlog — garde-fous de traçabilité sur fixtures", () => {
   it("exige une PR sur les tâches done, approved et needs_review", () => {
     const ok = fixtureBacklog([
       fixturePhase("4A", "done", {
