@@ -39,6 +39,7 @@
    - Invalide : `feat(data): add carte 🗺️` (emoji en fin de ligne),
      `🗺️ feat(data): add carte` (emoji avant le type).
 7. L'apparence de l'interface appartient à `ui-designer` : tout changement visuel passe par lui.
+8. La conception des cartes appartient à `map-designer` : grilles, décor, sorties et zones de spawn passent par lui.
 9. Le rendu du canvas (matériaux, sprites, grille, animations) appartient à `render-designer` : les panneaux sont à `ui-designer`, les cartes à `map-designer`.
 
 ## Qualité
