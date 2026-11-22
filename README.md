@@ -53,21 +53,33 @@ répondant est bien **ce** worktree (le piège du port 4173 codé en dur dans
 - `NN-<étape>.png` : une capture par étape, plus la fin de tour, la fiche Donjons, la salle et le détail d'objet ;
 - `report.json` : par étape `{ step, ok, durationMs, url, notices, boxes, missing }` — `boxes` mesure les zones clés (y compris la fiche Donjons refermée depuis), `missing` liste celles qui n'ont pas été trouvées ;
 - `console.log` : **toutes** les entrées console (`debug`, `info`, `warning`, `error`) avec l'étape courante ;
-- `errors.json` : `pageerror` avec pile complète, `console.error`, requêtes `status ≥ 400` et `requestfailed`, les exceptions explicitement documentées, et les `warnings` (comptés, non bloquants).
+- `errors.json` : `missingZones` (zones clés absentes, bloquantes), `pageerror` avec pile complète, `console.error`, requêtes `status ≥ 400` et `requestfailed`, les exceptions explicitement documentées, et les `warnings` (comptés, non bloquants).
 
 ### Lire `errors.json` et l'exit code
 
 Chaque entrée porte `step` : l'étape où l'erreur est apparue. `pageErrors`,
-`failedRequests` et les étapes `failed` sont toujours bloquants ;
+`failedRequests`, les étapes `failed` et les **zones absentes**
+(`missingZones` : une étape `status: "ok"` dont le journal, le panneau ou le
+canvas n'a pas été mesuré n'a rien prouvé) sont toujours bloquants ;
 `consoleErrors` aussi, sauf les règles listées dans `documentedConsoleErrors`
 (court, justifié, commenté dans `scripts/play/verdict.mjs`). Un `skipped` n'est
 toléré que s'il est déclaré dans `DOCUMENTED_SKIPS` — table vide aujourd'hui,
-donc tout skip fait échouer le run. Les `warnings` sont comptés et résumés mais
-ne bloquent pas : un `console.warn` (contexte WebGL perdu) doit se voir, pas
-arrêter la session.
+donc tout skip fait échouer le run.
 
-- **`0`** : les six étapes se sont jouées, zéro `pageerror`, zéro requête en échec, zéro `console.error` non documenté ;
-- **`1`** : le rapport a trouvé quelque chose (une erreur console, un asset en 404, une étape `failed`, un skip non documenté) ;
+Un `status: "ok"` ne dit que « aucune exception » : chaque étape doit donc
+asserter un **effet** observable. L'étape combat 1v1 le fait sur le compteur
+`Tour N` du bandeau (`Tour 1 → Tour 2`) : un clic « Passer » inerte fait échouer
+l'étape.
+
+Les `warnings` sont comptés et résumés mais ne bloquent pas : un `console.warn`
+(contexte WebGL perdu) doit se voir, pas arrêter la session. Le seuil documenté
+est de **2 warnings par capture** (les captures déclenchent légitimement un
+ReadPixels WebGL) ; au-delà, le résumé ajoute un avertissement `⚠️ non
+bloquant` (readback probablement par frame = coût réel), sans changer l'exit
+code.
+
+- **`0`** : les six étapes se sont jouées, aucune zone absente, zéro `pageerror`, zéro requête en échec, zéro `console.error` non documenté ;
+- **`1`** : le rapport a trouvé quelque chose (une erreur console, un asset en 404, une étape `failed`, une zone absente, un skip non documenté) ;
 - **`2`** : panne du harnais, aucun verdict rendu (port occupé, vite mort, identité de l'app refusée, option invalide).
 
 Le résumé final rappelle les compteurs, les raisons et le chemin des captures.

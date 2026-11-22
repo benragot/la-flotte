@@ -28,6 +28,8 @@ export const DUNGEON_END_TURN_BUTTON = 'button:has-text("Terminer le tour")';
 export const TIMELINE = 'aside[aria-label="Ordre de jeu"]';
 export const COMBAT_JOURNAL = 'section[aria-label="Journal de combat"]';
 export const VITALS = 'section[aria-label="Ressources du héros"]';
+/** Bandeau du HUD : il porte `Carte N · Tour N` et le libellé de phase. */
+export const COMBAT_BANNER = 'header[data-zone="header"]';
 
 export const DUNGEON_ENTRY_SHEET = 'section[aria-label="Donjons disponibles"]';
 export const DUNGEON_REFUSAL = 'p[role="alert"][aria-label="Refus d’entrée"]';
@@ -65,6 +67,7 @@ export const STEP_SELECTORS = {
   },
   "04-combat-1v1": {
     arena: ARENA,
+    banner: COMBAT_BANNER,
     spells: SPELLS,
     turnButton: TURN_BUTTON,
     timeline: TIMELINE,

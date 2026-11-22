@@ -2,7 +2,8 @@
  * Verdict objectif du harnais. Le rapport est un instrument de diagnostic :
  * il ne « corrige » rien, il exige zéro erreur d'exécution **et** un scénario
  * réellement joué — une étape `failed` (sélecteur cassé, timeout) est un faux
- * vert si elle n'apparaît pas dans les raisons.
+ * vert si elle n'apparaît pas dans les raisons. De même, une étape `status:
+ * "ok"` dont une zone clé manque (`missing`) n'a rien prouvé : elle échoue.
  */
 
 /**
@@ -37,10 +38,19 @@ export const DOCUMENTED_SKIPS = {};
 const REASON_LABELS = [
   ["pageErrors", (count) => `${count} pageerror`],
   ["failedSteps", (count) => `${count} étape(s) en échec`],
+  ["missingZones", (count) => `${count} zone(s) absente(s)`],
   ["undocumentedSkips", (count) => `${count} skip(s) non documenté(s)`],
   ["failedRequests", (count) => `${count} requête(s) en échec`],
   ["consoleErrors", (count) => `${count} console.error`],
 ];
+
+/**
+ * Seuil du bruit `console.warn` : deux warnings par capture est le maximum
+ * attendu (les captures déclenchent un ReadPixels WebGL). Au-delà, c'est un
+ * readback par frame — donc un coût réel — mais **pas** une erreur : le seuil
+ * produit un avertissement, jamais un `exit 1`.
+ */
+const WARNING_BUDGET_PER_CAPTURE = 2;
 
 function rulesOf(rules) {
   return rules.map((rule) => ({ pattern: String(rule.pattern), reason: rule.reason }));
@@ -107,8 +117,40 @@ function stepsCounts(steps, documentedSkips) {
   };
 }
 
+function zonesOf(step) {
+  return [...(step.missing ?? [])];
+}
+
+/** Zones clés absentes, par étape : le détail qui explique la raison. */
+function missingOf(steps) {
+  return steps
+    .filter((step) => zonesOf(step).length > 0)
+    .map((step) => ({ step: step.step, zones: zonesOf(step) }));
+}
+
+function missingCount(steps) {
+  return missingOf(steps).reduce((total, entry) => total + entry.zones.length, 0);
+}
+
+/** Chaque étape produit au moins une capture, même quand elle échoue. */
+function shotsOf(step) {
+  return Math.max(1, (step.screenshots ?? []).length);
+}
+
+function captureCount(steps) {
+  return steps.reduce((total, step) => total + shotsOf(step), 0);
+}
+
+/** Non bloquant : borne le bruit, ne juge pas. */
+function warningsAdvisory(counts, steps) {
+  const captures = captureCount(steps);
+  const budget = WARNING_BUDGET_PER_CAPTURE * captures;
+  if (counts.warnings <= budget) return [];
+  return [`${counts.warnings} warnings pour ${captures} capture(s), seuil ${budget} : readback GPU probablement par frame`];
+}
+
 function countsOf(buckets, steps, documentedSkips) {
-  return { ...arrayCounts(buckets), ...stepsCounts(steps, documentedSkips) };
+  return { ...arrayCounts(buckets), ...stepsCounts(steps, documentedSkips), missingZones: missingCount(steps) };
 }
 
 /** Une raison par compteur non nul : le résumé dit toujours POURQUOI il sort en 1. */
@@ -118,9 +160,11 @@ function reasonsOf(counts) {
     .map(([key, label]) => label(counts[key]));
 }
 
-/** exit 0 seulement si tout le scénario s'est joué et qu'aucune erreur n'a été vue. */
+/** exit 0 seulement si le scénario s'est joué, sans erreur **et sans zone absente**. */
 export function verdict(buckets, steps = [], documentedSkips = DOCUMENTED_SKIPS) {
   const counts = countsOf(buckets, steps, documentedSkips);
   const reasons = reasonsOf(counts);
-  return { code: reasons.length === 0 ? 0 : 1, reasons, counts };
+  const missing = missingOf(steps);
+  const advisories = warningsAdvisory(counts, steps);
+  return { code: reasons.length === 0 ? 0 : 1, reasons, counts, missing, advisories };
 }

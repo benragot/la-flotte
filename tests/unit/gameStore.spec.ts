@@ -605,23 +605,27 @@ describe("inventaire — slots canoniques du schéma", () => {
     const stacks = [{ itemId: "chapeau_piou_mazoute", quantity: 1 }];
     EQUIPMENT_SLOTS.forEach((slot) => {
       const equipment = { [slot]: "chapeau_piou_mazoute" };
-      expect(inventoryFromSnapshot({ stacks, equipment }, items).equipment).toEqual(equipment);
+      expect(inventoryFromSnapshot({ stacks, equipment }, items, 1).equipment).toEqual(equipment);
     });
   });
 
   it("rejette un slot absent du tuple et un item inconnu", () => {
     const equipment = { gouffre: "chapeau_piou_mazoute", hat: "objet_fantome" };
-    expect(inventoryFromSnapshot({ stacks: [], equipment }, items).equipment).toEqual({});
+    expect(inventoryFromSnapshot({ stacks: [], equipment }, items, 1).equipment).toEqual({});
   });
 });
 
 describe("arène — câblage du héros persistant", () => {
   it("construit le joueur depuis le héros équipé, pas depuis le héros de démo", () => {
-    const hero = createHeroInStore("Anselme");
+    createHeroInStore("Anselme");
+    // Les pièces de panoplie sont niveau 2 : le héros doit l'être aussi pour les porter.
+    useGameStore.getState().creditCombatRewards(levelTwoRewards);
     SET_PIECES.forEach((itemId) => {
       addToBag(itemId, 1);
       useGameStore.getState().equip({ itemId });
     });
+    const hero = useGameStore.getState().hero;
+    if (hero === null) throw new Error("héros attendu après création");
     useCombatStore.getState().startDemoCombat();
     const player = useCombatStore.getState().combat?.player;
     if (player === undefined) throw new Error("combat de démonstration attendu");
