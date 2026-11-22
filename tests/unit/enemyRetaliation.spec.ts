@@ -195,13 +195,21 @@ function resetBattleStore(): void {
   useCombatStore.getState().startDungeonRoom({ room: roomOne() });
 }
 
+/** Le héros démarre sur une case `P` : les monstres doivent d'abord approcher. */
+function playRoundsUntil(predicate: (state: BattleState) => boolean, maxRounds = 20, rng: Rng = fixedRng(0)): BattleState {
+  for (let round = 0; round < maxRounds; round += 1) {
+    if (predicate(battleOrThrow())) break;
+    useCombatStore.getState().playEnemyTurns({ rng });
+  }
+  return battleOrThrow();
+}
+
 describe("useCombatStore.playEnemyTurns — riposte bout en bout", () => {
   beforeEach(resetBattleStore);
 
   it("baisse les PV du héros, journalise les coups et rend la main au héros", () => {
     const before = heroOf(battleOrThrow()).hp;
-    useCombatStore.getState().playEnemyTurns({ rng: fixedRng(0) });
-    const state = battleOrThrow();
+    const state = playRoundsUntil((current) => heroOf(current).hp < before || isDefeat(current));
     const after = heroOf(state).hp;
     expect(after).toBeLessThan(before);
     expect(state.log.filter((line) => line.includes("frappe")).length).toBeGreaterThan(0);
@@ -211,8 +219,7 @@ describe("useCombatStore.playEnemyTurns — riposte bout en bout", () => {
 
   it("garde chaque coup dans les bornes de dégâts des sorts de la salle", () => {
     const before = heroOf(battleOrThrow()).hp;
-    useCombatStore.getState().playEnemyTurns({ rng: fixedRng(0) });
-    const state = battleOrThrow();
+    const state = playRoundsUntil((current) => heroOf(current).hp < before || isDefeat(current));
     const damages = state.log.flatMap((line) => {
       const match = /(\d+) dégâts/.exec(line);
       return match === null ? [] : [Number(match[1])];
@@ -234,9 +241,9 @@ describe("useCombatStore.playEnemyTurns — mort du héros", () => {
     const current = battleOrThrow();
     const wounded = { ...current, combatants: current.combatants.map((entry) => (entry.side === "player" ? { ...entry, hp: 5 } : entry)) };
     useCombatStore.setState({ battle: wounded });
-    useCombatStore.getState().playEnemyTurns({ rng: fixedRng(0.999_999) });
-    expect(isDefeat(battleOrThrow())).toBe(true);
-    expect(battleOrThrow().log).toContain(DEFEAT_LOG);
+    const state = playRoundsUntil((next) => isDefeat(next), 20, fixedRng(0.999_999));
+    expect(isDefeat(state)).toBe(true);
+    expect(state.log).toContain(DEFEAT_LOG);
     expect(heroOrThrow().hp).toBeGreaterThan(0);
     const storage = new MemoryStorage();
     useGameStore.getState().saveGame(storage);

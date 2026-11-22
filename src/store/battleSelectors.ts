@@ -1,14 +1,26 @@
 import {
   activeCombatant,
   advanceTurn,
+  approachCell,
+  castBlock,
   enemiesAct,
   findCombatant,
   isDefeat,
   isVictory,
+  rangeOf,
   resolveAttack,
   targetsOf,
 } from "../engine/multiCombat";
-import type { AttackSpec, BattleState, CombatantLike, EnemyAction, EnemyStrategy, Rng } from "../engine/multiCombat";
+import type {
+  AttackSpec,
+  BattleState,
+  CastBlock,
+  CombatantLike,
+  EnemyAction,
+  EnemyStrategy,
+  RangeSpec,
+  Rng,
+} from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
 
 export const VICTORY_LOG = "Victoire : la salle est nettoyée.";
@@ -16,6 +28,20 @@ export const DEFEAT_LOG = "Défaite : le héros tombe dans la salle.";
 export const STALL_LOG = "La mêlée s'enlise : la main revient au joueur.";
 /** Borne dure : aucune boucle de tours ennemis ne peut dépasser ce nombre d'itérations. */
 export const MAX_ENEMY_STEPS = 32;
+/** Raisons de refus géométrique, telles que le joueur les lit dans le journal. */
+export const CAST_BLOCK_LABEL: Record<CastBlock, string> = {
+  "out-of-range": "hors portée",
+  "no-los": "ligne de vue bloquée",
+};
+
+interface CombatantPair {
+  attacker: CombatantLike;
+  target: CombatantLike;
+}
+
+interface GeometricPair extends CombatantPair {
+  range: RangeSpec;
+}
 
 export interface BattleAttackInput {
   state: BattleState;
@@ -67,11 +93,54 @@ export function rollSpellBase(spell: SpellDef, rng: Rng): number {
 
 /**
  * Pont `SpellDef` → `AttackSpec` pour le 1vN. `baseCrit: 0` : `data/spells.yaml`
- * ne porte pas encore de taux de critique, on n'en invente pas.
+ * ne porte pas encore de taux de critique, on n'en invente pas. La géométrie
+ * (portée, LoS) est ajoutée par `spellCastSpec`, jamais ici : les attaques nues
+ * et les tests historiques gardent exactement cette forme.
  */
 export function spellAttackSpec(spell: SpellDef, roll: number): AttackSpec {
   const element = spell.element ?? "neutral";
   return { base: roll, element, baseCrit: 0, apCost: spell.apCost, pushCells: spell.pushCells ?? 0 };
+}
+
+/** Même spec, portée YAML comprise : le moteur refuse alors hors bornes et sans LoS. */
+export function spellCastSpec(spell: SpellDef, roll: number): AttackSpec {
+  const range = { minRange: spell.minRange, maxRange: spell.maxRange, requiresLos: spell.requiresLos };
+  return { ...spellAttackSpec(spell, roll), ...range };
+}
+
+function pairFor(state: BattleState, targetId: string): CombatantPair | null {
+  const attacker = activeCombatant(state);
+  const target = findCombatant(state, targetId);
+  if (attacker === null) return null;
+  return target === undefined ? null : { attacker, target };
+}
+
+/** Le refus géométrique n'est journalisé que pour un coup par ailleurs valide. */
+function isStrikable(pair: CombatantPair, attack: AttackSpec): boolean {
+  const opposed = pair.attacker.side !== pair.target.side && pair.target.hp > 0;
+  return opposed && attack.apCost <= pair.attacker.ap;
+}
+
+function canMeasure(state: BattleState, range: RangeSpec | undefined): range is RangeSpec {
+  return range !== undefined && state.map !== undefined;
+}
+
+function checkableCast(state: BattleState, targetId: string, attack: AttackSpec): GeometricPair | null {
+  const pair = pairFor(state, targetId);
+  const range = rangeOf(attack);
+  if (pair === null || !canMeasure(state, range)) return null;
+  return isStrikable(pair, attack) ? { ...pair, range } : null;
+}
+
+/**
+ * Raison lisible du refus (portée/LoS), `null` si le coup reste possible.
+ * Réservée à l'affichage : le moteur, lui, refuse silencieusement par identité.
+ */
+export function castRefusal(state: BattleState, targetId: string, attack: AttackSpec): string | null {
+  const pair = checkableCast(state, targetId, attack);
+  if (pair === null) return null;
+  const block = castBlock({ state, attacker: pair.attacker, target: pair.target, range: pair.range });
+  return block === null ? null : `${pair.attacker.name} : ${CAST_BLOCK_LABEL[block]}.`;
 }
 
 export interface SpellStrategyInput {
@@ -102,23 +171,59 @@ function cheapest(spells: readonly SpellDef[]): SpellDef | null {
   }, null);
 }
 
-function usableSpell(enemy: CombatantLike, spells: readonly SpellDef[]): SpellDef | null {
+/** Repli sans carte : le moins cher des sorts payables, sans notion de portée. */
+function cheapestAffordable(enemy: CombatantLike, spells: readonly SpellDef[]): SpellDef | null {
   return cheapest(affordable(damageSpells(spells), enemy.ap));
 }
 
+/** Sorts payables dont la portée contient la distance réelle et dont la LoS passe. */
+function castableSpells(context: StrategyContext, target: CombatantLike): SpellDef[] {
+  const affordableSpells = affordable(damageSpells(context.spells), context.enemy.ap);
+  return affordableSpells.filter((spell) => spellReaches(context, target, spell));
+}
+
+function spellReaches(context: StrategyContext, target: CombatantLike, spell: SpellDef): boolean {
+  const range = { min: spell.minRange, max: spell.maxRange, requiresLos: spell.requiresLos };
+  const check = { state: context.state, attacker: context.enemy, target, range };
+  return castBlock(check) === null;
+}
+
 /** Cible le héros (unique camp adverse en 1vN), jamais une cible morte. */
-function attackOn(context: StrategyContext, spell: SpellDef): EnemyAction | null {
-  const target = targetsOf(context.state, context.enemy.side)[0];
-  if (target === undefined) return null;
+function attackOn(context: StrategyContext, target: CombatantLike, spell: SpellDef): EnemyAction {
   const base = rollSpellBase(spell, context.rng);
-  const attack = { ...spellAttackSpec(spell, base), spellName: spell.name };
+  const attack = { ...spellCastSpec(spell, base), spellName: spell.name };
   return { kind: "attack", targetId: target.id, attack };
 }
 
+/** Sans carte, aucune géométrie : comportement historique (le moins cher, sans portée). */
+function noMapAction(context: StrategyContext, target: CombatantLike): EnemyAction | null {
+  const spell = cheapestAffordable(context.enemy, context.spells);
+  return spell === null ? null : attackOn(context, target, spell);
+}
+
+function blockedReason(context: StrategyContext): string {
+  return context.enemy.mp > 0 ? "chemin bloqué" : "PM épuisés";
+}
+
+/** Aucun sort à portée : on approche d'au plus les PM restants, sinon on journalise. */
+function approachAction(context: StrategyContext, target: CombatantLike): EnemyAction {
+  const options = { state: context.state, enemy: context.enemy, target, cells: context.enemy.mp };
+  const cell = approachCell(options);
+  if (cell !== null) return { kind: "move", to: cell };
+  return { kind: "blocked", reason: blockedReason(context) };
+}
+
+function mappedAction(context: StrategyContext, target: CombatantLike): EnemyAction {
+  const spell = cheapest(castableSpells(context, target));
+  if (spell !== null) return attackOn(context, target, spell);
+  return approachAction(context, target);
+}
+
 function strategyAction(context: StrategyContext): EnemyAction | null {
-  const spell = usableSpell(context.enemy, context.spells);
-  if (spell === null) return null;
-  return attackOn(context, spell);
+  const target = targetsOf(context.state, context.enemy.side)[0];
+  if (target === undefined) return null;
+  if (context.state.map === undefined) return noMapAction(context, target);
+  return mappedAction(context, target);
 }
 
 function strategyForEnemy(input: SpellStrategyInput, state: BattleState, enemyId: string): EnemyAction | null {
@@ -129,8 +234,12 @@ function strategyForEnemy(input: SpellStrategyInput, state: BattleState, enemyId
 
 /**
  * Stratégie ennemie pilotée par les sorts du monstre : elle emprunte **le même
- * chemin** que le héros (`rollSpellBase` + `spellAttackSpec`), donc aucune
- * valeur de dégâts n'est écrite à la main dans `src/`.
+ * chemin** que le héros (`rollSpellBase` + `spellCastSpec`), donc aucune valeur
+ * de dégâts n'est écrite à la main dans `src/`. **Distance-aware** : seuls les
+ * sorts dont la portée contient la distance et dont la LoS passe sont joués ;
+ * sinon le monstre **approche** avec ses PM (`kind: "move"`) et attaque dès
+ * qu'il est à portée, dans le même tour. Sans carte, aucune géométrie : le
+ * moins cher des sorts payables, comme avant.
  */
 export function spellStrategy(input: SpellStrategyInput): EnemyStrategy {
   return (state, enemyId) => strategyForEnemy(input, state, enemyId);

@@ -5,10 +5,12 @@ export type {
   CombatStats,
   EnemyAction,
   EnemyStrategy,
+  RangeSpec,
   Rng,
   Side,
 } from "./types";
 export {
+  appendLog,
   findCombatant,
   isActive,
   isAlive,
@@ -23,9 +25,13 @@ export { isDefeat, isVictory, targetsOf } from "./outcome";
 export { advanceTurn } from "./turn";
 export { resolveAttack } from "./attack";
 export type { AttackInput } from "./attack";
+export { castBlock, rangeOf } from "./range";
+export type { CastBlock, RangeCheck } from "./range";
 export { isCritical } from "./crit";
 export type { CriticalInput } from "./crit";
 export { resolveTackle } from "./tackle";
 export type { TackleInput, TackleResult } from "./tackle";
 export { enemiesAct } from "./enemies";
 export type { EnemiesActInput } from "./enemies";
+export { approachCell } from "./approach";
+export type { ApproachInput } from "./approach";

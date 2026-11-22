@@ -1,5 +1,6 @@
 import { findCombatant, isActive, isAlive } from "./combatants";
 import { rollsCritical } from "./crit";
+import { castBlock, rangeOf } from "./range";
 import { resolveHit, spendAp } from "./strike";
 import type { DamageContext } from "./strike";
 import type { AttackSpec, BattleState, CombatantLike, Rng } from "./types";
@@ -35,6 +36,14 @@ function canStrike(input: AttackInput, attacker: CombatantLike, target: Combatan
   return isTargetStrikable(input, attacker, target);
 }
 
+/** Géométrie : ignorée si l'attaque ne déclare pas de portée ou si la carte manque. */
+function reachable(input: AttackInput, pair: [CombatantLike, CombatantLike]): boolean {
+  const range = rangeOf(input.attack);
+  if (range === undefined || input.state.map === undefined) return true;
+  const check = { state: input.state, attacker: pair[0], target: pair[1], range };
+  return castBlock(check) === null;
+}
+
 function hitContext(input: AttackInput, attacker: CombatantLike, target: CombatantLike): DamageContext {
   const critical = rollsCritical(attacker, input.attack, input.rng);
   const critDamagePct = input.attack.critDamagePct ?? 0;
@@ -43,16 +52,19 @@ function hitContext(input: AttackInput, attacker: CombatantLike, target: Combata
 
 /**
  * Résout un coup 1vN. Refus par identité (état renvoyé tel quel) : auto-ciblage,
- * attaquant non actif ou mort, cible morte, PA insuffisants.
+ * attaquant non actif ou mort, cible morte, PA insuffisants, **portée hors
+ * bornes** et **ligne de vue bloquée**.
  *
- * Aucune vérification de **portée ni de ligne de vue** : c'est la charge de
- * l'appelant (équivalent de `getCastableCells` en 1v1). Dégâts via
- * `computeDamage` (résistances de la cible), poussée via `applyPush` +
- * `computePushbackDamage`.
+ * La géométrie n'est vérifiée que si l'attaque porte `minRange`/`maxRange` et
+ * que `state.map` existe : une attaque nue (`battleAttack`) ou un combat sans
+ * carte garde le comportement historique. Un refus ne consomme ni PA ni aléa ;
+ * c'est l'appelant qui choisit de journaliser la raison (`castRefusal`).
+ * Dégâts via `computeDamage`, poussée via `applyPush` + `computePushbackDamage`.
  */
 export function resolveAttack(input: AttackInput): BattleState {
   const pair = participants(input);
   if (pair === null || !canStrike(input, pair[0], pair[1])) return input.state;
+  if (!reachable(input, pair)) return input.state;
   const context = hitContext(input, pair[0], pair[1]);
   const paid = spendAp(input.state, pair[0], input.attack.apCost);
   return resolveHit({ ...context, state: paid });

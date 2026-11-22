@@ -266,16 +266,12 @@ describe("tokenView — bornes de PV", () => {
   });
 });
 
-describe("exploration — héros, groupes et chemin A*", () => {
+describe("exploration — héros, groupes et carte virtuelle", () => {
   const map = demoMap();
   const exploration = {
     playerPos: { x: 2, y: 3 },
     groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
     map,
-    path: [
-      { x: 2, y: 4 },
-      { x: 3, y: 4 },
-    ],
   };
   const bbox = { playerPos: exploration.playerPos, groups: exploration.groups };
 
@@ -284,12 +280,10 @@ describe("exploration — héros, groupes et chemin A*", () => {
     expect(explorationMapSize({ playerPos: { x: 0, y: 0 }, groups: [] })).toEqual({ width: 1, height: 1 });
   });
 
-  it("surligne le chemin fourni avec un losange par étape", () => {
+  it("ne produit aucune tuile de chemin : le déplacement se joue au clic", () => {
     const view = buildExplorationViewModel({ exploration, viewport: VIEWPORT });
-    expect(view.path).toHaveLength(2);
-    const origin = sceneOrigin(MAP_SIZE, VIEWPORT);
-    expect(view.path[0]?.center).toEqual(gridToIso({ x: 2, y: 4, origin }));
-    expect(view.path[0]?.points).toHaveLength(8);
+    expect(view.path).toHaveLength(0);
+    expect(view.lastAction).toBeNull();
   });
 });
 
@@ -310,16 +304,10 @@ describe("exploration — décor et origine stables", () => {
     expect(highlighted).toHaveLength(0);
   });
 
-  it("garde l'origine figée sur la carte quand le chemin de survol change", () => {
-    const near = buildExplorationViewModel({
-      exploration: { ...exploration, path: [{ x: 2, y: 4 }] },
-      viewport: VIEWPORT,
-    });
-    const far = buildExplorationViewModel({
-      exploration: { ...exploration, path: [{ x: 10, y: 3 }] },
-      viewport: VIEWPORT,
-    });
-    expect(near.tokens[0]?.center).toEqual(far.tokens[0]?.center);
+  it("garde l'origine figée sur la carte quels que soient les jetons", () => {
+    const near = buildExplorationViewModel({ exploration, viewport: VIEWPORT });
+    const shifted = { ...exploration, playerPos: { x: 10, y: 3 }, groups: [] };
+    const far = buildExplorationViewModel({ exploration: shifted, viewport: VIEWPORT });
     expect(near.scene.tiles[0]?.center).toEqual(far.scene.tiles[0]?.center);
   });
 });
@@ -354,23 +342,25 @@ describe("exploration — sprite du héros", () => {
     groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
   };
 
-  it("rend le héros avec sa feuille et laisse les groupes géométriques", () => {
+  it("rend le héros avec sa feuille et le groupe avec la sienne", () => {
     const view = buildExplorationViewModel({
-      exploration: { ...exploration, heroSpriteId: "ecaflip" },
+      exploration: { ...exploration, heroSpriteId: "ecaflip", groups: [{ ...exploration.groups[0]!, spriteId: "piou_mazoute" }] },
       viewport: VIEWPORT,
     });
     expect(view.tokens[0]?.spriteId).toBe("ecaflip");
     expect(view.tokens[0]?.animation).toBe("idle");
-    expect(view.tokens[1]?.spriteId).toBeNull();
+    expect(view.tokens[1]?.spriteId).toBe("piou_mazoute");
     expect(view.lastAction).toBeNull();
   });
 
-  it("anime le héros en walk quand un chemin est tracé", () => {
+  it("garde le cercle de repli pour un groupe sans feuille", () => {
     const view = buildExplorationViewModel({
-      exploration: { ...exploration, heroSpriteId: "ecaflip", path: [{ x: 2, y: 4 }] },
+      exploration: { ...exploration, heroSpriteId: null },
       viewport: VIEWPORT,
     });
-    expect(view.tokens[0]?.animation).toBe("walk");
+    expect(view.tokens[0]?.spriteId).toBeNull();
+    expect(view.tokens[1]?.spriteId).toBeNull();
+    expect(view.tokens[0]?.animationKey).toBe("static");
   });
 });
 
