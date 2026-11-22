@@ -1,5 +1,5 @@
-import type { BattleState, CombatantLike, Side } from "../engine/multiCombat";
-import { activeCombatant, targetsOf } from "../engine/multiCombat";
+import type { BattleState, CastBlock, CombatantLike, RangeSpec, Side } from "../engine/multiCombat";
+import { activeCombatant, castBlock, targetsOf } from "../engine/multiCombat";
 import { hpRatio } from "./tokens";
 
 /** Vue d'un combattant 1vN : tout vient de `BattleState`, aucune valeur en dur. */
@@ -18,8 +18,10 @@ export interface BattleCombatantView {
   color: string;
   /** C'est son tour dans la timeline. */
   isActive: boolean;
-  /** Cible valide pour le camp de l'actif (`targetsOf`). */
+  /** Cible valide : camp opposé, vivante, à portée et avec ligne de vue. */
   isTargetable: boolean;
+  /** Raison géométrique du refus, `null` quand la cible est attaquable. */
+  blockedReason: CastBlock | null;
 }
 
 const HUE_COUNT = 360;
@@ -48,29 +50,71 @@ export function colorForId(id: string): string {
   return `hsl(${hue} ${saturation}% ${lightness}%)`;
 }
 
-/** Cibles valides : celles du camp opposé au combattant actif. */
-function targetIds(state: BattleState): ReadonlySet<string> {
-  const active = activeCombatant(state);
+interface ViewContext {
+  state: BattleState;
+  active: CombatantLike | null;
+  targets: ReadonlySet<string>;
+}
+
+interface CastGeometry {
+  attacker: CombatantLike;
+  range: RangeSpec;
+}
+
+interface ViewFlags {
+  isActive: boolean;
+  isTargetable: boolean;
+  blockedReason: CastBlock | null;
+}
+
+/** Cibles du camp opposé : la vivacité seule, la géométrie vient ensuite. */
+function targetIds(state: BattleState, active: CombatantLike | null): ReadonlySet<string> {
   if (active === null) return new Set();
   return new Set(targetsOf(state, active.side).map((combatant) => combatant.id));
 }
 
-function combatantView(
-  combatant: CombatantLike,
-  activeId: string | null,
-  targets: ReadonlySet<string>,
-): BattleCombatantView {
+/** Portée du héros, exploitable seulement si la grille est connue. */
+function heroRange(state: BattleState): RangeSpec | null {
+  if (state.map === undefined) return null;
+  return state.castRange ?? null;
+}
+
+/**
+ * Géométrie applicable : seul le camp du héros porte `castRange`, les ripostes
+ * ennemies n'ont pas de portée déclarée (aucun déplacement d'approche en 5C).
+ */
+function castGeometry(context: ViewContext): CastGeometry | null {
+  const { active } = context;
+  const range = heroRange(context.state);
+  if (active === null || active.side !== "player" || range === null) return null;
+  return { attacker: active, range };
+}
+
+function blockFor(context: ViewContext, combatant: CombatantLike): CastBlock | null {
+  const geometry = castGeometry(context);
+  if (geometry === null || !context.targets.has(combatant.id)) return null;
+  return castBlock({ state: context.state, attacker: geometry.attacker, target: combatant, range: geometry.range });
+}
+
+function flagsFor(context: ViewContext, combatant: CombatantLike): ViewFlags {
+  const isActive = context.active?.id === combatant.id;
+  const blockedReason = blockFor(context, combatant);
+  const isTargetable = context.targets.has(combatant.id) && blockedReason === null;
+  return { isActive, isTargetable, blockedReason };
+}
+
+function combatantView(combatant: CombatantLike, context: ViewContext): BattleCombatantView {
   const { id, name, side, level, hp, maxHp, ap, mp } = combatant;
-  const flags = { isActive: activeId === id, isTargetable: targets.has(id) };
+  const flags = flagsFor(context, combatant);
   return { id, name, side, level, hp, maxHp, ap, mp, hpRatio: hpRatio(hp, maxHp), color: colorForId(id), ...flags };
 }
 
 /** Vue du 1vN dans l'ordre de `state.combatants` : héros puis les N ennemis. */
 export function battleViewModel(state: BattleState | null): BattleCombatantView[] {
   if (state === null) return [];
-  const activeId = activeCombatant(state)?.id ?? null;
-  const targets = targetIds(state);
-  return state.combatants.map((combatant) => combatantView(combatant, activeId, targets));
+  const active = activeCombatant(state);
+  const context = { state, active, targets: targetIds(state, active) };
+  return state.combatants.map((combatant) => combatantView(combatant, context));
 }
 
 /** Portillon du panneau : `battle` seul décide, le 1v1 (`combat`) n'est jamais concerné. */

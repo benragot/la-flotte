@@ -37,6 +37,13 @@ export interface CombatantLike {
   initiative: number;
 }
 
+/** Portée d'un sort : bornes incluses, en cases (distance de `combatLoop/cells`). */
+export interface RangeSpec {
+  min: number;
+  max: number;
+  requiresLos: boolean;
+}
+
 export interface BattleState {
   turn: number;
   /** Ids triés par initiative décroissante (départage déterministe par id). */
@@ -44,8 +51,18 @@ export interface BattleState {
   activeIndex: number;
   combatants: CombatantLike[];
   log: string[];
-  /** Carte optionnelle : seule la poussée contre un mur en dépend. */
+  /**
+   * Grille de la salle. Sans elle, aucune contrainte géométrique n'est
+   * appliquée : le comportement 5C-c (portée infinie, murs traversés) reste
+   * celui des appels qui ne fournissent pas de carte.
+   */
   map?: AsciiMap;
+  /**
+   * Portée du sort de dégâts du héros, dérivée de `data/spells.yaml` par
+   * l'appelant : le panneau n'a pas accès aux sorts et ne peut donc pas la
+   * recalculer. Absente = aucune cible n'est marquée hors portée.
+   */
+  castRange?: RangeSpec;
 }
 
 export interface AttackSpec {
@@ -62,11 +79,22 @@ export interface AttackSpec {
   apCost: number;
   /** Nom du sort, pour un journal lisible ; absent = attaque nue. */
   spellName?: string;
+  /**
+   * Portée de l'attaque. Absente (`minRange`/`maxRange` non fournis) = aucune
+   * contrainte : une attaque nue ou une grille absente garde le comportement
+   * historique.
+   */
+  minRange?: number;
+  maxRange?: number;
+  /** Ligne de vue exigée (défaut `false`). */
+  requiresLos?: boolean;
 }
 
 export type EnemyAction =
   | { kind: "attack"; targetId: string; attack: AttackSpec }
-  | { kind: "move"; to: Position };
+  | { kind: "move"; to: Position }
+  /** Ni approche ni attaque possible : la raison part au journal, pas de no-op muet. */
+  | { kind: "blocked"; reason: string };
 
 /** Stratégie injectée : rend une action ou `null` pour finir le tour. */
 export type EnemyStrategy = (state: BattleState, enemyId: string) => EnemyAction | null;

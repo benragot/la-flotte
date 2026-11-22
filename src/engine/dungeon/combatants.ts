@@ -1,10 +1,11 @@
 import type { MonsterDef } from "../../schemas/monsterSchema";
 import type { CombatantState } from "../combatLoop/types";
 import { computeInitiative } from "../combat/initiative";
-import type { Position } from "../grid";
+import type { AsciiMap, Position } from "../grid";
 import type { CombatantLike, Side } from "../multiCombat";
+import { placeBattle } from "./placement";
 
-/** Placement par défaut : le placement réel des N ennemis est du ressort de la Vague 5C. */
+/** Placement par défaut : sans carte, tout le monde reste à l'origine (5C-c). */
 const ORIGIN: Position = { x: 0, y: 0 };
 
 /** Tout ce qu'un `CombatantLike` porte hors `side`, `position` et `initiative`. */
@@ -25,11 +26,20 @@ export interface BattleSetupInput {
   hero: { combatant: CombatantLike };
   monsters: readonly { monster: MonsterDef; count: number }[];
   startingPositions?: { hero: Position; monsters: Position[] };
+  /** Grille de la salle : active le placement déterministe (5C-d). */
+  map?: AsciiMap;
 }
 
 export interface BattleSetup {
   combatants: CombatantLike[];
   playerId: string;
+  /** Grille retenue pour le placement, absente si l'appelant n'en fournit pas. */
+  map?: AsciiMap;
+}
+
+interface BattlePositions {
+  hero: Position;
+  monsters: Position[];
 }
 
 function copyResistances(resistances: CombatantLike["resistances"]): CombatantLike["resistances"] {
@@ -73,15 +83,34 @@ function expandGroup(group: BattleGroupInput): MonsterDef[] {
   return Array.from({ length: group.count }, () => group.monster);
 }
 
-function enemyCombatants(input: BattleSetupInput): CombatantLike[] {
-  const positions = input.startingPositions?.monsters ?? [];
+function monsterCount(groups: BattleSetupInput["monsters"]): number {
+  return groups.reduce((total, group) => total + group.count, 0);
+}
+
+/** Positions explicites d'abord, sinon placement déterministe sur la carte. */
+function battlePositions(input: BattleSetupInput): BattlePositions | null {
+  if (input.startingPositions !== undefined) return input.startingPositions;
+  if (input.map === undefined) return null;
+  return placeBattle(input.map, monsterCount(input.monsters));
+}
+
+function enemyCombatants(input: BattleSetupInput, positions: readonly Position[]): CombatantLike[] {
   const spawn = (monster: MonsterDef, index: number) => monsterCombatant({ monster, index, position: positions[index] });
   return input.monsters.flatMap(expandGroup).map(spawn);
 }
 
+function heroPosition(input: BattleSetupInput, positions: BattlePositions | null): Position {
+  return positions === null ? input.hero.combatant.position : positions.hero;
+}
+
+function monsterPositions(positions: BattlePositions | null): Position[] {
+  return positions === null ? [] : positions.monsters;
+}
+
 /** Compose un combat de salle : un héros + `count` copies de chaque monstre. */
 export function setupDungeonBattle(input: BattleSetupInput): BattleSetup {
-  const { combatant } = input.hero;
-  const hero = withSide(combatant, "player", input.startingPositions?.hero ?? combatant.position);
-  return { combatants: [hero, ...enemyCombatants(input)], playerId: hero.id };
+  const positions = battlePositions(input);
+  const hero = withSide(input.hero.combatant, "player", heroPosition(input, positions));
+  const enemies = enemyCombatants(input, monsterPositions(positions));
+  return { combatants: [hero, ...enemies], playerId: hero.id, map: input.map };
 }
