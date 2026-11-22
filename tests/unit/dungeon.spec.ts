@@ -1,9 +1,11 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
 import type { InventoryState, ItemStack } from "../../src/engine/inventory";
 import {
   attemptRoom,
-  canRestBetweenRooms,
   completeRoom,
   currentRoom,
   dungeonProgress,
@@ -11,7 +13,7 @@ import {
   isDungeonComplete,
   roomMonsters,
 } from "../../src/engine/dungeon";
-import type { DungeonRunState } from "../../src/engine/dungeon";
+import type { DungeonRoom, DungeonRunState } from "../../src/engine/dungeon";
 
 const KEY_ID = "cle_donjon_test";
 const JUNK_ID = "caillou_de_cale";
@@ -74,11 +76,38 @@ function runAt(roomIndex: number): DungeonRunState {
   };
 }
 
-const ROOM_1_IDS = ["monstre_a", "monstre_a", "monstre_b"];const ROOM_2_IDS = ["monstre_c", "monstre_c", "monstre_c"];
+const ROOM_1_IDS = ["monstre_a", "monstre_a", "monstre_b"];
+const ROOM_2_IDS = ["monstre_c", "monstre_c", "monstre_c"];
 const BOSS_IDS = ["monstre_boss"];
 
 function attempt(run: DungeonRunState, defeatedMonsterIds: readonly string[]) {
   return attemptRoom({ run, dungeon: DUNGEON, defeatedMonsterIds });
+}
+
+const REAL_DUNGEON_ID = "fer_donjon_casse_vis_sans_fin";
+const DATA_FILE = join(process.cwd(), "data", "dungeons.yaml");
+const REAL = parseDungeonsYaml(readFileSync(DATA_FILE, "utf8")).find(
+  (dungeon) => dungeon.id === REAL_DUNGEON_ID,
+)!;
+
+function enterReal(): DungeonRunState {
+  const inventory = makeInventory({ itemId: REAL.keyItemId, quantity: 1 });
+  return enterDungeon({ dungeon: REAL, inventory }).run!;
+}
+
+function realAttempt(run: DungeonRunState, defeatedMonsterIds: readonly string[]) {
+  return attemptRoom({ run, dungeon: REAL, defeatedMonsterIds });
+}
+
+function exactIds(room: DungeonRoom): string[] {
+  return room.monsters.flatMap((group) =>
+    Array.from({ length: group.count }, () => group.monsterId),
+  );
+}
+
+function atRealRoom(roomIndex: number): DungeonRunState {
+  const clearedRoomNumbers = Array.from({ length: roomIndex }, (_, index) => index + 1);
+  return { ...enterReal(), roomIndex, clearedRoomNumbers };
 }
 
 describe("enterDungeon", () => {
@@ -190,11 +219,86 @@ describe("attemptRoom en séquence", () => {
   });
 });
 
-describe("canRestBetweenRooms", () => {
-  it("renvoie toujours false : aucune régénération gratuite en donjon", () => {
-    expect(canRestBetweenRooms(freshRun())).toBe(false);
-    expect(canRestBetweenRooms(runAt(1))).toBe(false);
-    expect(canRestBetweenRooms(runAt(3))).toBe(false);
+describe("bornes du run", () => {
+  it("rend null et roomNumber 0 avant le début (roomIndex -1)", () => {
+    const before = { ...freshRun(), roomIndex: -1 };
+    expect(currentRoom(before, DUNGEON)).toBeNull();
+    expect(dungeonProgress(before, DUNGEON)).toEqual({
+      roomNumber: 0,
+      cleared: 0,
+      total: 3,
+      isBossRoom: false,
+    });
+  });
+});
+
+describe("fer_donjon_casse_vis_sans_fin — entrée et salles 1 à 3", () => {
+  it("démarre à la salle 1 et débite la clé réelle", () => {
+    const inventory = makeInventory({ itemId: REAL.keyItemId, quantity: 1 });
+    const result = enterDungeon({ dungeon: REAL, inventory });
+    expect(result.run?.roomIndex).toBe(0);
+    expect(result.run?.keysConsumed).toBe(1);
+    expect(result.inventory.stacks.some((stack) => stack.itemId === REAL.keyItemId)).toBe(false);
+  });
+
+  it("joue les salles 1 à 3 avec les comptes exacts et avance le curseur", () => {
+    let run = enterReal();
+    for (const index of [0, 1, 2]) {
+      const room = REAL.rooms[index]!;
+      const expected = {
+        roomNumber: room.roomNumber,
+        cleared: index,
+        total: 4,
+        isBossRoom: false,
+      };
+      expect(dungeonProgress(run, REAL)).toEqual(expected);
+      const step = realAttempt(run, exactIds(room));
+      expect(step.cleared).toBe(true);
+      run = step.run;
+    }
+    expect(dungeonProgress(run, REAL)).toEqual({
+      roomNumber: 4,
+      cleared: 3,
+      total: 4,
+      isBossRoom: true,
+    });
+  });
+});
+
+describe("fer_donjon_casse_vis_sans_fin — boss room et complétion", () => {
+  it("refuse la boss room si un seul des quatre groupes est vaincu", () => {
+    const run = atRealRoom(3);
+    const [first] = REAL.rooms[3]!.monsters;
+    const partial = Array.from({ length: first!.count }, () => first!.monsterId);
+    const result = realAttempt(run, partial);
+    expect(result.cleared).toBe(false);
+    expect(result.run).toBe(run);
+  });
+
+  it("valide la boss room quand les quatre groupes y sont", () => {
+    const result = realAttempt(atRealRoom(3), exactIds(REAL.rooms[3]!));
+    expect(result.cleared).toBe(true);
+    expect(isDungeonComplete(result.run, REAL)).toBe(true);
+  });
+
+  it("ne complète qu'après la quatrième salle", () => {
+    let run = enterReal();
+    const flags: boolean[] = [];
+    for (const index of [0, 1, 2, 3]) {
+      flags.push(isDungeonComplete(run, REAL));
+      run = realAttempt(run, exactIds(REAL.rooms[index]!)).run;
+    }
+    expect(flags).toEqual([false, false, false, false]);
+    expect(isDungeonComplete(run, REAL)).toBe(true);
+  });
+});
+
+describe("attemptRoom sur un run terminé", () => {
+  it("rend la même référence et ne valide rien", () => {
+    const done = runAt(3);
+    const result = attempt(done, BOSS_IDS);
+    expect(result.run).toBe(done);
+    expect(result.cleared).toBe(false);
   });
 });
 
