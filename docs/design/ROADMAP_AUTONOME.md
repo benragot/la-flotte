@@ -47,6 +47,7 @@ Spec de référence : `docs/design/specs/ui-dofus-retro.md`
 ## Analyse d'écart Dofus 1.29 contre le code réel
 Spec de référence : `docs/design/specs/dofus-1.29-gaps.md`
 - Les quinze systèmes sont tranchés avec un `fichier:ligne` : six `partiel`, neuf `absent`, aucun `contredit` ; les mécaniques déjà fidèles (dégâts, CC, LoS, initiative) ne figurent pas dans cette liste de candidats.
+- `7A-arena-background` trace les coins du viewport comme un choix géométrique (fond d'arène), pas comme un bug.
 - Ce qui est écarté pour de bon (multi-joueurs, guildes, hôtels de vente, mode marchand, zaaps, montures, alignement, quêtes de PNJ, forgemagie, enclos, encyclopédie) est justifié ligne par ligne dans la spec : ne plus le rouvrir comme un oubli.
 ## Vague 6 — Fruits d'Écho, sorts avancés (AoE/buffs), Archipel
 Spec de référence : `docs/design/specs/effects-engine.md`
@@ -65,5 +66,6 @@ Spec de référence : `docs/design/specs/effects-engine.md`
 - [ ] 6D-boss-carapace — bouclier cassé sur `#` puis −2 PA
 ## Vague 7 — Polish, contenu, packaging Mac
 - [ ] 7A renderer-polish · ux-audio
+- [ ] 7A-arena-background — fond d'arène derrière le losange (coins du viewport hors carte, §12.2)
 - [ ] 7B content-archipelago
 - [ ] 7C polish-wiring-and-tauri

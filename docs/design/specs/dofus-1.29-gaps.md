@@ -33,12 +33,12 @@ points litigieux (chrono de tour, ordre des invocations).
 
 | # | Système | Verdict | Preuve (fichier:ligne) | Ce qui manque |
 |---|---|---|---|---|
-| 1 | Pods (poids transporté, capacité liée à Force) | absent | `src/schemas/itemSchema.ts:43-48` (champs communs : id, nom, description, prix — aucun poids) et `src/engine/inventory/stack.ts:35-40` (`addItem` sans plafond) ; recherche : pods, poids, capacity dans `src/` et `data/` — `weight` n'existe que comme poids de tirage (`src/schemas/spawnSchema.ts:18`) | champ de poids sur l'objet, capacité dérivée de la Force, refus de ramasser et affichage sac (dette D77) |
-| 2 | Métiers de récolte (outil équipé, ressource ramassable) | absent | `src/engine/exploration/move.ts:26-28` (le seul clic d'exploration déplace) et aucun métier dans `src/schemas/` ; recherche : harvest, métier, récolte, tool, outil, job dans `src/` et `data/` — seules occurrences décoratives (`data/items.yaml:212`, `data/recipes.yaml:49`) | notion de métier, outil équipé, ressource récoltable et action de récolte (dette D78) |
+| 1 | Pods (poids transporté, capacité liée à Force) | absent | `src/schemas/itemSchema.ts:43-48` (champs communs : id, nom, description, prix — aucun poids) et `src/engine/inventory/stack.ts:35-40` (`addItem` sans plafond) ; recherche : pods, poids, capacity dans `src/` et `data/` — `weight` n'existe que comme poids de tirage (`src/schemas/spawnSchema.ts:18`) | champ de poids sur l'objet, capacité dérivée de la Force, refus de ramasser et affichage sac (dette D78) |
+| 2 | Métiers de récolte (outil équipé, ressource ramassable) | absent | `src/engine/exploration/move.ts:26-28` (le seul clic d'exploration déplace) et aucun métier dans `src/schemas/` ; recherche : harvest, métier, récolte, tool, outil, job dans `src/` et `data/` — seules occurrences décoratives (`data/items.yaml:212`, `data/recipes.yaml:49`) | notion de métier, outil équipé, ressource récoltable et action de récolte (dette D79) |
 | 3 | Sorties de map (bords, marqueurs, transition) | absent | `src/schemas/mapSchema.ts:9-15` (`mapSchema` = id, name, width, height, grid — aucune sortie) et `src/store/useCombatStore.ts:152-156` (`startMapId` renvoie `maps[0].id`, aucune action de changement de carte) | marqueurs de sortie en données, transition et graphe d'îles ; aujourd'hui une seule carte 12×12 (tâche 5D-exits) |
-| 4 | Attaque au corps-à-corps (dégâts de l'arme) | absent | `data/items.yaml:139-142` (aveu des données : `weaponType`, `damageLines`, `apCost`, `critRate` « n'existent ni dans `itemSchema` ni dans le moteur ») ; `src/store/useCombatStore.ts:342-345` et `361-366` (l'attaque du joueur = **premier sort de dégâts** de sa classe) ; `src/engine/inventory/types.ts:38-47` (`ItemLike` sans `level` ni dégâts) | ligne de dégâts, CC, PA d'arme et attaque de base : une arme n'est qu'un bloc de stats (dette D81) |
-| 5 | Médaillon central (cœur, anneau de temps, XP circulaire) | absent | recherche : médaillon, medallion, orb, anneau, circulaire dans `src/` — aucun composant ; `src/ui/components/CombatHud.tsx:59-68` (HUD = bandeau, initiative, dock, overlay) et `src/ui/components/TimelineCard.tsx:23-33` (mini barre de PV, pas d'anneau) | médaillon, anneau de tour et cercle d'XP ; aucun XP n'est même affiché (dette D79) |
-| 6 | Canaux de chat (vert/combat, noir/commun, bleu/privé, violet/guilde) | partiel | `src/engine/combatLoop/log.ts:3-5` (un seul tableau `log`) et `src/ui/components/CombatLogPanel.tsx:9-14` + `src/ui/hudHelpers.ts:137` (trois teintes par locuteur, aucun canal) | modèle de canal, filtres et teinte par élément ; privé et guilde sont sans objet mono-joueur, la teinte d'élément est la tâche 5C-log-channel (dette D80) |
+| 4 | Attaque au corps-à-corps (dégâts de l'arme) | absent | `data/items.yaml:139-142` (aveu des données : `weaponType`, `damageLines`, `apCost`, `critRate` « n'existent ni dans `itemSchema` ni dans le moteur ») ; `src/store/useCombatStore.ts:342-345` et `361-366` (l'attaque du joueur = **premier sort de dégâts** de sa classe) ; `src/engine/inventory/types.ts:38-47` (`ItemLike` sans `level` ni dégâts) | ligne de dégâts, CC, PA d'arme et attaque de base : une arme n'est qu'un bloc de stats (dette D82) |
+| 5 | Médaillon central (cœur, anneau de temps, XP circulaire) | absent | recherche : médaillon, medallion, orb, anneau, circulaire dans `src/` — aucun composant ; `src/ui/components/CombatHud.tsx:59-68` (HUD = bandeau, initiative, dock, overlay) et `src/ui/components/TimelineCard.tsx:23-33` (mini barre de PV, pas d'anneau) | médaillon, anneau de tour et cercle d'XP ; aucun XP n'est même affiché (dette D80) |
+| 6 | Canaux de chat (vert/combat, noir/commun, bleu/privé, violet/guilde) | partiel | `src/engine/combatLoop/log.ts:3-5` (un seul tableau `log`) et `src/ui/components/CombatLogPanel.tsx:9-14` + `src/ui/hudHelpers.ts:137` (trois teintes par locuteur, aucun canal) | modèle de canal, filtres et teinte par élément ; privé et guilde sont sans objet mono-joueur, la teinte d'élément est la tâche 5C-log-channel (dette D81) |
 | 7 | Carte du monde et coordonnées | absent | `src/ui/shortcuts.ts:63-67` (aucun `KeyM` : seuls `Escape`, `Espace` et `Digit1..9`) et `src/ui/components/TopBanner.tsx:22` (affiche `Carte {mapId}`, un identifiant, pas des coordonnées) | carte du monde, coordonnées de case et nom de zone ; l'écran de combat n'affiche que l'id de la carte |
 | 8 | Conditions d'équipement (niveau, caractéristiques requises) | absent | `src/engine/inventory/equipment.ts:20-23` et `84-91` (`equipItem` ne vérifie que la catégorie et le slot) ; `src/engine/inventory/types.ts:38-47` (`ItemLike` n'a pas `level` alors que `src/schemas/itemSchema.ts:67` le déclare) | vérification du niveau et des prérequis, refus explicite : équiper un objet niveau 18 au niveau 1 passe (tâche 5C-equip-requirements) |
 | 9 | Tacle (Agilité, empêche de quitter un contact) | partiel | `src/engine/multiCombat/tackle.ts:110-116` (`resolveTackle`) et `src/engine/combat/tackle.ts:19-21` (formule) existent, mais **aucun appelant de production** : `src/engine/combatLoop/move.ts:19-26` déplace sans tacle, seul `tests/unit/multiCombat.spec.ts:496` l'exerce | l'appel dans le chemin de déplacement (dette D70, tâche 5C-hero-move) ; simplifications assumées : tacleur unique, perte de PA au lieu de PM |
@@ -46,7 +46,7 @@ points litigieux (chrono de tour, ordre des invocations).
 | 11 | Timeline par initiative | partiel | `src/engine/multiCombat/timeline.ts:24-27` (tri **décroissant**, départage par id) utilisé par `src/store/useCombatStore.ts:331` ; `src/engine/combat/initiative.ts:20-22` (somme des 4 stats × ratio de PV) | départage aléatoire 1.29 (remplacé par l'id, assumé pour le déterminisme) ; invocations après l'invocateur : **sans objet**, aucune invocation n'existe |
 | 12 | Écran de création accessible | absent | `src/ui/appRouting.ts:5-7` (`hasHero` ⇒ arène, sans retour) ; `src/store/useGameStore.ts:302` expose `resetGame` mais aucun fichier de `src/ui/` ne l'appelle | bouton « nouveau personnage », purge du slot et retour à `HeroCreation` (tâche 5D-new-game) |
 | 13 | Envoûtements / buffs / debuffs | partiel | modélisés par `src/schemas/spellSchema.ts:13-31` (types, `value`, `duration`) et 18 sorts de héros `kind: other` dans `data/spells.yaml` ; **non appliqués** : `src/engine/combatLoop/cast.ts:153-161` refuse par identité tout `kind: other` | moteur d'effets (vague 6, `docs/design/specs/effects-engine.md`) : durée, PA/PM, armure, soin, zone, invocation |
-| 14 | Compte à rebours de tour | absent | recherche : timer, countdown, chrono, deadline, setInterval, Date.now dans `src/` — **zéro occurrence** ; `src/engine/combatLoop/turn.ts:26` ne compte que des tours | limite de temps par tour, anneau de temps et auto-pass ; aucun état d'horloge dans `BattleState` (dette D79) |
+| 14 | Compte à rebours de tour | absent | recherche : timer, countdown, chrono, deadline, setInterval, Date.now dans `src/` — **zéro occurrence** ; `src/engine/combatLoop/turn.ts:26` ne compte que des tours | limite de temps par tour, anneau de temps et auto-pass ; aucun état d'horloge dans `BattleState` (dette D80) |
 | 15 | Sorts de classe et attaques d'arme | partiel | `data/spells.yaml` (44 sorts : 36 héros, 8 monstres) et `src/store/useCombatStore.ts:342-345` (seul le **premier** sort de dégâts de la classe est exposé en 1vN) contre `src/engine/combatLoop/cast.ts:153-161` (18 sorts de héros `kind: other` inertes) | 20 sorts castables sur 44 (16 dégâts + 2 téléportations + 8 monstres) : 18 sorts de héros inutilisables, et un seul accessible dans l'UI 1vN |
 
 > Les écarts de fidélité de la poussée (ligne 10) sont détaillés dans la fiche
@@ -95,20 +95,22 @@ jamais réapparaître comme des « oublis » dans une prochaine analyse.
 ## 4. Ce que cette analyse ouvre dans le backlog (v20)
 
 Trois tâches seulement, celles qui débloquent le joueur ou corrigent une promesse
-fausse :
+fausse — plus une tâche de rendu issue des limites géométriques :
 
 | Tâche | Phase | Pourquoi maintenant |
 |---|---|---|
 | `5C-equip-requirements` | 5C | corrige une promesse du schéma : `level` existe et n'est jamais lu |
 | `5D-new-game` | 5D | le joueur est enfermé dans son personnage, `resetGame` n'a aucun appelant |
 | `5D-exits` | 5D | une seule carte, aucun moyen d'aller ailleurs : l'archipel est injouable |
+| `7A-arena-background` | 7A | les coins du viewport restent hors du losange (voir `ui-dofus-retro.md` §12.2) : fond d'arène, jamais de cases factices |
 
-Cinq dettes, avec leur sévérité et leur cible :
+Six dettes, avec leur sévérité et leur cible :
 
 | Dette | Sévérité | Cible | Motif |
 |---|---|---|---|
-| D77 | medium | 5B | pods : mécanique 1.29 structurante, mais l'inventaire actuel tient en quelques piles |
-| D78 | low | 7B | métiers de récolte : contenu de map, donc vague « archipel » |
-| D79 | medium | 5C-turn-rail | médaillon et compte à rebours : le médaillon est le support du tour, la frise le remplace aujourd'hui |
-| D80 | low | 5C-log-channel | canaux : écart assumé (journal unique), seule la teinte d'élément reste à faire |
-| D81 | high | 6B-cast-riders | dégâts d'arme : sans attaque de base, une arme n'est qu'un bloc de stats |
+| D77 | high | external (`owner: user`) | harnais Playwright : port 4173 codé en dur + `reuseExistingServer` en local ⇒ les tests UI peuvent valider le code d'un autre worktree (fichier hors périmètre agent) |
+| D78 | medium | 5B | pods : mécanique 1.29 structurante, mais l'inventaire actuel tient en quelques piles |
+| D79 | low | 7B | métiers de récolte : contenu de map, donc vague « archipel » |
+| D80 | medium | 5C-turn-rail | médaillon et compte à rebours : le médaillon est le support du tour, la frise le remplace aujourd'hui |
+| D81 | low | 5C-log-channel | canaux : écart assumé (journal unique), seule la teinte d'élément reste à faire |
+| D82 | high | 6B-cast-riders | dégâts d'arme : sans attaque de base, une arme n'est qu'un bloc de stats |

@@ -575,6 +575,13 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             depends_on: [3.5A-iso-grid]
+          - id: 7A-arena-background
+            title: "Fond d'arène derrière le losange : les quatre coins du viewport restent hors carte"
+            status: todo
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: "docs/design/specs/ui-dofus-retro.md §12.2 et docs/design/specs/dofus-1.29-gaps.md ligne 7 — une carte iso est un losange : couvrir un rectangle exige un facteur ≥ ×4, `arenaScale` plafonne donc par `cornerSafeScale` et laisse les quatre coins hors carte (98-100 % de la dimension contraignante, 73 % en 4:3). C'est la raison du fond sombre de Dofus, pas un défaut à corriger : dessiner un fond d'arène, jamais des cases factices — elles seraient cliquables et casseraient le pathfinding."
       - id: 7B
         title: Contenu archipel final
         status: todo
@@ -790,26 +797,32 @@ debts:
     target: 5C-turn-rail
     notes: "src/ui/shortcuts.ts (`END_TURN_CODES = [\"Space\", \"Spacebar\"]`, `resolveShortcut` n'a aucun cas pour `Ctrl+` ni pour `End`) ; garder `Espace`, ajouter `Ctrl+Fin` ; la frise de tour de 5C-turn-rail porte le bouton de fin de tour, donc le raccourci clavier"
   - id: D77
+    title: "`playwright.config.ts` : port 4173 codé en dur + `reuseExistingServer` en local ⇒ les tests UI peuvent valider le code d'un autre worktree"
+    severity: high
+    target: external
+    owner: user
+    notes: "fichier playwright.config.ts (hors périmètre d'écriture des agents, d'où `external`) : `BASE_URL = \"http://localhost:4173\"` et `webServer { command: \"npm run dev -- --port 4173 --strictPort\", useExistingServer… }` avec `reuseExistingServer: !CI`. En local, si un autre worktree tient déjà le port 4173, Playwright réutilise silencieusement CE serveur : `npm run test:ui` valide le code d'une autre branche et l'échec de `--strictPort` est masqué. C'est le seul garde-fou UI du projet, donc le faux vert porte. En CI le réglage est correct (`CI` défini ⇒ `reuseExistingServer: false`, runner neuf) et src/renderer/** n'est pas concerné : le défaut est dans le harnais, pas dans le rendu. Correctif attendu : port dérivé d'une variable d'environnement ET `reuseExistingServer: false` — le port seul ne suffit pas, deux worktrees peuvent encore se collisionner sur un port libre tiré au hasard."
+  - id: D78
     title: "Aucun pod : `itemSchema` ne porte aucun poids et `addItem` n'a aucun plafond, la capacité liée à la Force de 1.29 n'existe pas"
     severity: medium
     target: 5B
     notes: "docs/design/specs/dofus-1.29-gaps.md ligne 1 ; src/schemas/itemSchema.ts:43-48 (`itemCoreFields` sans poids) et src/engine/inventory/stack.ts:35-40 (`addItem` sans plafond) ; recherche pods, poids, capacity dans src/ et data/ : `weight` n'existe que comme poids de tirage (src/schemas/spawnSchema.ts:18). Cible 5B (inventaire et économie) : aucune tâche ne porte encore les pods, la sévérité reste medium tant que l'inventaire tient en quelques piles."
-  - id: D78
+  - id: D79
     title: "Aucun métier de récolte : ni outil équipé, ni ressource ramassable, ni action de récolte"
     severity: low
     target: 7B
     notes: "docs/design/specs/dofus-1.29-gaps.md ligne 2 ; src/engine/exploration/move.ts:26-28 (le seul clic d'exploration déplace) ; recherche harvest, métier, récolte, tool, outil, job dans src/ et data/ : seules occurrences décoratives (data/items.yaml:212, data/recipes.yaml:49). Cible 7B (content-archipelago) : la récolte est du contenu de map, sans effet sur la boucle combat actuelle, d'où low."
-  - id: D79
+  - id: D80
     title: "Ni médaillon central, ni anneau de tour, ni compte à rebours : `turn.ts` ne compte que des tours, aucune horloge n'existe dans src/"
     severity: medium
     target: 5C-turn-rail
     notes: "docs/design/specs/dofus-1.29-gaps.md lignes 5 et 14 ; recherche médaillon, medallion, orb, anneau, circulaire, timer, countdown, chrono, setInterval, Date.now dans src/ : aucune occurrence ; src/ui/components/CombatHud.tsx:59-68 (HUD en quatre bandes) et src/engine/combatLoop/turn.ts:26 (tours sans limite de temps). 5C-turn-rail remplace la timeline verticale : c'est le support naturel de l'anneau de tour ; l'XP circulaire relève de 5D-hud-bar, d'où medium et non high."
-  - id: D80
+  - id: D81
     title: "Le journal n'a aucun canal : une seule liste, trois teintes par locuteur, les canaux vert/commun/privé/guilde de 1.29 n'existent pas (écart assumé)"
     severity: low
     target: 5C-log-channel
     notes: "docs/design/specs/dofus-1.29-gaps.md ligne 6 ; src/engine/combatLoop/log.ts:3-5 (un seul tableau `log`) et src/ui/components/CombatLogPanel.tsx:9-14 avec src/ui/hudHelpers.ts:137 (`player`, `enemy`, `system`). Écart assumé et déjà écrit : docs/design/specs/ui-dofus-retro.md:35 documente « le journal = le chat, canal vert » ; privé et guilde sont sans objet mono-joueur. 5C-log-channel ne porte que la teinte d'élément, cette dette garde la trace du modèle de canal non fait — low car l'écart est voulu."
-  - id: D81
+  - id: D82
     title: "Une arme n'inflige aucun dégât : `damageLines`, `apCost` et le CC d'arme sont absents du schéma, il n'existe aucune attaque de base"
     severity: high
     target: 6B-cast-riders
