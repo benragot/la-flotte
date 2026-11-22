@@ -68,11 +68,10 @@ describe("buildPathPreview — chemin", () => {
   it("contourne le mur quand un détour reste dans les PM", () => {
     const preview = buildPathPreview({ map: MAP, from: { x: 6, y: 0 }, to: { x: 6, y: 4 }, maxPm: 8 });
     expect(preview.reachable).toBe(true);
-    // Mesure 8 directions : coût 4 — (6,0)→(7,1)→(7,2)→(7,3)→(6,4). Le détour
-    // glisse en diagonale le long du mur, donc il coûte la distance de Chebyshev
-    // de la ligne droite (4) et non 5 comme en 4 directions. Il ne traverse
-    // jamais la colonne du mur.
-    expect(preview.cost).toBe(4);
+    // Mesure 8 directions, facture DEC-10 : 6 PM — (6,0)→(7,1) diagonal 2,
+    // (7,1)→(7,2) 1, (7,2)→(7,3) 1, (7,3)→(6,4) diagonal 2. L'aperçu facturait
+    // `path.length - 1` = 4 PM, donc sous-facturait la diagonale.
+    expect(preview.cost).toBe(6);
     expect(preview.path.some((cell) => cell.x === 6 && cell.y > 0 && cell.y < 4)).toBe(false);
   });
 });
@@ -123,9 +122,10 @@ describe("buildPathPreview — départ invalide", () => {
   it("chemin long : les PM restants ne deviennent jamais négatifs", () => {
     const preview = buildPathPreview({ map: MAP, from: { x: 0, y: 0 }, to: { x: 11, y: 11 }, maxPm: 22 });
     expect(preview.reachable).toBe(true);
-    // Mesure 8 directions : 13 PM (11 diagonales + le contournement de la
-    // flaque x=4..6,y=5), au lieu de 22 en 4 directions.
-    expect(preview.cost).toBe(13);
+    // Mesure 8 directions, facture DEC-10 : 22 PM — onze pas à 2 PM, le chemin
+    // glisse en diagonale pour contourner la flaque x=4..6,y=5. L'aperçu
+    // facturait `path.length - 1` = 13 PM, donc sous-facturait chaque diagonale.
+    expect(preview.cost).toBe(22);
     expect(preview.remainingPm).toBeGreaterThanOrEqual(0);
   });
 });

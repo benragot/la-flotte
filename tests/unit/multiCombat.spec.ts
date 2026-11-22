@@ -610,7 +610,10 @@ describe("enemiesAct — bornes", () => {
   it("borne un tour ennemi à 10 actions", () => {
     const base = enemyTurnFixture();
     // Chaque pas consomme des PM (5C-e) : on en donne assez pour éprouver la borne.
-    const state = { ...base, combatants: base.combatants.map((entry) => (entry.side === "enemy" ? { ...entry, mp: 40 } : entry)) };
+    // La carte est requise pour facturer (DEC-10) : sans elle, aucun déplacement.
+    const map = parseAsciiMap(Array.from({ length: 12 }, () => "............"));
+    const combatants = base.combatants.map((entry) => (entry.side === "enemy" ? { ...entry, mp: 40 } : entry));
+    const state = { ...base, combatants, map };
     let calls = 0;
     const strategy = (current: BattleState): EnemyAction => {
       calls += 1;
@@ -661,21 +664,28 @@ function approachStrategy(current: BattleState, enemyId: string): EnemyAction {
   return cell === null ? { kind: "blocked", reason: "chemin absent" } : { kind: "move", to: cell };
 }
 
-describe("enemiesAct — facturation du pas diagonal", () => {
-  it("paie le chemin (3 pas), pas l'écart orthogonal (manhattan 5)", () => {
-    const next = enemiesAct({ state: diagonalFixture(3), rng: () => 0.99, strategy: JUMP_DIAGONAL });
+/**
+ * DEC-10 : le saut (5,5) → (3,2) coûte 5 PM — [(5,5)→(5,4) = 1, puis deux
+ * diagonales à 2] — et non 3 PM de Chebyshev comme avant. Ces tests décrivaient
+ * l'ancien coût « diagonale = 1 PM ».
+ */
+describe("enemiesAct — facturation du chemin (DEC-10)", () => {
+  it("paie le chemin (5 PM), pas l'écart de Chebyshev (3)", () => {
+    const next = enemiesAct({ state: diagonalFixture(5), rng: () => 0.99, strategy: JUMP_DIAGONAL });
     expect(positionOf(next, "e1")).toEqual({ x: 3, y: 2 });
     expect(combatantOf(next, "e1").mp).toBe(0);
-    expect(next.log).toContain("Piou se déplace de 3 case(s).");
+    expect(next.log).toContain("Piou se déplace de 5 case(s).");
     expect(next.log.some((line) => line.includes("ne peut pas atteindre"))).toBe(false);
   });
 
-  it("refuse le même saut avec 2 PM et ne consomme rien", () => {
+  it("2 PM ne paient pas le saut : arrêt sur la dernière case payée", () => {
     const state = diagonalFixture(2);
     const next = enemiesAct({ state, rng: () => 0.99, strategy: JUMP_DIAGONAL });
-    expect(next).toBe(state);
-    expect(positionOf(next, "e1")).toEqual({ x: 5, y: 5 });
-    expect(combatantOf(next, "e1").mp).toBe(2);
+    // Le premier pas orthogonal coûte 1 PM, le suivant 2 PM : l'ennemi s'arrête
+    // donc en (5,4) avec 1 PM, jamais sur la cible et sans reculer.
+    expect(positionOf(next, "e1")).toEqual({ x: 5, y: 4 });
+    expect(combatantOf(next, "e1").mp).toBe(1);
+    expect(next.log).toContain("Piou se déplace de 1 case(s).");
   });
 
   it("journalise le refus quand la stratégie renonce", () => {
@@ -694,6 +704,19 @@ describe("enemiesAct — facturation du pas diagonal", () => {
       const next = enemiesAct({ state: turn, rng: () => 0.99, strategy: approachStrategy });
       expect(positionOf(next, enemy.id), `${enemy.id} figé`).not.toEqual(enemy.position);
     }
+  });
+});
+
+/**
+ * DEC-10 / audit #108 (point 5) : la carte est **requise pour facturer**. Sans
+ * elle, aucun chemin réel n'existe, donc aucun déplacement n'est facturé — le
+ * repli Chebyshev a été supprimé plutôt que laissé joignable.
+ */
+describe("enemiesAct — carte requise pour facturer", () => {
+  it("sans carte, aucun déplacement : la facture exige un chemin réel (DEC-10)", () => {
+    const state = enemyTurnFixture();
+    const move = (): EnemyAction => ({ kind: "move", to: { x: 8, y: 9 } });
+    expect(enemiesAct({ state, rng: () => 0.99, strategy: move })).toBe(state);
   });
 });
 

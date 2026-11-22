@@ -9,7 +9,8 @@ import { battleTrails, combatTrails, nextBatch, trailsBetween } from "../../src/
  * Le rendu **ne recalcule plus** le chemin : le moteur le rend, le store le
  * transporte. Là où le moteur ne le rend pas encore (`combatLoop/move.ts`,
  * `multiCombat/approach.ts`), le store le redéduit avec **le même** `findPath` —
- * huit directions, diagonale à 1 pas, cases occupées exclues.
+ * huit directions, 1 PM orthogonal et 2 PM diagonal (DEC-10), cases occupées
+ * exclues.
  */
 const MAP = parseAsciiMap(["...", "...", "..."]);
 

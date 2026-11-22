@@ -12,7 +12,7 @@ import { endPlayerTurn } from "../../src/engine/combatLoop/turn";
 import type { CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import { isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
-import { findPath } from "../../src/engine/grid/pathfinding";
+import { findPath, pathCost } from "../../src/engine/grid/pathfinding";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -52,12 +52,12 @@ const buildState = (rows: readonly string[] = []): CombatState =>
     spells,
   });
 
+/**
+ * DEC-10 : 1 PM orthogonal, 2 PM diagonal ⇒ toute case atteinte a un Manhattan
+ * inférieur ou égal aux PM restants (borne plus forte que l'ancienne Chebyshev).
+ */
 const distance = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-
-/** Huit directions : un PM couvre aussi un pas diagonal, la borne est donc Chebyshev. */
-const chebyshev = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 
 const hasCell = (cells: readonly { x: number; y: number }[], x: number, y: number) =>
   cells.some((cell) => cell.x === x && cell.y === y);
@@ -104,7 +104,7 @@ describe("getReachableCells", () => {
       expect(isWalkableCell(state.map, cell)).toBe(true);
       expect(samePosition(cell, state.player.position)).toBe(false);
       expect(samePosition(cell, state.enemy.position)).toBe(false);
-      expect(chebyshev(cell, state.player.position)).toBeLessThanOrEqual(3);
+      expect(distance(cell, state.player.position)).toBeLessThanOrEqual(3);
     });
   });
 
@@ -182,8 +182,9 @@ describe("getCastableCells : sorts de dégâts", () => {
 
   it("garde la portée en losange, jamais en carré", () => {
     const state = buildState(["P...", "....", "..M.", "...."]);
-    const walk = findPath({ map: state.map, from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, maxPm: 2 });
-    expect(walk).toHaveLength(3);
+    // DEC-10 : (0,0) → (2,2) coûte 4 PM (deux pas diagonaux à 2 PM).
+    const walk = findPath({ map: state.map, from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, maxPm: 4 });
+    expect(pathCost(walk ?? [])).toBe(4);
     expect(getCastableCells(state, "pression")).toEqual([]);
   });
 

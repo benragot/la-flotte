@@ -1,12 +1,11 @@
 import type { PathInput } from "../grid";
-import { findPath, samePosition } from "../grid";
+import { findPath, manhattanDistance, samePosition } from "../grid";
 import type { AsciiMap, Position } from "../grid";
 import { getActiveCombatant, getOpponent } from "./active";
 import type { CombatState } from "./types";
 
-export function manhattan(a: Position, b: Position): number {
-  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-}
+/** Distance de Manhattan, définie une seule fois dans `grid` (heuristique A*). */
+export const manhattan = manhattanDistance;
 
 export function allPositions(map: AsciiMap): Position[] {
   const cells: Position[] = [];
@@ -21,7 +20,7 @@ function isReachableCell(options: Omit<PathInput, "to">, cell: Position): boolea
   return findPath({ ...options, to: cell }) !== null;
 }
 
-/** Cases atteignables par l'entité active avec ses PM restants. */
+/** Cases atteignables par l'entité active avec ses PM restants (coût DEC-10). */
 export function getReachableCells(state: CombatState): Position[] {
   const mover = getActiveCombatant(state);
   const opponent = getOpponent(state);
