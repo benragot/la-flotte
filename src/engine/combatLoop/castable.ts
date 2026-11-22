@@ -44,6 +44,7 @@ function isValidCell(input: CastCellInput): boolean {
 export function getCastableCells(state: CombatState, spellId: string): Position[] {
   const spell = state.spellsById[spellId];
   if (spell === undefined) return [];
+  if (spell.kind === "other") return [];
   const caster = getActiveCombatant(state);
   const opponent = getOpponent(state);
   const base = { state, spell, caster, opponent };

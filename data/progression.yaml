@@ -1,29 +1,59 @@
-# Progression Dofus 1.29 (Vague 1).
-# Les niveaux 1 à 20 sont obligatoires ; les ancres 1, 2, 3, 4, 5, 10 et 20
-# sont les valeurs de référence. Intercalation provisoire, à recaler sur les
-# tables 1.29 en Vague 2.
+# Progression Dofus 1.29 — table d'XP authentique (129Dofus Wiki « Level »,
+# recoupée Teckium + Jeuxonline). Aucune interpolation, aucune formule :
+# c'est une table de jeu. Les 50 paliers couvrent les niveaux 1 à 50.
 xpThresholds:
   - { level: 1, xpRequired: 0 }
   - { level: 2, xpRequired: 110 }
-  - { level: 3, xpRequired: 440 }
-  - { level: 4, xpRequired: 1100 }
-  - { level: 5, xpRequired: 2600 }
-  - { level: 6, xpRequired: 5500 }
-  - { level: 7, xpRequired: 9000 }
-  - { level: 8, xpRequired: 13500 }
-  - { level: 9, xpRequired: 19500 }
-  - { level: 10, xpRequired: 27500 }
-  - { level: 11, xpRequired: 38000 }
-  - { level: 12, xpRequired: 52000 }
-  - { level: 13, xpRequired: 70000 }
-  - { level: 14, xpRequired: 92000 }
-  - { level: 15, xpRequired: 105000 }
-  - { level: 16, xpRequired: 118000 }
-  - { level: 17, xpRequired: 130000 }
-  - { level: 18, xpRequired: 140000 }
-  - { level: 19, xpRequired: 148000 }
-  - { level: 20, xpRequired: 155000 }
+  - { level: 3, xpRequired: 650 }
+  - { level: 4, xpRequired: 1500 }
+  - { level: 5, xpRequired: 2800 }
+  - { level: 6, xpRequired: 4800 }
+  - { level: 7, xpRequired: 7300 }
+  - { level: 8, xpRequired: 10500 }
+  - { level: 9, xpRequired: 14500 }
+  - { level: 10, xpRequired: 19200 }
+  - { level: 11, xpRequired: 25200 }
+  - { level: 12, xpRequired: 32600 }
+  - { level: 13, xpRequired: 41000 }
+  - { level: 14, xpRequired: 50500 }
+  - { level: 15, xpRequired: 61000 }
+  - { level: 16, xpRequired: 75000 }
+  - { level: 17, xpRequired: 91000 }
+  - { level: 18, xpRequired: 115000 }
+  - { level: 19, xpRequired: 142000 }
+  - { level: 20, xpRequired: 171000 }
+  - { level: 21, xpRequired: 202000 }
+  - { level: 22, xpRequired: 235000 }
+  - { level: 23, xpRequired: 270000 }
+  - { level: 24, xpRequired: 310000 }
+  - { level: 25, xpRequired: 353000 }
+  - { level: 26, xpRequired: 398500 }
+  - { level: 27, xpRequired: 448000 }
+  - { level: 28, xpRequired: 503000 }
+  - { level: 29, xpRequired: 561000 }
+  - { level: 30, xpRequired: 621600 }
+  - { level: 31, xpRequired: 687000 }
+  - { level: 32, xpRequired: 755000 }
+  - { level: 33, xpRequired: 829000 }
+  - { level: 34, xpRequired: 910000 }
+  - { level: 35, xpRequired: 1000000 }
+  - { level: 36, xpRequired: 1100000 }
+  - { level: 37, xpRequired: 1240000 }
+  - { level: 38, xpRequired: 1400000 }
+  - { level: 39, xpRequired: 1580000 }
+  - { level: 40, xpRequired: 1780000 }
+  - { level: 41, xpRequired: 2000000 }
+  - { level: 42, xpRequired: 2250000 }
+  - { level: 43, xpRequired: 2530000 }
+  - { level: 44, xpRequired: 2850000 }
+  - { level: 45, xpRequired: 3200000 }
+  - { level: 46, xpRequired: 3570000 }
+  - { level: 47, xpRequired: 3960000 }
+  - { level: 48, xpRequired: 4400000 }
+  - { level: 49, xpRequired: 4860000 }
+  - { level: 50, xpRequired: 5350000 }
 apRules:
   - { minLevel: 1, ap: 6 }
   - { minLevel: 100, ap: 7 }
 gainRules: { hp: 5, capitalPoints: 5, spellPoints: 1 }
+levelGapFactor: 1
