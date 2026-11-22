@@ -8,7 +8,7 @@ import type { Hero } from "../engine/createHero";
 import { createHero } from "../engine/createHero";
 import { findItem, creditDrops, emptyInventory, inventoryFromSnapshot, toInventorySnapshot } from "./gameSelectors";
 import { gainXp, heroFromSnapshot, heroToSnapshot, spendCapitalPoints } from "../engine/hero";
-import { equipItem, unequipItem, useConsumable } from "../engine/inventory";
+import { addItem, equipItem, unequipItem, useConsumable } from "../engine/inventory";
 import type { EquipmentSlot, InventoryState, ItemLike } from "../engine/inventory";
 import {
   createSave,
@@ -54,7 +54,8 @@ type StoreUpdate = Partial<GameStore> | ((state: GameStore) => Partial<GameStore
 type StoreSetter = (partial: StoreUpdate) => void;
 
 const classes = classesFileSchema.parse(classesYaml).classes;
-const items: readonly ItemLike[] = itemsFileSchema.parse(itemsYaml).items;
+const itemDefs = itemsFileSchema.parse(itemsYaml).items;
+const items: readonly ItemLike[] = itemDefs;
 const sets = setsFileSchema.parse(setsYaml).sets;
 const progression = progressionFileSchema.parse(progressionYaml);
 
@@ -62,6 +63,11 @@ const progression = progressionFileSchema.parse(progressionYaml);
 export const GAME_CATALOG = { classes, items, sets, progression } as const;
 
 export const DEFAULT_SAVE_KEY = "la-flotte-save-slot-1";
+
+/** Kit de départ : tout équipement marqué `starting` dans `data/items.yaml`. */
+const STARTING_ITEM_IDS = itemDefs
+  .filter((item) => item.category === "equipment" && item.starting)
+  .map((item) => item.id);
 
 function classDefFor(classId: string): ClassDef | undefined {
   return classes.find((entry) => entry.id === classId);
@@ -81,10 +87,18 @@ function emptyGame(): GameState {
   return { hero: null, inventory: emptyInventory(), flags: {} };
 }
 
+function startingInventory(): InventoryState {
+  return STARTING_ITEM_IDS.reduce(
+    (inventory, itemId) => addItem({ inventory, itemId, quantity: 1 }),
+    emptyInventory(),
+  );
+}
+
 function createdGame(input: { name: string; classId: string }): Partial<GameState> {
   const classDef = classDefFor(input.classId);
   if (classDef === undefined) return {};
-  return { ...emptyGame(), hero: createHero(input.name, classDef) };
+  const hero = createHero(input.name, classDef);
+  return { ...emptyGame(), hero, inventory: startingInventory() };
 }
 
 function allocatedGame(hero: Hero | null, input: { stat: StatKey; points: number }): Partial<GameState> {

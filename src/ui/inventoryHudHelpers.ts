@@ -192,10 +192,10 @@ export function buildStatLines(total: StatBlock): StatLine[] {
 }
 
 /**
- * Stats encore inertes en combat : `combatantFromHero` jette `vitality` et
- * force des résistances nulles (dettes D30 / D45, mapping prévu en 5B).
+ * Stats encore inertes en combat : `combatantFromHero` jette `vitality`, force
+ * des résistances nulles et ne transporte pas `percentDmg` (dettes D30 / D45).
  */
-const PENDING_STATS: readonly StatField[] = ["vitality", "flatRes", "percentRes"];
+const PENDING_STATS: readonly StatField[] = ["vitality", "flatRes", "percentRes", "percentDmg"];
 
 /** `pending` = affichée mais non appliquée par le moteur de combat. */
 export function statApplicationStatus(key: keyof StatBlock): StatApplication {

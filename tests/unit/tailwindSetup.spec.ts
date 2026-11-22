@@ -42,6 +42,12 @@ describe("assemblage jouable de App", () => {
     expect(readSource(APP_PATH)).toContain("startExploration");
   });
 
+  it("porte le nom accessible de l'arène sur un main, jamais sur un div", () => {
+    const source = readSource(APP_PATH);
+    expect(source).toMatch(/<main[^>]*aria-label="Terrain de combat"/);
+    expect(source).not.toMatch(/<div[^>]*aria-label=/);
+  });
+
   it("reste sans échappement lint ni style inline", () => {
     const source = readSource(APP_PATH);
     expect(source).not.toContain(LINT_ESCAPE);
