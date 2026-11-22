@@ -3,7 +3,10 @@ import type { Hero } from "../../engine/createHero";
 import { useCombatStore } from "../../store/useCombatStore";
 import { GAME_CATALOG, useGameStore } from "../../store/useGameStore";
 import type { ClassDef } from "../../schemas/classSchema";
+import type { EffectiveHp } from "../hudHp";
+import { useEffectiveHp } from "../useEffectiveHp";
 import { StatAllocation } from "./hero";
+import HeroVitalsLine from "./HeroVitalsLine";
 import { InventoryPanel } from "./inventory";
 import { DungeonEntryPanel, DungeonNotice } from "./dungeon";
 import { SECTION_HEADING } from "./hudTheme";
@@ -73,23 +76,32 @@ function classDefOf(classId: string): ClassDef | undefined {
   return GAME_CATALOG.classes.find((entry) => entry.id === classId);
 }
 
-function HeroSheetBody({ hero, classDef }: { hero: Hero; classDef: ClassDef }) {
+function HeroSheetBody({ hero, classDef, hp }: { hero: Hero; classDef: ClassDef; hp: EffectiveHp }) {
   return (
     <>
-      <p className="text-xs">❤ {hero.hp} / {hero.maxHp}</p>
+      <HeroVitalsLine hp={hp} className="text-xs" />
       <StatAllocation hero={hero} classDef={classDef} />
     </>
   );
 }
 
-/** Fiche perso : identité, PV et les six caractéristiques avec le capital restant. */
+function sheetBody(hero: Hero, classDef: ClassDef | undefined, hp: EffectiveHp | null) {
+  if (classDef === undefined || hp === null) return null;
+  return <HeroSheetBody hero={hero} classDef={classDef} hp={hp} />;
+}
+
+function heroTitle(hero: Hero): string {
+  return `${hero.name} · niveau ${hero.level}`;
+}
+
+/** Fiche perso : identité, PV effectifs et les six caractéristiques avec le capital restant. */
 function HeroSheet({ hero, onClose }: { hero: Hero; onClose: () => void }) {
+  const hp = useEffectiveHp();
   const classDef = classDefOf(hero.classId);
-  const title = `${hero.name} · niveau ${hero.level}`;
   return (
     <section aria-label="Fiche du héros" className={SHEET}>
-      <SheetHead title={title} onClose={onClose} />
-      {classDef === undefined ? null : <HeroSheetBody hero={hero} classDef={classDef} />}
+      <SheetHead title={heroTitle(hero)} onClose={onClose} />
+      {sheetBody(hero, classDef, hp)}
     </section>
   );
 }

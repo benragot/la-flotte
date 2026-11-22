@@ -192,10 +192,11 @@ export function buildStatLines(total: StatBlock): StatLine[] {
 }
 
 /**
- * Stats encore inertes en combat : `combatantFromHero` jette `vitality`, force
- * des résistances nulles et ne transporte pas `percentDmg` (dettes D30 / D45).
+ * Stats encore inertes en combat : `combatantFromHero` force des résistances
+ * nulles (D45b) et ne transporte pas `percentDmg` (D30). La Vitalité n'en fait
+ * plus partie depuis D45a : elle donne des PV maximum.
  */
-const PENDING_STATS: readonly StatField[] = ["vitality", "flatRes", "percentRes", "percentDmg"];
+const PENDING_STATS: readonly StatField[] = ["flatRes", "percentRes", "percentDmg"];
 
 /** `pending` = affichée mais non appliquée par le moteur de combat. */
 export function statApplicationStatus(key: keyof StatBlock): StatApplication {
@@ -205,9 +206,9 @@ export function statApplicationStatus(key: keyof StatBlock): StatApplication {
 /** Suffixe affiché à côté d'une statistique inerte en combat. */
 export const STAT_PENDING_LABEL = "non appliqué (5B)";
 
-/** Explication du `title` d'une statistique inerte (dette D45). */
+/** Explication du `title` d'une statistique inerte (dette D45b, résistances). */
 export const STAT_PENDING_HINT =
-  "Affichée mais non appliquée en combat : mapping vitality → PV et résistances prévu en 5B (dette D45).";
+  "Affichée mais non appliquée en combat : seule la projection des résistances reste à faire (dette D45b).";
 
 function withApplication(line: StatLine): PanelStatLine {
   return { ...line, application: statApplicationStatus(line.key) };
