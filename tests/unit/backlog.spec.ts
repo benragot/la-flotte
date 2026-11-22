@@ -747,6 +747,9 @@ const DELIVERED_5C: Array<[string, number, string]> = [
   ["5C-e", 45, "8a84b15"],
   ["5C-b", 46, "32ae2a3"],
   ["5C-c", 48, "74e739d"],
+  ["5C-explore-hp", 109, "2793727"],
+  ["5C-hover-highlight", 110, "326988d"],
+  ["5C-cast-cadence", 111, "b1bf9a8"],
 ];
 
 const OPEN_5C = [
@@ -763,9 +766,6 @@ const OPEN_5C = [
   "5C-set-panoplies",
   "5C-equip-requirements",
   "5C-heal-between-rooms",
-  "5C-explore-hp",
-  "5C-hover-highlight",
-  "5C-cast-cadence",
   "5C-spell-range-rebalance",
 ];
 
@@ -782,7 +782,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les dix-sept tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les quatorze tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1078,8 +1078,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 28", () => {
-    expect(readBacklog().meta.version).toEqual(28);
+  it("versionne le backlog en 29", () => {
+    expect(readBacklog().meta.version).toEqual(29);
   });
 });
 
@@ -1859,7 +1859,7 @@ describe("backlog — retours de playtest : rendu et exploration (v26)", () => {
 
   it("masque les barres de vie en exploration sans dépendre de la barre de combat", () => {
     const task = taskById(readBacklog(), "5C-explore-hp");
-    expect(task?.status).toBe("todo");
+    expect(task?.status).toBe("done");
     expect(task?.owner).toBe("tdd-coder");
     expect(task?.depends_on ?? []).toEqual([]);
     const text = `${task?.title} ${task?.notes}`;
@@ -1880,7 +1880,7 @@ describe("backlog — retours de playtest : rendu et exploration (v26)", () => {
 describe("backlog — retours de playtest : cadence et portées (v26)", () => {
   it("borne la cadence des sorts par une constante unique et injectable", () => {
     const task = taskById(readBacklog(), "5C-cast-cadence");
-    expect(task?.status).toBe("todo");
+    expect(task?.status).toBe("done");
     const text = `${task?.title} ${task?.notes}`;
     expect(text).toContain("0,75 s");
     expect(text).toContain("injectable");
@@ -2009,5 +2009,60 @@ describe("backlog — dette D103 exacte et contact diagonal bloqué (v28)", () =
     expect(text).toContain("DEC-03 (a)");
     expect(text).toContain("48 PV de monstres restants");
     expect(text).toContain("105 actions");
+  });
+});
+
+/**
+ * Les quatre retours de playtest ouverts en v26 ont été livrés par les PR
+ * #108 à #111. Trois sont **soldés**. `5C-path-8dirs` ne l'est **pas** : sa
+ * livraison (#108) porte la facture (`pathCost`), la règle de coin
+ * (`cutsCorner`) et le coût DEC-10 (`stepCost`), mais le TC3 de la spec UI
+ * annonce encore « diagonale = 1 pas » — et cette fiche est tenue par une autre
+ * branche, donc la tâche reste ouverte avec ce qui manque écrit dans ses notes.
+ * Le survol d'entité ne couvre pas la salle de donjon : limite assumée, `D105`.
+ */
+const V29_DONE: Array<[string, number, string]> = [
+  ["5C-explore-hp", 109, "2793727"],
+  ["5C-hover-highlight", 110, "326988d"],
+  ["5C-cast-cadence", 111, "b1bf9a8"],
+];
+
+function v29Gaps(backlog: Backlog): string[] {
+  return V29_DONE.flatMap(([id, pr, squash]) => {
+    const task = taskById(backlog, id);
+    const dated = task?.updated_at === "2026-11-23" ? [] : [`${id}:${task?.updated_at}`];
+    const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
+    return ok ? dated : [...dated, `${id}:${task?.status ?? "absent"}`];
+  });
+}
+
+describe("backlog — v29 : les livraisons de playtest soldées", () => {
+  it("clôt 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence avec PR et squash", () => {
+    expect(v29Gaps(readBacklog())).toEqual([]);
+  });
+
+  it("laisse 5C-path-8dirs en todo et écrit ce qui reste dans ses notes", () => {
+    const task = taskById(readBacklog(), "5C-path-8dirs");
+    expect(task?.status).toBe("todo");
+    const text = `${task?.title} ${task?.notes}`;
+    expect(text).toContain("c5b8867");
+    expect(text).toContain("pathCost");
+    expect(text).toContain("cutsCorner");
+    expect(text).toContain("TC3");
+    expect(text).toContain("reste");
+  });
+
+  it("verse D105 : le survol d'entité ne couvre pas la salle de donjon", () => {
+    const debt = debtById(readBacklog(), "D105");
+    expect({ severity: debt?.severity, target: debt?.target, status: debt?.status }).toEqual({
+      severity: "low",
+      target: "5C-cast-preview",
+      status: "todo",
+    });
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("src/renderer/CombatCanvas.tsx");
+    expect(text).toContain("salle de donjon");
+    expect(text).toContain("exploration");
+    expect(text).toContain("carte");
   });
 });
