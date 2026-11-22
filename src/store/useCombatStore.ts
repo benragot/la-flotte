@@ -70,7 +70,7 @@ interface CombatStore {
   battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) => void;
   battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) => void;
   /** Fait tourner la timeline quand l'actif courant ne peut plus rien faire (aucun aléa). */
-  advanceBattleTurn: (input?: { rng?: Rng }) => void;
+  advanceBattleTurn: () => void;
   /**
    * Clôt une salle **gagnée** en reportant les PV restants du héros : aucun soin.
    * Refusée sur une défaite (D29) ; la sauvegarde est écrite si `storage` est fourni.
