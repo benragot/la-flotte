@@ -4,9 +4,9 @@ import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
-import { drawGrid, drawHighlights, drawPath } from "./tilePaint";
+import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenBadge, TokenView } from "./tokens";
-import { drawHpBars, drawTokens, tokenBadge, tokensNeedingCircle } from "./tokens";
+import { drawActiveRings, drawHpBars, drawTokens, tokenBadge, tokensNeedingCircle } from "./tokens";
 
 interface SceneLayers {
   grid: Graphics;
@@ -86,14 +86,25 @@ function ensureAnimationLoop(app: Application, view: ViewModel, sheets: Readonly
   app.ticker.start();
 }
 
-/** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
-function drawLayers(layers: SceneLayers, view: ViewModel): void {
+function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawGrid(layers.grid, view.scene.tiles);
+  drawOutlines(layers.grid, view.scene.outlines);
   drawHighlights(layers.highlights, view.scene.highlights);
   drawPath(layers.path, view.path);
+}
+
+/** Anneau doré **sous** les acteurs, puis jetons géométriques, PV et badges. */
+function drawActorLayers(layers: SceneLayers, view: ViewModel): void {
+  drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawHpBars(layers.hpBars, view.tokens);
   drawLabels(layers.labels, view.tokens);
+}
+
+/** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
+function drawLayers(layers: SceneLayers, view: ViewModel): void {
+  drawBoardLayers(layers, view);
+  drawActorLayers(layers, view);
 }
 
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */

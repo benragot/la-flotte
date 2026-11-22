@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import type { ReactElement, RefObject } from "react";
 import type { Application } from "pixi.js";
-import type { CombatState } from "../engine/combatLoop/types";
+import type { ArenaMode } from "./arenaScene";
 import { SCENE_BACKGROUND, combatCanvasSize } from "./combatCanvasConfig";
 import type { ExplorationView } from "./explorationScene";
 import type { GridSize } from "./gridProjection";
@@ -12,7 +12,7 @@ import { useCombatView } from "./useCombatView";
 import { useContainerSize } from "./useContainerSize";
 import { usePixiApp } from "./usePixiApp";
 
-export type ArenaMode = "combat" | "exploration";
+export type { ArenaMode };
 
 export interface CombatCanvasProps {
   mode?: ArenaMode;
@@ -31,11 +31,12 @@ const FILL_SIZE = { width: "100%", height: "100%" } as const;
 
 function useBoardSize(
   host: RefObject<HTMLDivElement>,
-  combat: CombatState | null,
+  view: CombatView,
   exploration?: ExplorationView,
 ): GridSize {
   const viewport = useContainerSize(host);
-  return combatCanvasSize({ combat, viewport, hasExploration: exploration !== undefined });
+  const hasExploration = exploration !== undefined;
+  return combatCanvasSize({ combat: view.combat, viewport, hasExploration, hasBattle: view.battle !== null });
 }
 
 function useBoardWiring(input: BoardWiringInput): void {
@@ -50,7 +51,7 @@ function useBoardWiring(input: BoardWiringInput): void {
 export function CombatCanvas(props: CombatCanvasProps = {}): ReactElement {
   const host = useRef<HTMLDivElement>(null);
   const view = useCombatView();
-  const size = useBoardSize(host, view.combat, props.exploration);
+  const size = useBoardSize(host, view, props.exploration);
   const { app, error } = usePixiApp(host, { background: SCENE_BACKGROUND, size });
   useBoardWiring({ app, view, size, props });
   return <div ref={host} style={FILL_SIZE}>{error === null ? null : <p role="alert">{error}</p>}</div>;
