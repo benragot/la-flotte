@@ -54,6 +54,7 @@ interface Debt {
   title: string;
   severity: string;
   target: string;
+  owner?: string;
 }
 
 interface Meta {
@@ -88,6 +89,35 @@ function allPhases(backlog: Backlog): Phase[] {
 
 function allTasks(backlog: Backlog): Task[] {
   return allPhases(backlog).flatMap((phase) => phase.tasks ?? []);
+}
+
+function phaseById(backlog: Backlog, id: string): Phase | undefined {
+  return allPhases(backlog).find((phase) => phase.id === id);
+}
+
+function taskById(backlog: Backlog, id: string): Task | undefined {
+  return allTasks(backlog).find((task) => task.id === id);
+}
+
+function debtById(backlog: Backlog, id: string): Debt | undefined {
+  return backlog.debts.find((debt) => debt.id === id);
+}
+
+function taskIdsOf(backlog: Backlog, phaseId: string): string[] {
+  return (phaseById(backlog, phaseId)?.tasks ?? []).map((task) => task.id);
+}
+
+function donePhaseIds(backlog: Backlog): Set<string> {
+  return new Set(allPhases(backlog).filter((phase) => phase.status === "done").map((phase) => phase.id));
+}
+
+function debtsTargetingDone(backlog: Backlog): Debt[] {
+  const done = donePhaseIds(backlog);
+  return backlog.debts.filter((debt) => done.has(String(debt.target)));
+}
+
+function externalDebtsWithoutOwner(backlog: Backlog): Debt[] {
+  return backlog.debts.filter((debt) => debt.target === "external" && !isFilled(debt.owner));
 }
 
 function phaseStatuses(backlog: Backlog): string[] {
@@ -515,5 +545,69 @@ describe("backlog — dette D48", () => {
     expect(debt?.severity).toBe("high");
     expect(debt?.target).toBe("5B");
     expect(debt?.title).toContain("cle_donjon_ile_de_la_ferraille");
+  });
+});
+
+describe("backlog — vague 4D wiring", () => {
+  it("enregistre la tâche de câblage App et ouvre la phase 4D", () => {
+    const backlog = readBacklog();
+    const task = taskById(backlog, "4D-wiring");
+    expect(task?.status).toBe("approved");
+    expect(task?.pr).toBe(34);
+    expect(task?.owner).toBe("tdd-coder");
+    expect(phaseById(backlog, "4D")?.status).toBe("in_progress");
+  });
+});
+
+describe("backlog — vague 5A livrée", () => {
+  const MERGED = ["5A-craft", "5A-multicombat", "5A-dungeon", "5A-preview"];
+
+  it("enregistre les quatre modules headless mergés en done", () => {
+    const backlog = readBacklog();
+    expect(taskIdsOf(backlog, "5A")).toEqual(expect.arrayContaining(MERGED));
+    const merged = allTasks(backlog).filter((task) => MERGED.includes(task.id));
+    expect(merged.filter((task) => task.status !== "done")).toEqual([]);
+    expect(phaseById(backlog, "5A")?.status).toBe("done");
+  });
+
+  it("pointe la reprise de l'orchestrateur vers 5B", () => {
+    expect(readBacklog().meta.next).toBe("5B");
+  });
+});
+
+describe("backlog — dettes d'outillage", () => {
+  const HARNESS = ["D49", "D50", "D51", "D52", "D53"];
+
+  it("enregistre les cinq nouvelles dettes", () => {
+    const debts = HARNESS.map((id) => debtById(readBacklog(), id));
+    expect(debts.filter((debt) => debt === undefined)).toEqual([]);
+  });
+
+  it("cible 5B et 5C quand la dette reste dans le périmètre projet", () => {
+    const backlog = readBacklog();
+    expect(debtById(backlog, "D49")?.target).toBe("5B");
+    expect(debtById(backlog, "D53")?.target).toBe("5C");
+  });
+
+  it("externalise les dettes d'outillage hors périmètre agent", () => {
+    const targets = ["D50", "D51", "D52"].map((id) => debtById(readBacklog(), id));
+    expect(targets.map((debt) => debt?.target)).toEqual(["external", "external", "external"]);
+    expect(targets.map((debt) => debt?.owner)).toEqual(["user", "user", "user"]);
+  });
+
+  it("grade les dettes bloquantes en high", () => {
+    expect(debtById(readBacklog(), "D51")?.severity).toBe("high");
+  });
+});
+
+describe("backlog — cibles des dettes", () => {
+  it("ne cible jamais une phase terminée", () => {
+    const orphans = debtsTargetingDone(readBacklog());
+    expect(orphans.map((debt) => debt.id)).toEqual([]);
+  });
+
+  it("exige un owner sur chaque dette externalisée", () => {
+    const orphans = externalDebtsWithoutOwner(readBacklog());
+    expect(orphans.map((debt) => debt.id)).toEqual([]);
   });
 });
