@@ -20,6 +20,16 @@ const dungeonRoomSchema = z
     name: z.string().min(1),
     mapId: idSchema,
     isBossRoom: z.boolean().default(false),
+    /**
+     * DEC-03 : facteur appliqué aux PV **de référence** (`data/monsters.yaml`)
+     * de tous les monstres de la salle, via `Math.floor` dans
+     * `engine/dungeon/combatants`. Il ne touche ni dégâts, ni PA/PM, ni portée,
+     * ni drop : la menace de la salle reste celle du monde ouvert.
+     * Bornes : 0,05 = 5 % — en dessous, `floor` rapproche les PV de zéro et la
+     * salle n'est plus un combat ; 3 = plafond de sécurité, une salle ne doit
+     * pas peser plus du triple de son monde ouvert. `default(1)` = neutre.
+     */
+    hpScale: z.number().min(0.05).max(3).default(1),
     monsters: z.array(roomMonsterSchema).min(1),
   })
   .strict();

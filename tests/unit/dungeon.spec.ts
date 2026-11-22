@@ -30,6 +30,7 @@ const DUNGEON: DungeonDef = {
       name: "La Cour",
       mapId: "map_cour",
       isBossRoom: false,
+      hpScale: 1,
       monsters: [
         { monsterId: "monstre_a", count: 2 },
         { monsterId: "monstre_b", count: 1 },
@@ -40,6 +41,7 @@ const DUNGEON: DungeonDef = {
       name: "Le Hangar",
       mapId: "map_hangar",
       isBossRoom: false,
+      hpScale: 1,
       monsters: [{ monsterId: "monstre_c", count: 3 }],
     },
     {
@@ -47,6 +49,7 @@ const DUNGEON: DungeonDef = {
       name: "L'Atelier",
       mapId: "map_atelier",
       isBossRoom: true,
+      hpScale: 1,
       monsters: [{ monsterId: "monstre_boss", count: 1 }],
     },
   ],

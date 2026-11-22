@@ -151,6 +151,62 @@ describe("dungeons.yaml — soin entre les salles (DEC-03)", () => {
   });
 });
 
+const roomWithScale = (fields: Record<string, unknown>) => ({
+  ...baseDungeon,
+  rooms: [{ ...baseRoom, isBossRoom: true, ...fields }],
+});
+
+describe("dungeons.yaml — hpScale par salle (DEC-03, schéma)", () => {
+  it("accepte un facteur dans les bornes", () => {
+    expect(dungeonSchema.parse(roomWithScale({ hpScale: 1.5 })).rooms[0]?.hpScale).toBe(1.5);
+  });
+
+  it("rend le champ optionnel : absent, le facteur vaut 1", () => {
+    expect(dungeonSchema.parse(baseDungeon).rooms[0]?.hpScale).toBe(1);
+  });
+
+  it("refuse un facteur nul", () => {
+    expect(() => dungeonSchema.parse(roomWithScale({ hpScale: 0 }))).toThrow(/hpScale/);
+  });
+
+  it("refuse un facteur négatif", () => {
+    expect(() => dungeonSchema.parse(roomWithScale({ hpScale: -1 }))).toThrow(/hpScale/);
+  });
+
+  it("reste strict : une faute de frappe sur la salle lève", () => {
+    expect(() => dungeonSchema.parse(roomWithScale({ hpScal: 0.35 }))).toThrow(/hpScal/);
+  });
+});
+
+describe("dungeons.yaml — hpScale par salle (DEC-03, données)", () => {
+  it("garde les quatre salles, dans l'ordre, aucune supprimée", () => {
+    const [dungeon] = dungeons;
+    expect(dungeon?.rooms.map((room) => room.name)).toEqual([
+      "La Cour aux Volatiles Gras",
+      "Le Hangar à Mazout",
+      "L'Allée des Boulons Perdus",
+      "L'Atelier d'Yvon Rouiller",
+    ]);
+  });
+
+  it("ne touche pas aux monstres des salles calibrées : seuls les PV changent", () => {
+    const [dungeon] = dungeons;
+    const composition = (room: { monsters: readonly { monsterId: string; count: number }[] }) =>
+      room.monsters.map((group) => `${group.monsterId}×${group.count}`);
+    expect(dungeon?.rooms.map(composition)).toEqual([
+      ["piou_mazoute×2", "fer_rat_de_cale×1"],
+      ["fer_rat_de_cale×1", "fer_crabe_cle_molette×2", "fer_marmite_fuyarde×1"],
+      ["fer_crabe_cle_molette×1", "fer_marmite_fuyarde×1", "fer_boulon_pousseur×2"],
+      ["fer_boss_yvon_rouiller×1", "fer_crabe_cle_molette×1", "fer_marmite_fuyarde×1", "fer_boulon_pousseur×1"],
+    ]);
+  });
+
+  it("calibre les deux dernières salles uniquement, d'un facteur mesuré", () => {
+    const [dungeon] = dungeons;
+    expect(dungeon?.rooms.map((room) => room.hpScale)).toEqual([1, 1, 0.35, 0.3]);
+  });
+});
+
 describe("rejets Zod du dungeonSchema", () => {
   it("refuse des numéros de salle non consécutifs", () => {
     const rooms = [baseRoom, { ...baseRoom, roomNumber: 3, isBossRoom: true }];

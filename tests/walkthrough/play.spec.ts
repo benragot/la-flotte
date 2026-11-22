@@ -62,17 +62,13 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * (`data/spells.yaml` seul, portée et LoS comprises), aucun `Math.random`
  * (LCG injecté pour le spawn et le drop, `() => 0.5` pour le combat).
  *
- * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`), le
- * correctif `castsPerTurn`/`cooldown` est en place et le pas diagonal (1 PM) est
- * facturé au chemin : les monstres approchent en diagonale, donc ils arrivent un
- * tour plus tôt et les PV de fin de salle bougent (130 → 50 au lieu de 62) :
- *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 50 PV, 16 actions ;
- *   franchissement : 50 + ceil(130 × 0,5) = 115 PV rendus par la porte (DEC-03) ;
- *   salle 2 « Le Hangar à Mazout » : GAGNÉE, 115 → 49 PV, 33 actions ;
- *   franchissement : 49 + ceil(130 × 0,5) = 114 PV rendus par la porte ;
- *   salle 3 « L'Allée des Boulons Perdus » : DÉFAITE, 114 → 0 PV, 10 actions.
- * Le héros nu perd TOUJOURS la salle 3 (DEC-03 règle (b)) : c'est la seule
- * propriété que ce walkthrough défend, la valeur des PV n'est qu'une mesure.
+ * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`) et
+ * le correctif `castsPerTurn`/`cooldown` a déplacé la mort d'une salle :
+ *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 62 PV, 16 actions ;
+ *   franchissement : 62 + ceil(130 × 0,5) = 127 PV rendus par la porte (DEC-03) ;
+ *   salle 2 « Le Hangar à Mazout » : GAGNÉE, 127 → 7 PV, 36 actions ;
+ *   franchissement : 7 + ceil(130 × 0,5) = 72 PV rendus par la porte ;
+ *   salle 3 « L'Allée des Boulons Perdus » : DÉFAITE, 72 → 0 PV, 10 actions.
  *
  * AVANT LE CORRECTIF (même fichier, même soin, mesure du 22/11/2026) : la salle 2
  * était une DÉFAITE en 21 actions (127 → 0). `data/spells.yaml` déclarait
@@ -80,17 +76,24 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * frappait deux fois par tour. Le héros nu gagne maintenant une salle de plus —
  * c'est la preuve que le mur n'était pas l'équilibrage mais la donnée jetée.
  *
- * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force ne
- * tient pas la salle 3. La salle 3 aligne 370 PV de monstres et ce build
- * n'inflige que ~28 PV par tour, alors que la porte ne rend que la moitié de la
- * barre. Une salle qui dure plus longtemps que le pool effectif ne se soigne pas
- * de l'intérieur — c'est exactement la limite mesurée ici.
+ * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force
+ * n'inflige que ~28 PV par tour quand la salle 3 menace ~32 PV par tour. Depuis
+ * la recalibration, la salle 3 aligne 127 PV de monstres (26 + 29 + 2×36, cf.
+ * `hpScale: 0.35` dans `data/dungeons.yaml`), soit ~5 tours de frappe ; mais la
+ * porte de la salle 2 ne rend que la moitié de la barre. Le héros arrive à
+ * 72 PV, encaisse ~32 PV par tour et tombe en 2-3 tours, sans avoir pu vider
+ * la salle. Une salle qui dure plus longtemps que le pool effectif ne se soigne
+ * pas de l'intérieur — c'est exactement la limite mesurée ici.
  *
- * CE QUI INVERSERA L'ASSERTION : l'équilibrage de la salle 3 et de la boss room
- * (baisser les dégâts des monstres est INTERDIT par le brief DEC-03). Le jour où
- * la salle 3 tombe, prolonger ce parcours vers la salle 4 : ce test deviendra la
- * PREUVE que le donjon est finissable par un joueur normal, pas seulement par un
- * héros de 5 000 PV.
+ * OBSERVATION DATÉE DU 22/11/2026 — LA RECALIBRATION A EU LIEU SANS INVERSER
+ * L'ASSERTION : `hpScale` 0,35 sur la salle 3 et 0,30 sur la salle 4 (PR #84)
+ * ont ramené la salle 3 de 370 à 127 PV et rendu le donjon finissable au niveau
+ * recommandé par un héros équipé (`tests/walkthrough/gearedDungeon.spec.ts`).
+ * Le héros nu, lui, meurt TOUJOURS en salle 3, exactement comme asserté
+ * ci-dessous : c'est la preuve observée que `DEC-03(b)` tient — baisser le
+ * contenu d'une salle ne suffit pas à rendre le donjon accessible sans
+ * équipement. Ce test n'est donc plus une prédiction sur un équilibrage à
+ * venir : il est le garde-fou permanent de la règle (b).
  *
  * CE QU'IL NE PROUVE PAS : ni le déplacement du héros en salle (le store 1vN
  * n'a pas d'action de mouvement : le héros reste sur sa case de placement, les
@@ -453,19 +456,19 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 3", () => 
     expect(first.hpEnd).toBeLessThan(first.hpStart);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(2);
-    expect(first.hpEnd).toBe(50);
+    expect(first.hpEnd).toBe(62);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(2);
-    // DEC-03 : 50 PV + ceil(130 × 0,5) = 115 PV à la porte de la salle 2.
-    expect(second.hpStart).toBe(115);
+    // DEC-03 : 62 PV + ceil(130 × 0,5) = 127 PV à la porte de la salle 2.
+    expect(second.hpStart).toBe(127);
     expect(second.victory).toBe(true);
-    expect(second.hpEnd).toBe(49);
+    expect(second.hpEnd).toBe(7);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(3);
     const third = playRoom(currentRoomNumber(), storage);
     expect(third.roomNumber).toBe(DEATH_ROOM);
-    // DEC-03 : 49 PV + ceil(130 × 0,5) = 114 PV à la porte de la salle 3.
-    expect(third.hpStart).toBe(114);
+    // DEC-03 : 7 PV + ceil(130 × 0,5) = 72 PV à la porte de la salle 3.
+    expect(third.hpStart).toBe(72);
     expect(third.defeat).toBe(true);
     expect(third.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();
