@@ -82,9 +82,52 @@ export function pathAt(plan: WalkPlan, elapsedMs: number): WalkSample {
   return { point: interpolatedCell(from, to, t), segment, t, done: progress >= 1 };
 }
 
+/** Tolérance de comparaison de deux centres : un point confondu n'est jamais un segment. */
+const SAME_POINT_EPSILON = 1e-6;
+
+function samePoint(a: PixelPoint, b: PixelPoint): boolean {
+  return Math.abs(a.x - b.x) < SAME_POINT_EPSILON && Math.abs(a.y - b.y) < SAME_POINT_EPSILON;
+}
+
+/** Points consécutifs fusionnés quand ils se confondent : aucun segment de longueur nulle. */
+function withoutDuplicates(points: readonly PixelPoint[]): PixelPoint[] {
+  const kept: PixelPoint[] = [];
+  points.forEach((point) => {
+    const last = kept.at(-1);
+    if (last === undefined || !samePoint(last, point)) kept.push(point);
+  });
+  return kept;
+}
+
+/** Cases restantes d'un trajet peint, à partir de la fin du segment en cours. */
+function cellsAfter(current: WalkPlan, segment: number): PixelPoint[] {
+  return current.points.slice(segment + 1);
+}
+
+/**
+ * Reprise d'un trajet interrompu : le glissement **finit le segment en cours**,
+ * parcourt les cases qui restaient du trajet peint, puis enchaîne sur le trajet
+ * neuf. La première case du trajet neuf est déjà l'arrivée du précédent : elle
+ * n'est jamais répétée.
+ *
+ * Ce choix garde toutes les jambes alignées sur une arête **validée par le
+ * moteur** : seul le premier point est interpolé, et il appartient au segment
+ * déjà en cours de peinture. Aucune diagonale ne coupe donc un coin, jamais.
+ *
+ * La première jambe est plus courte qu'une case mais garde sa durée pleine :
+ * le sprite ralentit un instant plutôt que de rattraper son retard d'un saut.
+ */
+export function resumeWalk(current: WalkPlan, elapsedMs: number, next: WalkPlan): WalkPlan | null {
+  const sample = pathAt(current, elapsedMs);
+  const points = [sample.point, ...cellsAfter(current, sample.segment), ...next.points];
+  return walkPlan(withoutDuplicates(points));
+}
+
 /**
  * Démarre un trajet : aucun segment du précédent n'est conservé. Un second
- * déplacement remplace donc le premier au lieu d'empiler deux tweens.
+ * déplacement remplace donc le premier au lieu d'empiler deux tweens. C'est la
+ * primitive brute ; une interruption passe par `resumeWalk`, qui raccorde le
+ * nouveau trajet au pixel peint.
  */
 export function startWalk(plan: WalkPlan, nowMs: number): WalkState {
   return { plan, startedAt: nowMs };
