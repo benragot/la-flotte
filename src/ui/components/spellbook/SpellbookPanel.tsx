@@ -134,8 +134,9 @@ interface SpellDetailPanelProps {
   onClear: () => void;
 }
 
-/** Bandeau de détail, même région nommée que la fiche d'objet. */
+/** Bandeau de détail, même région nommée que la fiche d'objet. Échap le referme avant le grimoire. */
 function SpellDetailPanel({ spell, onClear }: SpellDetailPanelProps) {
+  useEscapeClose(onClear, spell !== undefined);
   return (
     <section aria-label="Détail du sort" aria-live="polite" className={DETAIL_PANEL}>
       <DetailContent spell={spell} onClear={onClear} />
@@ -164,6 +165,5 @@ function Grimoire({ spells, selection, onClose }: GrimoireProps) {
 export default function SpellbookPanel({ onClose }: { onClose: () => void }) {
   const selection = useSpellSelection();
   const spells = useHeroSpells();
-  useEscapeClose(onClose);
   return <Grimoire spells={spells} selection={selection} onClose={onClose} />;
 }

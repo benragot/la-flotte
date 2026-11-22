@@ -6,6 +6,7 @@ import { GAME_CATALOG, useGameStore } from "../../store/useGameStore";
 import type { ClassDef } from "../../schemas/classSchema";
 import type { EffectiveHp } from "../hudHp";
 import { useEffectiveHp } from "../useEffectiveHp";
+import { useEscapeClose } from "../useEscapeClose";
 import { StatAllocation } from "./hero";
 import HeroVitalsLine from "./HeroVitalsLine";
 import { InventoryPanel } from "./inventory";
@@ -145,6 +146,25 @@ function usePanelOpener(setActive: (panel: PanelId) => void) {
   };
 }
 
+interface ActivePanel {
+  active: PanelId | null;
+  open: (panel: PanelId) => void;
+  close: () => void;
+}
+
+/**
+ * Panneau affiché et ses deux portes : le bouton « Fermer » et Échap. Le
+ * panneau est le **parent** de la pile : un détail monté après lui passe
+ * devant, et Échap referme donc le détail avant le panneau.
+ */
+function useActivePanel(): ActivePanel {
+  const [active, setActive] = useState<PanelId | null>(null);
+  const open = usePanelOpener(setActive);
+  const close = () => setActive(null);
+  useEscapeClose(close, active !== null);
+  return { active, open, close };
+}
+
 function Overlay({ active, onClose }: { active: PanelId | null; onClose: () => void }) {
   if (active === null) return null;
   return (
@@ -166,12 +186,11 @@ function OverlayLayers({ active, onClose }: { active: PanelId | null; onClose: (
 
 /** Boutons d'accès discrets + panneaux fermables, posés au-dessus de l'arène. */
 export default function OverlayPanels() {
-  const [active, setActive] = useState<PanelId | null>(null);
-  const open = usePanelOpener(setActive);
+  const { active, open, close } = useActivePanel();
   return (
     <>
       <AccessBar onOpen={open} />
-      <OverlayLayers active={active} onClose={() => setActive(null)} />
+      <OverlayLayers active={active} onClose={close} />
     </>
   );
 }
