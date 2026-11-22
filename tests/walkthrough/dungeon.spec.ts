@@ -10,7 +10,8 @@ import { gainXp } from "../../src/engine/hero";
 import { addItem, countItem } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
 import { activeCombatant, findCombatant, isDefeat, isVictory, livingOf } from "../../src/engine/multiCombat";
-import type { AttackSpec, BattleState, EnemyStrategy } from "../../src/engine/multiCombat";
+import type { AttackSpec, BattleState, EnemyStrategy, Rng } from "../../src/engine/multiCombat";
+import type { StorageLike } from "../../src/engine/save";
 import type { ClassDef } from "../../src/schemas/classSchema";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
@@ -44,6 +45,24 @@ const MAX_ACTIONS = 200;
 /** Traversée, pas équilibrage : un coup suffit à tomber chaque monstre réel. */
 const HERO_ATTACK: AttackSpec = { base: 400, element: "earth", baseCrit: 0, apCost: 1 };
 const ENEMY_ATTACK = { base: 1, element: "neutral" as const, baseCrit: 0 };
+/** Aléa injecté dans le store : crit et drops jamais tirés par `Math.random`. */
+const rng: Rng = () => 0.5;
+
+class MemoryStorage implements StorageLike {
+  private readonly entries = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.entries.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.entries.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.entries.delete(key);
+  }
+}
 
 function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   const found = list.find((entry) => entry.id === id);
@@ -147,8 +166,8 @@ function actOnce(): void {
   const battle = battleOrThrow();
   const active = activeCombatant(battle);
   const store = useCombatStore.getState();
-  if (active?.side !== "player") return store.battleEnemyTurn({ strategy: enemyStrategy });
-  store.battleAttack({ targetId: lowestHpEnemy(battle), attack: HERO_ATTACK });
+  if (active?.side !== "player") return store.battleEnemyTurn({ strategy: enemyStrategy, rng });
+  store.battleAttack({ targetId: lowestHpEnemy(battle), attack: HERO_ATTACK, rng });
 }
 
 function playBattle(): void {
@@ -156,15 +175,23 @@ function playBattle(): void {
     const before = battleOrThrow();
     if (isVictory(before) || isDefeat(before)) return;
     actOnce();
-    if (useCombatStore.getState().battle === before) useCombatStore.getState().advanceBattleTurn();
+    if (useCombatStore.getState().battle === before) useCombatStore.getState().advanceBattleTurn({ rng });
   }
   throw new Error(`combat non résolu en ${MAX_ACTIONS} actions`);
+}
+
+/** Vaincus lus dans l'ÉTAT DE BATAILLE, jamais dans le YAML attendu. */
+function fallenIds(): string[] {
+  return battleOrThrow()
+    .combatants.filter((entry) => entry.side === "enemy" && entry.hp === 0)
+    .map((entry) => entry.id.replace(/-\d+$/, ""));
 }
 
 interface RoomOutcome {
   hpStart: number;
   hpEnd: number;
   enemies: number;
+  fallen: string[];
 }
 
 function playRoom(room: DungeonRoom): RoomOutcome {
@@ -175,14 +202,18 @@ function playRoom(room: DungeonRoom): RoomOutcome {
   const enemies = enemyCount(battle);
   playBattle();
   expect(isVictory(battleOrThrow())).toBe(true);
+  const fallen = fallenIds();
   useCombatStore.getState().settleDungeonRoom();
   expect(useCombatStore.getState().battle).toBeNull();
   expect(useCombatStore.getState().combat).toBeNull();
-  return { hpStart, hpEnd: heroOrThrow().hp, enemies };
+  return { hpStart, hpEnd: heroOrThrow().hp, enemies, fallen };
 }
 
-function defeatedIds(room: DungeonRoom): string[] {
-  return roomMonsters(room).flatMap((group) => Array.from({ length: group.count }, () => group.monsterId));
+/** `attemptRoom` doit compter les occurrences : 2 Piou vaincus ⇒ l'id apparaît 2 fois. */
+function assertOccurrences(room: DungeonRoom, fallen: readonly string[]): void {
+  for (const group of roomMonsters(room)) {
+    expect(fallen.filter((id) => id === group.monsterId)).toHaveLength(group.count);
+  }
 }
 
 function monsterXp(monsterId: string): number {
@@ -207,8 +238,12 @@ function traverseDungeon(dungeon: DungeonDef, start: DungeonRunState): Traversal
   const traversal: Traversal = { run: start, hpTrail: [], enemyCounts: [], xp: 0 };
   for (const room of dungeon.rooms) {
     const outcome = playRoom(room);
-    const attempt = attemptRoom({ run: traversal.run, dungeon, defeatedMonsterIds: defeatedIds(room) });
+    const defeatedMonsterIds = outcome.fallen;
+    const attempt = attemptRoom({ run: traversal.run, dungeon, defeatedMonsterIds });
     expect(attempt.cleared).toBe(true);
+    assertOccurrences(room, defeatedMonsterIds);
+    const truncated = attemptRoom({ run: traversal.run, dungeon, defeatedMonsterIds: defeatedMonsterIds.slice(1) });
+    expect(truncated.cleared).toBe(false);
     traversal.run = attempt.run;
     traversal.hpTrail.push(outcome);
     traversal.enemyCounts.push(outcome.enemies);
@@ -232,8 +267,20 @@ function creditXp(amount: number): void {
 }
 
 function invariants() {
-  const { combat, mode, exploration } = useCombatStore.getState();
-  return { combat, mode, exploration };
+  const { combat, mode, exploration, selectedSpellId, activeGroup, rewards, mapId } = useCombatStore.getState();
+  return { combat, mode, exploration, selectedSpellId, activeGroup, rewards, mapId };
+}
+
+function roomBattle(roomNumber: number): BattleState {
+  const room = dungeonOrThrow().rooms[roomNumber - 1];
+  if (room === undefined) throw new Error(`salle ${roomNumber} absente`);
+  useCombatStore.getState().startDungeonRoom({ room });
+  return battleOrThrow();
+}
+
+function withSideHp(battle: BattleState, side: "player" | "enemy", hp: number): BattleState {
+  const combatants = battle.combatants.map((entry) => (entry.side === side ? { ...entry, hp } : entry));
+  return { ...battle, combatants };
 }
 
 beforeEach(() => {
@@ -263,15 +310,45 @@ describe("walkthrough donjon de la Ferraille", () => {
     expect(isDungeonComplete(traversal.run, dungeon)).toBe(true);
     creditXp(traversal.xp);
     const hero = heroOrThrow();
-    expect(hero.level).toBeGreaterThan(1);
-    expect(hero.xp).toBeGreaterThanOrEqual(traversal.xp);
+    // 295 + 365 + 590 + 885 XP réels ⇒ palier 4 de data/progression.yaml.
+    expect(traversal.xp).toBe(2135);
+    expect(hero.level).toBe(4);
+    expect(hero.xp).toBe(2135);
     expect(hero.hp).toBeGreaterThan(0);
     expect(hero.hp).toBeLessThan(hero.maxHp);
     expect(invariants()).toEqual(before);
     expect(useCombatStore.getState().battle).toBeNull();
   });
+});
 
-  it("le palier 15 tient au niveau moteur : 61 000 XP ⇒ niveau 15", () => {
+describe("settleDungeonRoom — garde et sauvegarde", () => {
+  it("refuse une défaite : PV intacts, aucune sauvegarde", () => {
+    prepareHero();
+    const storage = new MemoryStorage();
+    const battle = withSideHp(roomBattle(1), "player", 0);
+    useCombatStore.setState({ battle });
+    const beforeHp = heroOrThrow().hp;
+    useCombatStore.getState().settleDungeonRoom({ storage });
+    expect(useCombatStore.getState().battle).toBe(battle);
+    expect(heroOrThrow().hp).toBe(beforeHp);
+    expect(storage.getItem(useGameStore.getState().saveKey)).toBeNull();
+  });
+
+  it("reporte les PV d'une victoire et les sauvegarde", () => {
+    prepareHero();
+    const storage = new MemoryStorage();
+    const won = withSideHp(withSideHp(roomBattle(1), "player", 33), "enemy", 0);
+    useCombatStore.setState({ battle: won });
+    useCombatStore.getState().settleDungeonRoom({ storage });
+    expect(heroOrThrow().hp).toBe(33);
+    useGameStore.getState().resetGame();
+    expect(useGameStore.getState().loadGame(storage)).toBe(true);
+    expect(heroOrThrow().hp).toBe(33);
+  });
+});
+
+describe("palier 15 — niveau moteur", () => {
+  it("61 000 XP donnent le niveau 15 et ses PA de contrat", () => {
     const hero = createHero("Test", iop());
     const options = { amount: 61_000, tiers: progression.xpThresholds, apRules: progression.apRules };
     const { hero: gained } = gainXp({ hero, ...options, gainRules: progression.gainRules });
