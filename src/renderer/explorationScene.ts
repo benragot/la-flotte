@@ -59,7 +59,7 @@ function gridSizeOf(exploration: ExplorationView): GridSize {
 
 /** Décor complet sans surbrillance : exploration = même grille que le combat, sans PM/PO. */
 function explorationScene(exploration: ExplorationView, origin: IsoOrigin): SceneModel {
-  if (exploration.map === undefined) return { tiles: [], highlights: [], outlines: [] };
+  if (exploration.map === undefined) return { tiles: [], highlights: [], decor: [], outlines: [] };
   return buildSceneModel({ map: exploration.map, highlight: NO_HIGHLIGHT, origin });
 }
 

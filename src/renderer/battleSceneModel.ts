@@ -78,7 +78,7 @@ function tokenFor(context: TokenContext, combatant: CombatantLike): TokenView {
 }
 
 function battleScene(battle: BattleState, origin: IsoOrigin): SceneModel {
-  if (battle.map === undefined) return { tiles: [], highlights: [], outlines: [] };
+  if (battle.map === undefined) return { tiles: [], highlights: [], decor: [], outlines: [] };
   return buildSceneModel({ map: battle.map, highlight: NO_HIGHLIGHT, origin });
 }
 

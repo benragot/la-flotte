@@ -84,6 +84,17 @@ export {
 export type { HpBar, TokenBadge, TokenSprite, TokenView } from "./tokens";
 export { depthOf, painterOrder } from "./scene";
 export type { GridHighlight, SceneModel, TileView } from "./scene";
+export { hashInt, hashUnit } from "./cellHash";
+export { MATERIAL_COLORS, MATERIAL_KINDS, materialAt, shiftColor, waterTone } from "./tileMaterials";
+export type { TileMaterial } from "./tileMaterials";
+export { groundShapes, waterEdges } from "./tileTexture";
+export type { Edge, GroundShapeInput, NeighbourLand } from "./tileTexture";
+export { decorShapes } from "./decor";
+export type { DecorView } from "./decor";
+export { mapDecorSpecs } from "./mapDecor";
+export { paintShapes } from "./paintShapes";
+export { drawDecor } from "./decorPaint";
+export type { EllipseShape, LineShape, PolyShape, RingShape, Shape } from "./shapes";
 export { buildPathPreview, pathIsoCenters } from "./pathPreview";
 export type { BlockReason, PathCentersInput, PathPreview, PathPreviewInput } from "./pathPreview";
 export { buildDamagePreview, elementStat } from "./damagePreview";

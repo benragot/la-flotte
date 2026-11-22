@@ -20,8 +20,8 @@ vi.mock("pixi.js", async () => {
 const { FakeNode, graphicsOf } = await import("./support/fakePixi");
 const { renderScene } = await import("../../src/renderer/sceneLayers");
 
-/** La couche `tokens` est la 4ᵉ `Graphics` créée par `createLayers`. */
-const TOKEN_LAYER_OFFSET = 3;
+/** La couche `tokens` est la 6ᵉ `Graphics` créée par `createLayers` (grille, décor, décor haut, surbrillances, chemin, jetons). */
+const TOKEN_LAYER_OFFSET = 5;
 
 const ANIMATION = { row: 0, frames: 4, fps: 6, loop: true };
 
@@ -39,7 +39,7 @@ function token(spriteId: string | null): TokenView {
 }
 
 function view(tokens: TokenView[]): ViewModel {
-  return { scene: { tiles: [], highlights: [], outlines: [] }, tokens, path: [], lastAction: null };
+  return { scene: { tiles: [], highlights: [], decor: [], outlines: [] }, tokens, path: [], lastAction: null };
 }
 
 function fakeApp(): Application {

@@ -2,6 +2,8 @@ import { Container, Graphics, Text } from "pixi.js";
 import type { Application } from "pixi.js";
 import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
+import type { DecorView } from "./decor";
+import { drawDecor } from "./decorPaint";
 import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
@@ -10,6 +12,8 @@ import { drawActiveRings, drawHpBars, drawTokens, tokenBadge, tokensNeedingCircl
 
 interface SceneLayers {
   grid: Graphics;
+  decor: Graphics;
+  decorAbove: Graphics;
   highlights: Graphics;
   path: Graphics;
   tokens: Graphics;
@@ -24,8 +28,8 @@ export const BADGE_TEXT_COLOR = 0xf2d64b;
 const LAYERS = new WeakMap<Application, SceneLayers>();
 
 function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
-  const graphics = { grid: new Graphics(), highlights: new Graphics(), path: new Graphics() };
-  const moreGraphics = { tokens: new Graphics(), hpBars: new Graphics() };
+  const graphics = { grid: new Graphics(), decor: new Graphics(), decorAbove: new Graphics() };
+  const moreGraphics = { highlights: new Graphics(), path: new Graphics(), tokens: new Graphics(), hpBars: new Graphics() };
   return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container() };
 }
 
@@ -33,8 +37,8 @@ function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneL
   const existing = LAYERS.get(app);
   if (existing !== undefined) return existing;
   const created = createLayers(sheets);
-  const { grid, highlights, path, tokens, actors, hpBars, labels } = created;
-  app.stage.addChild(grid, highlights, path, tokens, actors.container, hpBars, labels);
+  const { grid, decor, decorAbove, highlights, path, tokens, actors, hpBars, labels } = created;
+  app.stage.addChild(grid, decor, highlights, path, tokens, actors.container, decorAbove, hpBars, labels);
   LAYERS.set(app, created);
   return created;
 }
@@ -63,6 +67,8 @@ function clearLabels(container: Container): void {
 
 function clearLayers(layers: SceneLayers): void {
   layers.grid.clear();
+  layers.decor.clear();
+  layers.decorAbove.clear();
   layers.highlights.clear();
   layers.path.clear();
   layers.tokens.clear();
@@ -70,7 +76,6 @@ function clearLayers(layers: SceneLayers): void {
   clearLabels(layers.labels);
 }
 
-/** La couche des jetons ne filtre plus : un jeton sans feuille connue reçoit son cercle. */
 /** Applications déjà branchées sur une boucle de rendu, pour ne pas empiler les tickers. */
 const ANIMATED = new WeakSet<Application>();
 
@@ -86,8 +91,17 @@ function ensureAnimationLoop(app: Application, view: ViewModel, sheets: Readonly
   app.ticker.start();
 }
 
+function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): DecorView[] {
+  return decor.filter((view) => view.layer === layer);
+}
+
+/**
+ * Sol, décor opaque puis grille de cases : les contours restent visibles même
+ * au-dessus de l'épave. Surbrillances et chemin ferment la couche plateau.
+ */
 function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawGrid(layers.grid, view.scene.tiles);
+  drawDecor(layers.decor, layerViews(view.scene.decor, "below"));
   drawOutlines(layers.grid, view.scene.outlines);
   drawHighlights(layers.highlights, view.scene.highlights);
   drawPath(layers.path, view.path);
@@ -97,6 +111,7 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
 function drawActorLayers(layers: SceneLayers, view: ViewModel): void {
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
+  drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
   drawHpBars(layers.hpBars, view.tokens);
   drawLabels(layers.labels, view.tokens);
 }
