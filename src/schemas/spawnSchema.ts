@@ -19,11 +19,34 @@ export const spawnEntrySchema = z
   })
   .strict();
 
+/** Un compte se tire entre deux bornes incluses : jamais zéro, jamais inversées. */
+const countSchema = z.number().int().min(1, "un compte de spawn vaut au moins 1");
+
+export const countRangeSchema = z
+  .object({ min: countSchema, max: countSchema })
+  .strict()
+  .refine((range) => range.max >= range.min, { message: "max doit être ≥ min", path: ["max"] });
+
+/**
+ * Repli historique : une zone qui ne déclare rien garde **un** groupe d'**un**
+ * monstre, exactement le comportement d'avant la donnée `groups`.
+ */
+export const SINGLE_GROUP = { min: 1, max: 1 } as const;
+
+export const countRangeWithDefaultSchema = countRangeSchema.default(SINGLE_GROUP);
+
+/**
+ * `groups` = combien de groupes la zone fait apparaître, `members` = combien de
+ * monstres par groupe (1 à 3, règle Dofus 1.29). Les deux sont **des données** :
+ * aucune borne métier n'est écrite dans `src/`.
+ */
 export const spawnZoneSchema = z
   .object({
     id: identifierSchema,
     mapId: identifierSchema,
     monsters: z.array(spawnEntrySchema).min(1, "une zone doit déclarer au moins un monstre"),
+    groups: countRangeWithDefaultSchema,
+    members: countRangeWithDefaultSchema,
   })
   .strict();
 
