@@ -95,6 +95,22 @@ export function facingToward(from: Position, to: Position): Facing {
   return to.x - to.y >= from.x - from.y ? "right" : "left";
 }
 
+/**
+ * `true` dès qu'une feuille connue rend le jeton. Un id fantôme (feuille jamais
+ * dessinée) vaut `false` : il tombe sur le cercle, il n'est jamais omis.
+ */
+export function hasSpriteSheet(spriteId: string | null, sheets: ReadonlySet<string>): boolean {
+  return spriteId !== null && sheets.has(spriteId);
+}
+
+/** Jetons qu'aucune feuille ne rend : la couche de scène les peint en cercle coloré. */
+export function tokensNeedingCircle(
+  tokens: readonly TokenView[],
+  sheets: ReadonlySet<string>,
+): readonly TokenView[] {
+  return tokens.filter((token) => !hasSpriteSheet(token.spriteId, sheets));
+}
+
 function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
   const { fill, hp, maxHp, badge, depth, sprite } = spec;
   const ratio = hpRatio(hp, maxHp);
