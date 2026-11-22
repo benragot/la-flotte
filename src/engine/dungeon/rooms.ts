@@ -19,7 +19,8 @@ export function isDungeonComplete(run: DungeonRunState, dungeon: DungeonDef): bo
 }
 
 function progressRoom(run: DungeonRunState, dungeon: DungeonDef): DungeonRoom | null {
-  return currentRoom(run, dungeon) ?? lastRoom(dungeon);
+  if (!isDungeonComplete(run, dungeon)) return currentRoom(run, dungeon);
+  return lastRoom(dungeon);
 }
 
 function numberOrZero(room: DungeonRoom | null): number {

@@ -50,18 +50,6 @@ export function completeRoom(run: DungeonRunState, dungeon: DungeonDef): Dungeon
   return clearedState(run, room);
 }
 
-/**
- * Contrat central de la vague 5B : **aucune régénération gratuite** entre les
- * salles d'un donjon. Aucun repos, aucun soin, aucun rechargement de PA/PM
- * n'est accordé au changement de salle — seulement la clé consommée à l'entrée.
- * La fonction existe pour que l'appelant ne puisse pas oublier la règle :
- * elle renvoie toujours `false`, quel que soit l'état du run.
- */
-export function canRestBetweenRooms(run: DungeonRunState): boolean {
-  void run; // le run est accepté pour rendre l'appel explicite, sans effet sur la règle
-  return false;
-}
-
 function countDefeated(ids: readonly string[], monsterId: string): number {
   return ids.filter((candidate) => candidate === monsterId).length;
 }
@@ -76,8 +64,9 @@ function isRoomCleared(room: DungeonRoom, ids: readonly string[]): boolean {
 
 /**
  * Valide la salle courante si chaque groupe est vaincu au moins `count` fois.
- * Le moteur ne touche jamais aux PV : le carry-over entre salles est à la
- * charge de l'appelant, qui passe les combatants au moteur de combat.
+ * Le moteur ne touche **jamais** aux PV : le carry-over entre salles est à la
+ * charge de l'appelant, et **aucune régénération ne doit être accordée** entre
+ * deux salles.
  */
 export function attemptRoom(input: AttemptRoomInput): AttemptRoomResult {
   const room = currentRoom(input.run, input.dungeon);

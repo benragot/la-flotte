@@ -1,9 +1,4 @@
-export {
-  attemptRoom,
-  canRestBetweenRooms,
-  completeRoom,
-  enterDungeon,
-} from "./run";
+export { attemptRoom, completeRoom, enterDungeon } from "./run";
 export { currentRoom, dungeonProgress, isDungeonComplete, roomMonsters } from "./rooms";
 export type {
   AttemptRoomInput,
