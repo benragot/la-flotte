@@ -673,8 +673,8 @@ describe("backlog — vague 5B livrée", () => {
     expect(task?.depends_on).toEqual(["5B-f"]);
   });
 
-  it("versionne le backlog en 16", () => {
-    expect(readBacklog().meta.version).toBe(16);
+  it("versionne le backlog en 17", () => {
+    expect(readBacklog().meta.version).toBe(17);
   });
 });
 
@@ -696,22 +696,32 @@ describe("backlog — dettes versées en v15", () => {
   });
 });
 
-describe("backlog — vague 5C/5D ouverte en v16", () => {
-  const DELIVERED: Array<[string, number, string]> = [
-    ["5C-a", 44, "f6a113e"],
-    ["5C-e", 45, "8a84b15"],
-  ];
+const DELIVERED_5C: Array<[string, number, string]> = [
+  ["5C-a", 44, "f6a113e"],
+  ["5C-e", 45, "8a84b15"],
+  ["5C-b", 46, "32ae2a3"],
+  ["5C-c", 48, "74e739d"],
+];
 
-  function deliveryGaps(backlog: Backlog): string[] {
-    return DELIVERED.flatMap(([id, pr, squash]) => {
-      const task = taskById(backlog, id);
-      const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
-      return ok ? [] : [`${id}:${task?.status ?? "absent"}`];
-    });
-  }
+function deliveryGaps(backlog: Backlog): string[] {
+  return DELIVERED_5C.flatMap(([id, pr, squash]) => {
+    const task = taskById(backlog, id);
+    const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
+    return ok ? [] : [`${id}:${task?.status ?? "absent"}`];
+  });
+}
 
-  it("enregistre les livraisons 5C-a et 5C-e avec leur squash", () => {
+describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
+  it("enregistre les livraisons 5C-a, 5C-b, 5C-c et 5C-e avec leur squash", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
+  });
+
+  it("garde 5C ouverte sur la seule tâche 5C-d après les merges #46 et #48", () => {
+    const backlog = readBacklog();
+    expect(taskById(backlog, "5C-d")?.status).toBe("todo");
+    expect(taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done")).toEqual([
+      "5C-d",
+    ]);
   });
 
   it("ouvre les tâches 5C-b, 5C-c, 5C-d et 5D-a", () => {
@@ -727,10 +737,10 @@ describe("backlog — vague 5C/5D ouverte en v16", () => {
     expect(taskById(backlog, "5D-a")?.depends_on).toEqual(["5C-c", "5C-d", "5B-g"]);
   });
 
-  it("exige une PR ouverte sur 5C-b en revue (symétrique de 5B-g)", () => {
-    const task = taskById(readBacklog(), "5C-b");
-    expect(task?.status).toBe("needs_review");
-    expect(task?.pr).toBe(46);
+  it("exige une PR ouverte sur 5C-d (symétrique de 5B-g)", () => {
+    const task = taskById(readBacklog(), "5C-d");
+    expect(task?.status).toBe("todo");
+    expect(task?.pr).toBeUndefined();
   });
 });
 
@@ -738,7 +748,6 @@ describe("backlog — dettes des audits #44/#45", () => {
   const AUDITS: Array<[string, string, string]> = [
     ["D59", "medium", "5B"],
     ["D60", "low", "5C"],
-    ["D61", "high", "5D-a"],
     ["D62", "low", "5C"],
     ["D63", "medium", "5C"],
     ["D64", "high", "5C-d"],
@@ -751,12 +760,93 @@ describe("backlog — dettes des audits #44/#45", () => {
     });
   }
 
-  it("verse les six dettes avec leur sévérité et leur cible", () => {
+  it("verse les cinq dettes avec leur sévérité et leur cible", () => {
     expect(auditGaps(readBacklog())).toEqual([]);
   });
 
   it("joint une note factuelle à chaque dette versée", () => {
     const missing = AUDITS.filter(([id]) => !isFilled(debtById(readBacklog(), id)?.notes)).map(([id]) => id);
     expect(missing).toEqual([]);
+  });
+});
+
+describe("backlog — dette D61 caduque", () => {
+  it("ne traîne plus la dette de non-riposte, soldée par #48", () => {
+    expect(debtById(readBacklog(), "D61")).toBeUndefined();
+    expect(rawBacklog()).not.toContain("aucun avertissement de riposte");
+  });
+});
+
+const WAVE6_SPEC = "docs/design/specs/effects-engine.md";
+const WAVE6_TASKS: Array<[string, string[]]> = [
+  ["6A-effects-schema", []],
+  ["6A-timed-effects", ["6A-effects-schema"]],
+  ["6A-apmp-retrait", ["6A-timed-effects"]],
+  ["6A-heal-armor", ["6A-timed-effects"]],
+  ["6B-zone-geometry", ["6A-timed-effects"]],
+  ["6B-cast-riders", ["6A-apmp-retrait", "6A-heal-armor", "6B-zone-geometry"]],
+  ["6C-push-fidelity", []],
+  ["6C-combatants-list", ["6C-push-fidelity"]],
+  ["6D-summon", ["6B-cast-riders", "6C-combatants-list"]],
+  ["6D-boss-carapace", ["6D-summon"]],
+];
+
+function wave6Gaps(backlog: Backlog): string[] {
+  return WAVE6_TASKS.flatMap(([id, deps]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const statuses = task.status === "todo" ? [] : [`${id}:${task.status}`];
+    const spec = (task.notes ?? "").includes(WAVE6_SPEC) ? [] : [`${id}:notes`];
+    const wired = JSON.stringify(task.depends_on ?? []) === JSON.stringify(deps) ? [] : [`${id}:depends_on`];
+    return [...statuses, ...spec, ...wired];
+  });
+}
+
+describe("backlog — vague 6 moteur d'effets", () => {
+  it("déclare les dix tâches en todo, notées vers la spec", () => {
+    expect(wave6Gaps(readBacklog())).toEqual([]);
+  });
+
+  it("les répartit dans les phases existantes 6A à 6D", () => {
+    const backlog = readBacklog();
+    expect(taskIdsOf(backlog, "6A")).toEqual([
+      "6A-effects-schema",
+      "6A-timed-effects",
+      "6A-apmp-retrait",
+      "6A-heal-armor",
+    ]);
+    expect(taskIdsOf(backlog, "6B")).toEqual(["6B-zone-geometry", "6B-cast-riders"]);
+    expect(taskIdsOf(backlog, "6C")).toEqual(["6C-push-fidelity", "6C-combatants-list"]);
+    expect(taskIdsOf(backlog, "6D")).toEqual(["6D-summon", "6D-boss-carapace"]);
+  });
+
+  it("n'ouvre aucune phase 6E ni suffixe hors motif A-D", () => {
+    const backlog = readBacklog();
+    const phases = allPhases(backlog).map((phase) => phase.id).filter((id) => id.startsWith("6"));
+    expect(phases).toEqual(["6A", "6B", "6C", "6D"]);
+    const prefixes = new Set(allTasks(backlog).filter((task) => task.id.startsWith("6")).map((task) => task.id.slice(0, 2)));
+    expect([...prefixes].sort()).toEqual(["6A", "6B", "6C", "6D"]);
+  });
+});
+
+const AUDITS_22_11: Array<[string, string, string, string]> = [
+  ["D65", "medium", "6A-effects-schema", "cooldown"],
+  ["D66", "medium", "6B-cast-riders", "coup_daile_gras"],
+  ["D67", "medium", "5D-a", "recommendedLevel"],
+];
+
+function audit22Gaps(backlog: Backlog): string[] {
+  return AUDITS_22_11.flatMap(([id, severity, target, keyword]) => {
+    const debt = debtById(backlog, id);
+    if (debt === undefined) return [`${id}:absent`];
+    const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+    const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    return [...graded, ...noted];
+  });
+}
+
+describe("backlog — dettes des audits du 22/11", () => {
+  it("verse D65, D66 et D67 avec sévérité, cible et note factuelle", () => {
+    expect(audit22Gaps(readBacklog())).toEqual([]);
   });
 });
