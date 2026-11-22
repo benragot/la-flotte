@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { countItem } from "../../src/engine/inventory";
 import type { InventoryState } from "../../src/engine/inventory";
@@ -29,7 +28,7 @@ const inventoryFrom = (recipe: RecipeDef): InventoryState => ({
 const itemById = (items: readonly ItemDef[], id: string): ItemDef | undefined =>
   items.find((item) => item.id === id);
 
-describe("recipes.yaml", () => {
+describe("recipes.yaml — structure", () => {
   it("contient entre 8 et 10 recettes aux ids uniques en snake_case", () => {
     const recipes = loadRecipes();
     expect(recipes.length).toBeGreaterThanOrEqual(MIN_RECIPES);
@@ -37,22 +36,6 @@ describe("recipes.yaml", () => {
     const ids = recipes.map((recipe) => recipe.id);
     expect(new Set(ids).size).toBe(ids.length);
     ids.forEach((id) => expect(id).toMatch(SNAKE_CASE));
-  });
-
-  it("fait pointer chaque résultat vers un item existant", () => {
-    const itemIds = new Set(loadItems().map((item) => item.id));
-    loadRecipes().forEach((recipe) => {
-      expect(itemIds.has(recipe.resultItemId), `${recipe.resultItemId} absent d'items.yaml`).toBe(true);
-    });
-  });
-
-  it("fait pointer chaque ingrédient vers un item existant, sans doublon", () => {
-    const itemIds = new Set(loadItems().map((item) => item.id));
-    loadRecipes().forEach((recipe) => {
-      const ids = ingredientIds(recipe);
-      ids.forEach((id) => expect(itemIds.has(id), `${id} absent d'items.yaml`).toBe(true));
-      expect(new Set(ids).size).toBe(ids.length);
-    });
   });
 
   it("borne le niveau d'artisanat entre 1 et 50 et les quantités à au moins 1", () => {
@@ -73,6 +56,24 @@ describe("recipes.yaml", () => {
     expect(categories.filter((item) => item?.category === "consumable").length).toBeGreaterThan(0);
     expect(setPieces.length).toBeGreaterThan(0);
     expect(weapons.length).toBeGreaterThan(0);
+  });
+});
+
+describe("recipes.yaml — ancrage sur items.yaml", () => {
+  it("fait pointer chaque résultat vers un item existant", () => {
+    const itemIds = new Set(loadItems().map((item) => item.id));
+    loadRecipes().forEach((recipe) => {
+      expect(itemIds.has(recipe.resultItemId), `${recipe.resultItemId} absent d'items.yaml`).toBe(true);
+    });
+  });
+
+  it("fait pointer chaque ingrédient vers un item existant, sans doublon", () => {
+    const itemIds = new Set(loadItems().map((item) => item.id));
+    loadRecipes().forEach((recipe) => {
+      const ids = ingredientIds(recipe);
+      ids.forEach((id) => expect(itemIds.has(id), `${id} absent d'items.yaml`).toBe(true));
+      expect(new Set(ids).size).toBe(ids.length);
+    });
   });
 
   it("permet un aller-retour craftOnce sur une recette réelle", () => {
