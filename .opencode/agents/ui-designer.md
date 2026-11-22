@@ -42,14 +42,41 @@ permissions:
     resource: "git switch *"
     effect: allow
   - action: shell
-    resource: "git push*"
+    resource: "git push"
     effect: allow
+  - action: shell
+    resource: "git push -u origin *"
+    effect: allow
+  - action: shell
+    resource: "git push origin *"
+    effect: allow
+  - action: shell
+    resource: "git push*--force*"
+    effect: deny
+  - action: shell
+    resource: "git push* -f*"
+    effect: deny
   - action: shell
     resource: "git branch *"
     effect: allow
   - action: shell
-    resource: "git worktree *"
+    resource: "git branch -D*"
+    effect: deny
+  - action: shell
+    resource: "git branch --delete*"
+    effect: deny
+  - action: shell
+    resource: "git worktree add*"
     effect: allow
+  - action: shell
+    resource: "git worktree list*"
+    effect: allow
+  - action: shell
+    resource: "git worktree remove*"
+    effect: deny
+  - action: shell
+    resource: "git worktree prune*"
+    effect: deny
   - action: shell
     resource: "git fetch*"
     effect: allow
@@ -60,8 +87,11 @@ permissions:
     resource: "npm --prefix * run *"
     effect: allow
   - action: shell
-    resource: "npx playwright *"
+    resource: "npx playwright test*"
     effect: allow
+  - action: shell
+    resource: "npx playwright install*"
+    effect: deny
   - action: shell
     resource: "gh pr create*"
     effect: allow
@@ -78,7 +108,7 @@ permissions:
     resource: "gh run list*"
     effect: allow
   - action: shell
-    resource: "ln -s *"
+    resource: "ln -s */node_modules"
     effect: allow
   - action: shell
     resource: "cd *"
@@ -265,9 +295,9 @@ illisible est un bug, pas un goût.
 - ⚠️ **`tests/walkthrough/**` est hors périmètre** (il s'exécute dans
   `npm run check`). Si une refonte le casse, la **parade est de revenir en
   arrière**, pas de contourner ni de réécrire le test : tu signales le conflit.
-- ⚠️ **Limite connue du moteur** : les chemins sont normalisés avant contrôle
-  (`src/ui/../engine/x.ts` est évalué comme `src/engine/x.ts`, donc refusé) et
-  la règle `**/../**` ajoute une ceinture. Ne cherche aucun contournement.
+- ⚠️ **La ceinture `**/../**` couvre le cas littéral** ; la normalisation des
+  chemins par le moteur **n'est pas vérifiée**, d'où la ceinture. Ne cherche
+  aucun contournement.
 - ⚠️ **Ne pas toucher aux `data-zone`** ni aux `aria-label` : ce sont les
   sélecteurs des tests.
 - ⚠️ **Lisibilité avant esthétique** : si un ornement rend un texte moins
@@ -294,8 +324,10 @@ illisible est un bug, pas un goût.
 2. Partage les dépendances par symlink :
    `ln -s /Users/benjaminragot/la-flotte/node_modules ../la-flotte-wt-<slug>/node_modules`.
    Ne lance **jamais** `npm install` dans le worktree.
-3. Toutes tes commandes commencent par `cd ../la-flotte-wt-<slug> && ...` et
-   toutes tes éditions ciblent `../la-flotte-wt-<slug>/<chemin>`.
+3. Toutes tes commandes commencent par `cd ../la-flotte-wt-<slug> && ...` ;
+   **tes éditions sont repo-relatives au worktree** : tu édites
+   **`src/ui/…` sans préfixe `../`** (le worktree est ton répertoire courant).
+   Un chemin avec `..` est refusé par la ceinture `**/../**`.
 4. Lance `npm run check` jusqu'au vert, puis `git push`.
 5. Commits et titre de PR au format strict `type(scope): <gitmoji> description`
    (`design(ui): 💄`, `test(ui): ✅`, `fix(ui): 🐛`, `refactor(ui): ♻️`).
@@ -313,6 +345,14 @@ illisible est un bug, pas un goût.
 - `shell` est en **deny global puis allowlisté par motif** ; toute commande
   hors liste est bloquée, en particulier `npm install` et toute redirection
   vers un fichier (`>`, `tee`, `cat >`).
+- `git push` se limite à `git push`, `git push -u origin *` et
+  `git push origin *` : **`--force` / `-f` est refusé au motif**, jamais de
+  réécriture, même d'une branche que tu viens de créer.
+- `ln -s` n'est autorisé **que vers un `…/node_modules`** (partage des
+  dépendances du worktree) : aucun autre lien symbolique, c'est une évasion
+  possible hors périmètre.
+- `git worktree` se limite à **`add`** et **`list`** : jamais `remove` ni
+  `prune`, c'est `pr-merger` qui nettoie.
 - Aucune dépendance nouvelle, aucun asset téléchargé, aucune règle ESLint
   désactivée.
 - Tu ne supprimes **pas** ton worktree toi-même : le nettoyage est fait par
