@@ -36,18 +36,18 @@
 ## D05 — Sprites procéduraux, pas de binaires (2026-11-22)
 
 **Décision** : les sprites restent **procéduraux**, avec des feuilles **générées à 2×** pour corriger le flou.
-**Interdit** : **Aseprite**, tout éditeur de pixels externe et **aucun binaire** dans le dépôt (pas de `.png`, `.ase`, `.psd` commité).
+**Interdit** : **Aseprite**, tout éditeur de pixels externe, et **interdire tout binaire** dans le dépôt (pas de `.png`, `.ase`, `.psd` commité).
 **Conséquence** : le flou se corrige par la génération à 2× et le rendu `nearest`, jamais par un asset importé.
 
 ## D06 — Mort gratuite (2026-11-22)
 
 **Décision** : la mort est **sans pénalité** : PV restaurés, pas de perte d'XP, d'objets ni d'énergie.
-**Interdit** : **ne pas** implémenter le système d'énergie/fantôme de 1.29, ni une perte d'XP, d'objets ou de kamas à la mort.
+**Interdit** : implémenter le système d'énergie/fantôme de 1.29, ou infliger une perte d'XP, d'objets ou de kamas à la mort.
 **Conséquence** : une PR qui ajoute une pénalité de mort, même « fidèle à 1.29 », est refusée.
 
 ## D07 — Économie des clés de donjon (2026-11-22)
 
-**Décision** : une clé doit être obtainable en **5 à 10 combats en moyenne**. Ce standard s'applique à **toutes** les futures clés.
+**Décision** : une clé doit être obtenable en **5 à 10 combats en moyenne**. Ce standard s'applique à **toutes** les futures clés.
 **Autorisé** : ajuster les poids de spawn, les taux de drop de la fiche, **et/ou la recette** — voire rendre la clé directement droppable.
 **Interdit** : poser une clé de donjon dont le farm moyen dépasse 10 combats ; refuser d'ajuster la donnée au motif que la fiche d'île est figée.
 

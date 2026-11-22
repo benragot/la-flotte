@@ -282,7 +282,7 @@ waves:
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            notes: "décision D07 : une clé doit être obtainable en **5 à 10 combats en moyenne**, standard applicable à toutes les futures clés ; mesurer le farm actuel de la clé de la Ferraille puis ajuster — poids de spawn, taux de drop de la fiche (`piou_mazoute`, D58) **et/ou recette** ; rendre la clé directement droppable est autorisé. Ne jamais refuser l'ajustement au motif que la fiche d'île est figée."
+            notes: "décision D07 : une clé doit être obtenable en **5 à 10 combats en moyenne**, standard applicable à toutes les futures clés ; mesurer le farm actuel de la clé de la Ferraille puis ajuster — poids de spawn, taux de drop de la fiche (`piou_mazoute`, D58) **et/ou recette** ; rendre la clé directement droppable est autorisé. Ne jamais refuser l'ajustement au motif que la fiche d'île est figée."
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
