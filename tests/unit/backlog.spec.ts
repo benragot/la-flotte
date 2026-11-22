@@ -20,7 +20,8 @@ const INBOX_KEYS = ["id", "title", "created_at"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const WAVE_ID_PATTERN = /^wave-\d+(?:\.\d+)?$/;
 const PHASE_ID_PATTERN = /^\d(?:\.\d)?[A-D]$/;
-const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[a-z0-9-]+$/;
+// Le suffixe accepte aussi une majuscule : la vague 5B nomme ses livraisons 5B-A…5B-G.
+const TASK_ID_PATTERN = /^\d(?:\.\d)?[A-D]-[A-Za-z0-9-]+$/;
 const DEBT_ID_PATTERN = /^D\d{2}$/;
 
 interface Task {
@@ -610,5 +611,61 @@ describe("backlog — cibles des dettes", () => {
   it("exige un owner sur chaque dette externalisée", () => {
     const orphans = externalDebtsWithoutOwner(readBacklog());
     expect(orphans.map((debt) => debt.id)).toEqual([]);
+  });
+
+  it("détecte une dette qui vise une phase done sur fixtures", () => {
+    const clean = fixtureBacklog([fixturePhase("5B", "in_progress")]);
+    clean.debts = [{ id: "D01", title: "Dette ouverte", severity: "low", target: "5B" }];
+    expect(debtsTargetingDone(clean).map((debt) => debt.id)).toEqual([]);
+    const stale = fixtureBacklog([fixturePhase("5B", "done")]);
+    stale.debts = [{ id: "D01", title: "Dette périmée", severity: "low", target: "5B" }];
+    expect(debtsTargetingDone(stale).map((debt) => debt.id)).toEqual(["D01"]);
+  });
+});
+
+describe("backlog — vague 5B livrée", () => {
+  const MERGED: Array<[string, number]> = [
+    ["5B-A", 36],
+    ["5B-B", 37],
+    ["5B-C", 38],
+    ["5B-D", 39],
+    ["5B-E", 40],
+    ["5B-F", 41],
+  ];
+
+  function undelivered(backlog: Backlog): string[] {
+    return MERGED.flatMap(([id, pr]) => {
+      const task = taskById(backlog, id);
+      return task?.status === "done" && task.pr === pr ? [] : [`${id}:${task?.status ?? "absent"}`];
+    });
+  }
+
+  it("enregistre les six livraisons mergées de la 5B", () => {
+    const backlog = readBacklog();
+    expect(undelivered(backlog)).toEqual([]);
+    expect(phaseById(backlog, "5B")?.status).toBe("in_progress");
+  });
+
+  it("ouvre 5B-G sans PR et la rattache à 5B-F", () => {
+    const task = taskById(readBacklog(), "5B-G");
+    expect(task?.status).toBe("in_progress");
+    expect(task?.pr).toBeUndefined();
+    expect(task?.depends_on).toEqual(["5B-F"]);
+  });
+
+  it("versionne le backlog en 15", () => {
+    expect(readBacklog().meta.version).toBe(15);
+  });
+});
+
+describe("backlog — dettes versées en v15", () => {
+  const VERSED = ["D55", "D56", "D57", "D58"];
+
+  it("enregistre les quatre dettes de la 5B", () => {
+    expect(VERSED.flatMap((id) => (debtById(readBacklog(), id) ? [] : [id]))).toEqual([]);
+  });
+
+  it("ne duplique pas D59, déjà couverte par le wiring 5D", () => {
+    expect(debtById(readBacklog(), "D59")).toBeUndefined();
   });
 });
