@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 7
+  version: 8
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -82,11 +82,12 @@ waves:
         tasks:
           - id: 3.5B-wiring
             title: Câblage App (zone jouable + dock), mode exploration et raccourcis globaux
-            status: done
+            status: approved
             pr: 27
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
+            notes: corrections QA en cours ; repassera done après merge
   - id: wave-4
     title: Persistance héros, 12 classes, inventaire, panoplies, sauvegarde
     status: in_progress
