@@ -1,0 +1,40 @@
+# Donjons (Vague 5A).
+# Une salle = une map de `data/maps.yaml` ; `roomNumber` est consécutif à partir
+# de 1 et la dernière salle est l'unique `isBossRoom: true`.
+# D34 : `keyItemId` référence la clef prévue par la fiche ; l'item arrivera dans
+# `data/items.yaml` dès que `itemSchema` connaîtra la catégorie `key`.
+dungeons:
+  - id: fer_donjon_casse_vis_sans_fin
+    name: "La Casse aux Vis-Sans-Fin"
+    recommendedLevel: 16
+    keyItemId: cle_donjon_ile_de_la_ferraille
+    rooms:
+      - roomNumber: 1
+        name: "La Cour aux Volatiles Gras"
+        mapId: fer_salle_cour_volatiles
+        monsters:
+          - { monsterId: piou_mazoute, count: 2 }
+          - { monsterId: fer_rat_de_cale, count: 1 }
+      - roomNumber: 2
+        name: "Le Hangar à Mazout"
+        mapId: fer_salle_hangar_mazout
+        monsters:
+          - { monsterId: fer_rat_de_cale, count: 1 }
+          - { monsterId: fer_crabe_cle_molette, count: 2 }
+          - { monsterId: fer_marmite_fuyarde, count: 1 }
+      - roomNumber: 3
+        name: "L'Allée des Boulons Perdus"
+        mapId: fer_salle_allee_boulons
+        monsters:
+          - { monsterId: fer_crabe_cle_molette, count: 1 }
+          - { monsterId: fer_marmite_fuyarde, count: 1 }
+          - { monsterId: fer_boulon_pousseur, count: 2 }
+      - roomNumber: 4
+        name: "L'Atelier d'Yvon Rouiller"
+        mapId: fer_salle_atelier_yvon
+        isBossRoom: true
+        monsters:
+          - { monsterId: fer_boss_yvon_rouiller, count: 1 }
+          - { monsterId: fer_crabe_cle_molette, count: 1 }
+          - { monsterId: fer_marmite_fuyarde, count: 1 }
+          - { monsterId: fer_boulon_pousseur, count: 1 }
