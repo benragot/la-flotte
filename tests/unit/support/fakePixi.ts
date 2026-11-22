@@ -34,8 +34,27 @@ export class FakeNode {
   }
 }
 
+/** Toutes les `Graphics` créées, dans l'ordre : la couche des jetons est la 4ᵉ. */
+export const graphicsOf: FakeGraphics[] = [];
+
 export class FakeGraphics extends FakeNode {
+  circleCalls = 0;
+
+  constructor() {
+    super();
+    graphicsOf.push(this);
+  }
+
   circle(): this {
+    this.circleCalls += 1;
+    return this;
+  }
+
+  poly(): this {
+    return this;
+  }
+
+  rect(): this {
     return this;
   }
 
@@ -46,10 +65,14 @@ export class FakeGraphics extends FakeNode {
   stroke(): this {
     return this;
   }
+
+  clear(): this {
+    this.circleCalls = 0;
+    return this;
+  }
 }
 
-export class FakeAnimatedSprite extends FakeNode {
-  textures: readonly unknown[] = [];
+export class FakeAnimatedSprite extends FakeNode {  textures: readonly unknown[] = [];
   animationSpeed = 1;
   loop = true;
   onComplete?: () => void;
@@ -72,5 +95,16 @@ export class FakeAnimatedSprite extends FakeNode {
 
   stop(): void {
     return undefined;
+  }
+}
+
+/** Doublure de `Text` : seuls l'ancre et la position sont posées par la couche. */
+export class FakeText extends FakeNode {
+  text: string;
+  anchor = { set: (): void => undefined };
+
+  constructor(options: { text: string }) {
+    super();
+    this.text = options.text;
   }
 }
