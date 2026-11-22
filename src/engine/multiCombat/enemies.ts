@@ -106,7 +106,8 @@ function runLoop(input: EnemiesActInput, current: BattleState, steps: number): B
  * 10 actions : aucune stratégie ne peut boucler indéfiniment.
  *
  * Avant la première action, les ennemis qui partagent une case sont dégagés
- * (`separateOccupants`) : un état hérité ne peut plus figer la salle.
+ * (`separateOccupants`) : un état hérité ne fige la salle que si **aucune** case
+ * libre n'existe (salle entièrement occupée, inatteignable en pratique).
  */
 export function enemiesAct(input: EnemiesActInput): BattleState {
   return runLoop(input, separateOccupants(input.state), 0);

@@ -78,8 +78,10 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * chiffré par cellule, `turnsShort`/`hpNeeded`). Le niveau 16 offense passe de
  * « 7 PV de monstres restants en salle 2 » à « salle 2 nettoyée, 274 PV en salle
  * 3 » : le gain vient du correctif, pas d'un rééquilibrage. `recommendedLevel`
- * N'EST PAS CORRIGÉ : aucun niveau mesuré ne gagne, et 16 reste le dernier cran
- * où le héros échoue au plus près de la victoire en salle 2.
+ * N'EST PAS CORRIGÉ : aucun niveau mesuré ne gagne, et 16 est le plus bas niveau
+ * où le héros arrive encore à la salle 2 (build survie : 55 PV de monstres
+ * restants, 3,3 tours manquants) avant que toutes les cellules ne meurent en
+ * salle 3.
  *
  * LE PLAFOND D'ACTIONS RESTE LE DÉTECTEUR D'ENLISEMENT : il n'est ni contourné ni
  * calibré. S'il reparaît, c'est que le moteur gèle à nouveau.
@@ -566,8 +568,9 @@ interface Cell {
 
 /**
  * La table EST la mesure : chaque chiffre vient d'une exécution réelle, aucune
- * valeur n'a été calée pour que le test passe (`actions` compte le plafond pour
- * les deux enlisements, cf. en-tête).
+ * valeur n'a été calée pour que le test passe. Les six cellules finissent par une
+ * défaite : `actions` est le total réellement joué, jamais un plafond atteint
+ * (le plafond de 200 actions reste le détecteur d'enlisement, cf. en-tête).
  */
 const CELLS: readonly Cell[] = [
   { level: 16, build: "survie", maxHp: 303, outcome: "defaite", room: 2, enemyHpLeft: 55, actions: 54, turnsShort: 3.32, hpNeeded: 53.3 },

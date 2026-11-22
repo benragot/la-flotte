@@ -8,13 +8,18 @@ import type { BattleState, CombatantLike } from "./types";
  *
  * Une sauvegarde ou un état hérité peut déjà contenir deux vivants sur la même
  * case : sans dégagement, le squatter empêche `findPath` de rejoindre le héros
- * (`approachCell` rend `null`) et la salle se fige à jamais (D75 : le héros n'a
- * aucune action de déplacement). Au début de chaque tour ennemi, l'**ennemi** qui
+ * (`approachCell` rend `null`) et la salle se fige (D75 : le héros n'a aucune
+ * action de déplacement). Au début de chaque tour ennemi, l'**ennemi** qui
  * partage une case rejoint donc la case libre la plus proche — parcours en
- * largeur, ordre haut/droite/bas/gauche, donc déterministe. Sans case libre, il
- * reste où il est : il passe son tour, jamais de gel.
+ * largeur, ordre haut/droite/bas/gauche, donc déterministe.
  *
- * Le héros n'est jamais déplacé (sa position appartient au joueur).
+ * PORTÉE EXACTE : le gel est levé **dès qu'une case libre existe**. Si la salle
+ * est **entièrement occupée** (toutes les cases praticables prises : inatteignable
+ * en pratique avec les salles du catalogue), l'ennemi passe son tour et le
+ * standoff persiste — cas connu, non traité ici.
+ *
+ * Le héros n'est jamais déplacé (sa position appartient au joueur) : seul un
+ * ennemi squatter peut être relogé.
  */
 export interface FreeCellInput {
   map: AsciiMap;
