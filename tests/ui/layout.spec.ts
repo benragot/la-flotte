@@ -91,15 +91,16 @@ test.describe("exploration", () => {
 });
 
 /**
- * Géométrie réelle de l'arène (#layout) : `jsdom` ne peut pas la mesurer, donc
- * c'est ici qu'on vérifie le centrage, la couverture et l'absence de bande morte.
+ * Mesure la boîte DOM du canvas (100 % de la section).
+ * L'image iso dessinée DEDANS — origine `centeredOrigin`, échelle cover — n'est
+ * PAS couverte ici : voir la PR `src/renderer` / dette D44.
  */
 test.describe("géométrie de l'arène", () => {
   test.beforeEach(async ({ page }) => {
     await createHero(page);
   });
 
-  test("le canvas est centré dans la zone jouable, pas dans la page", async ({ page }) => {
+  test("le canvas occupe toute la zone jouable", async ({ page }) => {
     await expectCenteredIn(page, ARENA_CANVAS, ARENA_SECTION);
   });
 
