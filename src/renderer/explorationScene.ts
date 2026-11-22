@@ -1,17 +1,18 @@
 import type { AsciiMap, Position } from "../engine/grid";
 import type { ViewModel } from "./combatSceneModel";
 import type { GridSize, IsoOrigin } from "./gridProjection";
-import { gridDiamond, sceneOrigin } from "./gridProjection";
-import type { GridHighlight, SceneModel, TileView } from "./scene";
+import { sceneOrigin } from "./gridProjection";
+import type { GridHighlight, SceneModel } from "./scene";
 import { buildSceneModel } from "./scene";
-import { PATH_STYLE } from "./tileStyle";
 import type { TokenSprite, TokenView } from "./tokens";
-import { groupTokenView, playerTokenView } from "./tokens";
+import { STATIC_TOKEN_SPRITE, groupTokenView, playerTokenView } from "./tokens";
 
 export interface ExplorationGroup {
   pos: Position;
   label: string;
   totalLevel: number;
+  /** Feuille de sprite du groupe ; `null` = repli géométrique explicite. */
+  spriteId?: string | null;
 }
 
 /** Données d'exploration fournies par l'appelant : le store de combat ne les expose pas. */
@@ -20,9 +21,8 @@ export interface ExplorationView {
   groups: ExplorationGroup[];
   /** Carte réelle : fige l'origine et permet de dessiner le décor. */
   map?: AsciiMap;
-  path?: Position[];
   /** `entityId` de la feuille du héros ; absent, le héros garde un jeton géométrique. */
-  heroSpriteId?: string;
+  heroSpriteId?: string | null;
 }
 
 export interface ExplorationModelInput {
@@ -37,8 +37,7 @@ function groupsPositions(groups: readonly ExplorationGroup[]): Position[] {
 }
 
 function explorationCells(exploration: ExplorationView): Position[] {
-  const groups = groupsPositions(exploration.groups);
-  return [exploration.playerPos, ...groups, ...(exploration.path ?? [])];
+  return [exploration.playerPos, ...groupsPositions(exploration.groups)];
 }
 
 function maxCoord(positions: readonly Position[]): Position {
@@ -52,10 +51,7 @@ export function explorationMapSize(exploration: ExplorationView): GridSize {
   return { width: max.x + 1, height: max.y + 1 };
 }
 
-/**
- * Origine figée sur la carte réelle : elle ne dépend ni du chemin de survol ni
- * des jetons, donc l'écran ne saute pas sous le curseur.
- */
+/** Origine figée sur la carte réelle : ni le survol ni les jetons ne la déplacent. */
 function gridSizeOf(exploration: ExplorationView): GridSize {
   if (exploration.map === undefined) return explorationMapSize(exploration);
   return { width: exploration.map.width, height: exploration.map.height };
@@ -67,20 +63,11 @@ function explorationScene(exploration: ExplorationView, origin: IsoOrigin): Scen
   return buildSceneModel({ map: exploration.map, highlight: NO_HIGHLIGHT, origin });
 }
 
-function pathTile(position: Position, origin: IsoOrigin): TileView {
-  const diamond = gridDiamond({ ...position, origin });
-  return { cell: ".", center: { x: diamond.cx, y: diamond.cy }, points: diamond.points, style: PATH_STYLE };
-}
-
-function pathTiles(path: readonly Position[], origin: IsoOrigin): TileView[] {
-  return path.map((position) => pathTile(position, origin));
-}
-
-/** Le héros marche quand un chemin est tracé, sinon il respire. */
+/** Le héros respire en exploration : aucun aperçu de chemin ne le fait marcher. */
 function heroSprite(exploration: ExplorationView): TokenSprite {
-  const moving = (exploration.path ?? []).length > 0;
-  const animation = moving ? "walk" : "idle";
-  return { spriteId: exploration.heroSpriteId ?? null, facing: "right", animation, animationKey: `${animation}-explore` };
+  const spriteId = exploration.heroSpriteId ?? null;
+  if (spriteId === null) return STATIC_TOKEN_SPRITE;
+  return { spriteId, facing: "right", animation: "idle", animationKey: "idle-explore" };
 }
 
 function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): TokenView[] {
@@ -88,14 +75,14 @@ function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): Tok
   return [playerTokenView(exploration.playerPos, origin, heroSprite(exploration)), ...groups];
 }
 
-/** View model d'exploration : décor iso, chemin A* translucide, héros puis groupes badgés. */
+/** View model d'exploration : décor iso, héros puis groupes badgés, aucun chemin. */
 export function buildExplorationViewModel(input: ExplorationModelInput): ViewModel {
   const exploration = input.exploration;
   const origin = sceneOrigin(gridSizeOf(exploration), input.viewport);
   return {
     scene: explorationScene(exploration, origin),
     tokens: explorationTokens(exploration, origin),
-    path: pathTiles(exploration.path ?? [], origin),
+    path: [],
     lastAction: null,
   };
 }
