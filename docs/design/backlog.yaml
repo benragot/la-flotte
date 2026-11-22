@@ -9,7 +9,7 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 5
+  version: 6
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 4C
@@ -35,6 +35,57 @@ meta:
 inbox: []
 
 waves:
+  - id: wave-3.5
+    title: Look & Feel Dofus 1.29
+    status: in_progress
+    phases:
+      - id: 3.5A
+        title: Exploration iso, HUD rétro et spec de l'île Ferraille
+        status: done
+        tasks:
+          - id: 3.5A-spec-ferraille
+            title: Spec de l'Île de la Ferraille (carte, groupes, exploration)
+            status: done
+            pr: 20
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash c790693
+          - id: 3.5A-exploration
+            title: Exploration hors combat et respawn des groupes de monstres
+            status: done
+            pr: 22
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash 84cdc9a
+          - id: 3.5A-iso-grid
+            title: Grille tactique en losanges isométriques Dofus 1.29
+            status: done
+            pr: 24
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash bfc2631
+          - id: 3.5A-dofus-hud
+            title: HUD rétro dans un dock bas et raccourcis AZERTY
+            status: done
+            pr: 23
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash 10a9640
+      - id: 3.5B
+        title: Câblage final App — exploration ↔ combat, dock et raccourcis
+        status: in_progress
+        depends_on: [3.5A]
+        tasks:
+          - id: 3.5B-wiring
+            title: Câblage App (zone jouable + dock), mode exploration et raccourcis globaux
+            status: in_progress
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
   - id: wave-4
     title: Persistance héros, 12 classes, inventaire, panoplies, sauvegarde
     status: in_progress
@@ -138,7 +189,14 @@ waves:
       - id: 7A
         title: Polish visuel et audio
         status: todo
-        tasks: []
+        tasks:
+          - id: 7A-spritesheets
+            title: Découper et charger les spritesheets iso (tuiles, héros, monstres)
+            status: in_progress
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            depends_on: [3.5A-iso-grid]
       - id: 7B
         title: Contenu archipel final
         status: todo
@@ -218,3 +276,7 @@ debts:
     title: Les items ne portent aucune résistance par élément — le combattant part toujours à 0
     severity: medium
     target: 5B
+  - id: D43
+    title: Les tâches des deux specs d'île (§12 de chaque doc, D18–D42) ne sont pas encore insérées dans ce backlog — à faire après le merge de #25
+    severity: medium
+    target: 6A
