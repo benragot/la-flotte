@@ -1759,3 +1759,52 @@ describe("backlog — six dettes des audits de la nuit (v24)", () => {
     expect(WAVE2_DEBTS.map(([, , target]) => target).filter((target) => done.has(target))).toEqual([]);
   });
 });
+
+/**
+ * La direction visuelle du HUD est normative au même titre que `DECISIONS.md` :
+ * c'est le document que relit chaque agent UI. S'il disparaît, les hex, les px
+ * et les ratios de contraste disparaissent avec lui et chacun réinvente sa
+ * palette — c'est exactement ce qui a produit l'interface actuelle.
+ */
+const UI_VISION_PATH = "docs/design/specs/ui-visual-direction.md";
+
+/** Sections obligatoires : sans elles le document n'est plus implémentable. */
+const VISION_SECTIONS: Array<[string, string]> = [
+  ["palette", "## 1. Palette"],
+  ["formes", "## 2. Formes et matière"],
+  ["variantes", "## 3. Trois variantes de la carte de combattant"],
+  ["interdits", "## 4. Interdits"],
+  ["contraintes", "## 5. Contraintes dures"],
+  ["exemple", "## 6. Exemple appliqué — carte de combattant, variante A"],
+];
+
+/** Le contenu, ou la chaîne vide : l'absence est déjà couverte par le test dédié. */
+function visionText(): string {
+  const path = join(process.cwd(), UI_VISION_PATH);
+  if (!existsSync(path)) return "";
+  return readFileSync(path, "utf8");
+}
+
+function missingVisionSections(): string[] {
+  const text = visionText();
+  return VISION_SECTIONS.filter(([, heading]) => !text.includes(heading)).map(([id]) => id);
+}
+
+/** Chaque paire texte/fond est écrite « X.XX:1 » : rien n'est estimé de mémoire. */
+function measuredRatios(text: string): number {
+  return text.match(/\b\d{1,2}\.\d{2}:1\b/g)?.length ?? 0;
+}
+
+describe("design — direction visuelle du HUD (v25)", () => {
+  it("garde le document de direction visuelle", () => {
+    expect(existsSync(join(process.cwd(), UI_VISION_PATH))).toBe(true);
+  });
+
+  it("garde les six sections actionnables", () => {
+    expect(missingVisionSections()).toEqual([]);
+  });
+
+  it("colle au moins vingt ratios de contraste mesurés", () => {
+    expect(measuredRatios(visionText())).toBeGreaterThanOrEqual(20);
+  });
+});
