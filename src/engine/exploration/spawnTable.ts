@@ -1,4 +1,4 @@
-import type { Rng } from "./types";
+import type { CountRange, Rng } from "./types";
 
 /**
  * Tirage de spawn d'exploration : module **pur**.
@@ -14,6 +14,10 @@ export interface SpawnZone {
   readonly id: string;
   readonly mapId: string;
   readonly monsters: readonly WeightedMonster[];
+  /** Combien de groupes la zone fait apparaître (donnée de `spawns.yaml`). */
+  readonly groups: CountRange;
+  /** Combien de monstres par groupe, 1 à 3 par défaut (donnée 1.29). */
+  readonly members: CountRange;
 }
 
 export interface SpawnPick {

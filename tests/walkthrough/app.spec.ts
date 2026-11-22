@@ -57,6 +57,12 @@ function storeExploration(): ExplorationState {
   return exploration;
 }
 
+/** MESURÉ : la zone de la plage déclare `groups: { min: 3, max: 4 }`. */
+function expectPlageGroups(exploration: ExplorationState | null): void {
+  expect(exploration?.monsterGroups.length).toBeGreaterThanOrEqual(3);
+  expect(exploration?.monsterGroups.length).toBeLessThanOrEqual(4);
+}
+
 function routeLength(combat: CombatState, cell: Position): number {
   const { map } = combat;
   const path = findPath({ map, from: cell, to: combat.enemy.position, maxPm: map.width * map.height });
@@ -142,14 +148,14 @@ describe("assemblage : création, exploration et combat", () => {
     expect(appScreen(hero !== null)).toBe("creation");
   });
 
-  it("crée le personnage puis entre en exploration avec un groupe", () => {
+  it("crée le personnage puis entre en exploration avec trois à quatre groupes", () => {
     useGameStore.getState().createCharacter(HERO);
     useCombatStore.getState().startExploration();
     const { hero } = useGameStore.getState();
     const { mode, exploration } = useCombatStore.getState();
     expect(appScreen(hero !== null)).toBe("arena");
     expect(mode).toBe("exploration");
-    expect(exploration?.monsterGroups).toHaveLength(1);
+    expectPlageGroups(exploration);
   });
 
   it("déplace le héros sur une case vide, engage le groupe et remporte le combat", () => {
@@ -167,7 +173,7 @@ describe("assemblage : création, exploration et combat", () => {
     expect(mode).toBe("exploration");
     expect(combat).toBeNull();
     expect(rewards).toBeNull();
-    expect(exploration?.monsterGroups).toHaveLength(1);
+    expectPlageGroups(exploration);
   });
 });
 
