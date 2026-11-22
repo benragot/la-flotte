@@ -51,33 +51,30 @@ class FullStorage implements StorageLike {
   removeItem(): void {}
 }
 
+function makeHero() {
+  return {
+    name: "Anselme",
+    classId: "ecaflip",
+    level: 12,
+    xp: 3400,
+    kamas: 1250,
+    hp: 92,
+    maxHp: 120,
+    ap: 6,
+    mp: 3,
+    capitalPoints: 4,
+    spellPoints: 2,
+    stats: { vitality: 30, wisdom: 12, strength: 41, intelligence: 8, chance: 5, agility: 15 },
+  };
+}
+
 function makeInput(): SaveInput {
   return {
     savedAt: SAVED_AT,
     characters: [
       {
         id: "char-1",
-        hero: {
-          name: "Anselme",
-          classId: "ecaflip",
-          level: 12,
-          xp: 3400,
-          kamas: 1250,
-          hp: 92,
-          maxHp: 120,
-          ap: 6,
-          mp: 3,
-          capitalPoints: 4,
-          spellPoints: 2,
-          stats: {
-            vitality: 30,
-            wisdom: 12,
-            strength: 41,
-            intelligence: 8,
-            chance: 5,
-            agility: 15,
-          },
-        },
+        hero: makeHero(),
         inventory: {
           stacks: [{ itemId: "potion_soin", quantity: 3 }],
           equipment: { amulet: "amulette_boueuse" },
@@ -115,6 +112,15 @@ function deserializeInput(mutator: (draft: SaveInput) => void): SaveResult {
   return deserializeSave(JSON.stringify({ ...draft, saveVersion: SAVE_VERSION }));
 }
 
+/** Personnage au sac/équipement inversés alphabétiquement : vérifie le tri profond. */
+function makeNestedSave(): SaveData {
+  const input = makeInput();
+  const inventory = { stacks: [], equipment: { z_emplacement: "potion_soin", a_emplacement: "amulette_boueuse" } };
+  const character = { ...firstCharacter(input), inventory };
+  const flags = { z_derniere_ile: true, a_premier_donjon: false };
+  return createSave({ ...input, flags, characters: [character] });
+}
+
 describe("createSave", () => {
   it("force la version de format et conserve savedAt fourni", () => {
     const save = makeSave();
@@ -148,19 +154,7 @@ describe("serializeSave", () => {
     const backward = serializeSave(makeSaveWithStacks(["amulette_boueuse", "potion_soin"]));
     expect(forward.indexOf('"potion_soin"')).toBeLessThan(forward.indexOf('"amulette_boueuse"'));
     expect(backward.indexOf('"amulette_boueuse"')).toBeLessThan(backward.indexOf('"potion_soin"'));
-    const nested = createSave({
-      ...makeInput(),
-      flags: { z_derniere_ile: true, a_premier_donjon: false },
-      characters: [
-        {
-          ...firstCharacter(makeInput()),
-          inventory: {
-            stacks: [],
-            equipment: { z_emplacement: "potion_soin", a_emplacement: "amulette_boueuse" },
-          },
-        },
-      ],
-    });
+    const nested = makeNestedSave();
     const json = serializeSave(nested);
     expect(json.indexOf('"a_premier_donjon"')).toBeLessThan(json.indexOf('"z_derniere_ile"'));
     expect(json.indexOf('"a_emplacement"')).toBeLessThan(json.indexOf('"z_emplacement"'));

@@ -121,7 +121,7 @@ function addToBag(itemId: string, quantity: number): void {
 }
 
 describe("migration v1 → roster", () => {
-  it("transforme l'ancien héros en premier personnage, champs identiques", () => {
+  it("transforme l'ancien héros en premier personnage, identité identique", () => {
     const legacy = legacyRaw();
     const save = migratedLegacy();
     const migrated = firstCharacter(save);
@@ -131,6 +131,11 @@ describe("migration v1 → roster", () => {
     expect(migrated.hero.name).toBe("Anselme");
     expect(migrated.hero.classId).toBe("iop");
     expect(migrated.hero.level).toBe(12);
+    expect(migrated.hero.stats).toEqual((legacy.hero as ReturnType<typeof heroSnapshot>).stats);
+  });
+
+  it("reprend progression, PV et kamas champ par champ", () => {
+    const migrated = firstCharacter(migratedLegacy());
     expect(migrated.hero.xp).toBe(3400);
     expect(migrated.hero.kamas).toBe(1250);
     expect(migrated.hero.hp).toBe(92);
@@ -139,9 +144,10 @@ describe("migration v1 → roster", () => {
     expect(migrated.hero.mp).toBe(3);
     expect(migrated.hero.capitalPoints).toBe(4);
     expect(migrated.hero.spellPoints).toBe(2);
-    expect(migrated.hero.stats).toEqual(legacy.hero.stats);
   });
+});
 
+describe("migration v1 → roster : inventaire et banque", () => {
   it("reprend l'inventaire complet, pièce illégale comprise, et la banque", () => {
     const legacy = legacyRaw();
     const migrated = firstCharacter(migratedLegacy());
@@ -158,8 +164,10 @@ describe("migration v1 → roster", () => {
     expect(save.lastPlayedCharacterId).toBe(migrated.id);
     expect(migrated.position).toBeNull();
   });
+});
 
-  it("migre aussi une sauvegarde ancienne lue depuis le stockage", () => {
+describe("migration v1 → roster depuis le stockage", () => {
+  it("migre une sauvegarde ancienne lue depuis le stockage", () => {
     const storage = new MemoryStorage();
     storage.setItem(SAVE_KEY, JSON.stringify(legacyRaw()));
     const loaded = loadFromStorage({ storage, key: SAVE_KEY });

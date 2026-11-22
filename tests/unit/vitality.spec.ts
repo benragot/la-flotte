@@ -164,6 +164,7 @@ function winRoomAt(hp: number): CombatantLike {
 
 /** Héros niveau 16 avec 75 points en Vitalité (max effectif 200) + clef du donjon. */
 function enterFirstRoom(): void {
+  useGameStore.getState().createCharacter({ name: "Anselme", classId: IOP.id });
   useGameStore.setState({ hero: vitalityBuild(), inventory: inventoryWithKey() });
   expect(useCombatStore.getState().enterDungeonRun({ dungeonId: DUNGEON.id })).toBe(true);
 }
