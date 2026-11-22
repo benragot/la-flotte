@@ -104,6 +104,18 @@ describe("spellDetail — rendu de la fiche", () => {
   });
 });
 
+describe("spellDetail — en-tête lisible", () => {
+  it("nomme le coût : « Dégâts · 3 PA » ne doit plus être produit", () => {
+    const html = bodyHtml("pression");
+    expect(html).not.toContain("Dégâts · 3 PA");
+    expect(html).toContain("Coût 3 PA");
+  });
+
+  it("n'affiche jamais l'identifiant technique du sort", () => {
+    expect(bodyHtml("epee_du_destin")).not.toContain("epee_du_destin");
+  });
+});
+
 describe("heroSpells — les sorts appris, pas le fichier entier", () => {
   it("ne retient que les sorts de la classe du héros", () => {
     const learned = heroSpells({ spells, classId: "iop" });
