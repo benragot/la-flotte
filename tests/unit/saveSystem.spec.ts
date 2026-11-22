@@ -87,6 +87,12 @@ function makeSave(): SaveData {
   return createSave(makeInput());
 }
 
+function makeSaveWithStacks(itemIds: readonly string[]): SaveData {
+  const input = makeInput();
+  const stacks = itemIds.map((itemId) => ({ itemId, quantity: 1 }));
+  return createSave({ ...input, inventory: { equipment: {}, stacks } });
+}
+
 function deserializeInput(mutator: (draft: SaveInput) => void): SaveResult {
   const draft = makeInput();
   mutator(draft);
@@ -119,6 +125,25 @@ describe("serializeSave", () => {
     const second = serializeSave(createSave(makeInput()));
     expect(first).toBe(second);
     expect(first.indexOf('"flags"')).toBeLessThan(first.indexOf('"saveVersion"'));
+  });
+
+  it("préserve l'ordre des tableaux et trie les objets en profondeur", () => {
+    const forward = serializeSave(makeSaveWithStacks(["potion_soin", "amulette_boueuse"]));
+    const backward = serializeSave(makeSaveWithStacks(["amulette_boueuse", "potion_soin"]));
+    expect(forward.indexOf('"potion_soin"')).toBeLessThan(forward.indexOf('"amulette_boueuse"'));
+    expect(backward.indexOf('"amulette_boueuse"')).toBeLessThan(backward.indexOf('"potion_soin"'));
+    const nested = createSave({
+      ...makeInput(),
+      flags: { z_derniere_ile: true, a_premier_donjon: false },
+      inventory: {
+        stacks: [],
+        equipment: { z_emplacement: "potion_soin", a_emplacement: "amulette_boueuse" },
+      },
+    });
+    const json = serializeSave(nested);
+    expect(json.indexOf('"a_premier_donjon"')).toBeLessThan(json.indexOf('"z_derniere_ile"'));
+    expect(json.indexOf('"a_emplacement"')).toBeLessThan(json.indexOf('"z_emplacement"'));
+    expect(json.indexOf('"agility"')).toBeLessThan(json.indexOf('"wisdom"'));
   });
 });
 
