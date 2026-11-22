@@ -727,6 +727,7 @@ const OPEN_5C = [
   "5C-log-channel",
   "5C-set-panoplies",
   "5C-equip-requirements",
+  "5C-heal-between-rooms",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
@@ -1038,8 +1039,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 20", () => {
-    expect(readBacklog().meta.version).toBe(20);
+  it("versionne le backlog en 21", () => {
+    expect(readBacklog().meta.version).toBe(21);
   });
 });
 
