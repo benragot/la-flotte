@@ -24,10 +24,18 @@ export interface LabelBounds {
 }
 
 export interface TokenLabel {
+  kind: "name" | "badge";
   text: string;
   x: number;
   y: number;
   scale: number;
+}
+
+export interface LabelsInput {
+  token: TokenView;
+  bounds: LabelBounds;
+  /** Largeur mesurée par Pixi : elle seule évite que nom et badge divergent. */
+  nameWidth: number;
 }
 
 /** « Crabe à Clé-à-Molette · Niv. 3 » → le nom seul, entier : le niveau reste au badge. */
@@ -39,36 +47,37 @@ export function groupNameOf(label: string): string {
 export function nameLabelFor(token: TokenView): TokenLabel | null {
   if (token.name === null || token.name.length === 0) return null;
   const y = hpBarFor(token).y - LABEL_BAR_GAP * token.scale;
-  return { text: token.name, x: token.center.x, y, scale: token.scale };
+  return { kind: "name", text: token.name, x: token.center.x, y, scale: token.scale };
 }
 
 function badgeGap(token: TokenView): number {
   return (LABEL_BADGE_GAP + BADGE_RADIUS) * token.scale;
 }
 
-function badgeAnchor(token: TokenView, nameWidth: number): { x: number; y: number } {
-  const bar = hpBarFor(token);
-  const name = nameLabelFor(token);
-  if (name === null) return { x: bar.x + bar.width + badgeGap(token), y: bar.y + bar.height / 2 };
-  const y = name.y - (LABEL_FONT_SIZE * token.scale) / 2;
-  return { x: name.x + nameWidth / 2 + badgeGap(token), y };
+function clampedName(input: LabelsInput): TokenLabel | null {
+  const name = nameLabelFor(input.token);
+  if (name === null) return null;
+  const x = clampLabelX({ x: name.x, halfWidth: input.nameWidth / 2, bounds: input.bounds, rightReserve: badgeReserve(input.token) });
+  return { ...name, x };
 }
 
-/** Badge de niveau : à droite du nom, jamais sur le corps du personnage. */
-export function badgeLabelFor(token: TokenView, nameWidth: number): TokenLabel | null {
-  if (token.badge === null || token.badge.length === 0) return null;
-  const { x, y } = badgeAnchor(token, nameWidth);
-  return { text: token.badge, x, y, scale: token.scale };
+function badgeAnchor(input: LabelsInput, name: TokenLabel | null): { x: number; y: number } {
+  const bar = hpBarFor(input.token);
+  if (name === null) return fallbackBadgeAnchor(input, bar);
+  const y = name.y - (LABEL_FONT_SIZE * input.token.scale) / 2;
+  return { x: name.x + input.nameWidth / 2 + badgeGap(input.token), y };
 }
 
-function isLabel(label: TokenLabel | null): label is TokenLabel {
-  return label !== null;
+function fallbackBadgeAnchor(input: LabelsInput, bar: { x: number; y: number; width: number; height: number }): { x: number; y: number } {
+  const halfWidth = BADGE_RADIUS * input.token.scale;
+  const x = bar.x + bar.width + badgeGap(input.token);
+  return { x: clampLabelX({ x, halfWidth, bounds: input.bounds }), y: bar.y + bar.height / 2 };
 }
 
-/** Tous les textes d'un jeton, avec leur position : nom complet puis badge. */
-export function tokenLabelsFor(token: TokenView, nameWidth: number): TokenLabel[] {
-  const labels = [nameLabelFor(token), badgeLabelFor(token, nameWidth)];
-  return labels.filter(isLabel);
+function badgeFrom(input: LabelsInput, name: TokenLabel | null): TokenLabel | null {
+  if (input.token.badge === null || input.token.badge.length === 0) return null;
+  const { x, y } = badgeAnchor(input, name);
+  return { kind: "badge", text: input.token.badge, x, y, scale: input.token.scale };
 }
 
 /** Place à réserver à droite du nom pour que le badge tienne dans la carte. */
@@ -105,7 +114,7 @@ function span(values: readonly number[]): [number, number] {
   return [Math.min(...values), Math.max(...values)];
 }
 
-/** Boîte d'encre de la carte, déduite des losanges : c'est la limite des étiquettes. */
+/** Boîte d'encre de la carte, déduite des losanges. */
 export function labelBounds(tiles: readonly TileView[]): LabelBounds | null {
   const xs = tiles.flatMap(abscissas);
   const ys = tiles.flatMap(ordinates);
@@ -113,4 +122,30 @@ export function labelBounds(tiles: readonly TileView[]): LabelBounds | null {
   const [minX, maxX] = span(xs);
   const [minY, maxY] = span(ys);
   return { minX, maxX, minY, maxY };
+}
+
+/**
+ * Décision : les étiquettes sont de l'UI **écran**, donc la limite est le
+ * viewport. L'encre de la carte déborde le canvas de `(w+h)/(w+h−2)` (~9 % en
+ * 12×12, ~46 px par côté à 1024 px) : la prendre pour borne rognerait le texte.
+ */
+export function viewportBounds(bounds: LabelBounds, viewport: { width: number; height: number }): LabelBounds {
+  return {
+    minX: Math.max(bounds.minX, 0),
+    maxX: Math.min(bounds.maxX, viewport.width),
+    minY: Math.max(bounds.minY, 0),
+    maxY: Math.min(bounds.maxY, viewport.height),
+  };
+}
+
+function isLabel(label: TokenLabel | null): label is TokenLabel {
+  return label !== null;
+}
+
+/** Toutes les étiquettes d'un jeton, nom et badge bornés ensemble par le même x rendu. */
+export function labelsFor(input: LabelsInput): TokenLabel[] {
+  const name = clampedName(input);
+  const badge = badgeFrom(input, name);
+  const labels: (TokenLabel | null)[] = name === null ? [badge] : [name, badge];
+  return labels.filter(isLabel);
 }

@@ -10,11 +10,10 @@ import {
   LABEL_FONT_SIZE,
   LABEL_STROKE,
   LABEL_STROKE_WIDTH,
-  badgeLabelFor,
-  badgeReserve,
-  clampLabelX,
   labelBounds,
+  labelsFor,
   nameLabelFor,
+  viewportBounds,
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
@@ -84,36 +83,37 @@ function createBadgeNode(badge: TokenLabel): Container {
 }
 
 /** Nom complet ancré en bas au-dessus de la barre : aucun recouvrement, jamais coupé. */
-function createNameLabel(label: TokenLabel, bounds: LabelBounds | null, reserve: number): Text {
-  const style = { ...NAME_STYLE, fontSize: LABEL_FONT_SIZE * label.scale };
-  const text = new Text({ text: label.text, style });
-  text.anchor.set(0.5, 1);
-  const x = bounds === null ? label.x : clampLabelX({ x: label.x, halfWidth: text.width / 2, bounds, rightReserve: reserve });
-  text.position.set(x, label.y);
-  return text;
+function createNameText(token: TokenView): Text | null {
+  const name = nameLabelFor(token);
+  if (name === null) return null;
+  const style = { ...NAME_STYLE, fontSize: LABEL_FONT_SIZE * name.scale };
+  return new Text({ text: name.text, style });
 }
 
-function addBadgeLabel(container: Container, token: TokenView, nameWidth: number): void {
-  const badge = badgeLabelFor(token, nameWidth);
-  if (badge === null) return;
+function addNameLabel(container: Container, text: Text | null, labels: readonly TokenLabel[]): void {
+  const name = labels.find((label) => label.kind === "name");
+  if (text === null || name === undefined) return;
+  text.anchor.set(0.5, 1);
+  text.position.set(name.x, name.y);
+  container.addChild(text);
+}
+
+function addBadgeLabel(container: Container, labels: readonly TokenLabel[]): void {
+  const badge = labels.find((label) => label.kind === "badge");
+  if (badge === undefined) return;
   container.addChild(createBadgeNode(badge));
 }
 
-function addNameNode(container: Container, token: TokenView, bounds: LabelBounds | null): Text | null {
-  const name = nameLabelFor(token);
-  if (name === null) return null;
-  const text = createNameLabel(name, bounds, badgeReserve(token));
-  container.addChild(text);
-  return text;
+function addTokenLabels(container: Container, token: TokenView, bounds: LabelBounds): void {
+  const text = createNameText(token);
+  const labels = labelsFor({ token, bounds, nameWidth: text?.width ?? 0 });
+  addNameLabel(container, text, labels);
+  addBadgeLabel(container, labels);
 }
 
-function addTokenLabels(container: Container, token: TokenView, bounds: LabelBounds | null): void {
-  const text = addNameNode(container, token, bounds);
-  addBadgeLabel(container, token, text?.width ?? 0);
-}
-
-function drawLabels(container: Container, view: ViewModel): void {
-  const bounds = labelBounds(view.scene.tiles);
+function drawLabels(container: Container, view: ViewModel, viewport: { width: number; height: number }): void {
+  const ink = labelBounds(view.scene.tiles) ?? { minX: 0, minY: 0, maxX: viewport.width, maxY: viewport.height };
+  const bounds = viewportBounds(ink, viewport);
   view.tokens.forEach((token) => addTokenLabels(container, token, bounds));
 }
 
@@ -164,18 +164,18 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
 }
 
 /** Anneau doré **sous** les acteurs, puis jetons géométriques, PV et badges. */
-function drawActorLayers(layers: SceneLayers, view: ViewModel): void {
+function drawActorLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
   drawHpBars(layers.hpBars, view.tokens);
-  drawLabels(layers.labels, view);
+  drawLabels(layers.labels, view, viewport);
 }
 
 /** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
-function drawLayers(layers: SceneLayers, view: ViewModel): void {
+function drawLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
   drawBoardLayers(layers, view);
-  drawActorLayers(layers, view);
+  drawActorLayers(layers, view, viewport);
 }
 
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
@@ -183,7 +183,7 @@ export function renderScene(app: Application, view: ViewModel, sheets: readonly 
   if (!isApplicationAlive(app)) return;
   const layers = layersFor(app, sheets);
   clearLayers(layers);
-  drawLayers(layers, view);
+  drawLayers(layers, view, app.screen);
   layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
   ensureAnimationLoop(app, view, layers.actors.sheetIds);
   app.render();

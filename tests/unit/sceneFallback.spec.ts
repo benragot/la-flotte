@@ -45,7 +45,7 @@ function view(tokens: TokenView[]): ViewModel {
 function fakeApp(): Application {
   const stage = new FakeNode();
   const ticker = { add: (): void => undefined, start: (): void => undefined };
-  const app = { renderer: {}, stage, ticker, render: (): void => undefined };
+  const app = { renderer: {}, stage, ticker, render: (): void => undefined, screen: { width: 1024, height: 768 } };
   return app as unknown as Application;
 }
 
