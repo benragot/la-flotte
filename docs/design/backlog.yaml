@@ -212,9 +212,9 @@ waves:
         status: in_progress
         depends_on: [5A]
         updated_at: "2026-11-22"
-        notes: A→F mergées (#36–#41) ; 5B-G (table de spawn) reste ouverte
+        notes: A→F mergées (#36–#41) ; 5B-g (table de spawn) en revue sur #43
         tasks:
-          - id: 5B-A
+          - id: 5B-a
             title: Catégorie `key`, clé réelle de donjon, allowlist supprimée
             status: done
             pr: 36
@@ -222,7 +222,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash 68058f0
-          - id: 5B-B
+          - id: 5B-b
             title: Moteur de donjon — clé consommée, 4 salles, comptes par groupe
             status: done
             pr: 37
@@ -230,7 +230,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash 889ffdc
-          - id: 5B-C
+          - id: 5B-c
             title: Coffre de banque et craft câblés dans `useGameStore`
             status: done
             pr: 38
@@ -238,7 +238,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash efc07f8
-          - id: 5B-D
+          - id: 5B-d
             title: Combat 1vN additif — `battle` à côté de `combat`
             status: done
             pr: 39
@@ -246,7 +246,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash fdc6021
-          - id: 5B-E
+          - id: 5B-e
             title: Walkthrough donjon — 4 salles, carry-over, rechargement sans soin
             status: done
             pr: 40
@@ -254,7 +254,7 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash de67e02
-          - id: 5B-F
+          - id: 5B-f
             title: Recette de la clé de la Ferraille, 3 ingrédients et butin
             status: done
             pr: 41
@@ -262,13 +262,14 @@ waves:
             priority: high
             updated_at: "2026-11-22"
             notes: squash 494cf12
-          - id: 5B-G
+          - id: 5B-g
             title: Table de spawn d'exploration — sortir `DEMO_MONSTER_ID` de `src/` et rendre les 3 ingrédients de la clé farmables hors donjon
-            status: in_progress
+            status: needs_review
+            pr: 43
             owner: tdd-coder
             priority: high
             updated_at: "2026-11-22"
-            depends_on: [5B-F]
+            depends_on: [5B-f]
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: todo
@@ -427,17 +428,17 @@ debts:
     title: "Le coffre de banque n'est pas persisté : `SaveData` n'a aucun champ `bank`, et `loadGame`/`importJson` le vident volontairement (anti-duplication) — déposer puis recharger perd le contenu"
     severity: high
     target: 5B
-    notes: src/engine/save.ts (SaveData, loadGame, importJson) et src/store/useGameStore.ts
+    notes: src/engine/save/types.ts (`SaveData` sans champ `bank`) et src/store/useGameStore.ts (`loadGame`/`importJson` passent par `applySave`, qui vide le coffre)
   - id: D56
     title: "Des quantités fractionnaires (`2.5`) passent la garde du coffre mais `saveDataSchema` exige `z.number().int()` — le `saveGame` suivant lève une ZodError"
     severity: medium
     target: 5B
-    notes: src/schemas/saveSchema.ts vs src/store/useGameStore.ts
+    notes: src/engine/save/saveSchema.ts (quantité `z.number().int()`) vs src/store/useGameStore.ts
   - id: D57
     title: "`craftLevel` est inerte : présent dans `data/recipes.yaml` (dont `craftLevel: 10` sur la recette de la clé) mais lu par aucun code de jeu ; s'il est un jour vérifié, un héros niveau 1 ne pourrait plus crafter la clé et le donjon se refermerait"
     severity: low
     target: 5B
-    notes: src/engine/craft.ts ignore craftLevel ; src/schemas/recipeSchema.ts le valide seulement
+    notes: src/engine/craft/craft.ts ignore craftLevel ; src/schemas/recipeSchema.ts le valide seulement
   - id: D58
     title: "`piou_mazoute` lâche `plume_mazoutee` à 0.40 dans `data/monsters.yaml` alors que le §2 de `docs/design/islands/ile_de_la_ferraille.md` annonce 0.70 (écart préexistant, non touché par #41)"
     severity: low

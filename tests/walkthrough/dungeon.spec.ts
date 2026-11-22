@@ -37,8 +37,9 @@ const KEY_ID = "cle_donjon_ile_de_la_ferraille";
  * Depuis la PR #41, `data/recipes.yaml` contient la recette de la clé et
  * `data/items.yaml` ses 3 ingrédients. Ce walkthrough **monte néanmoins la clé
  * à la main** : il prouve le run de donjon, pas l'obtention de la clé.
- * L'obtention est prouvée par `tests/data/keyCrafting.spec.ts` et
- * `tests/data/spawns.spec.ts`.
+ * L'obtention est prouvée par `tests/data/keyCrafting.spec.ts` (recette +
+ * ingrédients) et, à partir de 5B-g (PR #43), par `tests/data/spawns.spec.ts`
+ * (les 3 ingrédients ont une source hors donjon).
  */
 const RECIPE_ID = "recette_gourdin_du_matelot";
 const MAX_ACTIONS = 200;
