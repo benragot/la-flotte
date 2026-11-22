@@ -31,6 +31,7 @@ import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
 import { advanceTurn, buildTimeline, isVictory } from "../engine/multiCombat";
+import { activeCombatant } from "../engine/multiCombat/timeline";
 import type { AttackSpec, BattleState, EnemyStrategy, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
 import { mapsFileSchema } from "../schemas/mapSchema";
@@ -38,9 +39,15 @@ import { monstersFileSchema } from "../schemas/monsterSchema";
 import type { MonsterDef } from "../schemas/monsterSchema";
 import { progressionFileSchema } from "../schemas/progressionSchema";
 import type { ProgressionDef } from "../schemas/progressionSchema";
+import type { SpellDef } from "../schemas/spellSchema";
 import { spellsFileSchema } from "../schemas/spellSchema";
 import { spawnsFileSchema } from "../schemas/spawnSchema";
-import { battleAttack as resolveBattleAttack, battleEnemyTurn as resolveBattleEnemyTurn } from "./battleSelectors";
+import {
+  battleAttack as resolveBattleAttack,
+  battleEnemyTurn as resolveBattleEnemyTurn,
+  rollSpellBase,
+  spellAttackSpec,
+} from "./battleSelectors";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 
 export type CombatMode = "exploration" | "combat";
@@ -75,6 +82,12 @@ interface CombatStore {
   battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) => void;
   /** Fait tourner la timeline quand l'actif courant ne peut plus rien faire (aucun aléa). */
   advanceBattleTurn: () => void;
+  /**
+   * NOUVEAU (5C) : attaque 1vN du héros avec son sort de dégâts lu dans
+   * `data/spells.yaml`. **Additif** : `battleAttack` reste l'API bas niveau, et
+   * l'UI n'invente aucun chiffre de dégâts.
+   */
+  battleSpellAttack: (input: { targetId: string; rng?: Rng }) => void;
   /**
    * Clôt une salle **gagnée** en reportant les PV restants du héros : aucun soin.
    * Refusée sur une défaite (D29) ; la sauvegarde est écrite si `storage` est fourni.
@@ -290,6 +303,27 @@ function battleUpdate(previous: BattleState | null, next: BattleState | null): P
   return { battle: next };
 }
 
+/** Sort de dégâts du héros, lu dans `data/spells.yaml` : l'UI n'invente aucun chiffre. */
+function heroDamageSpell(): SpellDef | null {
+  const classId = useGameStore.getState().hero?.classId;
+  return spells.find((entry) => entry.classId === classId && entry.kind === "damage") ?? null;
+}
+
+/** Refus si ce n'est pas au camp du héros de jouer : la timeline reste maîtresse. */
+function canCastHeroSpell(state: BattleState, spell: SpellDef | null): spell is SpellDef {
+  return spell !== null && activeCombatant(state)?.side === "player";
+}
+
+function spellAttackUpdate(store: CombatStore, input: { targetId: string; rng?: Rng }): Partial<CombatStore> {
+  const state = store.battle;
+  const spell = heroDamageSpell();
+  if (state === null) return {};
+  if (!canCastHeroSpell(state, spell)) return {};
+  const rng = input.rng ?? Math.random;
+  const attack = spellAttackSpec(spell, rollSpellBase(spell, rng));
+  return battleUpdate(state, resolveBattleAttack({ state, targetId: input.targetId, attack, rng }));
+}
+
 /** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */
 function attackUpdate(
   store: CombatStore,
@@ -383,6 +417,13 @@ function battlePlayActions(set: StoreSetter) {
   };
 }
 
+/** Attaque 1vN data-driven (5C), isolée pour garder chaque fabrique sous 10 lignes. */
+function battleSpellActions(set: StoreSetter) {
+  return {
+    battleSpellAttack: (input: { targetId: string; rng?: Rng }) => set((store) => spellAttackUpdate(store, input)),
+  };
+}
+
 function battleCloseActions(set: StoreSetter) {
   return {
     settleDungeonRoom: (input?: { storage?: StorageLike }) => set((store) => settleUpdate(store, input?.storage)),
@@ -415,6 +456,7 @@ const DEFAULT_STATE = {
   | "endTurn"
   | "startDungeonRoom"
   | "battleAttack"
+  | "battleSpellAttack"
   | "battleEnemyTurn"
   | "advanceBattleTurn"
   | "settleDungeonRoom"
@@ -445,6 +487,7 @@ export const useCombatStore = create<CombatStore>((set) => ({
   ...DEFAULT_STATE,
   ...mapActions(set),
   ...battleActions(set),
+  ...battleSpellActions(set),
 }));
 
 export type { CombatStore };
