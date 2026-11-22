@@ -262,3 +262,42 @@ tc5e : "C'est au tour de…"   → "#E8DCC8"
 8. **Position de la frise en Retro 1.38+** : la 1.38 a réorganisé l'interface (« deux panneaux ») ; « en bas » vient de captures 2005.
 
 **Sources** : `dofusretro.jeuxonline.info/article/14761`, `/14763`, `/14788` · `dofus-reborn.fr/versions.html?vue=fresque` · `dofus-retro.com` notes 1.38 / 1.41 / 1.42 · `xixou.io/changelog` (miroir 1.47.x) · forums officiels dofus.com (étoiles, pictogrammes de sorts, dégâts colorés) · devblog Dofus (affichage de la portée) · `teckium.fr/en/maps`.
+
+## 12. Limites connues du rendu iso
+
+Ces deux limites sont des **choix assumés, mesurés, pas des oublis** : pas des
+régressions en attente de correction, mais les conséquences géométriques et
+techniques du rendu retenu. Elles sont écrites ici parce qu'elles ne vivaient
+que dans la revue de la PR #68, où elles auraient été perdues.
+
+### 12.1 Flou des sprites au-delà de ×1
+
+La scène est mise à l'échelle « cover » pour remplir l'arène (PR #68,
+`arenaScale` = `min(coverScale, cornerSafeScale)` dans
+`src/renderer/gridProjection.ts`). Les **tuiles sont vectorielles**
+(`Graphics.poly`, `src/renderer/tilePaint.ts:17`) et restent nettes à tout
+facteur ; les **sprites de personnages et monstres sont des SVG rastérisés en
+64 px** (`SPRITE_FRAME_SIZE = 64`, `src/renderer/sprites/frameMath.ts:8`) puis
+agrandis par `EntitySprite.update` (PR #68 : `node.scale` suit l'échelle du
+décor), donc **adoucis** au-delà de ×1. Facteurs observés : **×1,33** (1024×480),
+**×1,45** (1024×570), **×2,19** (1664×840).
+
+Piste : feuilles de sprites en **2×** (ou `resolution` Pixi) et texture
+`nearest` pour rester pixel-art. Chantier `data/**` + générateur.
+
+### 12.2 Les coins de l'écran restent vides — c'est géométrique
+
+Une carte iso est un **losange**. Couvrir un rectangle avec un losange exige un
+facteur **≥ ×4** : pour que `|x|/a + |y|/b ≤ 1` contienne le rectangle `W×H` avec
+`a = cW/2` et `b = cH/2`, il faut `4/c ≤ 1`, soit `c ≥ 4`.
+
+La mise à l'échelle retenue (`arenaScale`, plafonnée par `cornerSafeScale`)
+garantit que **le centre de chaque case reste dans l'arène** — donc que toute
+case est cliquable aux coins compris — et couvre **98-100 %** de la dimension
+contraignante. Mais **les quatre coins** du viewport restent hors du losange.
+
+**Ce n'est pas un défaut** : c'est la raison pour laquelle Dofus dessine un
+**fond sombre** derrière la carte. Piste : un fond d'arène, pas des cases
+factices — des cases factices seraient cliquables et casseraient le pathfinding.
+Un viewport **4:3** plafonne à **73 %** de remplissage : c'est le prix du choix
+« jamais perdre une case ».
