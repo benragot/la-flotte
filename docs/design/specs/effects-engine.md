@@ -74,7 +74,7 @@ unlocks: 9 sorts de monstres refusés (§3)
 | Q2 | `cercle 1` = **5** cases (losange) ou **9** cases (3×3) ? | Convention de « taille » | **5** (losange Manhattan, 1.29 : diagonales sûres) | `croix 1` et `cercle 1` sont identiques à taille 1 |
 | Q3 | Les dégâts de zone touchent-ils les alliés ? | `L276` ne le dit pas | `target: undefined` = tous ; les 9 mettent `enemy` | Pas de friendly fire dans les 9 |
 | Q4 | Soin critique ? | 1.29 le permet, `L269` ne donne aucun CC | **Pas de critique** (aucun champ `critHeal`) | Soin déterministe |
-| Q5 | PV d'invocation : `PdV × (1 + niveau invocateur/100)` ? | `JOL-SUMMON`, `L278` donne 52 PV | **Oui** : 62 PV pour Yvon niv. 20 | +10 PV sur le rat invoqué |
+| Q5 | PV d'invocation : `PdV × (1 + niveau invocateur/100)` ? | `JOL-SUMMON`, `L68` donne 52 PV | **Oui** : 62 PV pour Yvon niv. 20 | +10 PV sur le rat invoqué |
 | Q6 | L'invocation meurt-elle avec son invocateur ? | Aucune source primaire | **Non** : persiste jusqu'à 0 PV / fin | La victoire exige de tuer l'invocation |
 | Q7 | « Bouclier » = **pool de points** ou **armure plate** ? | 1.29 n'a pas de pool ; `L268`/`L277` disent « bouclier » | **Armure plate** par coup (mécanique 1.29 la plus proche) | 12 absorbe 12 **par coup**, pas 12 au total |
 | Q8 | `−1 PM`/`−1 PA` : retrait **définitif** (1.29) ou **1 tour** (`L296`, `L352`) ? | Fiche explicite `durationTurns: 1` | **1 tour** (la fiche prime) | Le retrait est une réduction temporaire |
