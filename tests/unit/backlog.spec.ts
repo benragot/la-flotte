@@ -726,6 +726,7 @@ const OPEN_5C = [
   "5C-group-stars",
   "5C-log-channel",
   "5C-set-panoplies",
+  "5C-equip-requirements",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
@@ -741,7 +742,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les neuf tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les douze tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1037,8 +1038,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 19", () => {
-    expect(readBacklog().meta.version).toBe(19);
+  it("versionne le backlog en 20", () => {
+    expect(readBacklog().meta.version).toBe(20);
   });
 });
 
@@ -1193,3 +1194,396 @@ describe("backlog — roadmap v19", () => {
     expect(stillOpen).toEqual([]);
   });
 });
+
+const GAP_SPEC = "docs/design/specs/dofus-1.29-gaps.md";
+const GAP_METHOD = [
+  "Cette analyse confronte une **synthèse documentaire** de Dofus 1.29",
+  "sans sources primaires systématiques",
+  "Chaque verdict est appuyé sur un `fichier:ligne`",
+  "Aucune ligne n'est déduite de la lecture du document seul",
+];
+
+interface GapRow {
+  id: string;
+  system: string;
+  verdict: string;
+}
+
+/**
+ * Quinze systèmes confrontés au code. Le verdict est figé ici : c'est la
+ * conclusion de l'analyse, pas une case à cocher après coup.
+ */
+const GAP_ROWS: readonly GapRow[] = [
+  { id: "1", system: "Pods", verdict: "absent" },
+  { id: "2", system: "Métiers de récolte", verdict: "absent" },
+  { id: "3", system: "Sorties de map", verdict: "absent" },
+  { id: "4", system: "corps-à-corps", verdict: "absent" },
+  { id: "5", system: "Médaillon", verdict: "absent" },
+  { id: "6", system: "Canaux de chat", verdict: "partiel" },
+  { id: "7", system: "Carte du monde", verdict: "absent" },
+  { id: "8", system: "Conditions d'équipement", verdict: "absent" },
+  { id: "9", system: "Tacle", verdict: "partiel" },
+  { id: "10", system: "Poussée", verdict: "partiel" },
+  { id: "11", system: "Timeline", verdict: "partiel" },
+  { id: "12", system: "création", verdict: "présent" },
+  { id: "13", system: "Envoûtements", verdict: "partiel" },
+  { id: "14", system: "Compte à rebours", verdict: "absent" },
+  { id: "15", system: "Sorts de classe", verdict: "partiel" },
+];
+
+const DROPPED_SYSTEMS = [
+  "navires",
+  "multi-joueurs",
+  "guildes",
+  "hôtels de vente",
+  "marchand",
+  "zaaps",
+  "montures",
+  "alignement",
+  "quêtes de PNJ",
+  "échanges",
+  "amis",
+  "scaéroplanes",
+  "maisons",
+  "spectateurs",
+  "éventail",
+];
+
+const PROOF_PATTERN = /\.(?:ts|tsx|yaml|md|jsonc):\d+/;
+
+function gapSpecText(): string {
+  return readFileSync(join(process.cwd(), GAP_SPEC), "utf8");
+}
+
+/** Cellules non vides d'une ligne de tableau `| # | système | verdict | preuve | manque |`. */
+function gapCells(text: string, id: string): string[] {
+  const line = text.split("\n").find((entry) => entry.trim().startsWith(`| ${id} |`));
+  if (line === undefined) return [];
+  return line.split("|").map((cell) => cell.trim()).filter((cell) => cell !== "");
+}
+
+/** Preuve recevable : un `fichier:ligne` réel, ou l'aveu explicite d'une recherche vide. */
+function isProof(cell: string): boolean {
+  return PROOF_PATTERN.test(cell) || cell.includes("recherche :");
+}
+
+function gapFailures(text: string): string[] {
+  return GAP_ROWS.flatMap(({ id, system, verdict }) => {
+    const cells = gapCells(text, id);
+    if (cells.length < 5) return [`${id}:row`];
+    const named = cells[1]?.includes(system) === true ? [] : [`${id}:system`];
+    const graded = cells[2] === verdict ? [] : [`${id}:${cells[2] ?? "?"}`];
+    const proven = isProof(cells[3] ?? "") ? [] : [`${id}:proof`];
+    const missing = isFilled(cells[4]) ? [] : [`${id}:missing`];
+    return [...named, ...graded, ...proven, ...missing];
+  });
+}
+
+function droppedLines(text: string): string[] {
+  const section = text.split("## Ce qui a été délibérément écarté")[1] ?? "";
+  return section.split("\n").filter((line) => line.startsWith("- "));
+}
+
+function droppedFailures(text: string): string[] {
+  const lines = droppedLines(text).map((line) => line.toLowerCase());
+  const unfilled = DROPPED_SYSTEMS.filter((system) => !lines.some((line) => line.includes(system.toLowerCase())));
+  const unargued = droppedLines(text).filter((line) => !line.includes(" — "));
+  return [...unfilled.map((system) => `absent:${system}`), ...unargued.map((line) => `argument:${line}`)];
+}
+
+describe("backlog — analyse d'écart Dofus 1.29 contre le code réel (v20)", () => {
+  it("écrit la spec d'écart avec son avertissement de méthode", () => {
+    const text = gapSpecText();
+    expect(text).toContain("title: Écarts Dofus 1.29 — ce que le code fait vraiment");
+    expect(text).toContain("status: spec");
+    expect(GAP_METHOD.filter((sentence) => !text.includes(sentence))).toEqual([]);
+  });
+
+  it("tranche les quinze systèmes avec un verdict et une preuve fichier:ligne", () => {
+    expect(gapFailures(gapSpecText())).toEqual([]);
+  });
+
+  it("n'écrit aucun verdict hors des quatre mots autorisés", () => {
+    const verdicts = GAP_ROWS.map(({ id }) => gapCells(gapSpecText(), id)[2]);
+    const allowed = new Set(["présent", "partiel", "absent", "contredit"]);
+    expect(verdicts.filter((verdict) => verdict !== undefined && !allowed.has(verdict))).toEqual([]);
+    expect(new Set(GAP_ROWS.map(({ id }) => id)).size).toBe(GAP_ROWS.length);
+  });
+
+  it("liste ce qui a été délibérément écarté, chaque ligne justifiée", () => {
+    expect(droppedFailures(gapSpecText())).toEqual([]);
+  });
+});
+
+const GAP_TASKS: Array<[string, string, string]> = [
+  ["5C-equip-requirements", "5C", "itemSchema"],
+  ["5D-exits", "5D", "maps[0]"],
+];
+
+function gapTaskGaps(backlog: Backlog): string[] {
+  return GAP_TASKS.flatMap(([id, phaseId, keyword]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const status = task.status === "todo" ? [] : [`${id}:${task.status}`];
+    const graded = task.priority === "high" ? [] : [`${id}:priority`];
+    const noted = (task.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    const placed = taskIdsOf(backlog, phaseId).includes(id) ? [] : [`${id}:phase`];
+    return [...status, ...graded, ...noted, ...placed];
+  });
+}
+
+const GAP_DEBTS: Array<[string, string, string, string]> = [
+  ["D78", "medium", "5B", "pods"],
+  ["D79", "low", "7B", "récolte"],
+  ["D80", "medium", "5C-turn-rail", "médaillon"],
+  ["D81", "low", "5C-log-channel", "canal"],
+  ["D82", "high", "6B-cast-riders", "damageLines"],
+];
+
+function gapDebtGaps(backlog: Backlog): string[] {
+  return GAP_DEBTS.flatMap(([id, severity, target, keyword]) => {
+    const debt = debtById(backlog, id);
+    if (debt === undefined) return [`${id}:absent`];
+    const graded = debt.severity === severity && debt.target === target ? [] : [`${id}:${debt.severity}->${debt.target}`];
+    const noted = (debt.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    const titled = isFilled(debt.title) ? [] : [`${id}:title`];
+    return [...graded, ...noted, ...titled];
+  });
+}
+
+describe("backlog — suites ouvertes par l'analyse d'écart", () => {
+  it("ouvre trois tâches en todo dans 5C et 5D", () => {
+    expect(gapTaskGaps(readBacklog())).toEqual([]);
+  });
+
+  it("verse D78 à D82 avec sévérité, cible et note factuelle", () => {
+    expect(gapDebtGaps(readBacklog())).toEqual([]);
+  });
+
+  it("inscrit les deux tâches restantes décochées dans la roadmap", () => {
+    const lines = uncheckedRoadmapLines();
+    const missing = GAP_TASKS.filter(([id]) => !lines.some((line) => line.startsWith(`- [ ] ${id}`)));
+    expect(missing.map(([id]) => id)).toEqual([]);
+    expect(lines.join("\n")).toContain(GAP_SPEC);
+  });
+
+  it("ne rouvre pas deux fois le même système : une tâche par blocage, le reste en dette", () => {
+    const open = allTasks(readBacklog())
+      .filter((task) => task.status !== "done")
+      .map((task) => task.id)
+      .filter((id) => id === "5C-equip-requirements" || id === "5D-new-game" || id === "5D-exits");
+    expect(open).toEqual(["5C-equip-requirements", "5D-exits"]);
+  });
+});
+
+function limitsSection(): string {
+  const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
+  return text.split("## 12. Limites connues du rendu iso")[1] ?? "";
+}
+
+describe("backlog — limites assumées du rendu iso (PR #68)", () => {
+  it("documente le flou au-delà de ×1 et les coins vides comme des choix mesurés", () => {
+    const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
+    expect(text).toContain("## 12. Limites connues du rendu iso");
+    expect(text).toContain("choix assumés, mesurés, pas des oublis");
+    expect(text).toContain("Flou des sprites au-delà de ×1");
+    expect(text).toContain("1,33");
+    expect(text).toContain("2,19");
+    expect(text).toContain("nearest");
+  });
+
+  it("démontre c ≥ 2 pour un losange de même rapport et ×2,5 pour un 4:3 en 2:1", () => {
+    const section = limitsSection();
+    expect(section).toContain("2/c");
+    expect(section).toContain("c ≥ 2");
+    expect(section).toContain("2,5");
+    expect(section).toContain("2:1");
+    expect(section).toContain("les quatre coins");
+    expect(section).toContain("moitié de sa boîte englobante");
+  });
+
+  it("n'affirme plus un facteur ×4 ni un remplissage de 73 %", () => {
+    const section = limitsSection();
+    expect(section).not.toContain("≥ ×4");
+    expect(section).not.toContain("73 %");
+    expect(section).not.toContain("4/c");
+  });
+});
+
+describe("backlog — corrections d'audit de l'analyse d'écart", () => {
+  it("compte 26 sorts non inertes sur 44 au lieu de 20", () => {
+    const text = gapSpecText();
+    expect(text).toContain("26 sorts non inertes sur 44");
+    expect(text).not.toContain("20 sorts castables");
+  });
+
+  it("écrit cinq cartes et l'impossibilité de quitter maps[0]", () => {
+    const row = gapCells(gapSpecText(), "3").join(" | ");
+    expect(row).toContain("5 cartes");
+    expect(row).toContain("maps[0]");
+    expect(gapSpecText()).not.toContain("une seule carte 12×12");
+  });
+
+  it("distingue le 1vN du donjon (un sort) du 1v1 d'exploration (12 emplacements)", () => {
+    const text = gapSpecText();
+    expect(text).toContain("heroDamageSpell");
+    expect(text).toContain("SPELL_SLOT_COUNT");
+    expect(text).toContain("12 emplacements");
+  });
+});
+
+describe("backlog — D77 : faux vert du harnais Playwright", () => {
+  it("grade en high le port 4173 codé en dur et la réutilisation d'un serveur local", () => {
+    const debt = debtById(readBacklog(), "D77");
+    expect(debt?.severity).toBe("high");
+    expect(debt?.target).toBe("external");
+    expect(debt?.owner).toBe("user");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("reuseExistingServer");
+    expect(text).toContain("4173");
+    expect(text).toContain("playwright.config.ts");
+    expect(text).toContain("CI");
+    expect(text).toContain("src/renderer/**");
+  });
+});
+
+const RENDER_TASKS: Array<[string, string, string]> = [
+  ["7A-arena-background", "7A", "fond d'arène"],
+];
+
+function renderTaskGaps(backlog: Backlog): string[] {
+  return RENDER_TASKS.flatMap(([id, phaseId, keyword]) => {
+    const task = taskById(backlog, id);
+    if (task === undefined) return [`${id}:absent`];
+    const status = task.status === "todo" ? [] : [`${id}:${task.status}`];
+    const noted = (task.notes ?? "").includes(keyword) ? [] : [`${id}:notes`];
+    const placed = taskIdsOf(backlog, phaseId).includes(id) ? [] : [`${id}:phase`];
+    return [...status, ...noted, ...placed];
+  });
+}
+
+describe("backlog — coins vides : une tâche de rendu, pas une dette", () => {
+  it("ouvre 7A-arena-background en todo dans la phase 7A", () => {
+    expect(renderTaskGaps(readBacklog())).toEqual([]);
+  });
+
+  it("renvoie la géométrie du losange et refuse les cases factices", () => {
+    const notes = taskById(readBacklog(), "7A-arena-background")?.notes ?? "";
+    expect(notes).toContain("dofus-1.29-gaps.md");
+    expect(notes).toContain("cases factices");
+    expect(notes).toContain("pathfinding");
+  });
+
+  it("inscrit la tâche décochée dans la roadmap", () => {
+    const lines = uncheckedRoadmapLines();
+    expect(lines.some((line) => line.startsWith("- [ ] 7A-arena-background"))).toBe(true);
+  });
+
+  it("note la démonstration corrigée : c ≥ 2, ×2,5 en 4:3, jamais ×4", () => {
+    const notes = taskById(readBacklog(), "7A-arena-background")?.notes ?? "";
+    expect(notes).toContain("c ≥ 2");
+    expect(notes).toContain("2,5");
+    expect(notes).toContain("2:1");
+    expect(notes).not.toContain("≥ ×4");
+  });
+});
+
+describe("backlog — corrections des tâches ouvertes par l'écart", () => {
+  it("écrit cinq cartes et maps[0] dans 5D-exits", () => {
+    const notes = taskById(readBacklog(), "5D-exits")?.notes ?? "";
+    expect(notes).toContain("5 cartes");
+    expect(notes).toContain("maps[0]");
+    expect(notes).not.toContain("une seule carte");
+  });
+
+  it("absorbe « équiper sans posséder » dans 5C-equip-requirements", () => {
+    const notes = taskById(readBacklog(), "5C-equip-requirements")?.notes ?? "";
+    expect(notes).toContain("takeFromBag");
+    expect(notes).toContain("sans posséder");
+    expect(notes).toContain("removeItem");
+  });
+});
+
+const GAP_METHOD_PINS = [
+  "Vérifié sur `main` @ ",
+  "Cette analyse est un instantané",
+  "figé par un test",
+];
+
+describe("backlog — verdict 12 livré par #69", () => {
+  it("passe l'écran de création de absent à présent, avec la preuve du code livré", () => {
+    const row = gapCells(gapSpecText(), "12").join(" | ");
+    expect(row).toContain("présent");
+    expect(row).toContain("newGame.ts");
+    expect(row).toContain("NewGameButton.tsx");
+    expect(row).not.toContain("resetGame` sans appelant");
+  });
+
+  it("retire la création des écarts sans solution et n'ouvre plus 5D-new-game", () => {
+    const text = gapSpecText();
+    expect(text).not.toContain("l'impossibilité de revenir à la création");
+    expect(text).not.toContain("resetGame` n'a aucun appelant");
+    const task = taskById(readBacklog(), "5D-new-game");
+    expect(task?.status).toBe("done");
+  });
+
+  it("acte 5D-new-game done, PR #69, squash 0676a46, et la coche dans la roadmap", () => {
+    const task = taskById(readBacklog(), "5D-new-game");
+    expect(task?.pr).toBe(69);
+    expect(task?.notes ?? "").toContain("0676a46");
+    const lines = uncheckedRoadmapLines();
+    expect(lines.some((line) => line.startsWith("- [x] 5D-new-game"))).toBe(true);
+    expect(lines.some((line) => line.startsWith("- [ ] 5D-new-game"))).toBe(false);
+  });
+
+});
+
+describe("backlog — méthode d'instantané et garde-fous du tableau", () => {
+  it("écrit la note de méthode : instantané vérifié sur un sha de main", () => {
+    const text = gapSpecText();
+    expect(GAP_METHOD_PINS.filter((pin) => !text.includes(pin))).toEqual([]);
+    expect(text).toMatch(/Vérifié sur `main` @ [0-9a-f]{7,40}/);
+  });
+
+  it("ne cite que des fichiers qui existent sur l'arbre", () => {
+    expect(unknownCitations(gapSpecText())).toEqual([]);
+  });
+
+  it("n'écrit plus « une seule carte » ni dans §2 ni dans §4", () => {
+    const text = gapSpecText();
+    expect(text).not.toContain("une seule carte");
+  });
+
+  it("exprime ×2,5 sans ambiguïté : 1,25 × la largeur du viewport", () => {
+    const section = limitsSection();
+    expect(section).toContain("1,25 × la largeur du viewport");
+    expect(section).not.toContain("l'échelle d'inscription");
+    const notes = taskById(readBacklog(), "7A-arena-background")?.notes ?? "";
+    expect(notes).toContain("1,25 × la largeur du viewport");
+    expect(notes).not.toContain("l'échelle d'inscription");
+  });
+
+  it("compte huit absent, six partiel et un présent", () => {
+    const counts = GAP_ROWS.reduce<Record<string, number>>((acc, row) => {
+      acc[row.verdict] = (acc[row.verdict] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(counts).toEqual({ absent: 8, partiel: 6, "présent": 1 });
+    const roadmap = uncheckedRoadmapLines().join("\n");
+    expect(roadmap).toContain("six `partiel`, huit `absent`");
+    expect(roadmap).toContain("un `présent`");
+  });
+});
+
+const CITED_PATH = /([A-Za-z0-9_./-]+\.(?:ts|tsx|yaml|md)):\d+/g;
+
+/** Toute preuve doit citer un fichier qui existe : un renommage casse le test. */
+function unknownCitations(text: string): string[] {
+  return GAP_ROWS.flatMap(({ id }) => {
+    const cell = gapCells(text, id)[3] ?? "";
+    return [...cell.matchAll(CITED_PATH)]
+      .map((match) => match[1] ?? "")
+      .filter((path) => !existsSync(join(process.cwd(), path)))
+      .map((path) => `${id}:${path}`);
+  });
+}
