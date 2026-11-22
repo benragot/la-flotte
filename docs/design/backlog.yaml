@@ -9,10 +9,10 @@
 #   - ce fichier est mis à jour dans CHAQUE PR d'intégration (phases B/D)
 
 meta:
-  version: 11
+  version: 12
   updated_at: "2026-11-22"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
-  next: 4C
+  next: 5B
   # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
   # ce backlog par l'agent d'intégration, qui signe `updated_by`.
   updated_by: integrator
@@ -157,18 +157,60 @@ waves:
             updated_at: "2026-11-22"
       - id: 4D
         title: Wiring App — écran de création puis arène
-        status: todo
+        status: in_progress
+        tasks:
+          - id: 4D-wiring
+            title: Assemblage App — création, arène, inventaire, fiche perso
+            status: approved
+            pr: 34
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: aiguillage création/arène, barrel racine, D07 corrigée (aria-label sur main), percentDmg passé en pending
   - id: wave-5
     title: Combat 1vN, tacle/CC/retrait PA-PM, Navire-Base, craft, 1er donjon
-    status: todo
+    status: in_progress
     phases:
       - id: 5A
         title: Modules headless combat, tacle et navire
-        status: todo
-        tasks: []
+        status: done
+        tasks:
+          - id: 5A-craft
+            title: Moteur de craft + 10 recettes YAML
+            status: done
+            pr: 28
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash f4d9352
+          - id: 5A-multicombat
+            title: Moteur 1vN — timeline, CC, tacle, poussée
+            status: done
+            pr: 29
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash 4bd186e
+          - id: 5A-dungeon
+            title: Donjon de la Ferraille — 5 monstres, 4 salles, dungeonSchema
+            status: done
+            pr: 32
+            owner: tdd-coder
+            priority: high
+            updated_at: "2026-11-22"
+            notes: squash b092b12
+          - id: 5A-preview
+            title: Aperçus de chemin A* et de dégâts
+            status: done
+            pr: 33
+            owner: tdd-coder
+            priority: medium
+            updated_at: "2026-11-22"
+            notes: squash 57d4efc
       - id: 5B
         title: Intégration combat 1vN et craft
         status: todo
+        depends_on: [5A]
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: todo
@@ -302,3 +344,29 @@ debts:
     title: La clé de donjon `cle_donjon_ile_de_la_ferraille` n'existe pas dans data/items.yaml et itemSchema n'a pas de catégorie key — l'entrée du donjon est impossible tant que ce n'est pas fait
     severity: high
     target: 5B
+  - id: D49
+    title: "Renommer `allocateStat({ points })` en `budget` dans `useGameStore` — bloqué car `tests/unit/gameStore.spec.ts` appelle `points:` et était interdit d'édition pendant 4D ; le bug UI reste neutralisé en amont par `allocationPayload`"
+    severity: medium
+    target: 5B
+  - id: D50
+    title: "`.github/workflows/ci.yml` n'a pas `workflow_dispatch` — impossible de relancer une CI à la main ; à noter qu'il ne devient utilisable qu'après merge sur `main`"
+    severity: medium
+    target: external
+    owner: user
+    notes: fichier .github/ hors périmètre agent ; relance manuelle impossible
+  - id: D51
+    title: "`qa-reviewer` n'a pas `gh pr review` : ses verdicts ne sont jamais matérialisés sur GitHub, alors que `pr-merger.md` étape 1 exige un `APPROUVÉ` sur la PR — la règle est insatisfiable par construction. Deux options : donner `gh pr review --approve` à `qa-reviewer`, ou amender `pr-merger.md`"
+    severity: high
+    target: external
+    owner: user
+    notes: même racine que D14, désormais bloquant
+  - id: D52
+    title: "Un conflit de merge désactive silencieusement tous les workflows `pull_request` (GitHub) : `gh pr checks` renvoie \"no checks reported\" sans erreur. Réflexe à inscrire dans les prompts : vérifier `gh pr view --json mergeable` AVANT de conclure à une panne CI. Ajouter aussi une borne lisible sur le `--watch` post-push (course de scheduling : le run n'existe pas encore)"
+    severity: medium
+    target: external
+    owner: user
+    notes: prompts d'agents et .github/ hors périmètre tdd-coder
+  - id: D53
+    title: "`DamagePreviewInput` n'expose pas `flatDmg` (inutilisé par le moteur aujourd'hui) — à rouvrir si des buffs de dégâts plats arrivent"
+    severity: low
+    target: 5C
