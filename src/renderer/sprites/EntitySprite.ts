@@ -21,6 +21,8 @@ export interface ActorPlacement {
   facing: Facing;
   animation: SpriteAnimationName;
   signature: string;
+  /** Échelle du décor : l'acteur suit le zoom de la carte. */
+  scale?: number;
 }
 
 /** Cercle coloré de repli : aucune branche spéciale côté scène. */
@@ -86,10 +88,12 @@ export class EntitySprite {
     this.start(animation);
   }
 
-  /** Positionne l'acteur sur le centre du losange et applique le retournement horizontal. */
+  /** Positionne l'acteur sur le centre du losange, à l'échelle du décor, et applique le retournement. */
   update(placement: ActorPlacement): void {
+    const scale = placement.scale ?? 1;
     this.node.position.set(placement.point.x, placement.point.y);
-    this.node.scale.x = placement.facing === "left" ? -1 : 1;
+    this.node.scale.x = placement.facing === "left" ? -scale : scale;
+    this.node.scale.y = scale;
     this.play(placement.animation, `${placement.signature}:${placement.animation}`);
   }
 }

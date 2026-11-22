@@ -2,7 +2,7 @@ import type { Graphics } from "pixi.js";
 import type { Position } from "../engine/grid";
 import type { CombatantState } from "../engine/combatLoop/types";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
-import { TILE_H, TILE_W, gridToIso } from "./gridProjection";
+import { TILE_H, TILE_W, gridToIso, originScale } from "./gridProjection";
 import { depthOf } from "./scene";
 import type { Facing, SpriteAnimationName } from "./sprites/types";
 
@@ -16,6 +16,8 @@ export const HP_BAR_BG_ALPHA = 0.8;
 export const HP_BAR_FILL = 0x6ad06a;
 export const HP_BAR_WIDTH = TILE_W * 0.5;
 export const HP_BAR_HEIGHT = 5;
+/** Dégagement entre la barre et le bas du jeton. */
+export const HP_BAR_GAP = 4;
 /** Dégagement au-dessus d'un sprite : la barre de PV passe au-dessus de la tête. */
 export const SPRITE_HEADROOM = 30;
 
@@ -42,6 +44,8 @@ export const STATIC_TOKEN_SPRITE: TokenSprite = {
 export interface TokenView extends TokenSprite {
   center: PixelPoint;
   radius: number;
+  /** Échelle de la caméra : jetons, barres et sprites suivent le décor. */
+  scale: number;
   fill: number;
   hp: number;
   maxHp: number;
@@ -64,6 +68,8 @@ export interface TokenBadge {
   x: number;
   y: number;
   radius: number;
+  /** Échelle de la caméra, pour grossir aussi la police du badge. */
+  scale: number;
 }
 
 interface TokenSpec {
@@ -73,6 +79,7 @@ interface TokenSpec {
   badge: string | null;
   depth: number;
   sprite: TokenSprite;
+  scale: number;
 }
 
 /** Borne une valeur dans `[0, 1]`. */
@@ -112,9 +119,10 @@ export function tokensNeedingCircle(
 }
 
 function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
-  const { fill, hp, maxHp, badge, depth, sprite } = spec;
+  const { fill, hp, maxHp, badge, depth, sprite, scale } = spec;
   const ratio = hpRatio(hp, maxHp);
-  return { center, radius: TOKEN_RADIUS, fill, hp, maxHp, hpRatio: ratio, badge, depth, ...sprite };
+  const radius = TOKEN_RADIUS * scale;
+  return { center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, depth, ...sprite };
 }
 
 /** Jeton d'un combattant, centré sur le losange de sa case. */
@@ -125,7 +133,8 @@ export function tokenView(
 ): TokenView {
   const center = gridToIso({ ...combatant.position, origin });
   const { hp, maxHp, kind, position } = combatant;
-  return tokenAt(center, { fill: tokenColor(kind), hp, maxHp, badge: null, depth: depthOf(position), sprite });
+  const scale = originScale(origin);
+  return tokenAt(center, { fill: tokenColor(kind), hp, maxHp, badge: null, depth: depthOf(position), sprite, scale });
 }
 
 /** Jeton du héros en exploration, sans combat engagé. */
@@ -134,7 +143,8 @@ export function playerTokenView(
   origin: IsoOrigin,
   sprite: TokenSprite = STATIC_TOKEN_SPRITE,
 ): TokenView {
-  const spec: TokenSpec = { fill: PLAYER_TOKEN_COLOR, hp: 1, maxHp: 1, badge: null, depth: depthOf(position), sprite };
+  const scale = originScale(origin);
+  const spec: TokenSpec = { fill: PLAYER_TOKEN_COLOR, hp: 1, maxHp: 1, badge: null, depth: depthOf(position), sprite, scale };
   return tokenAt(gridToIso({ ...position, origin }), spec);
 }
 
@@ -157,19 +167,23 @@ function groupSprite(spriteId: string | null | undefined): TokenSprite {
 export function groupTokenView(group: GroupTokenInput, origin: IsoOrigin): TokenView {
   const { pos, totalLevel } = group;
   const sprite = groupSprite(group.spriteId);
-  const spec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite };
+  const scale = originScale(origin);
+  const spec = { fill: ENEMY_TOKEN_COLOR, hp: 1, maxHp: 1, badge: String(totalLevel), sprite, scale };
   return tokenAt(gridToIso({ ...pos, origin }), { ...spec, depth: depthOf(pos) });
 }
 
 function barLift(token: TokenView): number {
-  return token.spriteId === null ? 0 : SPRITE_HEADROOM;
+  return token.spriteId === null ? 0 : SPRITE_HEADROOM * token.scale;
 }
 
 /** Géométrie de la mini-barre de PV au-dessus du jeton (et au-dessus de la tête d'un sprite). */
 export function hpBarFor(token: TokenView): HpBar {
-  const x = token.center.x - HP_BAR_WIDTH / 2;
-  const y = token.center.y - token.radius - HP_BAR_HEIGHT - 4 - barLift(token);
-  return { x, y, width: HP_BAR_WIDTH, height: HP_BAR_HEIGHT, fillWidth: HP_BAR_WIDTH * token.hpRatio };
+  const width = HP_BAR_WIDTH * token.scale;
+  const height = HP_BAR_HEIGHT * token.scale;
+  const gap = HP_BAR_GAP * token.scale;
+  const x = token.center.x - width / 2;
+  const y = token.center.y - token.radius - height - gap - barLift(token);
+  return { x, y, width, height, fillWidth: width * token.hpRatio };
 }
 
 /** Géométrie du badge de niveau, en haut à droite du jeton. */
@@ -177,7 +191,7 @@ export function tokenBadge(token: TokenView): TokenBadge | null {
   if (token.badge === null) return null;
   const x = token.center.x + token.radius;
   const y = token.center.y - token.radius;
-  return { text: token.badge, x, y, radius: BADGE_RADIUS };
+  return { text: token.badge, x, y, radius: BADGE_RADIUS * token.scale, scale: token.scale };
 }
 
 export function drawHpBar(graphics: Graphics, token: TokenView): void {

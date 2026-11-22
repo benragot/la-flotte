@@ -5,7 +5,10 @@ import type { IsoOrigin, PixelPoint } from "./gridProjection";
 import { isoToGrid } from "./gridProjection";
 import { cellKey } from "./scene";
 
-/** Grille + origine de projection : l'inverse exact de `gridToIso`. */
+/**
+ * Grille + origine de projection : l'inverse exact de `gridToIso`. L'échelle
+ * « cover » voyage dans l'origine, donc le clic est bien divisé par elle.
+ */
 export interface BoardLayout {
   width: number;
   height: number;

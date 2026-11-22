@@ -40,7 +40,8 @@ function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneL
 }
 
 function createLabel(badge: TokenBadge): Text {
-  const label = new Text({ text: badge.text, style: { fontSize: BADGE_FONT_SIZE, fill: BADGE_TEXT_COLOR } });
+  const style = { fontSize: BADGE_FONT_SIZE * badge.scale, fill: BADGE_TEXT_COLOR };
+  const label = new Text({ text: badge.text, style });
   label.anchor.set(0.5);
   label.position.set(badge.x, badge.y);
   return label;
