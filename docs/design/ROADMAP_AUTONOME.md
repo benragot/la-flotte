@@ -2,7 +2,7 @@
 Légende : [ ] à faire · [x] fait
 
 > **Document normatif** : [`docs/design/DECISIONS.md`](DECISIONS.md). Les décisions
-> D01 à D09 du propriétaire priment sur cette roadmap, sur les specs et sur les PRs.
+> DEC-01 à DEC-09 du propriétaire priment sur cette roadmap, sur les specs et sur les PRs.
 > Une PR qui les contredit est refusée, même techniquement correcte.
 
 ## Vague 4 — Persistance héros, inventaire, panoplies, sauvegarde
@@ -24,7 +24,7 @@ Légende : [ ] à faire · [x] fait
 - [x] 5B-f recette de la clé de la Ferraille, 3 ingrédients et butin
 - [ ] 5B-g table de spawn d'exploration — sortir `DEMO_MONSTER_ID`, farmer les 3 ingrédients hors donjon (PR #43 en revue)
 - [ ] 5B intégration — reste 5B-g
-- [ ] 5B-key-budget — ramener la clé de donjon à 5-10 combats (décision D07)
+- [ ] 5B-key-budget — ramener la clé de donjon à 5-10 combats (décision DEC-07)
 - [x] 5C-a panneau de combat 1vN — rendu des N ennemis, ciblage et journal (PR #44)
 - [x] 5C-b sorts des monstres de la Ferraille (données) — PR #46
 - [x] 5C-c câbler `battleEnemyTurn` — les ennemis ripostent — PR #48
@@ -43,7 +43,7 @@ Spec de référence : `docs/design/specs/ui-dofus-retro.md`
 - [ ] 5C-log-channel — journal unique teinté par élément, sans message de déplacement
 - [ ] 5C-set-panoplies — panoplies de la fiche §6 : PV, résistances, Force (levier de survie D71)
 - [ ] 5C-equip-requirements — conditions d'équipement : niveau vérifié avant de porter un objet (écart 8)
-- [ ] 5C-heal-between-rooms — soin entre les salles de donjon, entorse assumée (décision D03)
+- [ ] 5C-heal-between-rooms — soin entre les salles de donjon, entorse assumée (décision DEC-03)
 - [x] 5D-a premier donjon jouable — déclencher une salle depuis le jeu (PR #56)
 - [x] 5D-b walkthrough « je joue » — du héros créé au donjon (PR #57)
 - [ ] 5D-hud-bar — barre d'interface basse : portrait, niveau, XP, kamas

@@ -1590,13 +1590,23 @@ function unknownCitations(text: string): string[] {
 }
 
 const DECISIONS_PATH = "docs/design/DECISIONS.md";
-const DECISION_NUMBERS = ["D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09"];
+const DECISION_NUMBERS = [
+  "DEC-01",
+  "DEC-02",
+  "DEC-03",
+  "DEC-04",
+  "DEC-05",
+  "DEC-06",
+  "DEC-07",
+  "DEC-08",
+  "DEC-09",
+];
 
 /** Les décisions du propriétaire sont normatives : leur suppression doit casser la CI. */
 function decisionHeadings(): string[] {
   const path = join(process.cwd(), DECISIONS_PATH);
   if (!existsSync(path)) return [];
-  return [...readFileSync(path, "utf8").matchAll(/^## (D0\d) — /gm)].map((match) => match[1] ?? "");
+  return [...readFileSync(path, "utf8").matchAll(/^## (DEC-0\d) — /gm)].map((match) => match[1] ?? "");
 }
 
 /** Une clause `**Interdit**` par décision : le corps ne peut pas être vidé sans rougir. */
