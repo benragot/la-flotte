@@ -1,9 +1,10 @@
 # Monstres de l'île de la Ferraille (Vague 1, bestiaire étendu en 5A).
 # resistances.flat / percent : dégâts fixes et pourcentage par élément ; une
 # valeur négative est une faiblesse (bornes ±100, cf. `resistanceSchema`).
-# `spellIds` et `loot` sont différés : les sorts `fer_spell_*` arrivent en 6A avec
-# le moteur d'effets, les butins de la fiche en 7B avec les items correspondants.
-# Mieux vaut un monstre sans sort qu'un monstre pointant vers un sort inexistant.
+# `spellIds` ne référence que des sorts réellement déclarés dans spells.yaml :
+# les sorts de dégâts du §3 modélisables par le schéma actuel (purs dégâts ou
+# dégâts + poussée). Statuts PM/PA, soins, boucliers, zones et invocation
+# attendent le moteur d'effets de la 6A. `loot` reste différé en 7B.
 # Vague 5B : seules les entrées de butin dont l'item existe déjà dans items.yaml
 # sont appliquées (taux et seuils PP du §2 de la fiche, non retouchés) ; le reste
 # attend la 7B.
@@ -20,7 +21,7 @@ monsters:
       flat: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 }
       percent: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 }
     baseXp: 120
-    spellIds: [bec_mazoute]
+    spellIds: [bec_mazoute, fer_spell_coup_daile_gras]
     loot:
       - { itemId: plume_mazoutee, baseDropRate: 0.4, ppThreshold: 100 }
       # §2 de la fiche : seconde source de la goutte. Le Piou est le seul
@@ -40,6 +41,7 @@ monsters:
       flat: { neutral: 1, earth: 1, fire: 0, water: 0, air: 0 }
       percent: { neutral: 5, earth: 5, fire: -5, water: 0, air: -5 }
     baseXp: 55
+    spellIds: [fer_spell_morsure_tetanos]
     isBoss: false
     kamasMin: 8
     kamasMax: 18
@@ -65,6 +67,7 @@ monsters:
       flat: { neutral: 2, earth: 2, fire: 0, water: 1, air: 0 }
       percent: { neutral: 10, earth: 10, fire: -10, water: 5, air: 0 }
     baseXp: 90
+    spellIds: [fer_spell_pince_de_douze]
     isBoss: false
     kamasMin: 12
     kamasMax: 26
@@ -90,6 +93,7 @@ monsters:
       flat: { neutral: 1, earth: 0, fire: 2, water: 0, air: 0 }
       percent: { neutral: 0, earth: 0, fire: 15, water: -10, air: 0 }
     baseXp: 130
+    spellIds: [fer_spell_coup_de_couvercle]
     isBoss: false
     kamasMin: 18
     kamasMax: 35
@@ -114,6 +118,7 @@ monsters:
       flat: { neutral: 2, earth: 2, fire: 0, water: 0, air: 1 }
       percent: { neutral: 5, earth: 10, fire: 0, water: -5, air: 5 }
     baseXp: 185
+    spellIds: [fer_spell_coup_de_tete_filete, fer_spell_lancer_decrou]
     isBoss: false
     kamasMin: 24
     kamasMax: 45
@@ -140,6 +145,7 @@ monsters:
       flat: { neutral: 3, earth: 3, fire: 2, water: 0, air: 1 }
       percent: { neutral: 10, earth: 15, fire: 10, water: -10, air: 5 }
     baseXp: 480
+    spellIds: [fer_spell_clef_a_choc]
     isBoss: true
     kamasMin: 85
     kamasMax: 140
