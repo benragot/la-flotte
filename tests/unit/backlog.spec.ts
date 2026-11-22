@@ -1078,8 +1078,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 27", () => {
-    expect(readBacklog().meta.version).toBe(27);
+  it("versionne le backlog en 28", () => {
+    expect(readBacklog().meta.version).toEqual(28);
   });
 });
 
@@ -1970,13 +1970,13 @@ describe("backlog — dettes de déplacement recadrées par DEC-10 (v26)", () =>
 });
 
 /**
- * Audit de la PR #108 : la fenêtre DEC-03 n'a pas été élargie à 1-3, la régression
- * mesurée est épinglée et la dette porte l'arbitrage. Le correctif du contact
- * diagonal est, lui, mesuré comme destructeur pour la calibration : il est
- * bloqué, pas oublié.
+ * Audit de la PR #108 : aucune borne n'a été élargie, la mesure est épinglée et
+ * deux dettes disent la vérité — `D103` (fenêtre 1-2 seulement dans la docstring,
+ * mesure contaminée par `D104`) et `D104` (contact diagonal non corrigé, et son
+ * test rouge retiré : aucun test en échec attendu ne survit dans la PR).
  */
-describe("backlog — DEC-03 violée et contact diagonal bloqué (v27)", () => {
-  it("verse D103 : mesure 2,52 contre la fenêtre 1-2, arbitrage propriétaire", () => {
+describe("backlog — dette D103 exacte et contact diagonal bloqué (v28)", () => {
+  it("verse D103 : la fenêtre 1-2 n'est qu'une docstring, la mesure inclut D104", () => {
     const debt = debtById(readBacklog(), "D103");
     expect({ severity: debt?.severity, target: debt?.target, owner: debt?.owner, status: debt?.status }).toEqual({
       severity: "medium",
@@ -1985,13 +1985,15 @@ describe("backlog — DEC-03 violée et contact diagonal bloqué (v27)", () => {
       status: "blocked",
     });
     const text = `${debt?.title} ${debt?.notes}`;
-    expect(text).toContain("DEC-03");
+    expect(text).toContain("n'énonce aucune fenêtre 1-2 tours");
     expect(text).toContain("2,52");
-    expect(text).toContain("fenêtre 1-2");
+    expect(text).toContain("avec le bug `D104` actif");
+    expect(text).toContain("tests/walkthrough/gearedDungeon.spec.ts:778");
     expect(text).toContain("toBeCloseTo(2.52, 1)");
+    expect(text).toContain("Ne pas recalibrer avant d'avoir corrigé `D104`");
   });
 
-  it("verse D104 : le contact diagonal reste figé, correctif refusé après mesure", () => {
+  it("verse D104 : le contact diagonal reste figé, correctif refusé, test rouge retiré", () => {
     const debt = debtById(readBacklog(), "D104");
     expect({ severity: debt?.severity, target: debt?.target, owner: debt?.owner, status: debt?.status }).toEqual({
       severity: "medium",
@@ -2001,7 +2003,11 @@ describe("backlog — DEC-03 violée et contact diagonal bloqué (v27)", () => {
     });
     const text = `${debt?.title} ${debt?.notes}`;
     expect(text).toContain("src/engine/multiCombat/approach.ts:50-55");
-    expect(text).toContain("it.fails");
+    expect(text).toContain("couvert par aucun test");
+    expect(text).toContain("RETIRÉ");
+    expect(text).not.toContain("rouge encodé");
     expect(text).toContain("DEC-03 (a)");
+    expect(text).toContain("48 PV de monstres restants");
+    expect(text).toContain("105 actions");
   });
 });

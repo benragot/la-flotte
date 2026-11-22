@@ -750,13 +750,13 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  * donc le ratio de PV restants (`hpEnd < maxHp / 2`). La marge se quantifie par
  * pas d'un tour, pas au centième.
  *
- * LA FENÊTRE RESTE 1-2 : elle n'a PAS été élargie à 1-3. Après DEC-10, la mesure
- * de `16 survie` tombe à 2,52 tours — la pression de la salle 4 baisse parce que
- * le pas diagonal coûte 2 PM aux monstres. C'est une VIOLATION de la borne haute
- * de DEC-03, pas une nouvelle règle : la valeur mesurée est donc ÉPINGLÉE
- * (`toBeCloseTo`, ±0,05), ce qui est plus strict qu'une borne large et rougit au
- * moindre changement de contenu. Recalibrer (`hpScale` dans
- * `data/dungeons.yaml`) est une tâche de contenu, à l'arbitrage du propriétaire :
+ * LA FENÊTRE 1-2 VIT ICI, PAS DANS DEC-03 : `DECISIONS.md` n'énonce qu'une
+ * exigence de victoire, tenue aujourd'hui (6/6). Après DEC-10, la mesure de
+ * `16 survie` tombe à 2,52 tours, MAIS avec le bug `D104` actif (mêlée collée en
+ * diagonale figée) : elle ne mesure donc pas DEC-10 seul. La valeur reste
+ * ÉPINGLÉE (`toBeCloseTo`, ±0,05), plus strict qu'une borne large, pour rougir
+ * au moindre changement de contenu. Recalibrer (`hpScale`) est une tâche de
+ * contenu, à l'arbitrage du propriétaire, et **après** le correctif `D104` :
  * dette `D103`.
  */
 describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
@@ -772,9 +772,9 @@ describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
     const survieMargin = Math.min(...survie.rooms.map(margin));
     expect(survieMargin).toBeGreaterThanOrEqual(1);
     // Épingle de la RÉGRESSION MESURÉE (2,52 tours) après DEC-10, PAS une borne
-    // validée : cette valeur VIOLE la fenêtre 1-2 de DEC-03. Elle est figée pour
-    // détecter toute dégradation SUPPLÉMENTAIRE ; le recalibrage du contenu reste
-    // à faire (D103), DEC-03 n'est pas modifiée.
+    // validée : la valeur inclut l'effet du bug `D104` (mêlée diagonale figée),
+    // donc elle ne mesure pas DEC-10 seul. Figée pour détecter tout changement ;
+    // recalibrer après `D104` (D103), DEC-03 n'est pas modifiée.
     expect(survieMargin).toBeCloseTo(2.52, 1);
     expect(lastRoomOf(offense.rooms).hpEnd).toBeLessThan(offense.maxHp / 2);
     const naked = measureNaked();
