@@ -3,17 +3,21 @@ import { join } from "node:path";
 import yaml from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { classesFileSchema } from "../../src/schemas/classSchema";
+import { itemsFileSchema } from "../../src/schemas/itemSchema";
 import { mapsFileSchema } from "../../src/schemas/mapSchema";
 import { monstersFileSchema } from "../../src/schemas/monsterSchema";
 import { progressionFileSchema } from "../../src/schemas/progressionSchema";
+import { setsFileSchema } from "../../src/schemas/setSchema";
 import { spellsFileSchema } from "../../src/schemas/spellSchema";
 
 const DATA_DIR = join(process.cwd(), "data");
 const SCHEMAS: Record<string, { parse: (raw: unknown) => unknown }> = {
   "classes.yaml": classesFileSchema,
+  "items.yaml": itemsFileSchema,
   "maps.yaml": mapsFileSchema,
   "monsters.yaml": monstersFileSchema,
   "progression.yaml": progressionFileSchema,
+  "sets.yaml": setsFileSchema,
   "spells.yaml": spellsFileSchema,
 };
 

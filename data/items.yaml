@@ -1,0 +1,104 @@
+# Objets de l'Île de la Ferraille (Vague 4).
+# Familles : resource (butin), consumable (soin hors combat), equipment (panoplie + arme).
+# stats : objet partiel, entiers, tous les champs sont optionnels.
+items:
+  - id: plume_mazoutee
+    name: Plume mazoutée
+    description: "Une plume si lourde qu'elle coule dans la soupe. Le Piou Mazouté la perd en signe de mépris."
+    category: resource
+    sellPrice: 3
+
+  - id: ferraille_rouillee
+    name: Ferraille rouillée
+    description: "Une plaque de métal qui rouille plus vite qu'elle ne protège, ce qui est un exploit dans un archipel."
+    category: resource
+    sellPrice: 2
+
+  - id: ecrou_maudit
+    name: Écrou maudit
+    description: "Il se dévisse tout seul la nuit, par pure rancune. Les mécaniciens le rangent par superstition."
+    category: resource
+    sellPrice: 6
+
+  - id: boulon_qui_prie
+    name: Boulon qui prie
+    description: "Récupéré dans l'épave de la chapelle flottante. Il tient mieux quand on lui parle avec respect."
+    category: resource
+    sellPrice: 5
+
+  - id: corde_grasse_du_quai
+    name: Corde grasse du quai
+    description: "Elle sent le poisson, le mazout et les décisions regrettables prises un soir de marée haute."
+    category: resource
+    sellPrice: 4
+
+  - id: dent_de_piou_mazoute
+    name: Dent de Piou Mazouté
+    description: "Tombée lors d'un débat sur la propriété des vagues. Le Piou Mazouté avait tort et l'a très mal pris."
+    category: resource
+    sellPrice: 8
+
+  - id: soupe_de_baleine_tiede
+    name: Soupe de baleine tiède
+    description: "Chaude à l'aller, tiède au retour, franchement douteuse au fond du bol. Rend un peu de courage et de PV."
+    category: consumable
+    heal: 20
+    price: 15
+    sellPrice: 5
+
+  - id: ragout_de_quartier_maitre
+    name: Ragoût de quartier-maître
+    description: "Deux heures de cuisson, trois jours de regrets. Le remède officiel de la Flotte contre la mauvaise mer."
+    category: consumable
+    heal: 60
+    price: 45
+    sellPrice: 15
+
+  - id: chapeau_piou_mazoute
+    name: Chapeau du Piou Mazouté
+    description: "Un tricorne de récupération qui sent le port, le mazout et le regret d'avoir quitté le nid."
+    category: equipment
+    slot: hat
+    setId: panoplie_piou_mazoute
+    level: 1
+    stats: { vitality: 5 }
+    sellPrice: 12
+
+  - id: cape_graisseuse
+    name: Cape graisseuse
+    description: "Imperméable à la pluie, aux reproches et aux ordres du capitaine. Elle crisse quand on fuit."
+    category: equipment
+    slot: cloak
+    setId: panoplie_piou_mazoute
+    level: 2
+    stats: { vitality: 10, wisdom: 2 }
+    sellPrice: 20
+
+  - id: amulette_de_la_coupure
+    name: Amulette de la Coupure
+    description: "Un bout de coque monté sur un lacet. Elle ne protège de rien mais rappelle que la mer a déjà gagné une fois."
+    category: equipment
+    slot: amulet
+    setId: panoplie_piou_mazoute
+    level: 2
+    stats: { prospection: 5, wisdom: 3 }
+    sellPrice: 22
+
+  - id: bottes_de_fond_de_cale
+    name: Bottes de fond de cale
+    description: "Elles prennent l'eau par le haut, par le bas et par les côtés. Excellentes pour ne pas glisser dans le mazout."
+    category: equipment
+    slot: boots
+    setId: panoplie_piou_mazoute
+    level: 2
+    stats: { vitality: 8, agility: 2 }
+    sellPrice: 18
+
+  - id: gourdin_du_matelot
+    name: Gourdin du matelot
+    description: "Un bout de mât poli à la main et à l'engueulade. L'arme réglementaire de celui qui n'avait rien d'autre."
+    category: equipment
+    slot: weapon
+    level: 1
+    stats: { strength: 3 }
+    sellPrice: 8
