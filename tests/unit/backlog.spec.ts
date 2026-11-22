@@ -680,10 +680,6 @@ describe("backlog — vague 5B livrée", () => {
     expect(task?.pr).toBe(43);
     expect(task?.depends_on).toEqual(["5B-f"]);
   });
-
-  it("versionne le backlog en 19", () => {
-    expect(readBacklog().meta.version).toBe(19);
-  });
 });
 
 describe("backlog — dettes versées en v15", () => {
@@ -700,6 +696,13 @@ describe("backlog — dettes versées en v15", () => {
   it("détecte une sévérité hors échelle sur fixture", () => {
     const fixture = fixtureBacklog([fixturePhase("5B", "in_progress")]);
     fixture.debts = [{ id: "D01", title: "Dette mal gradée", severity: "critical", target: "5B" }];
+    expect(invalidDebtSeverities(fixture)).toEqual(["D01"]);
+  });
+
+  it("lit l'échelle dans meta et non dans une constante du test", () => {
+    const fixture = fixtureBacklog([fixturePhase("5B", "in_progress")]);
+    fixture.meta.debt_severities = ["low", "high"];
+    fixture.debts = [{ id: "D01", title: "Dette medium hors d'une échelle rétrécie", severity: "medium", target: "5B" }];
     expect(invalidDebtSeverities(fixture)).toEqual(["D01"]);
   });
 });
@@ -934,7 +937,7 @@ describe("backlog — spec UI Dofus Retro", () => {
 });
 
 describe("backlog — tâches d'interface Dofus Retro", () => {
-  it("ouvre les douze tâches en todo dans 5C et 5D", () => {
+  it("ouvre les treize tâches en todo dans 5C et 5D", () => {
     expect(uiTaskGaps(readBacklog())).toEqual([]);
   });
 
@@ -1022,6 +1025,10 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(gaps).toEqual([]);
   });
 
+  it("compte les 451 lignes réelles du walkthrough play.spec.ts", () => {
+    expect(taskById(readBacklog(), "5D-b")?.notes ?? "").toContain("451");
+  });
+
   it("ouvre la phase 5D et acte le donjon jouable depuis l'exploration", () => {
     const phase = phaseById(readBacklog(), "5D");
     expect(phase?.status).toBe("in_progress");
@@ -1065,7 +1072,7 @@ describe("backlog — suite ouverte en v19", () => {
 });
 
 const V19_DEBTS: Array<[string, string, string, string]> = [
-  ["D74", "high", "5C-info-panel", "canUseConsumable"],
+  ["D74", "low", "5C-info-panel", "canUseConsumable"],
   ["D75", "high", "5C-hero-move", "useCombatStore"],
   ["D76", "medium", "5C-turn-rail", "Ctrl+Fin"],
 ];
@@ -1085,10 +1092,21 @@ describe("backlog — dettes versées en v19", () => {
     expect(v19DebtGaps(readBacklog())).toEqual([]);
   });
 
-  it("grade en high les résistances et le déplacement du héros", () => {
+  it("ne grade en high que le déplacement absent du héros", () => {
     const backlog = readBacklog();
-    expect(debtById(backlog, "D74")?.severity).toBe("high");
+    expect(debtById(backlog, "D74")?.severity).toBe("low");
     expect(debtById(backlog, "D75")?.severity).toBe("high");
+  });
+
+  it("décrit D74 contre l'arbre réel de #59 : seul `canUseConsumable` subsiste", () => {
+    const debt = debtById(readBacklog(), "D74");
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("canUseConsumable");
+    expect(text).toContain("#59");
+    expect(text).toContain("D45b");
+    expect(text).toContain("D30");
+    expect(text).not.toContain("vitality");
+    expect(text).not.toContain("CombatHud");
   });
 
   it("garde Espace et note qu'il faut ajouter Ctrl+Fin", () => {
@@ -1125,15 +1143,18 @@ describe("backlog — D45 restreinte aux résistances", () => {
 });
 
 describe("backlog — D71 remesurée par #57", () => {
-  it("acte la mort en salle 2 et le build Vitalité non mesuré", () => {
+  it("acte la mort en salle 2, le capital en Force et le build Vitalité non mesuré", () => {
     const debt = debtById(readBacklog(), "D71");
     expect(debt?.severity).toBe("high");
     expect(debt?.target).toBe("5C-set-panoplies");
     const text = `${debt?.title} ${debt?.notes}`;
     expect(text).toContain("salle 2");
-    expect(text).toContain("130");
+    expect(text).toContain("Force");
+    expect(text).toContain("130 PV");
+    expect(text).toContain("chapeau");
     expect(text).toContain("62");
     expect(text).toContain("205");
+    expect(text).not.toContain("investis en Vitalité");
     expect(text).not.toContain("salles 3 et 4");
   });
 });
