@@ -194,7 +194,8 @@ describe("buildViewModel — sprite des combattants", () => {
 describe("buildViewModel — actions dérivées du journal", () => {
   it("fait jouer attack au lanceur et hit à la cible", () => {
     const base = buildState();
-    const combat = castSpell({ state: base, spellId: "pression", target: base.enemy.position, rng: () => 0 });
+    const adjacent: CombatState = { ...base, enemy: { ...base.enemy, position: { x: 4, y: 3 } } };
+    const combat = castSpell({ state: adjacent, spellId: "pression", target: adjacent.enemy.position, rng: () => 0 });
     const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
     expect(view.lastAction).toMatchObject({ kind: "cast", actor: "player" });
     expect(view.tokens[0]?.animation).toBe("attack");
@@ -317,6 +318,13 @@ describe("exploration — jetons", () => {
     expect(view.path).toHaveLength(0);
     expect(view.tokens).toHaveLength(1);
   });
+});
+
+describe("exploration — sprite du héros", () => {
+  const exploration = {
+    playerPos: { x: 2, y: 3 },
+    groups: [{ pos: { x: 5, y: 5 }, label: "Piou mazouté", totalLevel: 7 }],
+  };
 
   it("rend le héros avec sa feuille et laisse les groupes géométriques", () => {
     const view = buildExplorationViewModel({

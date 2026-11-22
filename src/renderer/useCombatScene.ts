@@ -9,6 +9,7 @@ import type { ExplorationView } from "./explorationScene";
 import { buildExplorationViewModel } from "./explorationScene";
 import type { GridSize } from "./gridProjection";
 import { renderScene } from "./sceneLayers";
+import { SPRITE_SHEETS } from "./spriteManifest";
 
 export type ArenaMode = "combat" | "exploration";
 
@@ -46,6 +47,6 @@ export function useCombatScene(input: CombatSceneInput): void {
   useEffect(() => {
     const view = sceneViewModel(deps);
     if (view === null || !isApplicationAlive(app)) return;
-    renderScene(app, view);
+    renderScene(app, view, SPRITE_SHEETS);
   }, [app, combat, selectedSpellId, hoveredCell, viewport, mode, exploration]);
 }

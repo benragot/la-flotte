@@ -30,7 +30,46 @@ export type { TileStyle, TileStyleInput } from "./tileStyle";
 export { FALLBACK_GRID, SCENE_BACKGROUND, combatCanvasSize } from "./combatCanvasConfig";
 export { buildExplorationViewModel, explorationMapSize } from "./explorationScene";
 export type { ExplorationGroup, ExplorationView } from "./explorationScene";
-export { BADGE_RADIUS, groupTokenView, hpRatio, playerTokenView, tokenBadge, tokenView } from "./tokens";
-export type { TokenBadge, TokenView } from "./tokens";
-export { painterOrder } from "./scene";
+export { buildViewModel, lastActionFrom } from "./combatSceneModel";
+export type { CombatSceneInput, LastAction, ViewModel } from "./combatSceneModel";
+export { SPRITE_SHEETS } from "./spriteManifest";
+export {
+  ActorStage,
+  EntitySprite,
+  SPRITE_ANCHOR,
+  SPRITE_ANIMATIONS,
+  SPRITE_COLUMNS,
+  SPRITE_FRAME_SIZE,
+  animationFrames,
+  ensureSpriteSheet,
+  frameAt,
+  frameIndexAt,
+  frameRect,
+  loadSpriteSheet,
+  peekSpriteSheet,
+} from "./sprites";
+export type {
+  ActorPlacement,
+  AnimationCount,
+  AnimationSpec,
+  Facing,
+  FrameCell,
+  FrameRect,
+  SpriteAnimationName,
+  SpriteSheetFrames,
+  SpriteSheetSpec,
+} from "./sprites";
+export {
+  BADGE_RADIUS,
+  STATIC_TOKEN_SPRITE,
+  facingToward,
+  groupTokenView,
+  hpBarFor,
+  hpRatio,
+  playerTokenView,
+  tokenBadge,
+  tokenView,
+} from "./tokens";
+export type { HpBar, TokenBadge, TokenSprite, TokenView } from "./tokens";
+export { depthOf, painterOrder } from "./scene";
 export type { GridHighlight, SceneModel, TileView } from "./scene";

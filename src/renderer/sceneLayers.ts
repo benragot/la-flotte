@@ -2,15 +2,19 @@ import { Container, Graphics, Text } from "pixi.js";
 import type { Application } from "pixi.js";
 import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
+import { ActorStage } from "./sprites/actorStage";
+import type { SpriteSheetSpec } from "./sprites/types";
 import { drawGrid, drawHighlights, drawPath } from "./tilePaint";
 import type { TokenBadge, TokenView } from "./tokens";
-import { drawTokens, tokenBadge } from "./tokens";
+import { drawHpBars, drawTokens, tokenBadge } from "./tokens";
 
 interface SceneLayers {
   grid: Graphics;
   highlights: Graphics;
   path: Graphics;
   tokens: Graphics;
+  actors: ActorStage;
+  hpBars: Graphics;
   labels: Container;
 }
 
@@ -19,21 +23,18 @@ export const BADGE_TEXT_COLOR = 0xf2d64b;
 
 const LAYERS = new WeakMap<Application, SceneLayers>();
 
-function createLayers(): SceneLayers {
-  return {
-    grid: new Graphics(),
-    highlights: new Graphics(),
-    path: new Graphics(),
-    tokens: new Graphics(),
-    labels: new Container(),
-  };
+function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
+  const graphics = { grid: new Graphics(), highlights: new Graphics(), path: new Graphics() };
+  const moreGraphics = { tokens: new Graphics(), hpBars: new Graphics() };
+  return { ...graphics, ...moreGraphics, actors: new ActorStage(sheets), labels: new Container() };
 }
 
-function layersFor(app: Application): SceneLayers {
+function layersFor(app: Application, sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const existing = LAYERS.get(app);
   if (existing !== undefined) return existing;
-  const created = createLayers();
-  app.stage.addChild(created.grid, created.highlights, created.path, created.tokens, created.labels);
+  const created = createLayers(sheets);
+  const { grid, highlights, path, tokens, actors, hpBars, labels } = created;
+  app.stage.addChild(grid, highlights, path, tokens, actors.container, hpBars, labels);
   LAYERS.set(app, created);
   return created;
 }
@@ -64,22 +65,46 @@ function clearLayers(layers: SceneLayers): void {
   layers.highlights.clear();
   layers.path.clear();
   layers.tokens.clear();
+  layers.hpBars.clear();
   clearLabels(layers.labels);
+}
+
+/** Les jetons sans feuille (groupes d'exploration) restent des cercles colorés. */
+function isGeometricToken(token: TokenView): boolean {
+  return token.spriteId === null;
+}
+
+/** Applications déjà branchées sur une boucle de rendu, pour ne pas empiler les tickers. */
+const ANIMATED = new WeakSet<Application>();
+
+/**
+ * Une `AnimatedSprite` avance sur le ticker PixiJS : sans boucle de rendu, la
+ * frame 0 resterait figée. La boucle n'est démarrée que si la scène contient
+ * au moins un acteur à feuille, pour ne pas rendre en continu une scène statique.
+ */
+function ensureAnimationLoop(app: Application, tokens: readonly TokenView[]): void {
+  if (ANIMATED.has(app) || tokens.every(isGeometricToken)) return;
+  ANIMATED.add(app);
+  app.ticker.add(() => app.render());
+  app.ticker.start();
 }
 
 function drawLayers(layers: SceneLayers, view: ViewModel): void {
   drawGrid(layers.grid, view.scene.tiles);
   drawHighlights(layers.highlights, view.scene.highlights);
   drawPath(layers.path, view.path);
-  drawTokens(layers.tokens, view.tokens);
+  drawTokens(layers.tokens, view.tokens.filter(isGeometricToken));
+  drawHpBars(layers.hpBars, view.tokens);
   drawLabels(layers.labels, view.tokens);
 }
 
 /** Redessine la scène ; no-op immédiat si l'application a été détruite. */
-export function renderScene(app: Application, view: ViewModel): void {
+export function renderScene(app: Application, view: ViewModel, sheets: readonly SpriteSheetSpec[] = []): void {
   if (!isApplicationAlive(app)) return;
-  const layers = layersFor(app);
+  const layers = layersFor(app, sheets);
   clearLayers(layers);
   drawLayers(layers, view);
+  layers.actors.sync({ tokens: view.tokens, onReady: () => renderScene(app, view, sheets) });
+  ensureAnimationLoop(app, view.tokens);
   app.render();
 }
