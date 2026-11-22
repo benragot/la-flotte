@@ -52,7 +52,7 @@ function fakeApp(): Application {
 /** Peint une scène et renvoie le nombre de cercles posés par la couche des jetons. */
 function paint(tokens: TokenView[], sheets: readonly SpriteSheetSpec[]): number {
   const offset = graphicsOf.length;
-  renderScene(fakeApp(), view(tokens), sheets);
+  renderScene(fakeApp(), view(tokens), { sheets });
   return graphicsOf[offset + TOKEN_LAYER_OFFSET]?.circleCalls ?? 0;
 }
 

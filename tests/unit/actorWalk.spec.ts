@@ -123,6 +123,25 @@ describe("ActorStage — annulation et cas limites", () => {
 });
 
 describe("ActorStage — changement de scène", () => {
+  it("un changement de carte pose le héros : aucun trajet ne traverse la nouvelle scène", () => {
+    const carrier = stage();
+    const fieldOf = field();
+    carrier.sync({ tokens: [token({ x: 0, y: 0 })], onReady: () => undefined, field: fieldOf, scene: { id: "plage" } });
+    carrier.sync({ tokens: [token({ x: 1, y: 1 })], onReady: () => undefined, field: fieldOf, scene: { id: "donjon" } });
+    expect(nodeOf(carrier).position).toMatchObject(centre({ x: 1, y: 1 }));
+    expect(carrier.advance(200)).toBe(false);
+  });
+
+  it("sur la même carte, la case mémorisée déclenche bien le glissement", () => {
+    const carrier = stage();
+    const fieldOf = field();
+    const scene = { id: "plage" };
+    carrier.sync({ tokens: [token({ x: 0, y: 0 })], onReady: () => undefined, field: fieldOf, scene });
+    carrier.sync({ tokens: [token({ x: 1, y: 1 })], onReady: () => undefined, field: fieldOf, scene });
+    expect(nodeOf(carrier).position).toMatchObject(centre({ x: 0, y: 0 }));
+    expect(carrier.advance(75)).toBe(true);
+  });
+
   it("détruit l'acteur absent : aucun glissement fantôme, aucune exception", () => {
     const carrier = stage();
     sync(carrier, { x: 0, y: 0 });
