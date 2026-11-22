@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { parseAsciiMap } from "../../src/engine/grid";
+import { isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
+import type { ExplorationState } from "../../src/engine/exploration";
 import {
+  defeatGroup,
   getMonsterGroupAt,
   initExploration,
   moveHeroOnMap,
@@ -23,7 +25,8 @@ const PLAGE_ROWS = [
   "............",
 ];
 
-const MONSTER = { monsterId: "piou_mazoute", monsterName: "Piou Mazouté", level: 1 };
+const SPAWN = { monsterId: "piou_mazoute", monsterName: "Piou Mazouté", level: 1 };
+const RNG_STEPS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99];
 
 interface CountingRng {
   rng: () => number;
@@ -39,12 +42,30 @@ function makeRng(value: number): CountingRng {
   return { rng, calls: () => calls };
 }
 
-function plage() {
+function manhattan(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function plage(): ReturnType<typeof parseAsciiMap> {
   return parseAsciiMap(PLAGE_ROWS);
 }
 
-function freshState() {
-  return initExploration({ map: plage(), ...MONSTER });
+function freshState(): ExplorationState {
+  return initExploration({ map: plage(), ...SPAWN });
+}
+
+function respawnAt(state: ExplorationState, rng: () => number): ExplorationState {
+  return respawnMonsterGroup({ state, spawn: SPAWN, rng });
+}
+
+function newGroup(state: ExplorationState): ExplorationState["monsterGroups"][number] {
+  return state.monsterGroups[state.monsterGroups.length - 1] ?? {
+    id: "",
+    pos: { x: -1, y: -1 },
+    monsterIds: [],
+    totalLevel: 0,
+    label: "",
+  };
 }
 
 describe("initExploration", () => {
@@ -75,12 +96,12 @@ describe("initExploration", () => {
 
   it("refuse une carte sans placement joueur", () => {
     const map = parseAsciiMap(["..M.", "...."]);
-    expect(() => initExploration({ map, ...MONSTER })).toThrow(/joueur/i);
+    expect(() => initExploration({ map, ...SPAWN })).toThrow(/joueur/i);
   });
 
   it("refuse une carte sans placement monstre", () => {
     const map = parseAsciiMap(["..P.", "...."]);
-    expect(() => initExploration({ map, ...MONSTER })).toThrow(/monstre/i);
+    expect(() => initExploration({ map, ...SPAWN })).toThrow(/monstre/i);
   });
 });
 
@@ -146,68 +167,140 @@ describe("getMonsterGroupAt", () => {
   });
 });
 
-describe("respawnMonsterGroup — placement", () => {
-  it("place le nouveau groupe à distance de Manhattan au moins 4", () => {
+describe("respawnMonsterGroup — ajout", () => {
+  it("ajoute réellement un groupe et renvoie un nouvel état", () => {
     const state = freshState();
-    const group = respawnMonsterGroup(state, () => 0.5).monsterGroups.at(-1);
-    const distance = Math.abs((group?.pos.x ?? 0) - 3) + Math.abs((group?.pos.y ?? 0) - 3);
-    expect(distance).toBeGreaterThanOrEqual(4);
+    const next = respawnAt(state, () => 0.5);
+    expect(next).not.toBe(state);
+    expect(next.monsterGroups).toHaveLength(2);
+    expect(next.monsterGroups[1]?.id).toBe("group-2");
+    expect(next.log.length).toBe(state.log.length + 1);
   });
 
-  it("place le nouveau groupe sur une case marchable et libre", () => {
+  it("tire label et niveau du spawn fourni, pas d'un groupe existant", () => {
+    const spawn = { monsterId: "craqueleur", monsterName: "Craqueleur", level: 7 };
+    const next = respawnMonsterGroup({ state: freshState(), spawn, rng: () => 0 });
+    const group = newGroup(next);
+    expect(group.label).toBe("Craqueleur · Niv. 7");
+    expect(group.totalLevel).toBe(7);
+    expect(group.monsterIds).toEqual(["craqueleur"]);
+  });
+
+  it("ne partage pas le tableau d'ids entre deux groupes", () => {
+    const next = respawnAt(freshState(), () => 0.5);
+    const [first, second] = next.monsterGroups;
+    expect(first?.monsterIds).not.toBe(second?.monsterIds);
+    first?.monsterIds.push("pirate");
+    expect(second?.monsterIds).toEqual(["piou_mazoute"]);
+  });
+});
+
+describe("respawnMonsterGroup — placement", () => {
+  it("garde les invariants sur onze tirages", () => {
     const state = freshState();
-    const next = respawnMonsterGroup(state, () => 0.25);
-    const pos = next.monsterGroups.at(-1)?.pos ?? { x: -1, y: -1 };
-    expect(state.map.cells[pos.y]?.[pos.x]).not.toBe("#");
-    expect(state.map.cells[pos.y]?.[pos.x]).not.toBe("~");
-    const occupied = next.monsterGroups.slice(0, -1).some((g) => g.pos.x === pos.x);
-    expect(occupied).toBe(false);
+    const occupied = state.monsterGroups.map((group) => group.pos);
+    RNG_STEPS.forEach((step) => {
+      const pos = newGroup(respawnAt(state, () => step)).pos;
+      expect(isWalkableCell(state.map, pos)).toBe(true);
+      expect(occupied.some((cell) => samePosition(cell, pos))).toBe(false);
+      expect(manhattan(pos, state.playerPos)).toBeGreaterThanOrEqual(4);
+    });
+  });
+
+  it("ne réapparaît pas sur la case d'un groupe éloigné", () => {
+    const state = initExploration({ map: parseAsciiMap(["P...M"]), ...SPAWN });
+    expect(respawnAt(state, () => 0)).toBe(state);
+  });
+
+  it("écarte une case occupée pour préférer la case libre", () => {
+    const state = initExploration({ map: parseAsciiMap(["P...M."]), ...SPAWN });
+    expect(newGroup(respawnAt(state, () => 0)).pos).toEqual({ x: 5, y: 0 });
+  });
+
+  it("renvoie la même référence si seule une case bloquée est candidate", () => {
+    const state = initExploration({ map: parseAsciiMap(["P..M#"]), ...SPAWN });
+    expect(respawnAt(state, () => 0)).toBe(state);
   });
 });
 
 describe("respawnMonsterGroup — déterminisme", () => {
   it("n'appelle le rng qu'une seule fois", () => {
     const counter = makeRng(0.5);
-    respawnMonsterGroup(freshState(), counter.rng);
+    respawnAt(freshState(), counter.rng);
     expect(counter.calls()).toBe(1);
   });
 
   it("choisit la première candidate avec un rng à zéro", () => {
-    const next = respawnMonsterGroup(freshState(), () => 0);
-    expect(next.monsterGroups.at(-1)?.pos).toEqual({ x: 8, y: 0 });
+    expect(newGroup(respawnAt(freshState(), () => 0)).pos).toEqual({ x: 8, y: 0 });
   });
 
   it("choisit la dernière candidate avec un rng proche de 1", () => {
-    const next = respawnMonsterGroup(freshState(), () => 0.999);
-    expect(next.monsterGroups.at(-1)?.pos).toEqual({ x: 11, y: 11 });
+    expect(newGroup(respawnAt(freshState(), () => 0.999)).pos).toEqual({ x: 11, y: 11 });
   });
 
   it("conserve l'ordre déterministe des candidates", () => {
-    const first = respawnMonsterGroup(freshState(), () => 0).monsterGroups.at(-1)?.pos;
-    const second = respawnMonsterGroup(freshState(), () => 0).monsterGroups.at(-1)?.pos;
+    const first = newGroup(respawnAt(freshState(), () => 0)).pos;
+    const second = newGroup(respawnAt(freshState(), () => 0)).pos;
     expect(first).toEqual(second);
   });
 });
 
-describe("respawnMonsterGroup — invariants", () => {
-  it("incrémente l'identifiant du groupe", () => {
-    const next = respawnMonsterGroup(freshState(), () => 0.5);
-    expect(next.monsterGroups.at(-1)?.id).toBe("group-2");
-    expect(next.monsterGroups.map((group) => group.id)).toEqual(["group-1", "group-2"]);
-  });
-
-  it("renvoie l'état inchangé quand la carte est saturée", () => {
-    const map = parseAsciiMap(["PM", ".."]);
-    const state = initExploration({ map, ...MONSTER });
+describe("respawnMonsterGroup — carte saturée", () => {
+  it("renvoie l'état inchangé quand aucune candidate n'existe", () => {
+    const state = initExploration({ map: parseAsciiMap(["PM", ".."]), ...SPAWN });
     const counter = makeRng(0);
-    expect(respawnMonsterGroup(state, counter.rng)).toBe(state);
+    expect(respawnMonsterGroup({ state, spawn: SPAWN, rng: counter.rng })).toBe(state);
     expect(counter.calls()).toBe(0);
   });
 
   it("ne mute jamais l'état d'entrée", () => {
     const state = freshState();
     const snapshot = structuredClone(state);
-    respawnMonsterGroup(state, () => 0.5);
+    respawnAt(state, () => 0.5);
+    expect(state).toEqual(snapshot);
+  });
+});
+
+describe("respawnMonsterGroup — sans groupe existant", () => {
+  it("respawn après une victoire, quand la carte est vide", () => {
+    const state = defeatGroup(freshState(), "group-1");
+    const next = respawnAt(state, () => 0);
+    expect(next.monsterGroups).toHaveLength(1);
+    expect(next.monsterGroups[0]?.id).toBe("group-2");
+    expect(newGroup(next).pos).toEqual({ x: 8, y: 0 });
+  });
+
+  it("repart de group-1 sans aucun historique", () => {
+    const bare = { ...freshState(), monsterGroups: [], log: [] };
+    expect(newGroup(respawnAt(bare, () => 0)).id).toBe("group-1");
+  });
+
+  it("incrémente encore l'id après deux victoires", () => {
+    const once = defeatGroup(freshState(), "group-1");
+    const respawned = respawnAt(once, () => 0);
+    const twice = defeatGroup(respawned, "group-2");
+    expect(newGroup(respawnAt(twice, () => 0)).id).toBe("group-3");
+  });
+});
+
+describe("defeatGroup", () => {
+  it("retire le groupe vaincu et journalise son id", () => {
+    const state = freshState();
+    const next = defeatGroup(state, "group-1");
+    expect(next.monsterGroups).toEqual([]);
+    expect(next.log.length).toBe(state.log.length + 1);
+    expect(next.log.at(-1)).toContain("group-1");
+  });
+
+  it("renvoie la même référence pour un id inconnu", () => {
+    const state = freshState();
+    expect(defeatGroup(state, "group-42")).toBe(state);
+  });
+
+  it("ne mute jamais l'état d'entrée", () => {
+    const state = freshState();
+    const snapshot = structuredClone(state);
+    defeatGroup(state, "group-1");
     expect(state).toEqual(snapshot);
   });
 });
