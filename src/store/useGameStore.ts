@@ -190,7 +190,8 @@ function refusedTransfer(input: TransferInput): TransferResult {
 /** Déplace `quantity` unités, tout-ou-rien : le stock est vérifié avant tout retrait. */
 function transferStack(input: TransferInput): TransferResult {
   const owned = countItem(input.from, input.itemId);
-  if (input.quantity <= 0 || owned < input.quantity) return refusedTransfer(input);
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) return refusedTransfer(input);
+  if (owned < input.quantity) return refusedTransfer(input);
   const from = removeItem({ inventory: input.from, itemId: input.itemId, quantity: input.quantity });
   const to = addItem({ inventory: input.to, itemId: input.itemId, quantity: input.quantity });
   return { from, to };
@@ -253,10 +254,14 @@ function gameFromSave(save: SaveData): GameState | null {
   return { hero, inventory: inventoryFromSnapshot(save.inventory, items), flags: { ...save.flags } };
 }
 
+/**
+ * Applique une sauvegarde. `SaveData` ne contient pas le coffre (dette D55) : on le vide
+ * systématiquement, sinon `exportJson → dépôt → importJson` duplique les items.
+ */
 function applySave(setState: StoreSetter, save: SaveData | null): boolean {
   const game = save === null ? null : gameFromSave(save);
   if (game === null) return false;
-  setState(game);
+  setState({ ...game, bank: emptyInventory() });
   return true;
 }
 
