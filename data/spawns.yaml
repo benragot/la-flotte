@@ -5,6 +5,17 @@
 # monstre vaut son poids divisé par la somme de sa zone.
 # Zone courante = zone dont `mapId` égale le `mapId` courant du store ; une map
 # sans zone tombe en repli sur la première zone (journalisée en exploration).
+# `groups` = combien de groupes la carte fait apparaître (3-4 : une carte n'est
+# pas un couloir à un seul groupe), `members` = combien de monstres par groupe.
+# Les deux sont des DONNÉES bornées par `src/schemas/spawnSchema.ts` (le schéma
+# accepte 1-3 membres) ; une zone qui les omet garde le comportement historique,
+# un groupe d'un monstre. Le placement, lui, est déterministe et refuse murs,
+# eaux, héros, sorties et superpositions.
+# ⚠️ `members` vaut 1-1 parce que le combat 1v1 ne fait entrer que
+# `monsterIds[0]` : annoncer 2-3 monstres ferait mentir le badge, l'XP et le
+# butin. L'éventail est une feature distincte (fiche 7B) ; le garde-fou
+# `tests/data/spawns.spec.ts` (« pas plus de monstres annoncés que combattus »)
+# rougit si la donnée repasse devant le combat.
 # Aucune zone ne vise une salle de donjon : le donjon passe par
 # `startDungeonRoom`, une salle est derrière la clef.
 # DETTE : le modèle n'a aucune notion de niveau de zone. Le filtrage par niveau
@@ -13,6 +24,11 @@
 zones:
   - id: fer_plage_des_ancres
     mapId: ferraille_plage_01
+    # COMBIEN : trois à quatre groupes par carte, un à trois monstres par groupe
+    # (règle Dofus 1.29). Le compte est une DONNÉE de zone, bornée par
+    # `spawnsFileSchema` : une carte ne fait plus apparaître un seul groupe.
+    groups: { min: 3, max: 4 }
+    members: { min: 1, max: 1 }
     monsters:
       # ORDRE SIGNIFICATIF : `rng() === 0` (défaut déterministe de la démo et des
       # walkthroughs) prend la **première entrée**, pas la plus lourde. Le Piou
@@ -26,4 +42,28 @@ zones:
       - { monsterId: fer_crabe_cle_molette, weight: 12 }
       # Niveau 15 exposé dès le niveau 1 (cf. DETTE ci-dessus) : poids minimal,
       # ≈ 2,7 % des rencontres, pour que la plage le lâche sans le rendre banal.
+      - { monsterId: fer_boulon_pousseur, weight: 4 }
+
+  # Quai des réclamations : carte plus minérale, le crabe et le rat y tiennent
+  # le haut du pavé — mais sur des poids qui laissent la clef du donjon dans la
+  # cible `DEC-07` (≈ 7 rencontres par butin direct, cf. keyFarmBudget.spec.ts).
+  - id: fer_quai_des_reclamations
+    mapId: ferraille_quai_02
+    groups: { min: 3, max: 4 }
+    members: { min: 1, max: 1 }
+    monsters:
+      - { monsterId: piou_mazoute, weight: 60 }
+      - { monsterId: fer_crabe_cle_molette, weight: 12 }
+      - { monsterId: fer_rat_de_cale, weight: 10 }
+
+  # Cale aux serments : les cargaisons oubliées attirent le boulon pousseur,
+  # qui monte la garde des serments non tenus.
+  - id: fer_cale_aux_serments
+    mapId: ferraille_cale_03
+    groups: { min: 3, max: 4 }
+    members: { min: 1, max: 1 }
+    monsters:
+      - { monsterId: piou_mazoute, weight: 40 }
+      - { monsterId: fer_crabe_cle_molette, weight: 10 }
+      - { monsterId: fer_rat_de_cale, weight: 8 }
       - { monsterId: fer_boulon_pousseur, weight: 4 }

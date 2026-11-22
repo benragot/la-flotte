@@ -16,8 +16,39 @@ export function getMonsterGroupAt(state: ExplorationState, position: Position): 
 
 /** `monsterIds` est un tableau neuf : aucun groupe ne partage sa référence. */
 export function buildGroup(spawn: MonsterSpawn, id: string, pos: Position): MonsterGroup {
-  const label = `${spawn.monsterName} · Niv. ${spawn.level}`;
-  return { id, pos, monsterIds: [spawn.monsterId], totalLevel: spawn.level, label };
+  return buildGroupOf([spawn], id, pos);
+}
+
+interface LabelPart {
+  name: string;
+  count: number;
+}
+
+/** Un nom par monstre distinct : le label dit « ×2 », il ne répète pas le nom. */
+function nameCounts(spawns: readonly MonsterSpawn[]): LabelPart[] {
+  const counts = new Map<string, number>();
+  spawns.forEach((spawn) => counts.set(spawn.monsterName, (counts.get(spawn.monsterName) ?? 0) + 1));
+  return [...counts].map(([name, count]) => ({ name, count }));
+}
+
+function partLabel(part: LabelPart): string {
+  return part.count > 1 ? `${part.name} ×${part.count}` : part.name;
+}
+
+function totalLevelOf(spawns: readonly MonsterSpawn[]): number {
+  return spawns.reduce((sum, spawn) => sum + spawn.level, 0);
+}
+
+/** « Piou Mazouté · Niv. 1 » pour un solitaire, « Piou ×2 + Rat · Niv. 7 » sinon. */
+function groupLabel(spawns: readonly MonsterSpawn[], totalLevel: number): string {
+  return `${nameCounts(spawns).map(partLabel).join(" + ")} · Niv. ${totalLevel}`;
+}
+
+/** Groupe de 1 à 3 monstres : ids neufs, label composé, niveau **cumulé**. */
+export function buildGroupOf(spawns: readonly MonsterSpawn[], id: string, pos: Position): MonsterGroup {
+  const totalLevel = totalLevelOf(spawns);
+  const monsterIds = spawns.map((spawn) => spawn.monsterId);
+  return { id, pos, monsterIds, totalLevel, label: groupLabel(spawns, totalLevel) };
 }
 
 function manhattan(a: Position, b: Position): number {
