@@ -742,16 +742,22 @@ describe("backlog — dettes versées en v15", () => {
   });
 });
 
-const DELIVERED_5C: Array<[string, number, string]> = [
-  ["5C-a", 44, "f6a113e"],
-  ["5C-e", 45, "8a84b15"],
-  ["5C-b", 46, "32ae2a3"],
-  ["5C-c", 48, "74e739d"],
-  ["5C-explore-hp", 109, "2793727"],
-  ["5C-hover-highlight", 110, "326988d"],
-  ["5C-cast-cadence", 111, "b1bf9a8"],
-  ["5C-path-8dirs", 108, "c5b8867"],
-  ["5C-path-8dirs", 108, "65e194a"],
+/**
+ * Un tuple = une tâche, sa PR et **la liste des squashes** qu'elle doit citer.
+ * Une liste, et pas un sha seul : `5C-path-8dirs` est close par deux livraisons
+ * — `c5b8867` (PR #108, le moteur) et `65e194a` (PR #113, le TC3 et le §1 de la
+ * spec alignés sur DEC-10) — et coller `65e194a` à la PR #108 faisait mentir la
+ * table. Toute la liste est exigée, pas seulement le premier sha.
+ */
+const DELIVERED_5C: Array<[string, number, string[]]> = [
+  ["5C-a", 44, ["f6a113e"]],
+  ["5C-e", 45, ["8a84b15"]],
+  ["5C-b", 46, ["32ae2a3"]],
+  ["5C-c", 48, ["74e739d"]],
+  ["5C-explore-hp", 109, ["2793727"]],
+  ["5C-hover-highlight", 110, ["326988d"]],
+  ["5C-cast-cadence", 111, ["b1bf9a8"]],
+  ["5C-path-8dirs", 108, ["c5b8867", "65e194a"]],
 ];
 
 const OPEN_5C = [
@@ -771,15 +777,17 @@ const OPEN_5C = [
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
-  return DELIVERED_5C.flatMap(([id, pr, squash]) => {
+  return DELIVERED_5C.flatMap(([id, pr, squashes]) => {
     const task = taskById(backlog, id);
-    const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
-    return ok ? [] : [`${id}:${task?.status ?? "absent"}`];
+    const notes = task?.notes ?? "";
+    const ok = task?.status === "done" && task.pr === pr && squashes.every((sha) => notes.includes(sha));
+    const missing = squashes.filter((sha) => !notes.includes(sha));
+    return ok ? [] : [`${id}:${task?.status ?? "absent"}:${missing.join("+")}`];
   });
 }
 
 describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
-  it("enregistre les livraisons 5C-a, 5C-b, 5C-c et 5C-e avec leur squash", () => {
+  it("enregistre chaque livraison 5C avec sa PR et toute sa liste de squashes", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
@@ -2059,5 +2067,56 @@ describe("backlog — v29 : les livraisons de playtest soldées", () => {
     expect(text).toContain("salle de donjon");
     expect(text).toContain("exploration");
     expect(text).toContain("carte");
+  });
+});
+
+/**
+ * La roadmap est un doublon du backlog : elle dérive dès qu'une tâche se ferme
+ * sans qu'on y touche. Le garde-fou est borné pour rester honnête — la roadmap
+ * est plus grossière que le backlog (des tâches `done` des vagues 3.5, 4A et 5A
+ * n'y ont jamais eu de ligne), donc on n'exige pas une ligne pour chaque tâche :
+ * on exige qu'une ligne **existante** ne contredise jamais le backlog, et on
+ * épingle les quatre livraisons de playtest pour que leur ligne ne disparaisse pas.
+ */
+const ROADMAP_ENTRY = /^- \[( |x)\] (\S+)/;
+
+function roadmapChecks(): Map<string, boolean> {
+  const checks = new Map<string, boolean>();
+  uncheckedRoadmapLines().forEach((line) => {
+    const match = ROADMAP_ENTRY.exec(line);
+    if (match?.[2] !== undefined) checks.set(match[2], match[1] === "x");
+  });
+  return checks;
+}
+
+function roadmapMismatches(backlog: Backlog): string[] {
+  const checks = roadmapChecks();
+  return allTasks(backlog).flatMap((task) => {
+    const checked = checks.get(task.id);
+    if (checked === undefined) return [];
+    return checked === (task.status === "done") ? [] : [`${task.id}:${task.status}/${checked ? "x" : " "}`];
+  });
+}
+
+const ROADMAP_PINNED = ["5C-explore-hp", "5C-hover-highlight", "5C-cast-cadence", "5C-path-8dirs"];
+
+function roadmapPinnedGaps(): string[] {
+  const checks = roadmapChecks();
+  return ROADMAP_PINNED.filter((id) => checks.get(id) !== true);
+}
+
+describe("backlog — la roadmap ne contredit plus le backlog (v30)", () => {
+  it("coche toute tâche done qui a une ligne et laisse décochée une tâche ouverte", () => {
+    expect(roadmapMismatches(readBacklog())).toEqual([]);
+  });
+
+  it("porte une ligne cochée pour les quatre livraisons de playtest", () => {
+    expect(roadmapPinnedGaps()).toEqual([]);
+  });
+
+  it("aligne les restes annoncés par la phase 5C sur OPEN_5C, sans pathfinding", () => {
+    const notes = phaseById(readBacklog(), "5C")?.notes ?? "";
+    expect(OPEN_5C.filter((id) => !notes.includes(id))).toEqual([]);
+    expect(notes).not.toContain("le pathfinding 8 directions");
   });
 });
