@@ -54,6 +54,25 @@
   --color-ap-high: #5a8acf;
   --color-mp-high: #67a867;
 
+  /**
+   * Éléments (§1.5) : le **remplissage** sert au trait, au bandeau et à la
+   * pastille ; l'**encre** (mélange à 45 % de Neutre `#E8DCC8`, canal par canal)
+   * est la seule à porter du texte. Vérifié par calcul : `#D2452F` en texte sur
+   * `surface-2` ne pèse que 2,69:1, d'où la paire d'encres.
+   */
+  --color-el-feu: #d2452f;
+  --color-el-eau: #2f7fd2;
+  --color-el-air: #3fae6a;
+  --color-el-terre: #a9722b;
+  --color-el-soin: #6ad06a;
+  --color-el-echec: #8c8c8c;
+  --color-el-feu-ink: #dc8974;
+  --color-el-eau-ink: #82a9ce;
+  --color-el-air-ink: #8bc394;
+  --color-el-terre-ink: #c5a272;
+  --color-el-soin-ink: #a3d594;
+  --color-el-echec-ink: #b5b0a7;
+
   /* Relief et creux d'un panneau (§1.8, §2.1). */
   --color-edge-high: #6b5c49;
   --color-edge-low: #2e2720;
