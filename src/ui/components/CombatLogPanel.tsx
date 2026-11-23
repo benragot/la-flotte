@@ -1,15 +1,21 @@
 import type { LogTone } from "../hudHelpers";
 import { getRecentLog, logTone } from "../hudHelpers";
-import { DOCK_PANEL, SECTION_HEADING } from "./hudTheme";
+import { LOG_TEXT, PANEL_TITLE } from "../uiTokens";
+import { DOCK_PANEL } from "./hudTheme";
 
 const LOG_LIMIT = 5;
 
-const LIST = "mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto text-[11px] leading-4";
+const LIST = `mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto ${LOG_TEXT}`;
 
+/**
+ * Encres du journal (spec §1.4) : le joueur en `ink-1`, l'ennemi en
+ * `ink-danger` (4.72:1) et le système en `ink-3` (4.51:1). L'ancien
+ * `#8C6D46` système ne pesait que 2.55:1 sur `surface-2`.
+ */
 const TONE_CLASS: Record<LogTone, string> = {
-  player: "text-[#e8dcc8]",
-  enemy: "text-[#b83b3b]",
-  system: "text-[#8c6d46]",
+  player: "text-[var(--color-ink-1)]",
+  enemy: "text-[var(--color-ink-danger)]",
+  system: "text-[var(--color-ink-3)]",
 };
 
 interface LogEntryProps {
@@ -44,7 +50,7 @@ export default function CombatLogPanel({ log, playerName }: LogPanelProps) {
   const recent = getRecentLog(log, LOG_LIMIT);
   return (
     <section aria-label="Journal de combat" className={DOCK_PANEL}>
-      <h2 className={SECTION_HEADING}>Journal</h2>
+      <h2 className={PANEL_TITLE}>Journal</h2>
       <LogLines entries={recent} playerName={playerName} />
     </section>
   );

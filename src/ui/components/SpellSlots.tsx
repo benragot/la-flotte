@@ -2,7 +2,8 @@ import type { CombatState } from "../../engine/combatLoop/types";
 import type { SpellDef } from "../../schemas/spellSchema";
 import { useCombatStore } from "../../store/useCombatStore";
 import { buildSpellSlots, canCastSpell, formatSpellRange, shortcutNumberForSlot } from "../hudHelpers";
-import { DOCK_PANEL, SECTION_HEADING } from "./hudTheme";
+import { MICRO, PANEL_TITLE, SLOT_DISABLED, SLOT_EMPTY, SLOT_IDLE, SLOT_SELECTED } from "../uiTokens";
+import { DOCK_PANEL } from "./hudTheme";
 
 interface SpellSlotsProps {
   combat: CombatState;
@@ -24,17 +25,12 @@ interface SlotLook {
 
 const GRID = "grid min-h-0 flex-1 grid-cols-6 grid-rows-2 gap-1";
 
-const TILE_STYLE = "relative flex flex-col items-start overflow-hidden rounded border text-left leading-none";
-
-const TILE_EMPTY = `${TILE_STYLE} border-dashed border-[#8c6d46]/50 bg-[#2b241d]/40`;
-const TILE_IDLE = `${TILE_STYLE} border-[#8c6d46] bg-[#2b241d] text-[#e8dcc8] hover:border-[#d4a537]`;
-const TILE_SELECTED = `${TILE_STYLE} border-2 border-[#d4a537] bg-[#d4a537]/20 text-[#e8dcc8]`;
-const TILE_DISABLED = `${TILE_STYLE} border-[#8c6d46]/40 bg-[#2b241d]/60 text-[#e8dcc8]/40`;
+const TILE_STYLE = "relative flex flex-col items-start overflow-hidden text-left leading-none";
 
 function slotClass(look: SlotLook): string {
-  if (look.isEmpty) return TILE_EMPTY;
-  if (look.isSelected) return TILE_SELECTED;
-  return look.isDisabled ? TILE_DISABLED : TILE_IDLE;
+  if (look.isEmpty) return `${TILE_STYLE} ${SLOT_EMPTY}`;
+  if (look.isSelected) return `${TILE_STYLE} ${SLOT_SELECTED}`;
+  return `${TILE_STYLE} ${look.isDisabled ? SLOT_DISABLED : SLOT_IDLE}`;
 }
 
 function slotState(props: SpellSlotsProps, spell: SpellDef | null, index: number): SlotState {
@@ -48,20 +44,21 @@ function spellTitle(spell: SpellDef): string {
   return `${spell.name} — ${spell.apCost} PA — ${formatSpellRange(spell)} — ${spell.description}`;
 }
 
+/** Coût PA en encre d'Eau (`ink-ap`, 4.55:1) : le bleu de remplissage ne passe pas. */
 function SlotCost({ spell }: { spell: SpellDef | null }) {
   if (spell === null) return null;
-  return <span className="absolute bottom-0.5 right-1 text-[10px] font-bold text-[#3b6fb8]">{spell.apCost}</span>;
+  return <span className="absolute bottom-0.5 right-1 font-mono text-[10px] font-bold leading-3 text-[var(--color-ink-ap)]">{spell.apCost}</span>;
 }
 
 function SlotBody({ spell }: { spell: SpellDef | null }) {
   if (spell === null) return null;
-  return <strong className="mt-3 line-clamp-2 text-[10px] leading-3">{spell.name}</strong>;
+  return <strong className="mt-3 line-clamp-2 text-[10px] font-semibold leading-3">{spell.name}</strong>;
 }
 
 function SlotContent({ spell, index }: { spell: SpellDef | null; index: number }) {
   return (
     <>
-      <span className="text-[9px] font-bold opacity-70">{shortcutNumberForSlot(index)}</span>
+      <span className={MICRO}>{shortcutNumberForSlot(index)}</span>
       <SlotBody spell={spell} />
       <SlotCost spell={spell} />
     </>
@@ -91,11 +88,15 @@ function SlotTile({ spell, index, isSelected, isDisabled }: SlotState) {
   );
 }
 
-/** Grille 2 × 6 des sorts : numéro de raccourci, coût PA et état de lancement. */
+/**
+ * Grille 2 × 6 des sorts : numéro de raccourci, coût PA et état de lancement.
+ * Cinq états sans `opacity` (spec §2.4) : au repos, survol, sélectionné,
+ * désactivé, vide — chacun avec sa face, son filet et son encre.
+ */
 export default function SpellSlots({ combat, selectedSpellId }: SpellSlotsProps) {
   return (
     <section aria-label="Sorts disponibles" className={DOCK_PANEL}>
-      <h2 className={SECTION_HEADING}>Sorts · touches 1 à 9</h2>
+      <h2 className={PANEL_TITLE}>Sorts · touches 1 à 9</h2>
       <div className={GRID}>
         {buildSpellSlots({ combat, selectedSpellId }).map((spell, index) => <SlotTile key={index} {...slotState({ combat, selectedSpellId }, spell, index)} />)}
       </div>

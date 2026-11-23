@@ -1,0 +1,106 @@
+/**
+ * Thème central du HUD — variante A « Pont de navire ».
+ *
+ * Source unique des hex : `docs/design/specs/ui-visual-direction.md` §1
+ * (surfaces §1.2, filets §1.3, encres §1.4/§1.5, matière §1.8, boutons §2.2).
+ * Aucune couleur n'est inventée ici : un hex absent de cette spec n'a rien à
+ * faire dans le HUD.
+ *
+ * **Pourquoi des variables CSS et non `@theme`.** Le bloc `@theme` de la spec
+ * §1.7 ne franchit pas la frontière de ce fichier : le plugin Vite ne génère
+ * d'utilitaires que dans la feuille qui porte `@import "tailwindcss"`
+ * (`src/styles.css`, hors périmètre) ; compilé à part, ce fichier est servi
+ * tel quel et le navigateur ignore `@theme`. Mesuré dans le navigateur :
+ * `getComputedStyle(document.documentElement).getPropertyValue("--color-surface-1")`
+ * renvoyait `""` et le dock tombait sur `rgba(0, 0, 0, 0)`.
+ * Repli assumé : ces variables sont déclarées à la main, hors de toute couche
+ * (donc prioritaires sur les règles de `styles.css`), et les classes composées
+ * de `src/ui/uiTokens.ts` les lisent en valeur arbitraire
+ * (`bg-[var(--color-surface-1)]`). Les noms sont ceux du bloc `@theme` de la
+ * spec, pour que la correspondance reste vérifiable ligne à ligne.
+ *
+ * Ce fichier est importé depuis `src/ui/App.tsx`, après `src/styles.css`.
+ */
+
+:root {
+  /* Surfaces (§1.2) : 0 < 1 < 2 < 3, le creux ne se pose que dans 1 ou 2. */
+  --color-surface-0: #14100d;
+  --color-surface-1: #2b241d;
+  --color-surface-2: #3d342a;
+  --color-surface-3: #4a4034;
+  --color-surface-inset: #1a1512;
+
+  /* Filets et liserés (§1.3). */
+  --color-line: #8c6d46;
+  --color-line-strong: #967a57;
+  --color-line-soft: #655036;
+  --color-line-gold: #d4a537;
+  /** Anneau de focus clavier (§2.2) : la case survolée du canvas réemployée. */
+  --color-focus: #f2d64b;
+
+  /* Encres de texte (§1.4) : `ink-3` est le plancher de lisibilité. */
+  --color-ink-1: #e8dcc8;
+  --color-ink-2: #cfc3ae;
+  --color-ink-3: #b09a7f;
+  --color-ink-danger: #d68f87;
+
+  /* Remplissages et encres d'éléments (§1.5, §1.6). */
+  --color-hp: #b83b3b;
+  --color-ap: #3b6fb8;
+  --color-mp: #4a8c4a;
+  --color-ink-ap: #89a0bf;
+  --color-ink-mp: #91b083;
+  --color-hp-high: #d64545;
+  --color-ap-high: #5a8acf;
+  --color-mp-high: #67a867;
+
+  /* Relief et creux d'un panneau (§1.8, §2.1). */
+  --color-edge-high: #6b5c49;
+  --color-edge-low: #2e2720;
+  --color-inner-line: #4f4437;
+  --color-line-field: #57452f;
+  --color-field-inset: #0a0806;
+
+  /* Faces de bouton (§1.8, §2.2) : les quatre états sont chiffrés. */
+  --color-btn-face: #d4a537;
+  --color-btn-face-active: #c79a2f;
+  --color-btn-top-normal: #f4e9d4;
+  --color-btn-bottom-normal: #a87c22;
+  --color-btn-top-hover: #fff7e7;
+  --color-btn-bottom-hover: #b9a98f;
+  --color-btn-inset-active: #7a5a14;
+  --color-btn-disabled-ink: #8a7e6e;
+
+  /* Danger (§1.8) : action destructrice, pas une décoration. */
+  --color-danger-face: #9c2f2f;
+  --color-danger-face-hover: #8f2b2b;
+  --color-danger-line: #b83b3b;
+  --color-danger-inset: #4a1010;
+
+  /* Case de sort désactivée (§1.8). */
+  --color-slot-disabled: #332c24;
+}
+
+/**
+ * Base : le fond de page passe du bleu ardoise au bois brûlé (`surface-0`), et
+ * les zones qui défilent (journal) reçoivent une barre de défilement en creux,
+ * sans image. Les sélecteurs sont composés pour peser plus que `styles.css`
+ * (hors périmètre, lecture seule) quel que soit l'ordre d'injection en dev.
+ */
+html body {
+  background-color: var(--color-surface-0);
+}
+
+body #root {
+  background-color: var(--color-surface-0);
+}
+
+* {
+  scrollbar-color: var(--color-line-field) var(--color-surface-inset);
+  scrollbar-width: thin;
+}
+
+::selection {
+  background-color: var(--color-line-gold);
+  color: var(--color-surface-1);
+}

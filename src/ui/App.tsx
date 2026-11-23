@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode, ReactElement } from "react";
+import "./theme.css";
 import type { ArenaMode, ExplorationView } from "../renderer";
 import { CombatCanvas } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
@@ -14,10 +15,12 @@ import { useEscapeLayer } from "./useEscapeClose";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 
-const CREATION_SHELL = "flex h-screen w-screen items-center justify-center overflow-auto bg-slate-950 p-4";
+const CREATION_SHELL =
+  "flex h-screen w-screen items-center justify-center overflow-auto bg-[var(--color-surface-0)] p-4";
 const ARENA_SHELL = "relative flex h-screen w-screen flex-col overflow-hidden";
 /** Surface de la carte : le canvas y remplit tout, le HUD est un frère. */
-const ARENA_STAGE_CLASS = "flex h-full w-full items-center justify-center bg-slate-950";
+const ARENA_STAGE_CLASS =
+  "flex h-full w-full items-center justify-center bg-[var(--color-surface-0)]";
 /** Rangée carte + colonne gauche du journal (exploration) : la carte garde `flex-1`. */
 const ARENA_ROW = "relative flex min-h-0 w-full flex-1 overflow-hidden";
 /** Combat : bandeau + ligne d'initiative + dock 1.29, soit 240 px de HUD. */
