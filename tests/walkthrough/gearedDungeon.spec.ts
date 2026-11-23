@@ -102,10 +102,14 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * 83 — quatre défaites ; seuls 18 survie (95 actions) et 18 offense (77) gagnaient.
  * AVANT LE CORRECTIF `castsPerTurn` : aucune victoire.
  *
- * LE LEVIER EST `hpScale`, UN FACTEUR DE PV PAR SALLE, JAMAIS LES MONSTRES :
- * `data/monsters.yaml` reste intact, donc `fer_crabe_cle_molette` (12/146 des
- * rencontres du monde ouvert) et `fer_boulon_pousseur` (4/146, seule rencontre
- * de niveau 15 de la plage) ne deviennent pas triviaux en exploration. Retirer
+ * LE LEVIER DE CALIBRATION RESTE `hpScale`, UN FACTEUR DE PV PAR SALLE : les
+ * `hp`, dégâts, PA et butins des monstres ne bougent pas, donc
+ * `fer_crabe_cle_molette` (12/146 des rencontres du monde ouvert) et
+ * `fer_boulon_pousseur` (4/146, seule rencontre de niveau 15 de la plage) ne
+ * deviennent pas triviaux en exploration, tandis que leurs PM sont une donnée
+ * de gameplay qui compte (DEC-10 : diagonale à 2 PM, et quatre de ces monstres
+ * vivent aussi en exploration où les PM servent) — ne pas les modifier sans
+ * mesure. Retirer
  * des exemplaires aurait vidé « L'Allée des Boulons Perdus » de son identité ET
  * baissé sa menace ; baisser les PV des monstres aurait cassé le monde ouvert.
  * `hpScale` ne touche QUE les PV (`Math.floor`, donc `floor(105 × 0,29) = 30`) :
