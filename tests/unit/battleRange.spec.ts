@@ -451,9 +451,9 @@ describe("approche ennemie — PM, attaque et blocage", () => {
     const state = boulonBattle(5);
     const next = runTurn(state);
     const boulon = combatantIn(next, BOULON_ID);
-    expect(boulon.position).toEqual({ x: 3, y: 1 });
+    expect(boulon.position).toEqual({ x: 2, y: 1 });
     expect(boulon.mp).toBe(0);
-    expect(next.log.some((line) => line.includes("se déplace de 3 case(s)"))).toBe(true);
+    expect(next.log.some((line) => line.includes("se déplace de 4 case(s)"))).toBe(true);
     expect(combatantIn(next, "player").hp).toBeLessThan(combatantIn(state, "player").hp);
   });
 

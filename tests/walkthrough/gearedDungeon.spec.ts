@@ -53,15 +53,26 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * n'est écrit dans ce fichier.
  *
  * RÉSULTAT MESURÉ LE 23/11/2026, `hpScale` 0,29/0,33, `castsPerTurn` ET
- * `cooldown` HONORÉS, SOIN ENTRE LES SALLES ACTIF (DEC-03) ET CONTACT DIAGONAL
- * CORRIGÉ (D104) — SIX VICTOIRES, plus aucune défaite :
+ * `cooldown` HONORÉS, SOIN ENTRE LES SALLES ACTIF (DEC-03), CONTACT DIAGONAL
+ * CORRIGÉ (D104) ET MOBILITÉ DES MONSTRES DU DONJON RENDUE (4 PM, DEC-10) —
+ * SIX VICTOIRES, plus aucune défaite :
  *   niv.  build    PV max  entrée salle 4  PV monstres  PV fin  marge min  actions
- *   16    survie    303    253              0            47      2,28        105
- *   16    offense   228    228              0            96      5,09         70
- *   17    survie    343    343              0           194     10,00         74
- *   17    offense   263    263              0           140      6,73         62
- *   18    survie    433    433              0           318     13,67         60
- *   18    offense   348    348              0           247     10,20         48
+ *   16    survie    303    250              0            48      2,376       103
+ *   16    offense   228    187              0            46      2,264        69
+ *   17    survie    343    343              0           172      6,636        74
+ *   17    offense   263    263              0           122      4,694        62
+ *   18    survie    433    433              0           289     10,314        60
+ *   18    offense   348    348              0           261      7,038        43
+ *
+ * EFFET MESURÉ DE LA MOBILITÉ RENDUE (3 → 4 PM sur les cinq monstres du donjon) :
+ * DEC-10 facture la diagonale 2 PM et la zone atteignable avec 3 PM tombait de
+ * 49 à 25 cases, un seul axe diagonal au lieu de trois : les monstres mettaient
+ * un tour de plus à venir au contact, donc les salles 1 et 2 étaient devenues
+ * plus douces que leur tempo 1.29. Avec 4 PM elles reviennent au contact dans le
+ * tour, et le héros encaisse de nouveau : `16 survie` 47 → 48 PV, `16 offense`
+ * 96 → 46 PV, `17 survie` 194 → 172, `17 offense` 140 → 122, `18 survie`
+ * 318 → 289, `18 offense` 247 → 261. Les SIX victoires sont conservées et la
+ * marge du build contraignant passe de 2,28 à 2,376 tours.
  *
  * EFFET MESURÉ DU CORRECTIF D104 : les monstres de mêlée collés en diagonale ne
  * restent plus figés, donc chaque salle encaisse des coups de plus et le héros
@@ -660,19 +671,21 @@ interface Cell {
  * mesuré par `assertCrossingHeal` : chaque salle suivante démarre au-dessus des
  * PV de fin de la précédente.
  *
- * REMESURÉ APRÈS DEC-10 : le pas diagonal coûte désormais 2 PM (au lieu de 1),
- * donc les monstres couvrent moins de cases par tour et la pression par salle
- * baisse. Les `hpEnd` ci-dessous sont les valeurs mesurées par ce moteur ; la
- * re-calibration de la difficulté (`hpScale` dans `data/dungeons.yaml`) reste à
- * faire côté contenu, hors de ce correctif moteur.
+ * REMESURÉ APRÈS DEC-10 ET LE RETOUR À 4 PM DES MONSTRES DU DONJON : le pas
+ * diagonal coûte 2 PM, donc il a fallu rendre un PM aux cinq monstres du donjon
+ * pour qu'ils reviennent au contact dans le tour (zone atteignable 49 → 25 cases
+ * à 3 PM, une seule diagonale au lieu de trois). Les `hpEnd` ci-dessous sont les
+ * valeurs mesurées par ce moteur avec cette mobilité rendue ; la re-calibration
+ * de la difficulté (`hpScale` dans `data/dungeons.yaml`) reste à faire côté
+ * contenu, hors de ce correctif de données.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 47, actions: 105 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 96, actions: 70 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 194, actions: 74 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 140, actions: 62 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 318, actions: 60 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 247, actions: 48 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 48, actions: 103 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 46, actions: 69 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 172, actions: 74 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 122, actions: 62 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 289, actions: 60 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 261, actions: 43 },
 ];
 
 
@@ -759,11 +772,12 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  * LA FENÊTRE 1-2 VIT ICI, PAS DANS DEC-03 : `DECISIONS.md` n'énonce qu'une
  * exigence de victoire, tenue aujourd'hui (6/6). Depuis le correctif `D104`, la
  * mesure de `16 survie` est prise avec un moteur qui joue ses monstres de mêlée
- * jusqu'au contact : 2,28 tours, et non plus 2,52 mesurés avec la mêlée collée
- * figée. La valeur reste ÉPINGLÉE (`toBeCloseTo`, ±0,05), plus strict qu'une
- * borne large, pour rougir au moindre changement de contenu. Recalibrer
- * (`hpScale`) est une tâche de contenu, à l'arbitrage du propriétaire : dette
- * `D103`, dont la mesure est désormais propre.
+ * jusqu'au contact : 2,376 tours depuis que les monstres du donjon ont retrouvé
+ * leurs 4 PM (2,28 avec 3 PM après DEC-10, 2,52 avec la mêlée collée figée). La
+ * valeur reste ÉPINGLÉE (`toBeCloseTo`, ±0,05), plus strict qu'une borne large,
+ * pour rougir au moindre changement de contenu. Recalibrer (`hpScale`) est une
+ * tâche de contenu, à l'arbitrage du propriétaire : dette `D103`, dont la mesure
+ * est désormais propre.
  */
 describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
   it("16 gagne les quatre salles avec un bon équipement, et le héros nu meurt en salle 2", () => {
@@ -777,11 +791,12 @@ describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
     if (survie === undefined || offense === undefined) throw new Error("cellule 16 manquante");
     const survieMargin = Math.min(...survie.rooms.map(margin));
     expect(survieMargin).toBeGreaterThanOrEqual(1);
-    // Épingle de la RÉGRESSION MESURÉE (2,28 tours) après DEC-10 ET le correctif
-    // `D104`, PAS une borne validée : la mêlée joue désormais jusqu'au contact,
-    // donc la valeur mesure DEC-10 sur un moteur honnête. Figée pour détecter
-    // tout changement ; recalibrer (`D103`) reste à l'arbitrage du propriétaire.
-    expect(survieMargin).toBeCloseTo(2.28, 1);
+    // Épingle de la RÉGRESSION MESURÉE (2,376 tours) après DEC-10, le correctif
+    // `D104` ET la mobilité rendue aux monstres du donjon (4 PM), PAS une borne
+    // validée : la mêlée joue désormais jusqu'au contact, donc la valeur mesure
+    // DEC-10 sur un moteur honnête. Figée pour détecter tout changement ;
+    // recalibrer (`D103`) reste à l'arbitrage du propriétaire.
+    expect(survieMargin).toBeCloseTo(2.376, 1);
     expect(lastRoomOf(offense.rooms).hpEnd).toBeLessThan(offense.maxHp / 2);
     const naked = measureNaked();
     expect(naked.victory).toBe(false);

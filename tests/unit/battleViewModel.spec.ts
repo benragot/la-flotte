@@ -81,8 +81,8 @@ describe("battleViewModel — N combattants", () => {
 
   it("reprend PV, PV max, PA et PM exacts des MonsterDef YAML", () => {
     const views = battleViewModel(realBattle());
-    expect(views[1]).toMatchObject({ hp: 35, maxHp: 35, ap: 6, mp: 3 });
-    expect(views[3]).toMatchObject({ hp: 52, maxHp: 52, ap: 5, mp: 3 });
+    expect(views[1]).toMatchObject({ hp: 35, maxHp: 35, ap: 6, mp: 4 });
+    expect(views[3]).toMatchObject({ hp: 52, maxHp: 52, ap: 5, mp: 4 });
     expect(views[0]).toMatchObject({ hp: 60, maxHp: 60, ap: 6, mp: 3, side: "player" });
   });
 
