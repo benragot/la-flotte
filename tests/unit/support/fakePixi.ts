@@ -24,6 +24,13 @@ export class FakePoint {
   }
 }
 
+/**
+ * Tous les nœuds créés, dans l'ordre de création : PixiJS ne nomme pas les
+ * couches, donc un test qui veut identifier un enfant du `stage` lit son rang
+ * ici plutôt que de dépendre d'un offset codé en dur.
+ */
+export const nodesOf: FakeNode[] = [];
+
 export class FakeNode {
   children: FakeNode[] = [];
   position = new FakePoint();
@@ -31,9 +38,13 @@ export class FakeNode {
   alpha = 1;
   eventMode: string | undefined;
 
-  addChild(child: FakeNode): FakeNode {
-    this.children.push(child);
-    return child;
+  constructor() {
+    nodesOf.push(this);
+  }
+
+  /** Comme PixiJS : plusieurs enfants d'un coup, dans l'ordre reçu (l'ordre peintre). */
+  addChild(...children: FakeNode[]): void {
+    this.children.push(...children);
   }
 
   removeChildren(): FakeNode[] {

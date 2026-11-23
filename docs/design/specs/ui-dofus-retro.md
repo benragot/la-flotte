@@ -16,7 +16,7 @@ tags: [ui, retrospective, fidelity]
 | Rendu des personnages | sprite iso (~1 case de large, 1,3 de haut), **ombre elliptique**, **nom au-dessus de la tête**. **Aucune barre de PV hors combat** avant 1.41 ; depuis 1.41, barre **au survol** seulement | [D] notes Retro 1.41 ; [D] captures 2005 | jeton = **disque plein** bleu/rouge, **barre de PV permanente**, **aucun nom** |
 | Survol d'une case | case **surlignée** (contour, pas d'aplat) + **chemin prévisualisé** en pastilles | [?] tracé non documenté ; [D] la *zone* de portée est une option | chemin affiché ✅, contour or ✅ |
 | Groupes de monstres | **un sprite** (chef de groupe) + **étoiles** = **bonus** XP/butin accumulé (pas le niveau, pas le nombre) ; nom et niveau en **infobulle** (touche `Z`) | [D] forums officiels, notes Retro | badge = **niveau total** + label ⇒ **contresens** |
-| Déplacement | clic simple, pathfinding, **8 directions** (diagonales à 1 pas) ; **aucun message** « vous vous déplacez de N cases » | [D] chat Retro (aucun canal pour ça) ; [I] diagonales | `findPath` **4 directions** ⇒ chemins 30-40 % trop longs ; moteur écrit « se déplace de N case(s) » |
+| Déplacement | clic simple, pathfinding, **8 directions** ; **aucun message** « vous vous déplacez de N cases » | [D] chat Retro (aucun canal pour ça) ; [I] diagonales | `findPath` **8 voisins** ✅ ; **DEC-10** : diagonale **2 PM** (écart assumé à 1.29, où chaque case entrée coûte 1 PM), facture = **longueur du chemin réellement trouvé**, **coin interdit** (les deux orthogonales doivent être libres) ; reste le **budget PM du héros**, et le moteur écrit encore « se déplace de N case(s) » |
 | Panneaux | **chat/journal en bas à gauche**, extensible, canaux colorés ; fenêtres en overlays (`Échap`) | [D] guide Retro | journal = panneau de 34 % du dock en bas ; **bandeau haut** de consigne |
 | Barre d'état permanente | **il n'y en a pas** : niveau/XP dans la barre du bas, coordonnées en **bascule** (`Maj+'`) | [D] guide Retro ; absence = [I] | bandeau permanent (`EXPLORATION_BANNER`) ⇒ **anachronique** |
 | Messages techniques | n'existent pas pour le joueur ; le feedback est le **déplacement** lui-même | [D] | « X se déplace de N case(s) » affiché ⇒ **invention** |
@@ -204,12 +204,30 @@ c : PM 3, hovered (0,0) → 0 case
 d : PM 3, hovered null  → 0 case
 ```
 
-### TC3 — coût d'un chemin diagonal (**le bug actuel**)
+### TC3 — coût d'un chemin en huit directions (**DEC-10**)
+
+⚠️ **Écart assumé à Dofus 1.29.** En 1.29, **chaque case entrée coûte 1 PM**,
+diagonale comprise. **DEC-10** (arbitrage du propriétaire, `docs/design/backlog.yaml`)
+facture **1 PM par pas orthogonal** et **2 PM par pas diagonal** : une diagonale
+vaut deux orthogonaux et ne fait donc **plus** gagner de temps. La facture est la
+**somme du chemin réellement trouvé**, jamais la distance à vol d'oiseau
+(Chebyshev, qui offrait les détours). ⚠️ **Ne pas « corriger » ce 2 PM en 1 PM** :
+c'est une décision, pas un bug ; le « diagonale = 1 pas » d'avant DEC-10 est périmé.
+
 ```
-grille 3×3 ouverte, from (0,0), to (2,2), maxPm 2
-attendu : cost === 2      // diagonale = 1 pas
-interdit : cost === 4     // 4 directions = bug actuel
-et      : path.length === 3
+grille 3×3 ouverte
+tc3a : from (0,0) to (2,2), maxPm 2
+       → 2 pas diagonaux × 2 PM = 4 PM > budget ⇒ findPath === null (aucun chemin)
+       ⚠️ cost === 2 serait faux : c'était l'ancienne règle « diagonale = 1 pas »
+tc3b : from (0,0) to (2,2), maxPm 4
+       → cost === 4, path.length === 3
+tc3c : from (0,0) to (2,1), chemin mixte (0,0) → (1,1) → (2,1), maxPm 3
+       → 2 PM (diagonale) + 1 PM (orthogonal) = 3 PM, path.length === 3 ;
+         maxPm 2 ⇒ null
+tc3d : coin interdit — les **deux** cases orthogonales de la diagonale bloquées
+       → la diagonale (0,0) → (1,1) est refusée : findPath === null
+tc3e : **une seule** des deux orthogonales bloquée
+       → la diagonale (0,0) → (1,1) reste autorisée : cost === 2, path.length === 2
 ```
 
 ### TC4 — barre de PV de survol
