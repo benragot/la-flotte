@@ -39,6 +39,15 @@ const FORBIDDEN = [
   "npx vitest run",
   "node -e 1",
 ];
+/** Écritures de fichier qui contournent `edit`/`write` via le shell. */
+const WRITE_VECTORS = [
+  "git status > f",
+  "git log >> f",
+  "gh pr view 1 | head",
+  "git diff --output=f",
+  "git log --output=f",
+];
+const SAFE_READS = ["git status", "gh pr view 1 --json title"];
 
 function readRules(path: string): PermissionRule[] {
   const raw = readFileSync(path, "utf8");
@@ -58,9 +67,13 @@ function toPattern(resource: string): RegExp {
 }
 
 function isAllowed(command: string): boolean {
-  return readShellRules().some(
-    (rule) => rule.effect === "allow" && toPattern(rule.resource).test(command),
-  );
+  return resolveEffect(command) === "allow";
+}
+
+/** Effet de la dernière règle qui matche (précédence « dernier match »). */
+function resolveEffect(command: string): string | undefined {
+  const matching = readShellRules().filter((rule) => toPattern(rule.resource).test(command));
+  return matching.at(-1)?.effect;
 }
 
 function isFileWriteAllowed(): boolean {
@@ -87,5 +100,17 @@ describe("matrice de permissions de qa-reviewer", () => {
 
   it("n'accorde aucune écriture de fichier", () => {
     expect(isFileWriteAllowed()).toBe(false);
+  });
+
+  it.each(WRITE_VECTORS)("refuse le vecteur d'écriture %s", (command) => {
+    expect(isAllowed(command)).toBe(false);
+  });
+
+  it.each(SAFE_READS)("continue d'autoriser la lecture %s", (command) => {
+    expect(isAllowed(command)).toBe(true);
+  });
+
+  it("n'interdit pas les options nommées --output-*", () => {
+    expect(isAllowed("git diff --output-indicator-new=+")).toBe(true);
   });
 });
