@@ -23,6 +23,8 @@ export interface ArenaSceneInput {
   heroSpriteId?: string | null;
   /** Trajets reçus du store, à attacher aux jetons de la vue retenue. */
   trails?: TrailBatch;
+  /** `Maj` maintenu : état d'entrée de la frontière, la peinture ne lit pas `window`. */
+  modifierHeld?: boolean;
 }
 
 function battleModel(input: ArenaSceneInput): ViewModel | null {
@@ -34,8 +36,8 @@ function battleModel(input: ArenaSceneInput): ViewModel | null {
 /** Le 1v1 ne se dessine qu'en mode combat : en exploration, la carte est celle du héros. */
 function combatModel(input: ArenaSceneInput): ViewModel | null {
   if (input.combat === null || input.mode === "exploration") return null;
-  const { combat, selectedSpellId, hoveredCell, viewport, trails } = input;
-  return buildViewModel({ combat, selectedSpellId, hoveredCell, viewport, trails });
+  const { combat, selectedSpellId, hoveredCell, viewport, trails, modifierHeld } = input;
+  return buildViewModel({ combat, selectedSpellId, hoveredCell, viewport, trails, modifierHeld });
 }
 
 function explorationModel(input: ArenaSceneInput): ViewModel | null {

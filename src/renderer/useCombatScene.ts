@@ -26,15 +26,17 @@ export interface CombatSceneInput {
   heroSpriteId?: string | null;
   /** Trajets reçus du store : aucun chemin n'est recalculé côté rendu. */
   trails?: TrailBatch;
+  /** `Maj` maintenu, fourni par la frontière clavier du canvas. */
+  modifierHeld?: boolean;
 }
 
 /** Redessine la scène à chaque changement d'état, jamais sur une application détruite. */
 export function useCombatScene(input: CombatSceneInput): void {
-  const { app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails } = input;
+  const { app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails, modifierHeld } = input;
   useEffect(() => {
-    const scene = { combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails };
+    const scene = { combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails, modifierHeld };
     const view = arenaSceneView(scene);
     if (view === null || !isApplicationAlive(app)) return;
     renderScene(app, view, { sheets: SPRITE_SHEETS, scene: arenaSceneMap(scene), hoveredCell });
-  }, [app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails]);
+  }, [app, combat, battle, selectedSpellId, hoveredCell, viewport, mode, exploration, heroSpriteId, trails, modifierHeld]);
 }

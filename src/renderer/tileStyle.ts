@@ -29,6 +29,10 @@ export const HOVER_STROKE = 0xf2d64b;
 export const PATH_HIGHLIGHT = 0xf0b429;
 
 export const HIGHLIGHT_ALPHA = 0.5;
+/** Zone PM (§3.2) : aplat **très** discret, le sol doit rester lisible dessous. */
+export const MOVE_ZONE_ALPHA = 0.18;
+/** Contour de la zone PM (§3.2) : plus franc que l'aplat, sans crier. */
+export const MOVE_ZONE_STROKE_ALPHA = 0.35;
 export const PATH_ALPHA = 0.32;
 export const BASE_ALPHA = 1;
 export const GRID_LINE = 0x6b6257;
@@ -57,24 +61,19 @@ export function getTileColor(cell: CellType): number {
   return TILE_COLORS[cell];
 }
 
-function pickHighlight(input: TileStyleInput): number | null {
-  if (input.isCastCell) return CAST_HIGHLIGHT;
-  if (input.isMoveCell) return MOVE_HIGHLIGHT;
-  return null;
-}
-
 function resolveFill(input: TileStyleInput): { fill: number; alpha: number } {
-  const highlight = pickHighlight(input);
-  if (highlight === null) return { fill: getTileColor(input.cell), alpha: BASE_ALPHA };
-  return { fill: highlight, alpha: HIGHLIGHT_ALPHA };
+  if (input.isCastCell) return { fill: CAST_HIGHLIGHT, alpha: HIGHLIGHT_ALPHA };
+  if (input.isMoveCell) return { fill: MOVE_HIGHLIGHT, alpha: MOVE_ZONE_ALPHA };
+  return { fill: getTileColor(input.cell), alpha: BASE_ALPHA };
 }
 
 function pickStroke(input: TileStyleInput): { stroke: number | null; strokeAlpha: number } {
-  if (!input.isHovered) return { stroke: null, strokeAlpha: 0 };
-  return { stroke: HOVER_STROKE, strokeAlpha: 1 };
+  if (input.isHovered) return { stroke: HOVER_STROKE, strokeAlpha: 1 };
+  if (input.isMoveCell && !input.isCastCell) return { stroke: MOVE_HIGHLIGHT, strokeAlpha: MOVE_ZONE_STROKE_ALPHA };
+  return { stroke: null, strokeAlpha: 0 };
 }
 
-/** Style final d'une tuile : survol > ciblage sort > déplacement > couleur de base. */
+/** Style final d'une tuile : survol > ciblage sort > zone PM (aplat + contour) > couleur de base. */
 export function resolveTileStyle(input: TileStyleInput): TileStyle {
   const { fill, alpha } = resolveFill(input);
   const { stroke, strokeAlpha } = pickStroke(input);
