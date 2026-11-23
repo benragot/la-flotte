@@ -1,6 +1,6 @@
 import { TILE_H } from "./gridProjection";
 import type { TileView } from "./scene";
-import type { TokenView } from "./tokens";
+import type { HpBar, TokenView } from "./tokens";
 import { BADGE_RADIUS, hpBarFor } from "./tokens";
 
 export const LABEL_FONT_SIZE = 11;
@@ -41,6 +41,8 @@ export interface LabelsInput {
   bounds: LabelBounds;
   /** Largeur mesurée par Pixi : elle seule évite que nom et badge divergent. */
   nameWidth: number;
+  /** Hauteur mesurée par Pixi ; à défaut la taille de police (§5) sert d'encre. */
+  nameHeight?: number;
 }
 
 /** « Crabe à Clé-à-Molette · Niv. 3 » → le nom seul, entier : le niveau reste au badge. */
@@ -59,11 +61,17 @@ function badgeGap(token: TokenView): number {
   return (LABEL_BADGE_GAP + BADGE_RADIUS) * token.scale;
 }
 
+/** Hauteur d'encre du nom : mesurée par Pixi, sinon la taille de police (§5). */
+function nameInkHeight(input: LabelsInput): number {
+  return input.nameHeight ?? LABEL_FONT_SIZE * input.token.scale;
+}
+
 function clampedName(input: LabelsInput): TokenLabel | null {
   const name = nameLabelFor(input.token);
   if (name === null) return null;
   const x = clampLabelX({ x: name.x, halfWidth: input.nameWidth / 2, bounds: input.bounds, rightReserve: badgeReserve(input.token) });
-  return { ...name, x };
+  const y = clampLabelY({ y: name.y, height: nameInkHeight(input), bounds: input.bounds, anchorY: 1 });
+  return { ...name, x, y };
 }
 
 function badgeAnchor(input: LabelsInput, name: TokenLabel | null): { x: number; y: number } {
@@ -82,7 +90,8 @@ function fallbackBadgeAnchor(input: LabelsInput, bar: { x: number; y: number; wi
 function badgeFrom(input: LabelsInput, name: TokenLabel | null): TokenLabel | null {
   if (input.token.badge === null || input.token.badge.length === 0) return null;
   const { x, y } = badgeAnchor(input, name);
-  return { kind: "badge", text: input.token.badge, x, y, scale: input.token.scale };
+  const height = 2 * BADGE_RADIUS * input.token.scale;
+  return { kind: "badge", text: input.token.badge, x, y: clampLabelY({ y, height, bounds: input.bounds, anchorY: 0.5 }), scale: input.token.scale };
 }
 
 /** Place à réserver à droite du nom pour que le badge tienne dans la carte. */
@@ -105,6 +114,35 @@ export function clampLabelX(input: ClampInput): number {
   const max = bounds.maxX - halfWidth - LABEL_EDGE_PADDING - rightReserve;
   if (min > max) return (bounds.minX + bounds.maxX) / 2;
   return Math.min(max, Math.max(min, x));
+}
+
+export interface ClampYInput {
+  /** Ancre verticale, telle que Pixi la reçoit (`anchor.y`). */
+  y: number;
+  /** Hauteur d'encre de l'élément : la borne doit la compter, sinon le texte dépasse. */
+  height: number;
+  bounds: LabelBounds;
+  /** Position de l'ancre **dans** son encre : 0 = haut, 0.5 = centre, 1 = bas. */
+  anchorY?: number;
+}
+
+/**
+ * Décision commune au nom, au badge et à la barre : c'est le **haut de l'encre**
+ * qui est borné (symétrique de `clampLabelX`), puis l'ancre est reconstruite par
+ * la hauteur. Borner l'ancre seule laisserait déborder d'autant de pixels que
+ * l'élément est haut.
+ */
+export function clampLabelY(input: ClampYInput): number {
+  const { y, height, bounds, anchorY = 0 } = input;
+  return clampLabelTop(y - height * anchorY, height, bounds) + height * anchorY;
+}
+
+/** Réglage symétrique de `clampLabelX` : marge, et centrage si les bornes sont plus courtes que l'encre. */
+function clampLabelTop(top: number, height: number, bounds: LabelBounds): number {
+  const min = bounds.minY + LABEL_EDGE_PADDING;
+  const max = bounds.maxY - height - LABEL_EDGE_PADDING;
+  if (min > max) return (bounds.minY + bounds.maxY - height) / 2;
+  return Math.min(max, Math.max(min, top));
 }
 
 function abscissas(tile: TileView): number[] {
@@ -145,6 +183,12 @@ export function viewportBounds(bounds: LabelBounds, viewport: { width: number; h
 
 function isLabel(label: TokenLabel | null): label is TokenLabel {
   return label !== null;
+}
+
+/** Barre de survol bornée : elle passe par le **même** `clampLabelY` que nom et badge. */
+export function hoverBarInBounds(token: TokenView, bounds: LabelBounds): HpBar {
+  const bar = hpBarFor(token);
+  return { ...bar, y: clampLabelY({ y: bar.y, height: bar.height, bounds }) };
 }
 
 /** Toutes les étiquettes d'un jeton, nom et badge bornés ensemble par le même x rendu. */

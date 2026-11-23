@@ -15,6 +15,7 @@ import {
   LABEL_STROKE_WIDTH,
   NAME_LABEL_ALPHA,
   NAME_LABEL_FILL,
+  hoverBarInBounds,
   labelBounds,
   labelsFor,
   nameLabelFor,
@@ -28,7 +29,7 @@ import { drawExitMarks } from "./exitPaint";
 import { drawTeamRings } from "./teamRing";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
-import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, hoveredHpBarTokens, tokensNeedingCircle } from "./tokens";
+import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawTokens, hoveredHpBarTokens, paintHpBar, tokensNeedingCircle } from "./tokens";
 import type { SceneLayerName } from "./sceneLayerOrder";
 import { SCENE_LAYER_ORDER } from "./sceneLayerOrder";
 
@@ -150,14 +151,18 @@ function addBadgeLabel(container: Container, labels: readonly TokenLabel[]): voi
 
 function addTokenLabels(container: Container, token: TokenView, bounds: LabelBounds): void {
   const text = createNameText(token);
-  const labels = labelsFor({ token, bounds, nameWidth: text?.width ?? 0 });
+  const labels = labelsFor({ token, bounds, nameWidth: text?.width ?? 0, nameHeight: text?.height });
   addNameLabel(container, text, labels);
   addBadgeLabel(container, labels);
 }
 
-function drawLabels(container: Container, view: ViewModel, viewport: { width: number; height: number }): void {
+/** Bornes des étiquettes : le viewport, jamais l'encre — elle déborde le canvas de ~9 %. */
+function sceneLabelBounds(view: ViewModel, viewport: { width: number; height: number }): LabelBounds {
   const ink = labelBounds(view.scene.tiles) ?? { minX: 0, minY: 0, maxX: viewport.width, maxY: viewport.height };
-  const bounds = viewportBounds(ink, viewport);
+  return viewportBounds(ink, viewport);
+}
+
+function drawLabels(container: Container, view: ViewModel, bounds: LabelBounds): void {
   view.tokens.forEach((token) => addTokenLabels(container, token, bounds));
 }
 
@@ -232,21 +237,29 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
 }
 
 /** Anneau d'équipe sous le sprite, anneau doré **sous** les acteurs, puis jetons, décor haut et badges. */
-function drawActorLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
+function drawActorLayers(layers: SceneLayers, view: ViewModel, bounds: LabelBounds): void {
   drawTeamRings(layers.teamRings, view.tokens);
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
-  drawLabels(layers.labels, view, viewport);
+  drawLabels(layers.labels, view, bounds);
 }
 
 /**
  * Une **seule** barre de vie à l'écran : celle du jeton dont la case logique est
  * survolée (`ui-dofus-retro.md` §6 R4, §8.1). Case vide ou aucun survol ⇒ rien ;
  * l'exploration ne déclare aucune barre, donc elle reste muette quoi qu'il arrive.
+ * `hoverBarInBounds` la garde dans le canvas, comme le nom et le badge.
  */
-function drawFieldHpBars(layers: SceneLayers, view: ViewModel, cell: Position | null): void {
-  drawHpBars(layers.hpBars, hoveredHpBarTokens(view.hpBarTokens, cell));
+function drawFieldHpBars(layers: SceneLayers, view: ViewModel, hover: Hovered): void {
+  const tokens = hoveredHpBarTokens(view.hpBarTokens, hover.cell);
+  tokens.forEach((token) => paintHpBar(layers.hpBars, hoverBarInBounds(token, hover.bounds)));
+}
+
+/** Ce qu'une image peint hors du modèle : la case survolée et les bornes d'étiquettes. */
+interface Hovered {
+  cell: Position | null;
+  bounds: LabelBounds;
 }
 
 /** Surbrillance de l'entité survolée : un seul aplat, sur la case logique du jeton. */
@@ -258,10 +271,11 @@ function drawHover(layers: SceneLayers, view: ViewModel, cell: Position | null):
 function drawLayers(paint: ScenePaint): void {
   const { layers, view, input, app } = paint;
   const cell = input.hoveredCell ?? null;
+  const bounds = sceneLabelBounds(view, app.screen);
   drawBoardLayers(layers, view);
   drawHover(layers, view, cell);
-  drawActorLayers(layers, view, app.screen);
-  drawFieldHpBars(layers, view, cell);
+  drawActorLayers(layers, view, bounds);
+  drawFieldHpBars(layers, view, { cell, bounds });
 }
 
 /** Ce qu'un rendu doit connaître en plus de l'image : feuilles, carte et case survolée. */
