@@ -1,14 +1,19 @@
+import { TILE_H } from "./gridProjection";
 import type { TileView } from "./scene";
 import type { TokenView } from "./tokens";
 import { BADGE_RADIUS, hpBarFor } from "./tokens";
 
 export const LABEL_FONT_SIZE = 11;
+/** Or du badge de niveau ; le nom, lui, prend `NAME_LABEL_FILL` (§5). */
 export const LABEL_FILL = 0xf2d64b;
+/** Nom au-dessus de la tête (§5) : `#E8DCC8` à α 0.9, jamais l'or du badge. */
+export const NAME_LABEL_FILL = 0xe8dcc8;
+export const NAME_LABEL_ALPHA = 0.9;
+/** Hauteur du nom au-dessus du centre bas du losange, en tuiles (§5). */
+export const NAME_LIFT_TILES = 2.2;
 /** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
 export const LABEL_STROKE = 0x101820;
 export const LABEL_STROKE_WIDTH = 3;
-/** Écart entre le bas du nom et le haut de la barre de vie. */
-export const LABEL_BAR_GAP = 4;
 /** Marge gardée entre l'encre du nom et le bord de la carte. */
 export const LABEL_EDGE_PADDING = 4;
 /** Écart entre le nom et le badge de niveau, tous deux dans la bande haute. */
@@ -43,10 +48,10 @@ export function groupNameOf(label: string): string {
   return label.split(NAME_SEPARATOR)[0] ?? label;
 }
 
-/** Étiquette du nom, ancrée au-dessus de la barre de vie avec un écart constant. */
+/** Étiquette du nom : 11 px, à `-2.2 × TILE_H` du centre bas du losange (§5). */
 export function nameLabelFor(token: TokenView): TokenLabel | null {
   if (token.name === null || token.name.length === 0) return null;
-  const y = hpBarFor(token).y - LABEL_BAR_GAP * token.scale;
+  const y = token.center.y - TILE_H * NAME_LIFT_TILES * token.scale;
   return { kind: "name", text: token.name, x: token.center.x, y, scale: token.scale };
 }
 

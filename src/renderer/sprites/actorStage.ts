@@ -136,14 +136,14 @@ export class ActorStage {
     const spec = this.specFor(token.spriteId);
     if (spec === undefined) return null;
     const key = actorKey(token);
-    const actor = this.actors.get(key) ?? this.createActor(spec, token.fill, key);
+    const actor = this.actors.get(key) ?? this.createActor(spec, key);
     const frames = ensureSpriteSheet(spec, () => this.notify());
     if (frames !== null) actor.setFrames(frames);
     return actor;
   }
 
-  private createActor(spec: SpriteSheetSpec, tint: number, key: string): EntitySprite {
-    const actor = new EntitySprite({ spec, frames: null, tint });
+  private createActor(spec: SpriteSheetSpec, key: string): EntitySprite {
+    const actor = new EntitySprite({ spec, frames: null });
     this.actors.set(key, actor);
     return actor;
   }

@@ -1,4 +1,4 @@
-import { AnimatedSprite, Container, Graphics } from "pixi.js";
+import { AnimatedSprite, Container } from "pixi.js";
 import type { PixelPoint } from "../gridProjection";
 import { displayScaleFor } from "./frameMath";
 import type { Facing, SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "./types";
@@ -9,14 +9,10 @@ import { resumeWalk, sampleWalk, startWalk } from "./walkMotion";
 export const SPRITE_ANCHOR = { x: 0.5, y: 0.85 } as const;
 /** Cadence de référence d'`animationSpeed` chez PixiJS (une frame par tick à 1). */
 const REFERENCE_FPS = 60;
-/** Rayon du cercle de repli quand la feuille est absente. */
-export const FALLBACK_RADIUS = 12;
-const FALLBACK_STROKE = 0x101820;
 
 export interface EntitySpriteInput {
   spec: SpriteSheetSpec;
   frames: SpriteSheetFrames | null;
-  tint: number;
 }
 
 export interface ActorPlacement {
@@ -28,19 +24,14 @@ export interface ActorPlacement {
   scale?: number;
 }
 
-/** Cercle coloré de repli : aucune branche spéciale côté scène. */
-function createFallback(tint: number): Graphics {
-  const node = new Graphics();
-  node.circle(0, 0, FALLBACK_RADIUS);
-  node.fill({ color: tint, alpha: 1 });
-  node.circle(0, 0, FALLBACK_RADIUS);
-  node.stroke({ width: 2, color: FALLBACK_STROKE, alpha: 0.9 });
-  return node;
-}
-
 /**
- * Acteur animé d'une entité : encapsule un `AnimatedSprite` PixiJS v8,
- * ancré aux pieds, retourné selon `facing`, avec repli géométrique.
+ * Acteur animé d'une entité : encapsule un `AnimatedSprite` PixiJS v8, ancré aux
+ * pieds et retourné selon `facing`.
+ *
+ * **Aucun disque plein** n'est posé sous le sprite (`ui-dofus-retro.md` §8.6) :
+ * tant que la feuille n'est pas prête, le nœud est vide, et c'est l'**anneau
+ * d'équipe** de la couche `teamRings` qui marque la case et le camp. Un acteur
+ * n'est donc jamais anonyme, et jamais peint en pion bleu ou rouge.
  */
 export class EntitySprite {
   readonly node = new Container();
@@ -56,11 +47,10 @@ export class EntitySprite {
 
   constructor(input: EntitySpriteInput) {
     this.spec = input.spec;
-    this.node.addChild(createFallback(input.tint));
     if (input.frames !== null) this.setFrames(input.frames);
   }
 
-  /** Remplace le cercle de repli par la feuille animée, une seule fois. */
+  /** Remplace le nœud vide par la feuille animée, une seule fois. */
   setFrames(frames: SpriteSheetFrames): void {
     if (this.animated !== null) return;
     this.frames = frames;

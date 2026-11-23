@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildExplorationViewModel } from "../../src/renderer/explorationScene";
-import { LABEL_BAR_GAP, clampLabelX, nameLabelFor } from "../../src/renderer/labels";
+import { TILE_H } from "../../src/renderer/gridProjection";
+import { NAME_LIFT_TILES, clampLabelX, nameLabelFor } from "../../src/renderer/labels";
 import { hpBarFor } from "../../src/renderer/tokens";
 
 /**
- * Capture regardée : le texte du nom était ancré sur la même ligne que la barre
- * de vie. La géométrie doit prouver un écart constant entre le bas du nom et le
- * haut de la barre, et un texte ramené dans la carte quand le monstre est au bord.
+ * Décision du propriétaire (`ui-dofus-retro.md` §1 et §5) : le nom vit
+ * **au-dessus de la tête**, à `-2.2 × TILE_H` du centre bas du losange, en
+ * `#E8DCC8` à 11 px. L'ancien ancrage « 4 px au-dessus de la barre de vie »
+ * est périmé : la barre garde sa géométrie, le nom ne la suit plus.
  */
 const VIEWPORT = { width: 1024, height: 768 };
 const LABEL = "Crabe à Clé-à-Molette · Niv. 3";
@@ -22,14 +24,14 @@ function groupToken(extra: { spriteId?: string } = {}) {
   return token;
 }
 
-describe("étiquette du nom — au-dessus de la barre, écart constant", () => {
-  it("place le bas du nom au-dessus du haut de la barre de vie", () => {
+describe("étiquette du nom — au-dessus de la tête, à 2,2 tuiles", () => {
+  it("pose le bas du nom à -2.2 × TILE_H du centre, donc au-dessus de la barre", () => {
     [groupToken(), groupToken({ spriteId: "fer_crabe_cle_molette" })].forEach((token) => {
       const label = nameLabelFor(token);
       const bar = hpBarFor(token);
       expect(label).not.toBeNull();
+      expect(label?.y).toBeCloseTo(token.center.y - TILE_H * NAME_LIFT_TILES * token.scale, 6);
       expect(label?.y).toBeLessThan(bar.y);
-      expect(bar.y - (label?.y ?? Number.NaN)).toBeCloseTo(LABEL_BAR_GAP * token.scale);
     });
   });
 
