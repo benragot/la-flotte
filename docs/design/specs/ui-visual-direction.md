@@ -739,3 +739,51 @@ npx playwright test tests/ui/layout.spec.ts
 Étape suivante possible (hors périmètre) : un test unitaire qui **parse** les
 tokens `@theme` et vérifie mécaniquement chaque paire déclarée — il demande une
 fonction de luminance côté test, pas une dépendance.
+
+---
+
+## 9. Fenêtres en overlays — une seule matière (lot 5)
+
+Le §3 recommandait **C (parchemin)** pour « la fiche de héros et le journal ».
+Le lot 4 l'a appliqué à la fiche, mais le grimoire est resté sur le corps de
+panneau du HUD (`surface-2`, sans fibres) : deux fenêtres du même niveau, deux
+matières. **Arbitrage : une matière unique, le parchemin.**
+
+**Pourquoi le parchemin et pas le bois.** Les six fenêtres (inventaire, fiche du
+héros, grimoire, donjons, confirmation « Nouvelle partie », fin de combat) font
+d'abord **lire** : caractéristiques chiffrées, description de sort, refus
+d'entrée, récompenses. C'est le cas d'usage que le §3 assigne à C, avec le
+meilleur contraste de lecture (`ink-1` sur `surface-2` = **9,00:1**). Le
+reproche fait à C — polarité inversée sur un dock sombre — ne s'applique pas :
+un overlay flotte sur `--color-scrim`, jamais sur le dock. Le bois reste la
+matière des **cartes d'initiative** et des **planches de classe** (variante A) :
+une seule surface en bois par écran, pas deux.
+
+**Où c'est écrit.** Un seul jeton : `src/ui/components/overlayTheme.ts`
+(`OVERLAY_BODY`, `OVERLAY_SHEET`, `OVERLAY_SHEET_WIDE`, `OVERLAY_SHEET_NARROW`,
+`OVERLAY_TITLE`, `OVERLAY_HEAD`, `LAYER_SCRIM`). `HERO_SHEET`
+(`hero/heroTheme.ts`) **est** `OVERLAY_SHEET` : il l'importe et le ré-exporte,
+donc aucune copie ne peut rediverger. `hudTheme.ts` ne définit plus d'overlay.
+
+**Mesures tenues par `tests/ui/overlayMaterial.spec.ts`.**
+
+| Contrat | Mesure |
+|---|---|
+| matière unifiée | fiche, grimoire, inventaire, donjons, confirmation : `background-color` = `rgb(61, 52, 42)` et `background-image` **identique** |
+| voile | `position: fixed`, boîte = viewport, les trois coins du viewport appartiennent au voile (journal et dock compris) |
+| danger | `ink-1` sur `danger-face` `#9C2F2F` : **5,42:1** recalculé, bouton « Continuer » et plaque « manquante » |
+| aucune couleur hors §1 | 0 hex dans les fichiers d'overlay, sauf **une** exception gelée (ci-dessous) |
+
+**Exception unique, gelée par un test unitaire.** Le bandeau du refus d'entrée
+(`DungeonEntryPanel.tsx`) garde `bg-[#b83b3b]`, qui **est** `--color-danger-line`
+(§1.8). `tests/unit/dungeonEntry.spec.ts` exige cette chaîne dans le rendu ;
+ce fichier n'est pas dans le périmètre d'écriture de `ui-designer`. Le spec
+`overlayMaterial` **épingle** cette exception : tout autre hex ajouté fait
+rougir la CI. Le jour où le test unitaire accepte le `var()`, l'exception tombe
+et l'entrée `ALLOWED_HEX` disparaît.
+
+**Fin de combat (§10 « sobre, pas fanfare »).** Le verdict n'est plus un titre de
+30 px posé sur le HUD : c'est le **titre de fenêtre** (18/24) d'une feuille de
+384 px, sur un voile plein écran (`LAYER_END`, `z-10`, **sous** la barre
+d'accès : « Nouvelle partie » reste atteignable après une défaite).
+

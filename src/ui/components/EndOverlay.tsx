@@ -1,8 +1,20 @@
 import type { CombatPhase, CombatRewards } from "../../engine/combatLoop/types";
 import { useCombatStore } from "../../store/useCombatStore";
 import { isBattleOver, phaseLabel, shouldShowRewards } from "../hudHelpers";
-import { PRIMARY_BUTTON } from "./hudTheme";
+import { BUTTON_GOLD } from "../uiTokens";
+import { LAYER_END, OVERLAY_SHEET_NARROW, OVERLAY_TITLE } from "./overlayTheme";
 import RewardsSummary from "./RewardsSummary";
+
+/**
+ * Fin de combat — « sobre : récompense, pas fanfare » (`ui-dofus-retro.md` §10).
+ *
+ * Ce qui a changé au lot 5 : plus de verdict en 30 px sans cadre posé à même le
+ * HUD. Le verdict est le **titre de fenêtre** (18/24 Georgia, §2.5 `title`), la
+ * feuille est la fenêtre modale unique (parchemin), et une seule sortie fait
+ * quitter l'écran. Le voile est `--color-scrim`, l'arène reste lisible dessous.
+ */
+const SHELL = LAYER_END;
+const SHEET = `${OVERLAY_SHEET_NARROW} items-start text-left`;
 
 interface EndOverlayProps {
   phase: CombatPhase;
@@ -17,9 +29,6 @@ interface EndBodyProps {
   onReturn: () => void;
 }
 
-const SHELL =
-  "pointer-events-auto absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-[#2b241d]/90 text-center text-[#e8dcc8]";
-
 function RewardsBlock({ rewards }: { rewards: CombatRewards | null }) {
   if (rewards === null) return null;
   return <RewardsSummary rewards={rewards} />;
@@ -31,13 +40,21 @@ function useReturnAction(onReturnToMap?: () => void): () => void {
   return onReturnToMap ?? startDemoCombat;
 }
 
+function EndSheet({ phase, rewards, onReturn }: EndBodyProps) {
+  return (
+    <section aria-label="Fin du combat" className={SHEET}>
+      <h2 className={OVERLAY_TITLE}>{phaseLabel(phase)}</h2>
+      {shouldShowRewards(phase, rewards) ? <RewardsBlock rewards={rewards} /> : null}
+      <button type="button" onClick={onReturn} className={BUTTON_GOLD}>Retourner sur la carte</button>
+    </section>
+  );
+}
+
 function EndOverlayBody({ phase, rewards, onReturn }: EndBodyProps) {
   return (
-    <section aria-label="Fin du combat" className={SHELL}>
-      <h2 className="text-3xl font-bold text-[#d4a537]">{phaseLabel(phase)}</h2>
-      {shouldShowRewards(phase, rewards) ? <RewardsBlock rewards={rewards} /> : null}
-      <button type="button" onClick={onReturn} className={PRIMARY_BUTTON}>Retourner sur la carte</button>
-    </section>
+    <div className={SHELL}>
+      <EndSheet phase={phase} rewards={rewards} onReturn={onReturn} />
+    </div>
   );
 }
 

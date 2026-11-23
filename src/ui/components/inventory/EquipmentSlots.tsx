@@ -9,6 +9,7 @@ import {
   SLOT_EMPTY,
   SLOT_FILLED,
   SLOT_GRID,
+  SLOT_LABEL,
   SLOT_SELECTED,
 } from "./inventoryTheme";
 
@@ -56,7 +57,7 @@ function SlotActions({ view, itemId, selected, onSelect, onUnequip }: SlotTilePr
 export function SlotTile({ view, itemId, selected, onSelect, onUnequip }: SlotTileProps) {
   return (
     <div className={slotClass(itemId, selected)}>
-      <span className="opacity-70">{view.label}</span>
+      <span className={SLOT_LABEL}>{view.label}</span>
       <strong>{view.itemName ?? "Vide"}</strong>
       <SlotActions view={view} itemId={itemId} selected={selected} onSelect={onSelect} onUnequip={onUnequip} />
     </div>

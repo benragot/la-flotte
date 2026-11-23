@@ -44,9 +44,11 @@ export const TOP_BANNER_MICRO =
 /** En-tête de section : 10 px capitales, `tracking .12em` (§2.5 `label`). */
 export const SECTION_HEADING = SECTION_LABEL;
 
-/** Feuille centrée des panneaux superposés (fiche perso, grimoire). */
-export const OVERLAY_SHEET =
-  `flex max-h-full w-full max-w-xl flex-col gap-2 overflow-auto p-3 ${PANEL_MATERIAL}`;
+/**
+ * La fenêtre modale n'est **plus** définie ici : `OVERLAY_SHEET` vit dans
+ * `./overlayTheme` depuis le lot 5, avec la matière unique des overlays
+ * (parchemin). Ce fichier ne garde que la mise en page des surfaces du HUD.
+ */
 
 /** Action principale : bouton or à quatre états (§2.2). Plus d'`opacity-40`. */
 export const PRIMARY_BUTTON = BUTTON_GOLD;

@@ -3,6 +3,7 @@ import type { BackpackEntry } from "../../inventoryHudHelpers";
 import { backpackItems, bagEquipHints } from "../../inventoryHudHelpers";
 import type { ItemSelectionProps } from "./itemSelection";
 import {
+  EMPTY_HINT,
   HEADING,
   ITEM_BUTTON,
   ITEM_ROW,
@@ -81,7 +82,7 @@ function BagRows({ entries, selected, onSelect, hints }: BagRowsProps) {
 }
 
 function BagList({ entries, selected, onSelect, hints }: BagRowsProps) {
-  if (entries.length === 0) return <p className="text-[10px] opacity-60">Sac vide.</p>;
+  if (entries.length === 0) return <p className={EMPTY_HINT}>Sac vide.</p>;
   return (
     <ul aria-label="Objets du sac" className={LIST}>
       <BagRows entries={entries} selected={selected} onSelect={onSelect} hints={hints} />

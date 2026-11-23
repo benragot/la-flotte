@@ -2,7 +2,7 @@ import type { ItemLike } from "../../../engine/inventory";
 import { GAME_CATALOG, useGameStore } from "../../../store/useGameStore";
 import { canUseConsumable, invokableConsumables } from "../../inventoryHudHelpers";
 import type { ItemSelectionProps } from "./itemSelection";
-import { HEADING, ITEM_BUTTON, ITEM_ROW, ITEM_ROW_SELECTED, LIST, SMALL_BUTTON } from "./inventoryTheme";
+import { EMPTY_HINT, HEADING, ITEM_BUTTON, ITEM_ROW, ITEM_ROW_SELECTED, LIST, SMALL_BUTTON } from "./inventoryTheme";
 
 function DrinkButton({ item }: { item: ItemLike }) {
   const hero = useGameStore((state) => state.hero);
@@ -35,7 +35,7 @@ function ConsumableRows({ items, selected, onSelect }: { items: readonly ItemLik
 }
 
 function ConsumableList({ items, selected, onSelect }: { items: readonly ItemLike[] } & ItemSelectionProps) {
-  if (items.length === 0) return <p className="text-[10px] opacity-60">Aucun remontant.</p>;
+  if (items.length === 0) return <p className={EMPTY_HINT}>Aucun remontant.</p>;
   return (
     <ul aria-label="Remontants" className={LIST}>
       <ConsumableRows items={items} selected={selected} onSelect={onSelect} />

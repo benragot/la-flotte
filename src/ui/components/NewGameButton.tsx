@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { startNewGameIfConfirmed } from "../../store/newGame";
 import { useEscapeClose } from "../useEscapeClose";
-import { SECTION_HEADING } from "./hudTheme";
+import { BUTTON_DANGER } from "../uiTokens";
+import { CHROME_BUTTON } from "./hudTheme";
+import { LAYER_DIALOG, OVERLAY_SHEET_NARROW, OVERLAY_TEXT, OVERLAY_TITLE } from "./overlayTheme";
 
-const ACCESS_BUTTON =
-  "rounded border border-[#8c6d46] bg-[#2b241d]/90 px-2 py-1 text-xs text-[#e8dcc8] transition hover:bg-[#d4a537] hover:text-[#2b241d]";
-const DANGER_BUTTON =
-  "rounded border border-[#b83b3b] bg-[#b83b3b] px-3 py-1 text-xs font-bold text-[#e8dcc8] transition hover:bg-[#d4a537] hover:text-[#2b241d]";
-/** Voile plein écran : il couvre l'arène même depuis la barre d'accès de 1 px. */
-const LAYER =
-  "pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-[#2b241d]/80 p-4";
-const SHEET =
-  "flex w-full max-w-md flex-col gap-3 rounded border-2 border-[#8c6d46] bg-[#2b241d] p-4 text-[#e8dcc8]";
+/**
+ * Confirmation « Nouvelle partie » — fenêtre de parchemin du lot 5.
+ *
+ * L'action destructrice prend le bouton **danger** de §2.2 (`#9C2F2F`, encre
+ * `ink-1` = 5,42:1) et l'annulation le bouton de plaque habituel : deux poids
+ * visuels distincts, deux focus visibles, aucun état par `opacity`. Le voile est
+ * `--color-scrim`, comme toutes les fenêtres (plus de `bg-[#2b241d]/80`).
+ */
+const DIALOG_ACTIONS = "flex justify-end gap-2 pt-1";
 
 /** Message exact de la confirmation : l'effacement de la sauvegarde est annoncé. */
 export const NEW_GAME_WARNING =
@@ -29,7 +31,7 @@ export interface NewGameConfirmProps {
 /** Bouton du bandeau : même facture que « Inventaire », jamais un raccourci secret. */
 export function NewGameAccess({ onRequest }: NewGameAccessProps) {
   return (
-    <button type="button" onClick={onRequest} className={ACCESS_BUTTON}>
+    <button type="button" onClick={onRequest} className={CHROME_BUTTON}>
       Nouvelle partie
     </button>
   );
@@ -37,18 +39,18 @@ export function NewGameAccess({ onRequest }: NewGameAccessProps) {
 
 function DialogActions({ onConfirm, onCancel }: NewGameConfirmProps) {
   return (
-    <div className="flex justify-end gap-2">
-      <button type="button" onClick={onCancel} className={ACCESS_BUTTON}>Annuler</button>
-      <button type="button" onClick={onConfirm} className={DANGER_BUTTON}>Continuer</button>
+    <div className={DIALOG_ACTIONS}>
+      <button type="button" onClick={onCancel} className={CHROME_BUTTON}>Annuler</button>
+      <button type="button" onClick={onConfirm} className={BUTTON_DANGER}>Continuer</button>
     </div>
   );
 }
 
 function DialogSheet({ onConfirm, onCancel }: NewGameConfirmProps) {
   return (
-    <section className={SHEET}>
-      <h2 className={SECTION_HEADING}>Nouvelle partie</h2>
-      <p className="text-sm">{NEW_GAME_WARNING}</p>
+    <section className={OVERLAY_SHEET_NARROW}>
+      <h2 className={OVERLAY_TITLE}>Nouvelle partie</h2>
+      <p className={OVERLAY_TEXT}>{NEW_GAME_WARNING}</p>
       <DialogActions onConfirm={onConfirm} onCancel={onCancel} />
     </section>
   );
@@ -57,7 +59,7 @@ function DialogSheet({ onConfirm, onCancel }: NewGameConfirmProps) {
 /** Confirmation bloquante : action destructrice, l'annulation laisse tout intact. */
 export function NewGameConfirmDialog({ onConfirm, onCancel }: NewGameConfirmProps) {
   return (
-    <div className={LAYER} role="alertdialog" aria-modal="true" aria-label="Nouvelle partie">
+    <div className={LAYER_DIALOG} role="alertdialog" aria-modal="true" aria-label="Nouvelle partie">
       <DialogSheet onConfirm={onConfirm} onCancel={onCancel} />
     </div>
   );

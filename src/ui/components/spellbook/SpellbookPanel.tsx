@@ -4,13 +4,15 @@ import { useCombatStore } from "../../../store/useCombatStore";
 import { useGameStore } from "../../../store/useGameStore";
 import { SPELL_CATALOG } from "../../spellCatalog";
 import { useEscapeClose } from "../../useEscapeClose";
-import { OVERLAY_SHEET, SECTION_HEADING } from "../hudTheme";
+import { ELEMENT_GLYPH, ELEMENT_INK } from "../elementInk";
+import { OVERLAY_HEAD, OVERLAY_SHEET, OVERLAY_TITLE } from "../overlayTheme";
 import {
   CHIP,
   DETAIL_DESCRIPTION,
   DETAIL_HINT,
   DETAIL_META,
   DETAIL_PANEL,
+  DETAIL_TITLE,
   ITEM_BUTTON,
   ITEM_ROW,
   ITEM_ROW_SELECTED,
@@ -52,8 +54,8 @@ function useHeroSpells(): SpellDef[] {
 
 function SpellbookHead({ onClose }: { onClose: () => void }) {
   return (
-    <header className="flex items-center justify-between">
-      <h2 className={SECTION_HEADING}>Grimoire</h2>
+    <header className={OVERLAY_HEAD}>
+      <h2 className={OVERLAY_TITLE}>Grimoire</h2>
       <button type="button" onClick={onClose} className={SMALL_BUTTON}>Fermer</button>
     </header>
   );
@@ -65,10 +67,17 @@ interface SpellLineProps {
   onSelect: (spellId: string) => void;
 }
 
-/** Ligne de sort : nom cliquable, puis coût, élément, dégâts et portée. */
+/** Glyphe d'élément : le même `▲ ◆ ◇ ■` que le journal, à la même encre. */
+function ElementGlyph({ view }: { view: SpellDetailView }) {
+  const className = `${ELEMENT_GLYPH} ${ELEMENT_INK[view.elementTone]}`;
+  return <span aria-hidden="true" className={className}>{view.elementGlyph}</span>;
+}
+
+/** Ligne de sort : glyphe, nom cliquable, puis coût, élément, dégâts et portée. */
 function SpellLine({ view, selected, onSelect }: SpellLineProps) {
   return (
     <li className={selected ? ITEM_ROW_SELECTED : ITEM_ROW}>
+      <ElementGlyph view={view} />
       <button type="button" aria-pressed={selected} className={ITEM_BUTTON} onClick={() => onSelect(view.id)}>{view.name}</button>
       <span className={DETAIL_META}>{spellSummary(view)}</span>
     </li>
@@ -91,9 +100,15 @@ function SpellList({ spells, selected, onSelect }: SpellListProps) {
 }
 
 function DetailHead({ view }: { view: SpellDetailView }) {
-  return <h3 className="text-[12px] font-bold text-[#d4a537]">{view.name}</h3>;
+  return (
+    <header className="flex items-center gap-1.5">
+      <ElementGlyph view={view} />
+      <h3 className={DETAIL_TITLE}>{view.name}</h3>
+    </header>
+  );
 }
 
+/** Pastille de fait : libellé et valeur déjà formatées, rayon 1 px. */
 function FactChip({ row }: { row: SpellDetailRow }) {
   return <li className={CHIP}>{row.label} <strong>{row.value}</strong></li>;
 }

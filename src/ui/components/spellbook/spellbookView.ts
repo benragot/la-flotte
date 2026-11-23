@@ -1,5 +1,7 @@
 import type { Element, SpellDef, SpellDamage, SpellEffect, SpellKind } from "../../../schemas/spellSchema";
 import { formatSpellRange } from "../../hudHelpers";
+import type { ElementTone } from "../../logElements";
+import { elementLook } from "../../logElements";
 
 /** Ligne prête à afficher : libellé lisible et valeur déjà formatée. */
 export interface SpellDetailRow {
@@ -20,6 +22,9 @@ export interface SpellDetailView {
   kind: string;
   apCost: number;
   element: string | undefined;
+  /** Teinte et glyphe de l'élément — **le vocabulaire du journal** (`logElements`). */
+  elementTone: ElementTone;
+  elementGlyph: string;
   damage: string | undefined;
   range: string;
   requiresLos: boolean;
@@ -154,6 +159,12 @@ function targetingOf(spell: SpellDef): Pick<SpellFacts, "element" | "damage" | "
   return { element, damage: damageLabel(spell.damage), range: formatSpellRange(spell), requiresLos: spell.requiresLos };
 }
 
+/** Teinte et glyphe : une seule source, `logElements`, partagée avec le journal. */
+function elementOf(spell: SpellDef): Pick<SpellFacts, "elementTone" | "elementGlyph"> {
+  const look = elementLook(spell.element);
+  return { elementTone: look.tone, elementGlyph: look.glyph };
+}
+
 function limitsOf(spell: SpellDef): Pick<SpellFacts, "cooldown" | "castsPerTurn" | "castsPerTarget" | "pushCells" | "requiresState" | "effect"> {
   const { cooldown, castsPerTurn, castsPerTarget, pushCells } = spell;
   const state = spell.requiresState;
@@ -162,7 +173,7 @@ function limitsOf(spell: SpellDef): Pick<SpellFacts, "cooldown" | "castsPerTurn"
 
 /** Modèle de vue complet d'un sort, sans DOM ni store. */
 export function spellDetail(spell: SpellDef): SpellDetailView {
-  const facts: SpellFacts = { ...identityOf(spell), ...targetingOf(spell), ...limitsOf(spell) };
+  const facts: SpellFacts = { ...identityOf(spell), ...targetingOf(spell), ...elementOf(spell), ...limitsOf(spell) };
   return { ...facts, rows: ROW_BUILDERS.flatMap((build) => build(facts)) };
 }
 

@@ -74,3 +74,14 @@ export function logLook(line: string, spells: Record<string, SpellDef>): LogLook
   const tone = toneOf(line, spells);
   return { tone, glyph: GLYPHS[tone], label: LABELS[tone] };
 }
+
+/**
+ * Même vocabulaire pour un **élément de sort** saisi dans le YAML : le grimoire
+ * du lot 5 reprend `▲ ◆ ◇ ■` du journal, avec les mêmes encres. Un seul endroit
+ * décide du glyphe, donc la pastille du grimoire ne peut pas contredire la ligne
+ * de combat.
+ */
+export function elementLook(element: Element | undefined): LogLook {
+  const tone = element === undefined ? "neutre" : ELEMENT_TONE[element];
+  return { tone, glyph: GLYPHS[tone], label: LABELS[tone] };
+}
