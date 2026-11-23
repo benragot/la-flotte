@@ -52,16 +52,22 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * Force×100 + int×10 + Vita), départage alphabétique d'`id` ; aucun id d'objet
  * n'est écrit dans ce fichier.
  *
- * RÉSULTAT MESURÉ LE 22/11/2026 APRÈS CALIBRATION 8 DIRECTIONS (`hpScale` 0,29
- * salle 3, 0,33 salle 4), `castsPerTurn` ET `cooldown` HONORÉS, SOIN ENTRE LES
- * SALLES ACTIF — SIX VICTOIRES, plus aucune défaite :
+ * RÉSULTAT MESURÉ LE 23/11/2026, `hpScale` 0,29/0,33, `castsPerTurn` ET
+ * `cooldown` HONORÉS, SOIN ENTRE LES SALLES ACTIF (DEC-03) ET CONTACT DIAGONAL
+ * CORRIGÉ (D104) — SIX VICTOIRES, plus aucune défaite :
  *   niv.  build    PV max  entrée salle 4  PV monstres  PV fin  marge min  actions
- *   16    survie    303    230              0            27      1,20        102
- *   16    offense   228    191              0            63      2,04         68
- *   17    survie    343    343              0           198      5,09         73
- *   17    offense   263    263              0           135      4,59         60
- *   18    survie    433    433              0           322      9,49         58
- *   18    offense   348    348              0           277      7,04         42
+ *   16    survie    303    253              0            47      2,28        105
+ *   16    offense   228    228              0            96      5,09         70
+ *   17    survie    343    343              0           194     10,00         74
+ *   17    offense   263    263              0           140      6,73         62
+ *   18    survie    433    433              0           318     13,67         60
+ *   18    offense   348    348              0           247     10,20         48
+ *
+ * EFFET MESURÉ DU CORRECTIF D104 : les monstres de mêlée collés en diagonale ne
+ * restent plus figés, donc chaque salle encaisse des coups de plus et le héros
+ * finit plus bas (`16 survie` 59 → 47 PV). Le soin de franchissement déjà livré
+ * (#80, ratio `healBetweenRooms` 0,5) absorbe la différence : aucune donnée de
+ * donjon n'a été retouchée, les six victoires tiennent.
  *
  * POURQUOI LA CALIBRATION A BOUGÉ D'UN CRAN AVEC LES DIAGONALES : les deux camps
  * se déplacent maintenant en 8 directions facturées au pas (diagonale = 1 PM).
@@ -661,12 +667,12 @@ interface Cell {
  * faire côté contenu, hors de ce correctif moteur.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 59, actions: 105 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 95, actions: 70 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 180, actions: 74 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 130, actions: 62 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 300, actions: 61 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 261, actions: 48 },
+  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 47, actions: 105 },
+  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 96, actions: 70 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 194, actions: 74 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 140, actions: 62 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 318, actions: 60 },
+  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 247, actions: 48 },
 ];
 
 
@@ -739,7 +745,7 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
 /**
  * DEC-03, les deux règles dans un seul parcours : (a) le niveau recommandé avec
  * un bon équipement gagne le donjon entier, sans que la dernière salle soit une
- * formalité ; (b) le héros nu perd, et en salle 3.
+ * formalité ; (b) le héros nu perd, et en salle 2 (salle 3 avant `D104`).
  *
  * CE QUE LA MESURE DIT DE L'ARITHMÉTIQUE : `survie` (303 PV, 20 dmg/tour) est le
  * build contraignant : sa plus petite marge doit tenir dans la fenêtre 1-2 tours
@@ -751,16 +757,16 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  * pas d'un tour, pas au centième.
  *
  * LA FENÊTRE 1-2 VIT ICI, PAS DANS DEC-03 : `DECISIONS.md` n'énonce qu'une
- * exigence de victoire, tenue aujourd'hui (6/6). Après DEC-10, la mesure de
- * `16 survie` tombe à 2,52 tours, MAIS avec le bug `D104` actif (mêlée collée en
- * diagonale figée) : elle ne mesure donc pas DEC-10 seul. La valeur reste
- * ÉPINGLÉE (`toBeCloseTo`, ±0,05), plus strict qu'une borne large, pour rougir
- * au moindre changement de contenu. Recalibrer (`hpScale`) est une tâche de
- * contenu, à l'arbitrage du propriétaire, et **après** le correctif `D104` :
- * dette `D103`.
+ * exigence de victoire, tenue aujourd'hui (6/6). Depuis le correctif `D104`, la
+ * mesure de `16 survie` est prise avec un moteur qui joue ses monstres de mêlée
+ * jusqu'au contact : 2,28 tours, et non plus 2,52 mesurés avec la mêlée collée
+ * figée. La valeur reste ÉPINGLÉE (`toBeCloseTo`, ±0,05), plus strict qu'une
+ * borne large, pour rougir au moindre changement de contenu. Recalibrer
+ * (`hpScale`) est une tâche de contenu, à l'arbitrage du propriétaire : dette
+ * `D103`, dont la mesure est désormais propre.
  */
 describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
-  it("16 gagne les quatre salles avec un bon équipement, et le héros nu meurt en salle 3", () => {
+  it("16 gagne les quatre salles avec un bon équipement, et le héros nu meurt en salle 2", () => {
     const cells16 = (["survie", "offense"] as const).map((build) => measureAt(16, build));
     for (const cell of cells16) {
       expect(cell.victory).toBe(true);
@@ -771,16 +777,18 @@ describe("DEC-03 — le niveau recommandé gagne, le héros nu perd", () => {
     if (survie === undefined || offense === undefined) throw new Error("cellule 16 manquante");
     const survieMargin = Math.min(...survie.rooms.map(margin));
     expect(survieMargin).toBeGreaterThanOrEqual(1);
-    // Épingle de la RÉGRESSION MESURÉE (2,52 tours) après DEC-10, PAS une borne
-    // validée : la valeur inclut l'effet du bug `D104` (mêlée diagonale figée),
-    // donc elle ne mesure pas DEC-10 seul. Figée pour détecter tout changement ;
-    // recalibrer après `D104` (D103), DEC-03 n'est pas modifiée.
-    expect(survieMargin).toBeCloseTo(2.52, 1);
+    // Épingle de la RÉGRESSION MESURÉE (2,28 tours) après DEC-10 ET le correctif
+    // `D104`, PAS une borne validée : la mêlée joue désormais jusqu'au contact,
+    // donc la valeur mesure DEC-10 sur un moteur honnête. Figée pour détecter
+    // tout changement ; recalibrer (`D103`) reste à l'arbitrage du propriétaire.
+    expect(survieMargin).toBeCloseTo(2.28, 1);
     expect(lastRoomOf(offense.rooms).hpEnd).toBeLessThan(offense.maxHp / 2);
     const naked = measureNaked();
     expect(naked.victory).toBe(false);
     const nakedLast = lastRoomOf(naked.rooms);
-    expect(nakedLast.roomNumber).toBe(3);
+    // Mesure reprise après `D104` : la mêlée rendue au contact fait tomber le
+    // héros nu une salle plus tôt (salle 3 avant le correctif).
+    expect(nakedLast.roomNumber).toBe(2);
     const missing = deficitOf(nakedLast);
     expect(missing.turnsShort).toBeGreaterThan(0);
     expect(missing.hpNeeded).toBeGreaterThan(0);
