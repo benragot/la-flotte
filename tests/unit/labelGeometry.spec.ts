@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { buildExplorationViewModel } from "../../src/renderer/explorationScene";
 import { TILE_H } from "../../src/renderer/gridProjection";
 import { NAME_LIFT_TILES, clampLabelX, nameLabelFor } from "../../src/renderer/labels";
-import { hpBarFor } from "../../src/renderer/tokens";
+import { HP_BAR_LIFT_TILES, hpBarFor } from "../../src/renderer/tokens";
 
 /**
  * Décision du propriétaire (`ui-dofus-retro.md` §1 et §5) : le nom vit
  * **au-dessus de la tête**, à `-2.2 × TILE_H` du centre bas du losange, en
- * `#E8DCC8` à 11 px. L'ancien ancrage « 4 px au-dessus de la barre de vie »
- * est périmé : la barre garde sa géométrie, le nom ne la suit plus.
+ * `#E8DCC8` à 11 px. La barre de survol, elle, passe **au-dessus du nom**, à
+ * `-2.6 × TILE_H` (§5).
  */
 const VIEWPORT = { width: 1024, height: 768 };
 const LABEL = "Crabe à Clé-à-Molette · Niv. 3";
@@ -25,13 +25,14 @@ function groupToken(extra: { spriteId?: string } = {}) {
 }
 
 describe("étiquette du nom — au-dessus de la tête, à 2,2 tuiles", () => {
-  it("pose le bas du nom à -2.2 × TILE_H du centre, donc au-dessus de la barre", () => {
+  it("pose le bas du nom à -2.2 × TILE_H et la barre de survol plus haut, à -2.6", () => {
     [groupToken(), groupToken({ spriteId: "fer_crabe_cle_molette" })].forEach((token) => {
       const label = nameLabelFor(token);
       const bar = hpBarFor(token);
       expect(label).not.toBeNull();
       expect(label?.y).toBeCloseTo(token.center.y - TILE_H * NAME_LIFT_TILES * token.scale, 6);
-      expect(label?.y).toBeLessThan(bar.y);
+      expect(bar.y).toBeCloseTo(token.center.y - TILE_H * HP_BAR_LIFT_TILES * token.scale, 6);
+      expect(bar.y).toBeLessThan(label?.y ?? Number.NaN);
     });
   });
 

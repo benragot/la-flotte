@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Application } from "pixi.js";
+import type { Position } from "../../src/engine/grid";
 import type { ViewModel } from "../../src/renderer/combatSceneModel";
 import type { SpriteSheetSpec } from "../../src/renderer/sprites/types";
 import type { TokenView } from "../../src/renderer/tokens";
@@ -34,8 +35,8 @@ const SHEET: SpriteSheetSpec = {
   animations: { idle: ANIMATION, walk: ANIMATION, attack: ANIMATION, hit: ANIMATION },
 };
 
-function token(spriteId: string | null): TokenView {
-  const base = { id: "t", cell: { x: 0, y: 0 }, center: { x: 100, y: 80 }, radius: 12, scale: 1, hp: 10, maxHp: 20, hpRatio: 0.5, badge: null, name: null, depth: 0, active: false };
+function token(spriteId: string | null, cell: Position = { x: 0, y: 0 }, center = { x: 100, y: 80 }): TokenView {
+  const base = { id: `t-${cell.x}-${cell.y}`, cell, center, radius: 12, scale: 1, hp: 10, maxHp: 20, hpRatio: 0.5, badge: null, name: null, depth: 0, active: false };
   return { ...base, fill: 0x3f7fd6, spriteId, facing: "right", animation: "idle", animationKey: "static" };
 }
 
@@ -95,18 +96,33 @@ describe("couche de scène — les soleils de sortie", () => {
 });
 
 /** Barres de PV peintes : deux `rect` par barre, le fond puis le remplissage. */
-function paintedBars(tokens: TokenView[], bars: TokenView[]): number {
+function paintedBars(tokens: TokenView[], bars: TokenView[], hoveredCell: Position | null = null): number {
   const offset = graphicsOf.length;
-  renderScene(fakeApp(), view(tokens, bars), { sheets: [SHEET] });
+  renderScene(fakeApp(), view(tokens, bars), { sheets: [SHEET], hoveredCell });
   return graphicsOf.slice(offset).reduce((total, graphics) => total + graphics.rectCalls, 0);
 }
 
-describe("couche de scène — les barres de vie suivent le modèle", () => {
-  it("n'en peint aucune quand le modèle n'en déclare pas (exploration)", () => {
-    expect(paintedBars([token(null)], [])).toBe(0);
+describe("couche de scène — une seule barre de vie, celle du jeton survolé (§6 R4)", () => {
+  it("peint la barre du jeton survolé, et une seule", () => {
+    const hovered = token("iop");
+    expect(paintedBars([hovered], [hovered], { x: 0, y: 0 })).toBe(2);
   });
 
-  it("peint celles que le modèle déclare (combat)", () => {
-    expect(paintedBars([token("iop")], [token("iop")])).toBe(2);
+  it("n'en peint aucune quand le survol est absent, même en combat", () => {
+    expect(paintedBars([token("iop")], [token("iop")])).toBe(0);
+  });
+
+  it("n'en peint aucune quand la case survolée est vide", () => {
+    expect(paintedBars([token("iop")], [token("iop")], { x: 4, y: 4 })).toBe(0);
+  });
+
+  it("ne peint pas N barres quand plusieurs jetons existent et un seul est survolé", () => {
+    const hovered = token("iop");
+    const other = token("fer_rat_de_cale", { x: 1, y: 0 }, { x: 132, y: 96 });
+    expect(paintedBars([hovered, other], [hovered, other], { x: 0, y: 0 })).toBe(2);
+  });
+
+  it("garde le garde-fou d'exploration : aucune barre malgré un survol", () => {
+    expect(paintedBars([token(null)], [], { x: 0, y: 0 })).toBe(0);
   });
 });
