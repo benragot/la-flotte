@@ -35,7 +35,7 @@ const FRAMES = {
 } as unknown as SpriteSheetFrames;
 
 function spawn(): { actor: EntitySprite; played: AnimatedLike } {
-  const actor = new Subject({ spec: SPEC, frames: FRAMES, tint: 0 });
+  const actor = new Subject({ spec: SPEC, frames: FRAMES });
   return { actor, played: actor.node.children[0] as unknown as AnimatedLike };
 }
 
@@ -101,9 +101,21 @@ describe("EntitySprite — rejeu et boucles", () => {
   });
 });
 
+describe("EntitySprite — aucun pion plein sous le sprite", () => {
+  it("ne pose aucun nœud tant que la feuille manque : l'anneau de scène marque la case", () => {
+    const actor = new Subject({ spec: SPEC, frames: null });
+    expect(actor.node.children).toHaveLength(0);
+  });
+
+  it("garde exactement la feuille animée une fois la feuille prête", () => {
+    const actor = new Subject({ spec: SPEC, frames: FRAMES });
+    expect(actor.node.children).toHaveLength(1);
+  });
+});
+
 describe("EntitySprite — feuille tardive et orientation", () => {
   it("rejoue la demande courante quand la feuille arrive après coup", () => {
-    const actor = new Subject({ spec: SPEC, frames: null, tint: 0 });
+    const actor = new Subject({ spec: SPEC, frames: null });
     actor.update(placement("attack", "log-2"));
     actor.setFrames(FRAMES);
     actor.update(placement("attack", "log-2"));

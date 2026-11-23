@@ -40,6 +40,7 @@ const CREATION_ORDER = [
   "tokens",
   "hpBars",
   "floats",
+  "teamRings",
   "hover",
   "actors",
   "labels",

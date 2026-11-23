@@ -1,6 +1,6 @@
 export { ActorStage } from "./actorStage";
 export type { ActorSyncInput } from "./actorStage";
-export { EntitySprite, FALLBACK_RADIUS, SPRITE_ANCHOR } from "./EntitySprite";
+export { EntitySprite, SPRITE_ANCHOR } from "./EntitySprite";
 export type { ActorPlacement, EntitySpriteInput } from "./EntitySprite";
 export {
   SPRITE_DISPLAY_SIZE,

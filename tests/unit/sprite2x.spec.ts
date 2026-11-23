@@ -159,7 +159,7 @@ describe("EntitySprite à 2× — même encombrement dans la case", () => {
     vi.resetModules();
     const { EntitySprite } = await import("../../src/renderer/sprites/EntitySprite");
     const frames = { idle: [{}], walk: [{}], attack: [{}], hit: [{}] } as never;
-    const actor = new EntitySprite({ spec: SPEC, frames, tint: 0 });
+    const actor = new EntitySprite({ spec: SPEC, frames });
     actor.update({ point: { x: 0, y: 0 }, facing: "right", animation: "idle", signature: "s" });
     expect(actor.node.scale.x).toBe(0.5);
     expect(actor.node.scale.y).toBe(0.5);

@@ -47,7 +47,7 @@ function placement(animationName: SpriteAnimationName, point: PixelPoint = A) {
 }
 
 function spawn(): { actor: InstanceType<typeof Subject>; played: AnimatedLike; node: FakeNode } {
-  const actor = new Subject({ spec: SPEC, frames: FRAMES, tint: 0 });
+  const actor = new Subject({ spec: SPEC, frames: FRAMES });
   return { actor, played: actor.node.children[0] as unknown as AnimatedLike, node: actor.node as unknown as FakeNode };
 }
 

@@ -13,6 +13,8 @@ import {
   LABEL_FONT_SIZE,
   LABEL_STROKE,
   LABEL_STROKE_WIDTH,
+  NAME_LABEL_ALPHA,
+  NAME_LABEL_FILL,
   labelBounds,
   labelsFor,
   nameLabelFor,
@@ -23,6 +25,7 @@ import type { ActorSyncInput } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { cellCenters } from "./walkTrail";
 import { drawExitMarks } from "./exitPaint";
+import { drawTeamRings } from "./teamRing";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
@@ -38,6 +41,8 @@ interface SceneLayers {
   hover: Graphics;
   path: Graphics;
   exitMarks: Graphics;
+  /** Anneau d'équipe au sol : sous les jetons, sous le sprite et sous son ombre. */
+  teamRings: Graphics;
   tokens: Graphics;
   actors: ActorStage;
   hpBars: Graphics;
@@ -47,7 +52,7 @@ interface SceneLayers {
 
 /** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
 const NAME_STYLE = {
-  fill: LABEL_FILL,
+  fill: NAME_LABEL_FILL,
   fontWeight: "bold" as const,
   stroke: { color: LABEL_STROKE, width: LABEL_STROKE_WIDTH },
 };
@@ -64,13 +69,14 @@ function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const moreGraphics = { highlights: new Graphics(), path: new Graphics(), exitMarks: new Graphics() };
   const markers = { tokens: new Graphics(), hpBars: new Graphics() };
   const floats = new FloatingTextLayer();
-  return { ...graphics, ...moreGraphics, ...markers, hover: new Graphics(), actors: new ActorStage(sheets), labels: new Container(), floats };
+  const rings = new Graphics();
+  return { ...graphics, ...moreGraphics, ...markers, hover: new Graphics(), actors: new ActorStage(sheets), labels: new Container(), teamRings: rings, floats };
 }
 
 /** Chaque couche rangée par son nom : `SCENE_LAYER_ORDER` reste la seule source d'ordre. */
 function layerByName(layers: SceneLayers): Record<SceneLayerName, Container> {
   const board = { grid: layers.grid, decor: layers.decor, highlights: layers.highlights, hover: layers.hover, path: layers.path };
-  const exits = { exitMarks: layers.exitMarks, tokens: layers.tokens, actors: layers.actors.container, decorAbove: layers.decorAbove };
+  const exits = { exitMarks: layers.exitMarks, teamRings: layers.teamRings, tokens: layers.tokens, actors: layers.actors.container, decorAbove: layers.decorAbove };
   const top = { hpBars: layers.hpBars, labels: layers.labels, floats: layers.floats.container };
   return { ...board, ...exits, ...top };
 }
@@ -118,12 +124,14 @@ function createBadgeNode(badge: TokenLabel): Container {
   return node;
 }
 
-/** Nom complet ancré en bas au-dessus de la barre : aucun recouvrement, jamais coupé. */
+/** Nom complet ancré en bas au-dessus de la tête : aucun recouvrement, jamais coupé. */
 function createNameText(token: TokenView): Text | null {
   const name = nameLabelFor(token);
   if (name === null) return null;
   const style = { ...NAME_STYLE, fontSize: LABEL_FONT_SIZE * name.scale };
-  return new Text({ text: name.text, style });
+  const text = new Text({ text: name.text, style });
+  text.alpha = NAME_LABEL_ALPHA;
+  return text;
 }
 
 function addNameLabel(container: Container, text: Text | null, labels: readonly TokenLabel[]): void {
@@ -165,6 +173,7 @@ function clearBoardLayers(layers: SceneLayers): void {
   layers.hover.clear();
   layers.path.clear();
   layers.exitMarks.clear();
+  layers.teamRings.clear();
 }
 
 function clearLayers(layers: SceneLayers): void {
@@ -222,8 +231,9 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawPath(layers.path, view.path);
 }
 
-/** Anneau doré **sous** les acteurs, puis jetons géométriques, PV déclarés et badges. */
+/** Anneau d'équipe sous le sprite, anneau doré **sous** les acteurs, puis jetons, PV déclarés et badges. */
 function drawActorLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
+  drawTeamRings(layers.teamRings, view.tokens);
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
