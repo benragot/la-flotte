@@ -79,6 +79,25 @@
 
   /* Case de sort désactivée (§1.8). */
   --color-slot-disabled: #332c24;
+
+  /* Variante A « Pont de navire » (§1.8) : bois de la carte d'initiative. */
+  --color-wood-face: #4a3728;
+  --color-wood-joint: #33261b;
+  --color-wood-line: #8a6a45;
+  --color-wood-high: #6b5138;
+  --color-wood-low: #2e2118;
+  --color-wood-ink: #f0e3c8;
+
+  /**
+   * Planches et clous de la carte, posés **une seule fois** ici (§3 variante A) :
+   * joints de 1 px tous les 6 px, deux clous de 2 × 2 px à 4 px des coins hauts.
+   * Les clous passent en premier : un dégradé est peint au-dessus des suivants.
+   * Aucune image, aucun `filter` — trois `background-image` générés par le CSS.
+   */
+  --texture-wood:
+    radial-gradient(circle at 4px 4px, var(--color-surface-0) 0 1px, transparent 1.2px),
+    radial-gradient(circle at calc(100% - 4px) 4px, var(--color-surface-0) 0 1px, transparent 1.2px),
+    repeating-linear-gradient(0deg, var(--color-wood-joint) 0 1px, transparent 1px 6px);
 }
 
 /**
