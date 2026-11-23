@@ -26,10 +26,10 @@ const baseMonster = {
 };
 
 const FERRAILLE = [
-  { id: "fer_rat_de_cale", level: 6, hp: 52, ap: 5, mp: 3, baseXp: 55, kamasMin: 8, kamasMax: 18 },
-  { id: "fer_crabe_cle_molette", level: 9, hp: 75, ap: 5, mp: 3, baseXp: 90, kamasMin: 12, kamasMax: 26 },
-  { id: "fer_marmite_fuyarde", level: 12, hp: 85, ap: 6, mp: 3, baseXp: 130, kamasMin: 18, kamasMax: 35 },
-  { id: "fer_boulon_pousseur", level: 15, hp: 105, ap: 6, mp: 3, baseXp: 185, kamasMin: 24, kamasMax: 45 },
+  { id: "fer_rat_de_cale", level: 6, hp: 52, ap: 5, mp: 4, baseXp: 55, kamasMin: 8, kamasMax: 18 },
+  { id: "fer_crabe_cle_molette", level: 9, hp: 75, ap: 5, mp: 4, baseXp: 90, kamasMin: 12, kamasMax: 26 },
+  { id: "fer_marmite_fuyarde", level: 12, hp: 85, ap: 6, mp: 4, baseXp: 130, kamasMin: 18, kamasMax: 35 },
+  { id: "fer_boulon_pousseur", level: 15, hp: 105, ap: 6, mp: 4, baseXp: 185, kamasMin: 24, kamasMax: 45 },
   { id: "fer_boss_yvon_rouiller", level: 20, hp: 140, ap: 6, mp: 4, baseXp: 480, kamasMin: 85, kamasMax: 140 },
 ];
 
@@ -63,7 +63,7 @@ describe("bestiaire de la Ferraille", () => {
       level: 1,
       hp: 35,
       ap: 6,
-      mp: 3,
+      mp: 4,
       baseXp: 120,
       spellIds: ["bec_mazoute", "fer_spell_coup_daile_gras"],
     });
