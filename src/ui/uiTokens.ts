@@ -82,21 +82,66 @@ export const BUTTON_GOLD = [
   BUTTON_OFF,
 ].join(" ");
 
-/** État d'une case de sort (§2.4) : cinq états, aucun `opacity`. */
-export const SLOT_EMPTY =
-  "rounded-[2px] border-2 border-dashed border-[var(--color-line)] bg-transparent";
+/**
+ * Socle d'une case de sort : 2 px de filet, rayon 2 px, aucun `opacity` (§2.4).
+ * Les cinq états **francs** ne diffèrent que par la face, le filet et l'encre :
+ * c'est la seule façon de rester lisible pour un daltonien, une teinte seule
+ * n'étant pas un état.
+ */
+const SLOT_TILE =
+  "relative flex flex-col items-start overflow-hidden rounded-[2px] border-2 text-left leading-none";
 
+export const SLOT_EMPTY = `${SLOT_TILE} border-dashed border-[var(--color-line)] bg-transparent`;
+
+/** Disponible : planche `surface-1`, filet `line`, or au survol. */
 export const SLOT_IDLE = [
-  "rounded-[2px] border-2 border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-ink-1)]",
+  `${SLOT_TILE} border-[var(--color-line)] bg-[var(--color-surface-1)] text-[var(--color-ink-1)]`,
   "transition-[border-color,background-color] duration-[90ms] ease-out",
   "enabled:hover:border-[var(--color-line-gold)] enabled:hover:bg-[var(--color-surface-3)]",
 ].join(" ");
 
+/** Sélectionné : planche `surface-3`, filet or doublé d'un liseré interne. */
 export const SLOT_SELECTED =
-  "rounded-[2px] border-2 border-[var(--color-line-gold)] bg-[var(--color-surface-3)] text-[var(--color-ink-1)] shadow-[inset_0_0_0_1px_var(--color-line-gold)]";
+  `${SLOT_TILE} border-[var(--color-line-gold)] bg-[var(--color-surface-3)] text-[var(--color-ink-1)] shadow-[inset_0_0_0_1px_var(--color-line-gold)]`;
 
-export const SLOT_DISABLED =
-  "rounded-[2px] border-2 border-[var(--color-line-field)] bg-[var(--color-slot-disabled)] text-[var(--color-btn-disabled-ink)]";
+/**
+ * Hors portée : **hachures** procédurales (une trame, pas une couleur seule),
+ * filet creux et encre tertiaire — 5,10:1 sur `slot-disabled`.
+ */
+export const SLOT_OUT_OF_RANGE = [
+  `${SLOT_TILE} border-[var(--color-line-field)] bg-[var(--color-slot-disabled)] text-[var(--color-ink-3)]`,
+  "[background-image:repeating-linear-gradient(45deg,transparent_0_4px,var(--color-field-inset)_4px,var(--color-field-inset)_5px)]",
+].join(" ");
+
+/** PA insuffisants : creux commun, mais filet **danger** et liseré bas rouge. */
+export const SLOT_NO_AP = [
+  `${SLOT_TILE} border-[var(--color-line-field)] bg-[var(--color-slot-disabled)] text-[var(--color-ink-2)]`,
+  "shadow-[inset_0_-2px_0_var(--color-danger-line)]",
+].join(" ");
+
+/** Verrouillé (ce n'est pas le tour du joueur) : plaque mate, filet pointillé. */
+export const SLOT_LOCKED =
+  `${SLOT_TILE} border-dotted border-[var(--color-line-field)] bg-[var(--color-surface-2)] text-[var(--color-btn-disabled-ink)]`;
+
+/**
+ * Barres du dock (§2.3) : piste creuse, rayon 1 px, **8 px** pour les PV et
+ * **6 px** pour les PA/PM. Le remplissage porte l'arête haute de son élément.
+ */
+const METER = `${FIELD_MATERIAL} w-full overflow-hidden`;
+export const HP_METER = `${METER} h-2`;
+export const AP_METER = `${METER} h-1.5`;
+export const MP_METER = `${METER} h-1.5`;
+export const HP_METER_FILL = "h-full bg-[var(--color-hp)] shadow-[inset_0_1px_0_var(--color-hp-high)]";
+export const AP_METER_FILL = "h-full bg-[var(--color-ap)] shadow-[inset_0_1px_0_var(--color-ap-high)]";
+export const MP_METER_FILL = "h-full bg-[var(--color-mp)] shadow-[inset_0_1px_0_var(--color-mp-high)]";
+
+/**
+ * Journal d'éléments (§3.1) : un bandeau de 2 px porte la **couleur de
+ * remplissage**, le glyphe et le texte portent l'**encre** — la couleur ne
+ * suffit jamais, le glyphe la double pour la deutéranopie.
+ */
+export const LOG_BAND = "w-0.5 shrink-0 self-stretch";
+export const LOG_GLYPH = "w-3 shrink-0 text-center font-mono text-[10px] font-bold leading-4";
 
 /**
  * Carte d'initiative, variante A « Pont de navire » (§3) : planche de bois

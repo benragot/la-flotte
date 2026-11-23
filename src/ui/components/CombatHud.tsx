@@ -6,9 +6,9 @@ import type { HudMode } from "../hudHelpers";
 import type { EffectiveHp } from "../hudHp";
 import { useEffectiveHp } from "../useEffectiveHp";
 import EndOverlay from "./EndOverlay";
-import HeroVitalsLine from "./HeroVitalsLine";
 import Timeline from "./Timeline";
 import TopBanner from "./TopBanner";
+import VitalMeter from "./VitalMeter";
 import { CombatDock } from "./battle/CombatDock";
 import { DOCK_PANEL, PRIMARY_BUTTON } from "./hudTheme";
 import { DOCK_SHELL, PANEL_TITLE, VALUE } from "../uiTokens";
@@ -76,22 +76,35 @@ function CombatLayout({ combat, onReturnToMap }: CombatLayoutProps) {
   return <HudLayout {...layout} />;
 }
 
-function HeroApMp({ hero }: { hero: Hero }) {
+function HeroApMpLine({ hero }: { hero: Hero }) {
   return (
     <p className={`${VALUE} flex flex-wrap items-baseline gap-x-2`}>
-      <span className="text-[var(--color-ink-ap)]">★ {hero.ap} PA</span>
+      <span className="text-[var(--color-ink-ap)]">{`PA ${hero.ap}`}</span>
       <span className="text-[var(--color-ink-3)]">·</span>
-      <span className="text-[var(--color-ink-mp)]">👢 {hero.mp} PM</span>
+      <span className="text-[var(--color-ink-mp)]">{`PM ${hero.mp}`}</span>
     </p>
   );
 }
 
+function HeroVitalsBody({ hero, hp }: { hero: Hero; hp: EffectiveHp }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <VitalMeter label="PV" tone="hp" current={hp.hp} max={hp.maxHp} />
+      <HeroApMpLine hero={hero} />
+    </div>
+  );
+}
+
+/**
+ * Dock d'exploration : le héros persisté ne porte **pas** de PA/PM maximum, donc
+ * seuls les PV ont une barre ; les PA/PM restent des chiffres. Plus aucune icône
+ * emoji : le libellé Dofus suffit et se lit sans police tierce.
+ */
 function HeroVitals({ hero, hp }: { hero: Hero; hp: EffectiveHp }) {
   return (
     <section aria-label="Ressources du héros" className={DOCK_PANEL}>
       <h2 className={PANEL_TITLE}>Héros</h2>
-      <HeroVitalsLine hp={hp} className={`${VALUE} text-[var(--color-ink-danger)]`} />
-      <HeroApMp hero={hero} />
+      <HeroVitalsBody hero={hero} hp={hp} />
     </section>
   );
 }

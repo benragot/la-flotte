@@ -21,7 +21,7 @@ interface DockBlockSpec {
 /** Le dock est déclaré comme une table : une ligne = une zone de `layout.ts`. */
 function dockBlocks({ combat, selectedSpellId }: CombatDockProps): readonly DockBlockSpec[] {
   return [
-    { zone: "journal", className: DOCK_JOURNAL, body: <CombatLogPanel log={combat.log} playerName={combat.player.name} /> },
+    { zone: "journal", className: DOCK_JOURNAL, body: <CombatLogPanel log={combat.log} playerName={combat.player.name} spells={combat.spellsById} /> },
     { zone: "vitals", className: DOCK_VITALS, body: <Vitals combat={combat} /> },
     { zone: "turn", className: DOCK_TURN, body: <TurnButton phase={combat.phase} /> },
     { zone: "spells", className: DOCK_SPELLS, body: <SpellSlots combat={combat} selectedSpellId={selectedSpellId} /> },
