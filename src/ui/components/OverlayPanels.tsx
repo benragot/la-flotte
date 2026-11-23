@@ -8,22 +8,24 @@ import type { EffectiveHp } from "../hudHp";
 import { useEffectiveHp } from "../useEffectiveHp";
 import { useEscapeClose } from "../useEscapeClose";
 import { StatAllocation } from "./hero";
+import { HERO_SHEET, HERO_SHEET_TITLE } from "./hero/heroTheme";
 import HeroVitalsLine from "./HeroVitalsLine";
 import { InventoryPanel } from "./inventory";
 import { DungeonEntryPanel, DungeonNotice } from "./dungeon";
 import NewGameButton from "./NewGameButton";
 import SpellbookPanel from "./spellbook/SpellbookPanel";
-import { OVERLAY_SHEET, SECTION_HEADING } from "./hudTheme";
+import { CHROME_BUTTON } from "./hudTheme";
 
 /** Panneaux superposés accessibles depuis l'arène en exploration. */
 type PanelId = "inventory" | "hero" | "dungeon" | "spells";
 
 const ACCESS_BAR = "pointer-events-auto absolute right-2 top-2 z-30 flex gap-2";
-const ACCESS_BUTTON =
-  "rounded border border-[#8c6d46] bg-[#2b241d]/90 px-2 py-1 text-xs text-[#e8dcc8] transition hover:bg-[#d4a537] hover:text-[#2b241d]";
+const ACCESS_BUTTON = CHROME_BUTTON;
 const LAYER =
-  "pointer-events-auto absolute inset-0 z-40 flex items-center justify-center overflow-auto bg-[#2b241d]/70 p-4";
-const SHEET = OVERLAY_SHEET;
+  "pointer-events-auto absolute inset-0 z-40 flex items-center justify-center overflow-auto bg-[var(--color-scrim)] p-4";
+const SHEET = HERO_SHEET;
+/** Ligne de PV de la fiche : monospace tabulaire, encre de PV (§1.5) — le `❤` reste. */
+const HERO_VITALS = "font-mono text-[13px] font-bold leading-4 tabular-nums text-[var(--color-ink-danger)]";
 
 interface AccessButtonProps {
   label: string;
@@ -83,8 +85,8 @@ function PanelClose({ onClose }: { onClose: () => void }) {
 
 function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
   return (
-    <header className="flex items-center justify-between">
-      <h2 className={SECTION_HEADING}>{title}</h2>
+    <header className="flex items-center justify-between gap-2 border-b border-[var(--color-line-soft)] pb-2">
+      <h2 className={HERO_SHEET_TITLE}>{title}</h2>
       <PanelClose onClose={onClose} />
     </header>
   );
@@ -97,7 +99,7 @@ function classDefOf(classId: string): ClassDef | undefined {
 function HeroSheetBody({ hero, classDef, hp }: { hero: Hero; classDef: ClassDef; hp: EffectiveHp }) {
   return (
     <>
-      <HeroVitalsLine hp={hp} className="text-xs" />
+      <HeroVitalsLine hp={hp} className={HERO_VITALS} />
       <StatAllocation hero={hero} classDef={classDef} />
     </>
   );

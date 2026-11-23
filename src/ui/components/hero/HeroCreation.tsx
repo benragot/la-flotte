@@ -5,16 +5,16 @@ import { classesFileSchema } from "../../../schemas/classSchema";
 import type { ClassDef } from "../../../schemas/classSchema";
 import { useGameStore } from "../../../store/useGameStore";
 import { isValidCharacterName } from "../../heroHudHelpers";
-import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
+import { PRIMARY_BUTTON } from "../hudTheme";
 import CharacterNameField from "./CharacterNameField";
 import ClassCard from "./ClassCard";
 import StatAllocation from "./StatAllocation";
+import { CREATION_SHEET, CREATION_TITLE } from "./heroTheme";
 
 /** Catalogue validé une fois (12 classes) : aucune donnée métier en dur ici. */
 const classes = classesFileSchema.parse(classesYaml).classes;
 
-const SHEET =
-  "pointer-events-auto flex w-full max-w-3xl flex-col gap-3 rounded border-2 border-[#8c6d46] bg-[#2b241d] p-3 text-[#e8dcc8]";
+const SHEET = CREATION_SHEET;
 const GRID = "grid grid-cols-2 gap-2 sm:grid-cols-4";
 
 export interface HeroCreationProps {
@@ -70,13 +70,29 @@ function CreateButton({ draft, onCreate }: { draft: Draft; onCreate: (payload: P
   );
 }
 
+function CreationHead() {
+  return (
+    <header className="border-b border-[var(--color-line-soft)] pb-2">
+      <h1 className={CREATION_TITLE}>Crée ton héros</h1>
+    </header>
+  );
+}
+
+function CreationFooter({ draft, onCreate }: { draft: Draft; onCreate: (payload: Payload) => void }) {
+  return (
+    <footer className="flex justify-end">
+      <CreateButton draft={draft} onCreate={onCreate} />
+    </footer>
+  );
+}
+
 function CreationSheet({ draft, onCreate }: { draft: Draft; onCreate: (payload: Payload) => void }) {
   return (
     <section aria-label="Création de personnage" className={SHEET}>
-      <h1 className={SECTION_HEADING}>Crée ton héros</h1>
+      <CreationHead />
       <CharacterNameField name={draft.name} onChange={draft.setName} />
       <ClassGrid classId={draft.classId} onSelect={draft.setClassId} />
-      <CreateButton draft={draft} onCreate={onCreate} />
+      <CreationFooter draft={draft} onCreate={onCreate} />
     </section>
   );
 }

@@ -142,3 +142,48 @@ body #root {
   background-color: var(--color-line-gold);
   color: var(--color-surface-1);
 }
+
+/**
+ * Écran de création et fiche du héros — matière « registre de bord ».
+ *
+ * Trois ajouts, tous dérivés des hex du §1 (aucune couleur nouvelle) :
+ *
+ * - `--font-display` : l'empilement `display` du §2.5 (Georgia 30/36). Il est
+ *   déclaré ici, comme les autres variables, parce qu'une famille ne se compose
+ *   pas en classe Tailwind sans casser les espaces des noms entre guillemets ;
+ *   les jetons l'appellent en `font-[family-name:var(--font-display)]`.
+ * - `--texture-parchment` : fibres de papier, 1 px toutes les 5 px, plus une
+ *   lavasse chaude en haut (`surface-3` à 45 %). Deux arrêts, pas trois : le
+ *   §4 (I7) n'interdit que les dégradés décoratifs à trois arrêts.
+ * - `--texture-deck` : joints de pontage tous les 56 px derrière la feuille.
+ *   Le fond de page reste `surface-0` (§1.2), la trame ne fait que l'habiller.
+ *
+ * `--color-scrim` est `surface-0` translucide : le voile sous une fiche ne
+ * prend pas la couleur d'un panneau, il assombrit l'arène (aucun `opacity` sur
+ * le panneau lui-même, I7).
+ */
+:root {
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", ui-serif, serif;
+
+  --texture-parchment:
+    repeating-linear-gradient(
+      0deg,
+      color-mix(in srgb, var(--color-ink-1) 4%, transparent) 0 1px,
+      transparent 1px 5px
+    ),
+    radial-gradient(
+      120% 70% at 50% 0%,
+      color-mix(in srgb, var(--color-surface-3) 45%, transparent),
+      transparent 70%
+    );
+
+  --texture-deck:
+    repeating-linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--color-surface-1) 70%, transparent) 0 1px,
+      transparent 1px 56px
+    );
+
+  --color-scrim: color-mix(in srgb, var(--color-surface-0) 86%, transparent);
+}
+
