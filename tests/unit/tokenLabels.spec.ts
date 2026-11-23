@@ -52,12 +52,14 @@ describe("étiquettes d'un jeton — complètes et hors du sprite", () => {
     });
   });
 
-  it("place le badge à droite du nom, dans la bande au-dessus de la barre", () => {
+  it("place le badge à droite du nom, hors de la barre de survol (§5)", () => {
     const token = crabAt({ x: 5, y: 5 });
     const name = nameOf(labelsOf(token));
     const badge = badgeOf(labelsOf(token));
+    const bar = hpBarFor(token);
     expect(badge.x).toBeGreaterThan(name.x);
-    expect(badge.y).toBeLessThan(hpBarFor(token).y);
+    // La barre de survol est centrée au-dessus du jeton : le badge reste à sa droite, jamais dessus.
+    expect(badge.x - BADGE_RADIUS * token.scale).toBeGreaterThan(bar.x + bar.width);
   });
 
   it("n'écrit jamais une ellipse de troncature dans un label", () => {
