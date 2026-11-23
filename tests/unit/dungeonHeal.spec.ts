@@ -228,6 +228,16 @@ describe("franchissement d'une salle — un seul chemin de soin", () => {
 });
 
 describe("franchissement d'une salle — bornes", () => {
+  it("ne rend rien à un héros plein : aucun soin, aucune ligne", () => {
+    enterDungeon();
+    const maxHp = playerOf(battleOrThrow()).maxHp;
+    winCurrentRoom(maxHp);
+    useCombatStore.getState().settleDungeonRoom();
+    expect(playerOf(battleOrThrow()).hp).toBe(maxHp);
+    expect(effectiveHpOf(heroOrThrow())).toBe(maxHp);
+    expect(battleOrThrow().log.some((line) => line.includes("PV repris"))).toBe(false);
+  });
+
   it("n'accorde rien après la dernière salle", () => {
     enterDungeon();
     for (const index of [0, 1, 2]) {
