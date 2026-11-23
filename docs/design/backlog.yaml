@@ -12,8 +12,8 @@
 #     qui les fonde.
 
 meta:
-  version: 28
-  updated_at: "2026-11-22"
+  version: 29
+  updated_at: "2026-11-23"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
   # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
@@ -286,7 +286,7 @@ waves:
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
-        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements. Quatre retours de playtest du propriétaire ouvrent 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence (v26) ; **décision DEC-10** (diagonale = 2 PM, écart assumé à 1.29) gouverne 5C-path-8dirs et laisse 5C-spell-range-rebalance bloquée sur son arbitrage."
+        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; la 5C reste ouverte sur l'interface, le pathfinding 8 directions, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements. Quatre retours de playtest du propriétaire ouvrent 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence (v26) ; **décision DEC-10** (diagonale = 2 PM, écart assumé à 1.29) gouverne 5C-path-8dirs et laisse 5C-spell-range-rebalance bloquée sur son arbitrage. **v29** : les trois retours de playtest sont livrés et clos (#109, #110, #111) ; 5C-path-8dirs reçoit le moteur de #108 mais reste ouverte sur la mise à jour du TC3 de la spec UI."
         tasks:
           - id: 5C-a
             title: Panneau de combat 1vN — rendu des N ennemis, ciblage et journal
@@ -358,8 +358,8 @@ waves:
             status: todo
             owner: tdd-coder
             priority: high
-            updated_at: "2026-11-22"
-            notes: "docs/design/specs/ui-dofus-retro.md §1, §6 R1 et §9 TC3 — `findPath` est **déjà 8-voisins** à HEAD (src/engine/grid/pathfinding.ts:54-68) : ce qui reste est la **règle de coin** (un pas diagonal exige les deux cases orthogonales adjacentes libres) et la **facture PM réelle** des ennemis ; porte D68, D69 et D96. **décision DEC-10** : une diagonale coûte **2 PM** (écart assumé à Dofus 1.29, où chaque case entrée coûte 1 PM) et la facture est la **somme des pas du chemin réellement trouvé** ; le « diagonale = 1 pas » de §9 TC3 est donc périmé et doit être mis à jour avec la tâche."
+            updated_at: "2026-11-23"
+            notes: "docs/design/specs/ui-dofus-retro.md §1, §6 R1 et §9 TC3 — `findPath` est **déjà 8-voisins** à HEAD (src/engine/grid/pathfinding.ts:54-68) : ce qui restait était la **règle de coin** (un pas diagonal exige les deux cases orthogonales adjacentes libres) et la **facture PM réelle** des ennemis ; porte D68, D69 et D96. **décision DEC-10** : une diagonale coûte **2 PM** (écart assumé à Dofus 1.29, où chaque case entrée coûte 1 PM) et la facture est la **somme des pas du chemin réellement trouvé**. **PR #108 (squash c5b8867)** livre ce moteur : `stepCost` et `pathCost` (src/engine/grid/pathfinding.ts:68-82), `DIAGONAL_STEP_PM = 2`, la règle de coin `cutsCorner` (src/engine/grid/pathfinding.ts:147-151) et `moveEnemy` qui facture `pathCost(paid)` au lieu d'une distance à vol d'oiseau (src/engine/multiCombat/enemies.ts:66-79) — D68, D69 et D96 sont donc résolus dans le code et restent à solder avec la tâche. **Reste ouvert** : le TC3 de docs/design/specs/ui-dofus-retro.md:207-211 annonce encore « diagonale = 1 pas, cost === 2 » ; cette fiche n'est pas corrigée ici (une autre branche tient docs/design/specs/), et c'est la raison pour laquelle la tâche reste en `todo`."
           - id: 5C-hero-move
             title: "Déplacement du héros en combat : PM, pathfinding et tacle"
             status: todo
@@ -429,25 +429,28 @@ waves:
             notes: "décision DEC-03 : le soin entre les salles est **autorisé** (entorse assumée à Dofus) parce qu'un héros qui meurt en salle 2 (D71, #57) ne se répare pas en affaiblissant les monstres ; couvre le soin de fin de salle et la restauration de PV hors combat (D29) sans pénalité de mort (décision DEC-06)."
           - id: 5C-explore-hp
             title: "Masquer les barres de vie en exploration"
-            status: todo
+            status: done
+            pr: 109
             owner: tdd-coder
             priority: high
-            updated_at: "2026-11-22"
-            notes: "Cible d'implémentation : `src/renderer/**`. Retour de playtest du propriétaire : des **barres de PV visibles en exploration**, qu'il juge inutiles — en exploration il n'y a pas de combat, donc **aucune information à porter** ; la barre ne devient légitime qu'au combat. Rattachée à 5C-hover-hp (même session de playtest) **sans en dépendre** : 5C-hover-hp traite la barre de **combat**, cette tâche traite l'**exploration** — deux rendus, deux périmètres, aucun `depends_on` croisé."
+            updated_at: "2026-11-23"
+            notes: "Cible d'implémentation : `src/renderer/**`. Retour de playtest du propriétaire : des **barres de PV visibles en exploration**, qu'il juge inutiles — en exploration il n'y a pas de combat, donc **aucune information à porter** ; la barre ne devient légitime qu'au combat. Rattachée à 5C-hover-hp (même session de playtest) **sans en dépendre** : 5C-hover-hp traite la barre de **combat**, cette tâche traite l'**exploration** — deux rendus, deux périmètres, aucun `depends_on` croisé. **squash 2793727 (PR #109)** — plus de barres de vie en exploration, le type l'interdit : `ExplorationViewModel.hpBarTokens` est un `readonly []` (src/renderer/explorationScene.ts:91) qu'un producteur ne peut pas remplir."
           - id: 5C-hover-highlight
             title: "Surbrillance au survol des entités actives (héros, monstres, PNJ)"
-            status: todo
+            status: done
+            pr: 110
             owner: tdd-coder
             priority: high
-            updated_at: "2026-11-22"
-            notes: "Retour de playtest du propriétaire : le survol d'une entité active (héros, monstre, PNJ) doit la **distinguer légèrement** du décor, sans masquer son **nom** ni son **anneau** d'équipe. ⚠️ **Ne pas toucher à l'ombre elliptique** : sa forme et son opacité sont une **décision gelée**, la surbrillance se pose sur le jeton, jamais sur son ombre. La direction visuelle (teinte, alpha, épaisseur) revient à `render-designer` sur `src/renderer/**` (AGENTS.md règle 9) : le tdd-coder implémente, il ne choisit pas l'apparence (AGENTS.md règle 7)."
+            updated_at: "2026-11-23"
+            notes: "Retour de playtest du propriétaire : le survol d'une entité active (héros, monstre, PNJ) doit la **distinguer légèrement** du décor, sans masquer son **nom** ni son **anneau** d'équipe. ⚠️ **Ne pas toucher à l'ombre elliptique** : sa forme et son opacité sont une **décision gelée**, la surbrillance se pose sur le jeton, jamais sur son ombre. La direction visuelle (teinte, alpha, épaisseur) revient à `render-designer` sur `src/renderer/**` (AGENTS.md règle 9) : le tdd-coder implémente, il ne choisit pas l'apparence (AGENTS.md règle 7). **squash 326988d (PR #110)** — `src/renderer/entityHover.ts` existe et calcule la surbrillance de la seule case de jeton visée, `drawHover` la consomme (src/renderer/sceneLayers.ts:235-238) et tests/unit/entityHover.spec.ts la couvre ; l'ombre elliptique n'est pas touchée. Le survol ne couvre que l'exploration : limite assumée en D105."
           - id: 5C-cast-cadence
             title: "Cadence minimale de 0,75 s entre deux résolutions de sort"
-            status: todo
+            status: done
+            pr: 111
             owner: tdd-coder
             priority: high
-            updated_at: "2026-11-22"
-            notes: "Retour de playtest du propriétaire : il **ne peut pas lire** des lignes de dégâts qui s'empilent. Ce n'est **pas** une tâche d'animation — aucune animation graphique n'existe encore — c'est un **budget de temps de lecture**. Exigences testables : (a) la valeur `0.75 s` est une **constante unique exportée** (`SORT_CAST_MIN_INTERVAL_MS = 750` ou équivalent), jamais un littéral répété dans les appelants ; (b) le délai est **injectable** — aucune horloge murée dans le moteur headless, aucun `setTimeout` dans `src/engine/**` (AGENTS.md règle 5) : le moteur reçoit une fonction d'horloge, les tests la pilotent ; (c) la séquence « sort A puis sort B » ne peut pas produire deux résolutions à moins de 0,75 s."
+            updated_at: "2026-11-23"
+            notes: "Retour de playtest du propriétaire : il **ne peut pas lire** des lignes de dégâts qui s'empilent. Ce n'est **pas** une tâche d'animation — aucune animation graphique n'existe encore — c'est un **budget de temps de lecture**. Exigences testables : (a) la valeur `0.75 s` est une **constante unique exportée** (`SORT_CAST_MIN_INTERVAL_MS = 750` ou équivalent), jamais un littéral répété dans les appelants ; (b) le délai est **injectable** — aucune horloge murée dans le moteur headless, aucun `setTimeout` dans `src/engine/**` (AGENTS.md règle 5) : le moteur reçoit une fonction d'horloge, les tests la pilotent ; (c) la séquence « sort A puis sort B » ne peut pas produire deux résolutions à moins de 0,75 s. **squash b1bf9a8 (PR #111)** — la constante unique est `MIN_BEAT_MS = 750` (src/engine/combat/beat.ts:10), le module reste pur (le temps est un paramètre) et `useCombatBeat` (src/ui/components/battle/useCombatBeat.ts:115) pilote les pas avec son minuteur, hors du moteur."
           - id: 5C-spell-range-rebalance
             title: "Recalibrer les portées et la balance après DEC-10"
             status: blocked
@@ -982,5 +985,11 @@ debts:
     owner: user
     status: blocked
     notes: "src/engine/multiCombat/approach.ts:50-55 : `neighborCells(target)` contient la case du monstre lui-même, `pathTo` y rend un chemin de coût 0, `cheapest` le choisit, puis `paid.length < 2` rend `null` — un monstre déjà au contact en diagonale ne joue jamais. Le défaut n'est **couvert par aucun test** dans cette PR : le test en échec attendu de l'audit a été RETIRÉ (décision d'orchestrateur : ni correctif, ni test rouge latent). Filtrer les cases non libres avant `cheapest` est mesuré et REFUSÉ dans cette PR : tests/walkthrough/gearedDungeon.spec.ts:722-737 passent de six victoires à cinq, `16 survie` perd la salle 4 (48 PV de monstres restants, 105 actions) au lieu de gagner avec 59 PV, et les cinq autres cellules perdent 14 à 22 PV finales. Corriger rend donc le donjon plus dur et viole DEC-03 (a) ; le correctif et son recalibrage (`hpScale` de `data/dungeons.yaml`, data/** hors périmètre agent) se feront **dans la même PR**, après l'arbitrage du propriétaire."
+  - id: D105
+    title: "Le survol d'entité ne couvre pas la salle de donjon : rien n'y est écouté, la scène peinte n'y est pas la carte d'exploration"
+    severity: low
+    target: 5C-cast-preview
+    status: todo
+    notes: "src/renderer/CombatCanvas.tsx:58-62 (`hoverMap`) ne câble la grille de survol que si le mode est `exploration` **et** qu'aucune bataille n'est en cours : `if (!isExploring(props)) return null;` puis `if (view.battle !== null) return null;`. En salle de donjon la scène peinte n'est pas la carte d'exploration, donc la conversion pixel → case n'existe pas, `input.hoveredCell` reste `null` et `drawHover` (src/renderer/sceneLayers.ts:235-243) ne peint rien : `entityHover` est correct mais jamais alimenté dans une salle. **Limite assumée, pas un oubli** de la PR #110 : la surbrillance fonctionne en exploration seulement. Correctif possible quand la scène de donjon exposera sa carte au survol — c'est le même câblage que demande l'aperçu de zone au survol (5C-cast-preview), d'où la cible."
 
 
