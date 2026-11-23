@@ -1,20 +1,27 @@
+import { BUTTON_GOLD, PANEL_MATERIAL, SECTION_LABEL } from "../uiTokens";
+
 /**
- * Jetons visuels partagés du HUD rétro Dofus 1.29.
+ * Jetons visuels partagés du HUD — variante A « Pont de navire ».
  *
- * Les valeurs hexadécimales sont écrites en clair dans les classes Tailwind
- * arbitraires : Tailwind ne génère du CSS qu'à partir de littéraux présents
- * dans les sources, jamais depuis une chaîne interpolée. `HUD_COLORS`
- * (`../hudHelpers`) reste la référence documentée de la palette.
+ * La **matière** (surfaces, filets, encres, ombres) vit dans `src/ui/uiTokens.ts`
+ * et ne s'écrit qu'une fois ; ce fichier ne compose que la **mise en page** des
+ * surfaces historiques du HUD. Les hex sont ceux de
+ * `docs/design/specs/ui-visual-direction.md` §1, via `src/ui/theme.css`.
+ *
+ * `HUD_COLORS` (`../hudHelpers`) reste la référence documentée de la palette
+ * pour le canvas : elle n'est ni complétée ni renommée ici.
  */
+
+/** Panneau posé dans le dock : corps `surface-2`, filet fort 2 px, rayon 2 px. */
 export const DOCK_PANEL =
-  "pointer-events-auto flex h-full min-w-0 flex-col rounded border border-[#8c6d46] bg-[#3d342a] px-2 py-1 text-[#e8dcc8]";
+  `pointer-events-auto flex h-full min-w-0 flex-col px-2 py-1 ${PANEL_MATERIAL}`;
 
-export const SECTION_HEADING =
-  "text-[10px] font-semibold uppercase tracking-widest text-[#d4a537]";
+/** En-tête de section : 10 px capitales, `tracking .12em` (§2.5 `label`). */
+export const SECTION_HEADING = SECTION_LABEL;
 
-/** Feuille centrée des panneaux superposés (fiche perso, grimoire) : aucun style neuf. */
+/** Feuille centrée des panneaux superposés (fiche perso, grimoire). */
 export const OVERLAY_SHEET =
-  "flex max-h-full w-full max-w-xl flex-col gap-2 overflow-auto rounded border-2 border-[#8c6d46] bg-[#2b241d] p-3 text-[#e8dcc8]";
+  `flex max-h-full w-full max-w-xl flex-col gap-2 overflow-auto p-3 ${PANEL_MATERIAL}`;
 
-export const PRIMARY_BUTTON =
-  "rounded border-2 border-[#8c6d46] bg-[#d4a537] px-4 py-2 text-sm font-bold text-[#2b241d] transition hover:bg-[#e8dcc8] disabled:opacity-40";
+/** Action principale : bouton or à quatre états (§2.2). Plus d'`opacity-40`. */
+export const PRIMARY_BUTTON = BUTTON_GOLD;

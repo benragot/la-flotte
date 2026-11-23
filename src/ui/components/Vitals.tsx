@@ -1,6 +1,7 @@
 import type { CombatState } from "../../engine/combatLoop/types";
 import { formatHpBar } from "../hudHelpers";
 import { DOCK_PANEL } from "./hudTheme";
+import { VALUE } from "../uiTokens";
 
 type VitalTone = "hp" | "ap" | "mp";
 
@@ -13,16 +14,21 @@ interface VitalStatProps {
   max: number;
 }
 
+/**
+ * Les chiffres utilisent les **encres** d'élément (`ink-danger`, `ink-ap`,
+ * `ink-mp`), jamais les remplissages : `#B83B3B` en texte sur `surface-2` ne
+ * pèse que 2.16:1 (spec §1.6). Les remplissages restent pour les barres.
+ */
 const TONE_CLASS: Record<VitalTone, string> = {
-  hp: "text-[#b83b3b]",
-  ap: "text-[#3b6fb8]",
-  mp: "text-[#4a8c4a]",
+  hp: "text-[var(--color-ink-danger)]",
+  ap: "text-[var(--color-ink-ap)]",
+  mp: "text-[var(--color-ink-mp)]",
 };
 
 function VitalStat({ icon, tone, suffix, current, max }: VitalStatProps) {
   const value = formatHpBar(current, max);
   return (
-    <span className={`flex items-center gap-1 text-sm font-bold ${TONE_CLASS[tone]}`}>
+    <span className={`flex items-center gap-1 ${VALUE} ${TONE_CLASS[tone]}`}>
       <span aria-hidden="true">{icon}</span>
       <span>{value.text}{suffix}</span>
     </span>

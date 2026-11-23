@@ -10,7 +10,8 @@ import HeroVitalsLine from "./HeroVitalsLine";
 import Timeline from "./Timeline";
 import TopBanner from "./TopBanner";
 import { CombatDock } from "./battle/CombatDock";
-import { DOCK_PANEL, PRIMARY_BUTTON, SECTION_HEADING } from "./hudTheme";
+import { DOCK_PANEL, PRIMARY_BUTTON } from "./hudTheme";
+import { DOCK_SHELL, PANEL_TITLE, VALUE } from "../uiTokens";
 
 /**
  * Le HUD n'est plus `fixed inset-0` : il est en colonne dans le flux de son
@@ -21,13 +22,13 @@ import { DOCK_PANEL, PRIMARY_BUTTON, SECTION_HEADING } from "./hudTheme";
  * Trois bandes, cf. `battle/layout.ts` : `header` (bandeau), `initiative`
  * (noms des combattants) puis `dock` (journal, vitals, tour, sorts).
  */
-const HUD_SHELL = "pointer-events-none relative flex h-full w-full flex-col text-[#e8dcc8]";
+const HUD_SHELL =
+  "pointer-events-none relative flex h-full w-full flex-col text-[var(--color-ink-1)]";
 const INITIATIVE_ZONE = "pointer-events-none flex min-h-0 flex-1 items-start overflow-hidden";
-const DOCK_SHELL =
-  "pointer-events-auto flex h-[150px] shrink-0 gap-2 border-t-2 border-[#8c6d46] bg-[#2b241d] px-2 py-2";
 const VITALS_COLUMN = "flex min-w-0 w-[24%] flex-col justify-center";
 /** Exploration : le journal est passé en colonne gauche, le dock garde les ressources. */
-const EXPLORATION_HUD_SHELL = "pointer-events-none flex w-full flex-col text-[#e8dcc8]";
+const EXPLORATION_HUD_SHELL =
+  "pointer-events-none flex w-full flex-col text-[var(--color-ink-1)]";
 
 export interface CombatHudProps {
   mode?: HudMode;
@@ -75,12 +76,22 @@ function CombatLayout({ combat, onReturnToMap }: CombatLayoutProps) {
   return <HudLayout {...layout} />;
 }
 
+function HeroApMp({ hero }: { hero: Hero }) {
+  return (
+    <p className={`${VALUE} flex flex-wrap items-baseline gap-x-2`}>
+      <span className="text-[var(--color-ink-ap)]">★ {hero.ap} PA</span>
+      <span className="text-[var(--color-ink-3)]">·</span>
+      <span className="text-[var(--color-ink-mp)]">👢 {hero.mp} PM</span>
+    </p>
+  );
+}
+
 function HeroVitals({ hero, hp }: { hero: Hero; hp: EffectiveHp }) {
   return (
     <section aria-label="Ressources du héros" className={DOCK_PANEL}>
-      <h2 className={SECTION_HEADING}>Héros</h2>
-      <HeroVitalsLine hp={hp} className="text-sm font-bold text-[#b83b3b]" />
-      <p className="text-sm font-bold text-[#3b6fb8]">★ {hero.ap} PA · 👢 {hero.mp} PM</p>
+      <h2 className={PANEL_TITLE}>Héros</h2>
+      <HeroVitalsLine hp={hp} className={`${VALUE} text-[var(--color-ink-danger)]`} />
+      <HeroApMp hero={hero} />
     </section>
   );
 }
