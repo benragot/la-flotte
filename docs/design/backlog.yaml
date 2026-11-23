@@ -12,7 +12,7 @@
 #     qui les fonde.
 
 meta:
-  version: 30
+  version: 31
   updated_at: "2026-11-23"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
@@ -286,7 +286,7 @@ waves:
       - id: 5C
         title: UI combat, tacle et retrait PA-PM
         status: in_progress
-        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; le moteur de déplacement en huit directions est livré lui aussi (5C-path-8dirs, #108 et #113) ; la 5C reste ouverte sur l'interface, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements. Quatre retours de playtest du propriétaire ouvrent 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence (v26) ; **décision DEC-10** (diagonale = 2 PM, écart assumé à 1.29) gouverne 5C-path-8dirs et laisse 5C-spell-range-rebalance bloquée sur son arbitrage. **v29** : les trois retours de playtest sont livrés et clos (#109, #110, #111) ; **v30** : 5C-path-8dirs est close — le moteur de #108 et le TC3 aligné par #113 ferment les deux verrous, et D68, D69, D96 sont soldées. Restes réels de la phase, identiques à `OPEN_5C` du test : 5C-actor-ring, 5C-hover-hp, 5C-pm-zone, 5C-hero-move, 5C-cast-preview, 5C-turn-rail, 5C-info-panel, 5C-group-stars, 5C-log-channel, 5C-set-panoplies, 5C-equip-requirements, 5C-heal-between-rooms et 5C-spell-range-rebalance."
+        notes: "PR #50 (squash c45708f) a livré 5C-d — portée, ligne de vue et `map` dans `BattleState` ; le moteur de déplacement en huit directions est livré lui aussi (5C-path-8dirs, #108 et #113) ; la 5C reste ouverte sur l'interface, le déplacement du héros en combat (5C-hero-move) et les panoplies (5C-set-panoplies) ; l'analyse d'écart du 22/11 (docs/design/specs/dofus-1.29-gaps.md) ajoute 5C-equip-requirements. Quatre retours de playtest du propriétaire ouvrent 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence (v26) ; **décision DEC-10** (diagonale = 2 PM, écart assumé à 1.29) gouverne 5C-path-8dirs et laisse 5C-spell-range-rebalance bloquée sur son arbitrage. **v29** : les trois retours de playtest sont livrés et clos (#109, #110, #111) ; **v30** : 5C-path-8dirs est close — le moteur de #108 et le TC3 aligné par #113 ferment les deux verrous, et D68, D69, D96 sont soldées. Restes réels de la phase, identiques à `OPEN_5C` du test : 5C-actor-ring, 5C-hover-hp, 5C-pm-zone, 5C-hero-move, 5C-cast-preview, 5C-turn-rail, 5C-info-panel, 5C-group-stars, 5C-log-channel, 5C-set-panoplies, 5C-equip-requirements et 5C-spell-range-rebalance ; **v31** : 5C-heal-between-rooms était livrée depuis #80 et le backlog l'ignorait, elle est désormais `done`."
         tasks:
           - id: 5C-a
             title: Panneau de combat 1vN — rendu des N ennemis, ciblage et journal
@@ -423,11 +423,12 @@ waves:
             notes: "docs/design/specs/dofus-1.29-gaps.md ligne 8 — `equipItem` (src/engine/inventory/equipment.ts:20-23) ne vérifie que `category` et `slot`, et `ItemLike` (src/engine/inventory/types.ts:38-47) ne porte pas `level` alors que `src/schemas/itemSchema.ts:67` le déclare : équiper un objet de niveau 18 au niveau 1 passe, ce qui vide de son sens la panoplie de la fiche §6. Porter `level` dans `ItemLike`, refuser sous le niveau et journaliser le refus ; **équiper sans posséder** est le même défaut : `takeFromBag` (src/engine/inventory/equipment.ts:63-66) ne vérifie pas l'échec de `removeItem` (qui rend l'inventaire inchangé quand l'objet manque) et équipe quand même — exiger la présence dans le sac. Les prérequis de caractéristiques attendent une fiche qui les chiffre."
           - id: 5C-heal-between-rooms
             title: "Soin entre les salles de donjon — entorse assumée"
-            status: todo
+            status: done
+            pr: 80
             owner: tdd-coder
             priority: high
-            updated_at: "2026-11-22"
-            notes: "décision DEC-03 : le soin entre les salles est **autorisé** (entorse assumée à Dofus) parce qu'un héros qui meurt en salle 2 (D71, #57) ne se répare pas en affaiblissant les monstres ; couvre le soin de fin de salle et la restauration de PV hors combat (D29) sans pénalité de mort (décision DEC-06)."
+            updated_at: "2026-11-23"
+            notes: "décision DEC-03 : le soin entre les salles est **autorisé** (entorse assumée à Dofus) parce qu'un héros qui meurt en salle 2 (D71, #57) ne se répare pas en affaiblissant les monstres ; couvre le soin de fin de salle et la restauration de PV hors combat (D29) sans pénalité de mort (décision DEC-06). **Livré par #80 (squash 576181f)** : `healBetweenRooms` (src/engine/dungeon/heal.ts) rend `ceil(max × ratio)` du pool effectif au franchissement d'une salle gagnée, le ratio vient de `data/dungeons.yaml` (`healBetweenRooms: 0.5`), il est facturé par `crossingHeal` puis reporté au héros persisté par `heroHpFromCombat`/`carryOverBattleHp` (src/store/useCombatStore.ts:740) et la sauvegarde est écrite ; aucun soin à l'entrée du donjon, en cours de salle, après la dernière salle ni au rechargement (tests/unit/dungeonHeal.spec.ts). D29 n'est couvert que sur le chemin donjon."
           - id: 5C-explore-hp
             title: "Masquer les barres de vie en exploration"
             status: done
@@ -699,6 +700,7 @@ debts:
     title: Les PV courants du héros ne suivent pas le combat — chaque combat repart à PV plein et le soin hors combat est inatteignable en jeu
     severity: high
     target: 5B
+    notes: "Le chemin **donjon** est réparé : `heroHpFromCombat` (src/engine/hero/combatant.ts) reporte les PV effectifs vers le domaine de niveau et `carryOverBattleHp` (src/store/useCombatStore.ts:640) les réécrit dans le héros persisté à chaque salle gagnée — les PV suivent donc entre les salles et le soin de DEC-03 les lit (tests/unit/dungeonHeal.spec.ts). Le **1v1 d'exploration reste ouvert** : `buildGroupCombat` construit son combattant sur `demoHero()` (src/store/useCombatStore.ts:286) et aucun chemin n'écrit les PV du combat dans `hero.hp`, donc un combat de carte repart à PV plein."
   - id: D30
     title: Les items ne portent aucune résistance par élément — le combattant part toujours à 0
     severity: medium
@@ -958,19 +960,12 @@ debts:
     owner: user
     notes: ".opencode/skills/dofus-129-combat/SKILL.md:6-157 : le skill couvre boucle de tour, dégâts, CC, retrait PA-PM, poussée, tacle, initiative et ligne de vue — et **aucune section déplacement**. `PM` n'y apparaît qu'au SKILL.md:79 (réserve restante d'une cible) et `déplacement` qu'au SKILL.md:11 (liste d'actions) ; sa « règle des diagonales et des coins » (SKILL.md:152) porte sur la **ligne de vue**, pas sur le coût du pas. La décision DEC-10 (1 PM orthogonal, 2 PM diagonal, **somme du chemin réellement trouvé**, coin interdit) doit donc y être écrite **avec l'écart assumé à Dofus 1.29**, sinon un futur lecteur relira 1.29 (chaque case entrée = 1 PM) et « corrigera » le 2. `.opencode/skills/` est hors de portée d'écriture d'un agent sans accord du propriétaire, d'où `external` et `owner: user`."
   - id: D103
-    title: "La fenêtre 1-2 tours n'existe que dans la docstring du walkthrough, et la mesure de 2,52 tours est prise avec `D104` actif"
+    title: "La fenêtre 1-2 tours n'existe que dans la docstring du walkthrough ; la mesure est désormais de 2,28 tours, prise avec `D104` corrigé"
     severity: medium
     target: external
     owner: user
     status: blocked
-    notes: "docs/design/DECISIONS.md:25-32 (DEC-03) **n'énonce aucune fenêtre 1-2 tours** : la seule exigence est que le joueur **gagne** au niveau recommandé, ce qui est **vrai aujourd'hui** (`tests/walkthrough/gearedDungeon.spec.ts:716-719` : six cellules gagnent en salle 4). La fenêtre 1-2 ne vit que dans la docstring du mesureur (`tests/walkthrough/gearedDungeon.spec.ts:753-761`), pas dans une décision. La valeur `2,52` est épinglée dans `tests/walkthrough/gearedDungeon.spec.ts:778` (`expect(survieMargin).toBeCloseTo(2.52, 1)`) et mesurée **avec le bug `D104` actif** (monstres de mêlée collés en diagonale figés) : elle ne mesure donc **pas** DEC-10 seul et ne s'impute ni à la règle des 2 PM, ni à une violation de DEC-03. Aucune borne élargie : l'épingle reste exacte (±0,05), pour rougir au moindre changement de contenu. **Ne pas recalibrer avant d'avoir corrigé `D104`** : recalibrer sur une mesure faussée figerait une difficulté fausse. Recalibrage (`hpScale` dans `data/dungeons.yaml`, travail de contenu) NON fait, arbitrage du propriétaire requis."
-  - id: D104
-    title: "`contactLanding` laisse figé un monstre collé en diagonale : son correctif rend la mêlée et fait perdre le donjon à `16 survie`, donc il est bloqué par le recalibrage du contenu"
-    severity: medium
-    target: external
-    owner: user
-    status: blocked
-    notes: "src/engine/multiCombat/approach.ts:50-55 : `neighborCells(target)` contient la case du monstre lui-même, `pathTo` y rend un chemin de coût 0, `cheapest` le choisit, puis `paid.length < 2` rend `null` — un monstre déjà au contact en diagonale ne joue jamais. Le défaut n'est **couvert par aucun test** dans cette PR : le test en échec attendu de l'audit a été RETIRÉ (décision d'orchestrateur : ni correctif, ni test rouge latent). Filtrer les cases non libres avant `cheapest` est mesuré et REFUSÉ dans cette PR : tests/walkthrough/gearedDungeon.spec.ts:722-737 passent de six victoires à cinq, `16 survie` perd la salle 4 (48 PV de monstres restants, 105 actions) au lieu de gagner avec 59 PV, et les cinq autres cellules perdent 14 à 22 PV finales. Corriger rend donc le donjon plus dur et viole DEC-03 (a) ; le correctif et son recalibrage (`hpScale` de `data/dungeons.yaml`, data/** hors périmètre agent) se feront **dans la même PR**, après l'arbitrage du propriétaire."
+    notes: "docs/design/DECISIONS.md:25-32 (DEC-03) **n'énonce aucune fenêtre 1-2 tours** : la seule exigence est que le joueur **gagne** au niveau recommandé, ce qui est **vrai** (`tests/walkthrough/gearedDungeon.spec.ts` : six cellules gagnent en salle 4, avant comme après `D104`). La fenêtre 1-2 ne vit que dans la docstring du mesureur, pas dans une décision. La valeur `2,28` est épinglée (`expect(survieMargin).toBeCloseTo(2.28, 1)`) et **re-mesurée après le correctif `D104`** : la mêlée collée en diagonale frappe désormais, donc la valeur mesure DEC-10 sur un moteur honnête (les 2,52 précédents incluaient des monstres figés). Aucune borne élargie : l'épingle reste exacte (±0,05), pour rougir au moindre changement de contenu. Recalibrage (`hpScale` dans `data/dungeons.yaml`, travail de contenu) NON fait et non requis par DEC-03, arbitrage du propriétaire seul."
   - id: D105
     title: "Le survol d'entité ne couvre pas la salle de donjon : rien n'y est écouté, la scène peinte n'y est pas la carte d'exploration"
     severity: low
