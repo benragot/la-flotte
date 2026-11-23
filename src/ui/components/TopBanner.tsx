@@ -2,6 +2,12 @@ import packageJson from "../../../package.json";
 import type { CombatPhase } from "../../engine/combatLoop/types";
 import { formatGameVersion } from "../../engine/version";
 import { phaseLabel } from "../hudHelpers";
+import {
+  TOP_BANNER,
+  TOP_BANNER_CONTEXT,
+  TOP_BANNER_MICRO,
+  TOP_BANNER_TITLE,
+} from "./hudTheme";
 
 interface TopBannerProps {
   mapId: string;
@@ -9,18 +15,13 @@ interface TopBannerProps {
   phase: CombatPhase;
 }
 
-const BANNER =
-  "pointer-events-auto flex shrink-0 items-baseline gap-4 border-b border-[#8c6d46]/60 bg-[#2b241d]/90 py-1 pl-3 pr-3 text-[#e8dcc8]";
-const TITLE = "text-sm font-bold tracking-wide text-[#d4a537]";
-const VERSION = "text-[10px] font-normal text-[#8c6d46]";
-
 export default function TopBanner({ mapId, turn, phase }: TopBannerProps) {
   const version = formatGameVersion(packageJson.version);
   return (
-    <header className={BANNER} data-zone="header">
-      <h1 className={TITLE}>La Flotte <small className={VERSION}>{version}</small></h1>
-      <p className="text-[11px] opacity-80">Carte {mapId} · Tour {turn}</p>
-      <p className="ml-auto text-sm font-semibold text-[#d4a537]">{phaseLabel(phase)}</p>
+    <header className={TOP_BANNER} data-zone="header">
+      <h1 className={TOP_BANNER_TITLE}>La Flotte <small className={TOP_BANNER_MICRO}>{version}</small></h1>
+      <p className={TOP_BANNER_CONTEXT}>Carte {mapId} · Tour {turn}</p>
+      <p className={`ml-auto ${TOP_BANNER_TITLE}`}>{phaseLabel(phase)}</p>
     </header>
   );
 }
