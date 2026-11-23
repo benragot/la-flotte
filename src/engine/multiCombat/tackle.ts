@@ -1,29 +1,32 @@
-import { computeApMpLossChance, computeTackleEscapePercent } from "../combat";
+import { computeTackleEscapePercent } from "../combat";
 import type { Position } from "../grid";
-import { findCombatant, isActive, isAlive, withCombatant } from "./combatants";
+import { findCombatant, isActive, isAlive } from "./combatants";
 import type { BattleState, CombatantLike, Rng } from "./types";
 
 const PERCENT = 100;
-const MAX_AP_LOSS = 1;
 
-export interface TackleInput {
+/** Coût d'un tacle réussi : **1 PM**, jamais un PA (1.29, dette D70). */
+export const TACKLE_MP_LOSS = 1;
+
+export interface TackleCheckInput {
   state: BattleState;
   moverId: string;
-  move: Position;
   rng: Rng;
 }
 
-export interface TackleResult {
-  state: BattleState;
-  moved: boolean;
-  apLoss: number;
+export interface TackleCheckResult {
+  /** `true` : le pas passe, aucun PM perdu. `false` : tacle, arrêt sur place. */
+  escaped: boolean;
+  /** PM retirés au déplaçant : `TACKLE_MP_LOSS` sur échec, `0` sinon. */
+  mpLoss: number;
 }
 
+/** Contact de tacle : Manhattan 1, donc les **quatre** orthogonales seulement. */
 function isAdjacent(a: Position, b: Position): boolean {
   return Math.abs(a.x - b.x) + Math.abs(a.y - b.y) === 1;
 }
 
-/** Adversaires vivants au contact du déplaçant (4 directions). */
+/** Adversaires vivants au contact du déplaçant (4 directions, jamais la diagonale). */
 export function adjacentEnemies(state: BattleState, mover: CombatantLike): CombatantLike[] {
   return state.combatants.filter(
     (entry) => entry.side !== mover.side && isAlive(entry) && isAdjacent(entry.position, mover.position),
@@ -47,70 +50,35 @@ function escapes(mover: CombatantLike, tackler: CombatantLike, rng: Rng): boolea
   return rng() * PERCENT < percent;
 }
 
-function apLossChance(tackler: CombatantLike, mover: CombatantLike): number {
-  return computeApMpLossChance({
-    casterWisdom: tackler.stats.wisdom,
-    targetWisdom: mover.stats.wisdom,
-    remaining: mover.ap,
-    max: mover.maxAp,
-  });
+/** Aucun tacle : le pas est libre et rien n'est prélevé. */
+function freeCheck(): TackleCheckResult {
+  return { escaped: true, mpLoss: 0 };
 }
 
-/** 1 PA au maximum par tentative, uniquement si le jet de retrait passe. */
-function rollApLoss(tackler: CombatantLike, mover: CombatantLike, rng: Rng): number {
-  return rng() < apLossChance(tackler, mover) ? MAX_AP_LOSS : 0;
+/** Un seul jet d'échappée, jamais de retrait de PA : le PM est la seule facture. */
+function judged(mover: CombatantLike, tackler: CombatantLike, rng: Rng): TackleCheckResult {
+  if (escapes(mover, tackler, rng)) return freeCheck();
+  return { escaped: false, mpLoss: TACKLE_MP_LOSS };
 }
 
-function relocate(state: BattleState, mover: CombatantLike, to: Position): BattleState {
-  return withCombatant(state, { ...mover, position: to });
-}
-
-function applyApLoss(state: BattleState, mover: CombatantLike, amount: number): BattleState {
-  if (amount <= 0) return state;
-  return withCombatant(state, { ...mover, ap: Math.max(0, mover.ap - amount) });
-}
-
-function freeMove(input: TackleInput, mover: CombatantLike): TackleResult {
-  return { state: relocate(input.state, mover, input.move), moved: true, apLoss: 0 };
-}
-
-function tackled(input: TackleInput, mover: CombatantLike, tackler: CombatantLike): TackleResult {
-  if (escapes(mover, tackler, input.rng)) return freeMove(input, mover);
-  const apLoss = rollApLoss(tackler, mover, input.rng);
-  return { state: applyApLoss(input.state, mover, apLoss), moved: false, apLoss };
-}
-
-function tackleStep(input: TackleInput, mover: CombatantLike): TackleResult {
-  const tacklers = adjacentEnemies(input.state, mover);
-  if (tacklers.length === 0) return freeMove(input, mover);
-  return tackled(input, mover, strongestTackler(tacklers));
-}
-
-function isTackleAttempt(input: TackleInput, mover: CombatantLike): boolean {
+/** Le tacle ne concerne que l'actif vivant : les autres sont hors jeu. */
+function mayTackle(input: TackleCheckInput, mover: CombatantLike): boolean {
   return isAlive(mover) && isActive(input.state, input.moverId);
 }
 
 /**
- * Règle de tacle retenue (1.29 simplifiée, assumée) :
- * 1. seuls les adversaires vivants à distance 1 du point de départ comptent ;
- *    le **plus agile** mène le tacle (départage par ordre de tableau) ;
- * 2. jet d'échappée : `rng() × 100 < computeTackleEscapePercent(...)` ⇒ le
- *    déplacement passe, 0 PA perdu (inégalité stricte, voir `escapes`) ;
- * 3. jet de retrait en cas de tacle : `rng() < computeApMpLossChance(...)` ⇒
- *    **1 PA** perdu, sinon le déplacement est refusé sans perte.
+ * Jet de tacle au **départ d'un pas** (1.29, dette D70). La case quittée est
+ * celle du déplaçant dans `state` : l'appelant doit donc la mettre à jour
+ * avant chaque pas. Les quatre orthogonales comptent, la diagonale non.
  *
- * Simplifications assumées par rapport à 1.29 :
- * - tacleur **unique** (1.29 combine plusieurs tacleurs par produit) ;
- * - perte de **PA** sur déplacement refusé (1.29 retire des PM) ;
- * - déplacement **refusé** (1.29 l'autorise avec un malus de PM).
- *
- * La légalité de la case d'arrivée et le coût en PM restent à la charge de
- * l'appelant.
+ * Un seul tirage par pas, et **aucun** quand personne n'est au contact :
+ * `computeApMpLossChance` n'est plus consulté (l'ancienne perte de PA sur un
+ * second jet a été supprimée, 1.29 retire des PM).
  */
-export function resolveTackle(input: TackleInput): TackleResult {
+export function tackleCheck(input: TackleCheckInput): TackleCheckResult {
   const mover = findCombatant(input.state, input.moverId);
-  if (mover === undefined || !isTackleAttempt(input, mover)) {
-    return { state: input.state, moved: false, apLoss: 0 };
-  }
-  return tackleStep(input, mover);
+  if (mover === undefined || !mayTackle(input, mover)) return freeCheck();
+  const tacklers = adjacentEnemies(input.state, mover);
+  if (tacklers.length === 0) return freeCheck();
+  return judged(mover, strongestTackler(tacklers), input.rng);
 }

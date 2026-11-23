@@ -45,7 +45,7 @@ import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { advanceTurn, buildTimeline, isDefeat, isVictory } from "../engine/multiCombat";
+import { advanceTurn, buildTimeline, isDefeat, isVictory, moveHero } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat/timeline";
 import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, RangeSpec, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
@@ -128,6 +128,13 @@ interface CombatStore {
   clearDungeonNotice: () => void;
   /** `rng` injectable (défaut `Math.random`) pour des combats déterministes en test. */
   battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) => void;
+  /**
+   * NOUVEAU (5C-hero-move) : déplacement du héros actif dans la salle, facturé
+   * pas par pas en PM (DEC-10) avec le tacle de `tackle.ts` à chaque case
+   * quittée. Aucun PA, aucun quota de sort, aucune rotation de timeline : le
+   * clic d'interface arrive dans une PR suivante.
+   */
+  battleMove: (input: { to: Position; rng?: Rng }) => void;
   battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) => void;
   /**
    * NOUVEAU (5C-c) : joue les tours ennemis jusqu'au retour de la main au
@@ -581,6 +588,17 @@ function enemyTurnUpdate(
   return battleUpdate(store, resolveBattleEnemyTurn({ state, strategy: input.strategy, rng: input.rng ?? Math.random }));
 }
 
+/**
+ * Déplacement du héros (5C-hero-move) : la facture, le tacle et l'arrêt partiel
+ * vivent dans `moveHero`. Passage obligé par `battleUpdate` : trajets et état par
+ * identité (aucun `set` inutile, `selectedSpellId` intact).
+ */
+function moveUpdate(store: CombatStore, input: { to: Position; rng?: Rng }): Partial<CombatStore> {
+  const state = store.battle;
+  if (state === null) return {};
+  return battleUpdate(store, moveHero({ state, to: input.to, rng: input.rng ?? Math.random }));
+}
+
 function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
   const state = store.battle;
   if (state === null) return {};
@@ -808,6 +826,7 @@ type BattleActions = Pick<
   CombatStore,
   | "startDungeonRoom"
   | "battleAttack"
+  | "battleMove"
   | "battleEnemyTurn"
   | "playEnemyTurns"
   | "playEnemyStepOnce"
@@ -823,6 +842,7 @@ function battlePlayActions(set: StoreSetter) {
     startDungeonRoom: (input: { room: DungeonRoom }) => set({ battle: battleFromRoom(input.room) }),
     battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) =>
       set((store) => attackUpdate(store, input)),
+    battleMove: (input: { to: Position; rng?: Rng }) => set((store) => moveUpdate(store, input)),
     battleEnemyTurn: (input: { strategy: EnemyStrategy; rng?: Rng }) =>
       set((store) => enemyTurnUpdate(store, input)),
   };
@@ -910,6 +930,7 @@ const DEFAULT_STATE = {
   | "clearDungeonNotice"
   | "battleAttack"
   | "battleSpellAttack"
+  | "battleMove"
   | "battleEnemyTurn"
   | "playEnemyTurns"
   | "playEnemyStepOnce"

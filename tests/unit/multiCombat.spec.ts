@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  computeApMpLossChance,
   computeCritRate,
   computeDamage,
   computePushbackDamage,
@@ -16,8 +15,9 @@ import {
   isCritical,
   isDefeat,
   isVictory,
+  moveHero,
   resolveAttack,
-  resolveTackle,
+  tackleCheck,
   targetsOf,
 } from "../../src/engine/multiCombat";
 import type { CombatResistances } from "../../src/engine/combatLoop";
@@ -493,17 +493,15 @@ describe("case partagée héritée", () => {
   });
 });
 
-describe("resolveTackle — asymétrie du tacle", () => {
+describe("tackleCheck — asymétrie du tacle", () => {
   it("fuyard 0 / tacleur 200 : tacle systématique", () => {
     const { player, enemy } = duel({
       player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 0 } },
       enemy: { position: { x: 2, y: 1 }, stats: { ...STATS, agility: 200 } },
     });
-    const state = makeState([player, enemy]);
+    const state = makeState([player, enemy], { map: OPEN_MAP });
     expect(computeTackleEscapePercent({ fleeAgility: 0, tackleAgility: 200 })).toBe(0);
-    const result = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0, 0) });
-    expect(result.moved).toBe(false);
-    expect(result.apLoss).toBe(1);
+    expect(tackleCheck({ state, moverId: "p1", rng: sequence(0, 0) })).toEqual({ escaped: false, mpLoss: 1 });
   });
 
   it("fuyard 100 / tacleur 0 : esquive systématique", () => {
@@ -511,15 +509,13 @@ describe("resolveTackle — asymétrie du tacle", () => {
       player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 100 } },
       enemy: { position: { x: 2, y: 1 }, stats: { ...STATS, agility: 0 } },
     });
-    const state = makeState([player, enemy]);
+    const state = makeState([player, enemy], { map: OPEN_MAP });
     expect(computeTackleEscapePercent({ fleeAgility: 100, tackleAgility: 0 })).toBe(100);
-    const result = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0.99) });
-    expect(result.moved).toBe(true);
-    expect(result.apLoss).toBe(0);
+    expect(tackleCheck({ state, moverId: "p1", rng: sequence(0.99) })).toEqual({ escaped: true, mpLoss: 0 });
   });
 });
 
-describe("resolveTackle — choix du tacleur", () => {
+describe("tackleCheck — choix du tacleur", () => {
   it("retient le tacleur le plus agile quand deux adversaires sont adjacents", () => {
     const { player, enemy } = duel({
       player: { position: { x: 1, y: 1 }, stats: { ...STATS, agility: 0 } },
@@ -531,67 +527,59 @@ describe("resolveTackle — choix du tacleur", () => {
       initiative: 10,
       stats: { ...STATS, agility: 200 },
     });
-    const state = makeState([enemy, player, strong]);
-    const result = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0.3, 0) });
-    expect(result.moved).toBe(false);
-    expect(result.apLoss).toBe(1);
+    const state = makeState([enemy, player, strong], { map: OPEN_MAP });
+    expect(tackleCheck({ state, moverId: "p1", rng: () => 0.3 })).toEqual({ escaped: false, mpLoss: 1 });
   });
 });
 
-describe("resolveTackle — contact", () => {
-  it("tacle réussi : déplacement refusé et perte de PA", () => {
+describe("tacle et déplacement — contact", () => {
+  it("tacle réussi : déplacement arrêté et perte de PM, aucun PA", () => {
     const { player, enemy } = adjacentDuel();
-    const state = makeState([player, enemy]);
-    const result = resolveTackle({ state, moverId: "p1", move: { x: 0, y: 1 }, rng: sequence(0.99, 0) });
-    const lossChance = computeApMpLossChance({ casterWisdom: 80, targetWisdom: 80, remaining: 6, max: 6 });
-    expect(lossChance).toBeGreaterThan(0);
-    expect(result.moved).toBe(false);
-    expect(result.apLoss).toBe(1);
-    expect(result.state.combatants[0]?.ap).toBe(player.ap - 1);
-    expect(result.state.combatants[0]?.position).toEqual(player.position);
+    const state = makeState([player, enemy], { map: OPEN_MAP });
+    const next = moveHero({ state, to: { x: 0, y: 1 }, rng: () => 0.99 });
+    const moved = combatantOf(next, "p1");
+    expect(moved.position).toEqual(player.position);
+    expect(moved.mp).toBe(player.mp - 1);
+    expect(moved.ap).toBe(player.ap);
   });
 
-  it("tacle raté : le déplacement passe sans perte de PA", () => {
+  it("tacle raté : le déplacement passe sans PM de tacle", () => {
     const { player, enemy } = adjacentDuel();
-    const state = makeState([player, enemy]);
-    const result = resolveTackle({ state, moverId: "p1", move: { x: 0, y: 1 }, rng: sequence(0) });
-    expect(result.moved).toBe(true);
-    expect(result.apLoss).toBe(0);
-    expect(result.state.combatants[0]?.position).toEqual({ x: 0, y: 1 });
-    expect(result.state.combatants[0]?.ap).toBe(player.ap);
+    const state = makeState([player, enemy], { map: OPEN_MAP });
+    const next = moveHero({ state, to: { x: 0, y: 1 }, rng: () => 0 });
+    const moved = combatantOf(next, "p1");
+    expect(moved.position).toEqual({ x: 0, y: 1 });
+    expect(moved.mp).toBe(player.mp - 1);
+    expect(moved.ap).toBe(player.ap);
   });
 });
 
-describe("resolveTackle — refus et absence de contact", () => {
-  it("sans adversaire adjacent : déplacement libre sans jet", () => {
+describe("tackleCheck — refus et absence de contact", () => {
+  it("sans adversaire adjacent : aucun jet, aucun PM", () => {
     const { player, enemy } = duel({ player: { position: { x: 1, y: 1 } }, enemy: { position: { x: 5, y: 5 } } });
-    const state = makeState([player, enemy]);
+    const state = makeState([player, enemy], { map: OPEN_MAP });
     const rng = countingRng(0);
-    const result = resolveTackle({ state, moverId: "p1", move: { x: 0, y: 1 }, rng: rng.rng });
+    expect(tackleCheck({ state, moverId: "p1", rng: rng.rng })).toEqual({ escaped: true, mpLoss: 0 });
     expect(rng.calls()).toBe(0);
-    expect(result.moved).toBe(true);
-    expect(result.apLoss).toBe(0);
   });
 
   it("refuse un déplacement si l'entité n'est pas active", () => {
-    const { player, enemy } = adjacentDuel();
-    const state = makeState([player, enemy]);
-    const result = resolveTackle({ state, moverId: "e1", move: { x: 3, y: 1 }, rng: sequence(0) });
-    expect(result.state).toBe(state);
-    expect(result.moved).toBe(false);
-    expect(result.apLoss).toBe(0);
+    const { player, enemy } = duel({
+      player: { position: { x: 1, y: 1 }, initiative: 10 },
+      enemy: { position: { x: 2, y: 1 }, initiative: 300 },
+    });
+    const state = makeState([player, enemy], { map: OPEN_MAP });
+    expect(moveHero({ state, to: { x: 1, y: 0 }, rng: () => 0 })).toBe(state);
   });
 });
 
 describe("actif mort", () => {
   it("ne peut ni attaquer ni se déplacer", () => {
     const { player, enemy } = duel();
-    const state = makeState([{ ...player, hp: 0 }, enemy]);
+    const state = makeState([{ ...player, hp: 0 }, enemy], { map: OPEN_MAP });
     const attack = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec(), rng: () => 0.99 });
     expect(attack).toBe(state);
-    const move = resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0) });
-    expect(move.state).toBe(state);
-    expect(move.moved).toBe(false);
+    expect(moveHero({ state, to: { x: 1, y: 0 }, rng: () => 0 })).toBe(state);
   });
 });
 
@@ -861,7 +849,8 @@ describe("immuabilité", () => {
     const snapshot = structuredClone(state);
     resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec({ pushCells: 3 }), rng: () => 0.99 });
     advanceTurn(state);
-    resolveTackle({ state, moverId: "p1", move: { x: 1, y: 0 }, rng: sequence(0.99, 0) });
+    tackleCheck({ state, moverId: "p1", rng: sequence(0.99) });
+    moveHero({ state, to: { x: 1, y: 0 }, rng: sequence(0.99) });
     enemiesAct({ state, rng: () => 0, strategy: () => null });
     expect(state).toEqual(snapshot);
   });
