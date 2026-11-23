@@ -2,11 +2,11 @@ import type { Position } from "../engine/grid";
 import type { FloatingEvent } from "../engine/combat";
 import type { CombatantKind, CombatState } from "../engine/combatLoop/types";
 import { getCastableCells } from "../engine/combatLoop/castable";
-import { getReachableCells } from "../engine/combatLoop/cells";
 import type { GridSize, IsoOrigin } from "./gridProjection";
 import { sceneOrigin } from "./gridProjection";
 import type { GridHighlight, SceneModel, TileView } from "./scene";
 import { buildSceneModel, cellKey } from "./scene";
+import { moveZoneCells } from "./moveZone";
 import { knownSpriteId } from "./spriteManifest";
 import type { Facing, SpriteAnimationName } from "./sprites/types";
 import type { TrailBatch } from "../store/trails";
@@ -21,6 +21,8 @@ export interface CombatSceneInput {
   viewport: GridSize;
   /** Trajets reçus du store : distincts de l'aperçu `path`. */
   trails?: TrailBatch;
+  /** `Maj` maintenu, lu à la frontière (`useModifierHeld`) : R1, jamais `window` ici. */
+  modifierHeld?: boolean;
 }
 
 /** Dernière action lisible dans `combat.log`, utilisée pour les animations. */
@@ -60,9 +62,9 @@ export function toCellKeys(positions: readonly Position[]): Set<string> {
   return new Set(positions.map(cellKey));
 }
 
-function moveCells(combat: CombatState): Position[] {
-  if (combat.phase !== "player_turn") return [];
-  return getReachableCells(combat);
+function moveCells(input: CombatSceneInput): Position[] {
+  const { combat, hoveredCell, modifierHeld } = input;
+  return moveZoneCells({ combat, hoveredCell, modifierHeld: modifierHeld === true });
 }
 
 function castCells(combat: CombatState, spellId: string | null): Position[] {
@@ -76,7 +78,7 @@ function hoverKey(position: Position | null): string | null {
 
 function highlightFor(input: CombatSceneInput): GridHighlight {
   return {
-    move: toCellKeys(moveCells(input.combat)),
+    move: toCellKeys(moveCells(input)),
     cast: toCellKeys(castCells(input.combat, input.selectedSpellId)),
     hover: hoverKey(input.hoveredCell),
   };

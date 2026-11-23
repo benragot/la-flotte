@@ -55,6 +55,11 @@ function buildState(): CombatState {
 
 const EMPTY_HIGHLIGHT = { move: new Set<string>(), cast: new Set<string>(), hover: null };
 
+/** Même vue de combat, sans sort sélectionné : seule l'entrée qui compte varie. */
+function viewAt(combat: CombatState, hoveredCell: { x: number; y: number } | null) {
+  return buildViewModel({ combat, selectedSpellId: null, hoveredCell, viewport: VIEWPORT });
+}
+
 describe("buildSceneModel — tuiles", () => {
   it("produit une tuile par case et aucune surbrillance par défaut", () => {
     const model = buildSceneModel({ map: demoMap(), highlight: EMPTY_HIGHLIGHT, origin: ORIGIN });
@@ -121,17 +126,17 @@ describe("buildSceneModel — surbrillances", () => {
 });
 
 describe("buildViewModel — surbrillances", () => {
-  it("surligne les cases atteignables pendant le tour du joueur", () => {
+  it("surligne les cases atteignables au survol du héros, jamais sans survol", () => {
     const combat = buildState();
-    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
-    expect(getReachableCells(combat).length).toBeGreaterThan(0);
-    expect(view.scene.highlights).toHaveLength(getReachableCells(combat).length);
+    const idle = viewAt(combat, null);
+    const hovered = viewAt(combat, combat.player.position);
+    expect(idle.scene.highlights).toHaveLength(0);
+    expect(hovered.scene.highlights).toHaveLength(getReachableCells(combat).length);
   });
 
   it("ne surligne aucune case de déplacement hors du tour du joueur", () => {
     const combat: CombatState = { ...buildState(), phase: "enemy_turn" };
-    const view = buildViewModel({ combat, selectedSpellId: null, hoveredCell: null, viewport: VIEWPORT });
-    expect(view.scene.highlights).toHaveLength(0);
+    expect(viewAt(combat, null).scene.highlights).toHaveLength(0);
   });
 
   it("surligne les cases ciblables par le sort sélectionné", () => {

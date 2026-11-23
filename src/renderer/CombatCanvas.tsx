@@ -10,6 +10,7 @@ import { useCombatScene } from "./useCombatScene";
 import type { CombatView } from "./useCombatView";
 import { useCombatView } from "./useCombatView";
 import { useContainerSize } from "./useContainerSize";
+import { useModifierHeld } from "./useModifierHeld";
 import { usePixiApp } from "./usePixiApp";
 import { useSceneHover } from "./useSceneHover";
 
@@ -65,7 +66,9 @@ function useBoardWiring(input: BoardWiringInput): void {
   const { app, view, size, props, host } = input;
   const mode = props.mode ?? "combat";
   const pointerCombat = mode === "exploration" ? null : view.combat;
-  useCombatScene({ app, ...view, viewport: size, mode, exploration: props.exploration });
+  // `Maj` est un état d'entrée : il naît ici, à la frontière, et descend en booléen.
+  const modifierHeld = useModifierHeld();
+  useCombatScene({ app, ...view, viewport: size, mode, exploration: props.exploration, modifierHeld });
   // La salle prime sur le 1v1, exactement comme la peinture (`arenaSceneView`).
   useCombatPointer({ app, combat: pointerCombat, battle: view.battle, viewport: size });
   useSceneHover({ host, map: hoverMap(view, props), viewport: size });
