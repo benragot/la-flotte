@@ -43,12 +43,18 @@ function bindClick(element: HTMLElement, click: (event: PointerEvent) => void): 
  * suivi depuis #51 : pas d'aperçu de chemin, et le seul retour au clic est la
  * ligne de journal écrite par `clickCell` (« Le chemin est bloqué » ou
  * « Le héros se déplace »). La grille visible appartient à la PR décor.
+ *
+ * Une **salle ouverte** suspend cet écouteur : le canvas est son enfant, donc
+ * le même clic y déclencherait aussi `clickCell` et déplacerait le héros
+ * d'exploration resté derrière. Dans une salle, le clic appartient à
+ * `useCombatPointer` (`battleMove`), un seul auteur par geste.
  */
 export function useExplorationPointer(host: RefObject<HTMLElement>): void {
   const mode = useCombatStore((state) => state.mode);
+  const battle = useCombatStore((state) => state.battle);
   useEffect(() => {
     const element = host.current;
-    if (mode !== "exploration" || element === null) return undefined;
+    if (mode !== "exploration" || battle !== null || element === null) return undefined;
     return bindClick(element, (event: PointerEvent) => onClick(event, element));
-  }, [mode, host]);
+  }, [mode, battle, host]);
 }
