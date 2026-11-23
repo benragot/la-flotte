@@ -7,7 +7,8 @@ import { computeDamage } from "../../src/engine/combat/damage";
 import { roomMonsters } from "../../src/engine/dungeon";
 import type { DungeonRoom } from "../../src/engine/dungeon";
 import { monsterCombatant, setupDungeonBattle } from "../../src/engine/dungeon/combatants";
-import { buildTimeline, isDefeat } from "../../src/engine/multiCombat";
+import { parseAsciiMap } from "../../src/engine/grid";
+import { buildTimeline, enemiesAct, isDefeat } from "../../src/engine/multiCombat";
 import type { BattleState, CombatantLike, EnemyAction, EnemyStrategy, Rng } from "../../src/engine/multiCombat";
 import type { StorageLike } from "../../src/engine/save";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
@@ -168,6 +169,33 @@ describe("spellStrategy — sorts réels du monstre", () => {
     const first = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0.5) })(state, enemy.id);
     const second = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0.5) })(state, enemy.id);
     expect(first).toEqual(second);
+  });
+});
+
+describe("contact diagonal (D104) — le monstre collé frappe", () => {
+  const CONTACT_MAP = parseAsciiMap(Array.from({ length: 9 }, () => "........."));
+
+  /** Crabe en (2,2), héros en (3,3) : distance de Manhattan 2, portée de la pince 1. */
+  function diagonalCrab(): { state: BattleState; enemy: CombatantLike } {
+    const enemy = monsterCombatant({ monster: CRABE, index: 0, position: { x: 2, y: 2 } });
+    return { state: { ...asState([heroCombatant({ position: { x: 3, y: 3 } }), enemy]), map: CONTACT_MAP }, enemy };
+  }
+
+  it("se décale d'un pas orthogonal, puis frappe dans le même tour", () => {
+    const { state, enemy } = diagonalCrab();
+    const strategy = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0) });
+    const next = enemiesAct({ state, rng: fixedRng(0), strategy });
+    expect(heroOf(next).hp).toBeLessThan(50);
+    const crab = next.combatants.find((entry) => entry.id === enemy.id);
+    expect(crab?.position).toEqual({ x: 3, y: 2 });
+  });
+
+  it("ne frappe pas depuis la diagonale sans se déplacer : il paie son pas", () => {
+    const { state, enemy } = diagonalCrab();
+    const strategy = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0) });
+    const next = enemiesAct({ state, rng: fixedRng(0), strategy });
+    const crab = next.combatants.find((entry) => entry.id === enemy.id);
+    expect(crab?.mp).toBe((enemy.mp ?? 0) - 1);
   });
 });
 

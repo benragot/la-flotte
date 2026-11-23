@@ -758,6 +758,7 @@ const DELIVERED_5C: Array<[string, number, string[]]> = [
   ["5C-hover-highlight", 110, ["326988d"]],
   ["5C-cast-cadence", 111, ["b1bf9a8"]],
   ["5C-path-8dirs", 108, ["c5b8867", "65e194a"]],
+  ["5C-heal-between-rooms", 80, ["576181f"]],
 ];
 
 const OPEN_5C = [
@@ -772,7 +773,6 @@ const OPEN_5C = [
   "5C-log-channel",
   "5C-set-panoplies",
   "5C-equip-requirements",
-  "5C-heal-between-rooms",
   "5C-spell-range-rebalance",
 ];
 
@@ -791,7 +791,7 @@ describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les treize tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les douze tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -1091,8 +1091,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 30", () => {
-    expect(readBacklog().meta.version).toEqual(30);
+  it("versionne le backlog en 31", () => {
+    expect(readBacklog().meta.version).toEqual(31);
   });
 });
 
@@ -1970,13 +1970,13 @@ describe("backlog — dettes de déplacement solées par DEC-10 (v26, v30)", () 
 });
 
 /**
- * Audit de la PR #108 : aucune borne n'a été élargie, la mesure est épinglée et
- * deux dettes disent la vérité — `D103` (fenêtre 1-2 seulement dans la docstring,
- * mesure contaminée par `D104`) et `D104` (contact diagonal non corrigé, et son
- * test rouge retiré : aucun test en échec attendu ne survit dans la PR).
+ * Audit de la PR #108, mis à jour en v31 : aucune borne n'a été élargie. `D103`
+ * reste ouverte (la fenêtre 1-2 ne vit que dans la docstring) mais sa mesure est
+ * désormais propre — 2,28 tours, épinglés ±0,05. `D104` est SOLDÉE : le contact
+ * diagonal attaque, et le test qui le prouve est le test inversé de l'audit.
  */
-describe("backlog — dette D103 exacte et contact diagonal bloqué (v28)", () => {
-  it("verse D103 : la fenêtre 1-2 n'est qu'une docstring, la mesure inclut D104", () => {
+describe("backlog — dette D103 re-mesurée et contact diagonal corrigé (v31)", () => {
+  it("verse D103 : la fenêtre 1-2 n'est qu'une docstring, la mesure est propre depuis D104", () => {
     const debt = debtById(readBacklog(), "D103");
     expect({ severity: debt?.severity, target: debt?.target, owner: debt?.owner, status: debt?.status }).toEqual({
       severity: "medium",
@@ -1986,29 +1986,22 @@ describe("backlog — dette D103 exacte et contact diagonal bloqué (v28)", () =
     });
     const text = `${debt?.title} ${debt?.notes}`;
     expect(text).toContain("n'énonce aucune fenêtre 1-2 tours");
-    expect(text).toContain("2,52");
-    expect(text).toContain("avec le bug `D104` actif");
-    expect(text).toContain("tests/walkthrough/gearedDungeon.spec.ts:778");
-    expect(text).toContain("toBeCloseTo(2.52, 1)");
-    expect(text).toContain("Ne pas recalibrer avant d'avoir corrigé `D104`");
+    expect(text).toContain("2,28");
+    expect(text).toContain("re-mesurée après le correctif `D104`");
+    expect(text).toContain("toBeCloseTo(2.28, 1)");
+    expect(text).toContain("Aucune borne élargie");
   });
 
-  it("verse D104 : le contact diagonal reste figé, correctif refusé, test rouge retiré", () => {
-    const debt = debtById(readBacklog(), "D104");
-    expect({ severity: debt?.severity, target: debt?.target, owner: debt?.owner, status: debt?.status }).toEqual({
-      severity: "medium",
-      target: "external",
-      owner: "user",
-      status: "blocked",
-    });
-    const text = `${debt?.title} ${debt?.notes}`;
-    expect(text).toContain("src/engine/multiCombat/approach.ts:50-55");
-    expect(text).toContain("couvert par aucun test");
-    expect(text).toContain("RETIRÉ");
-    expect(text).not.toContain("rouge encodé");
-    expect(text).toContain("DEC-03 (a)");
-    expect(text).toContain("48 PV de monstres restants");
-    expect(text).toContain("105 actions");
+  it("solde D104 : la dette disparaît, le test inversé prouve que le contact diagonal attaque", () => {
+    expect(debtById(readBacklog(), "D104")).toBeUndefined();
+    const engine = readFileSync(join(process.cwd(), "src/engine/multiCombat/approach.ts"), "utf8");
+    expect(engine).toContain("freeContactCells");
+    expect(engine).toContain("tighterContact");
+    const unit = readFileSync(join(process.cwd(), "tests/unit/multiCombat.spec.ts"), "utf8");
+    expect(unit).toContain("contact (D104)");
+    expect(unit).toContain("un monstre collé en diagonale obtient la case orthogonale de contact");
+    const retaliation = readFileSync(join(process.cwd(), "tests/unit/enemyRetaliation.spec.ts"), "utf8");
+    expect(retaliation).toContain("se décale d'un pas orthogonal, puis frappe dans le même tour");
   });
 });
 

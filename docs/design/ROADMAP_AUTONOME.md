@@ -46,7 +46,7 @@ Spec de référence : `docs/design/specs/ui-dofus-retro.md`
 - [ ] 5C-log-channel — journal unique teinté par élément, sans message de déplacement
 - [ ] 5C-set-panoplies — panoplies de la fiche §6 : PV, résistances, Force (levier de survie D71)
 - [ ] 5C-equip-requirements — conditions d'équipement : niveau vérifié avant de porter un objet (écart 8)
-- [ ] 5C-heal-between-rooms — soin entre les salles de donjon, entorse assumée (décision DEC-03)
+- [x] 5C-heal-between-rooms — soin entre les salles de donjon, entorse assumée (décision DEC-03, livré #80)
 - [x] 5D-a premier donjon jouable — déclencher une salle depuis le jeu (PR #56)
 - [x] 5D-b walkthrough « je joue » — du héros créé au donjon (PR #57)
 - [ ] 5D-hud-bar — barre d'interface basse : portrait, niveau, XP, kamas

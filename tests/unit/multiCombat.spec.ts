@@ -21,7 +21,7 @@ import {
   targetsOf,
 } from "../../src/engine/multiCombat";
 import type { CombatResistances } from "../../src/engine/combatLoop";
-import type { AsciiMap } from "../../src/engine/grid";
+import type { AsciiMap, Position } from "../../src/engine/grid";
 import type {
   AttackSpec,
   BattleState,
@@ -663,6 +663,83 @@ function approachStrategy(current: BattleState, enemyId: string): EnemyAction {
   const cell = approachCell({ state: current, enemy, target, cells: enemy.mp });
   return cell === null ? { kind: "blocked", reason: "chemin absent" } : { kind: "move", to: cell };
 }
+
+/** Contact (D104) : le héros tient (3,3), le monstre est posé où on veut. */
+function contactState(enemyPosition: Position, map: AsciiMap = ROAM_MAP): BattleState {
+  const hero = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 3, y: 3 } });
+  const enemy = makeCombatant({ id: "e1", name: "Piou", initiative: 500, position: enemyPosition });
+  return makeState([hero, enemy], { map });
+}
+
+function approachOf(state: BattleState, cells: number) {
+  const enemy = combatantOf(state, "e1");
+  return approachCell({ state, enemy, target: combatantOf(state, "p1"), cells });
+}
+
+/** Héros (3,3) encerclé de huit murs : plus aucune case de contact libre. */
+const WALLED_HERO_MAP: AsciiMap = parseAsciiMap([
+  ".........",
+  ".........",
+  "..###....",
+  "..#.#....",
+  "..###....",
+  ".........",
+  ".........",
+  ".........",
+]);
+
+/** Cible encerclée de sept tiers vivants : plus aucune case de contact libre. */
+function ringedHeroState(): BattleState {
+  const hero = makeCombatant({ id: "p1", side: "player", initiative: 10, position: { x: 3, y: 3 } });
+  const tested = makeCombatant({ id: "e1", name: "Piou", initiative: 500, position: { x: 2, y: 2 } });
+  const ring = [
+    { x: 3, y: 2 },
+    { x: 4, y: 3 },
+    { x: 3, y: 4 },
+    { x: 2, y: 3 },
+    { x: 4, y: 2 },
+    { x: 4, y: 4 },
+    { x: 2, y: 4 },
+  ].map((position, index) => makeCombatant({ id: `ring${index}`, position, initiative: 100 - index }));
+  return makeState([hero, tested, ...ring], { map: ROAM_MAP });
+}
+
+describe("approachCell — contact (D104)", () => {
+  it("un monstre collé en diagonale obtient la case orthogonale de contact", () => {
+    // La case du monstre lui-même était candidate (chemin de coût 0, `paid.length`
+    // à 1) : `cheapest` la choisissait et l'approche rendait `null`.
+    expect(approachOf(contactState({ x: 2, y: 2 }), 3)).toEqual({ x: 3, y: 2 });
+  });
+
+  it("la facture reste celle du chemin réel : un pas orthogonal = 1 PM", () => {
+    expect(approachOf(contactState({ x: 2, y: 2 }), 1)).toEqual({ x: 3, y: 2 });
+  });
+
+  it("la case de départ n'est jamais la case d'arrivée", () => {
+    const cell = approachOf(contactState({ x: 2, y: 2 }), 3);
+    expect(cell).not.toEqual({ x: 2, y: 2 });
+  });
+
+  it("un monstre déjà au contact orthogonal ne bouge pas : aucune case d'approche", () => {
+    expect(approachOf(contactState({ x: 2, y: 3 }), 3)).toBeNull();
+  });
+
+  it("cible encerclée de murs : null, aucun déplacement fantôme", () => {
+    const state = contactState({ x: 0, y: 0 }, WALLED_HERO_MAP);
+    expect(approachOf(state, 3)).toBeNull();
+    const next = enemiesAct({ state, rng: () => 0.99, strategy: approachStrategy });
+    expect(positionOf(next, "e1")).toEqual({ x: 0, y: 0 });
+    expect(next.log.some((line) => line.includes("se déplace"))).toBe(false);
+  });
+
+  it("cible encerclée de tiers vivants : null, aucun déplacement fantôme", () => {
+    const state = ringedHeroState();
+    expect(approachOf(state, 3)).toBeNull();
+    const next = enemiesAct({ state, rng: () => 0.99, strategy: approachStrategy });
+    expect(positionOf(next, "e1")).toEqual({ x: 2, y: 2 });
+    expect(next.log.some((line) => line.includes("se déplace"))).toBe(false);
+  });
+});
 
 /**
  * DEC-10 : le saut (5,5) → (3,2) coûte 5 PM — [(5,5)→(5,4) = 1, puis deux

@@ -1,5 +1,6 @@
 import type { Position } from "../grid";
-import { findPath, mapPathBudget, neighborCells, pathCost, pathWithinBudget } from "../grid";
+import { findPath, mapPathBudget, neighborCells, pathCost, pathWithinBudget, samePosition } from "../grid";
+import { manhattan } from "../combatLoop/cells";
 import type { BattleState, CombatantLike } from "./types";
 
 /**
@@ -23,10 +24,10 @@ function blockers(state: BattleState, enemyId: string, targetId: string): Positi
   return others.map((entry) => entry.position);
 }
 
-function pathTo(input: ApproachInput, to: Position): Position[] | null {
+function pathTo(input: ApproachInput, to: Position, extraBlocked: readonly Position[] = []): Position[] | null {
   const map = input.state.map;
   if (map === undefined) return null;
-  const occupied = blockers(input.state, input.enemy.id, input.target.id);
+  const occupied = [...blockers(input.state, input.enemy.id, input.target.id), ...extraBlocked];
   return findPath({ map, from: input.enemy.position, to, maxPm: mapPathBudget(map), occupied });
 }
 
@@ -46,12 +47,38 @@ function landing(path: readonly Position[], cells: number): Position | null {
   return paid.length < 2 ? null : (paid.at(-1) ?? null);
 }
 
-/** Repli : la cible occupe sa propre case, on vise la meilleure case au contact. */
-function contactLanding(input: ApproachInput): Position | null {
-  const paths = neighborCells(input.target.position).map((cell) => pathTo(input, cell)).filter(isPath);
-  const path = cheapest(paths);
-  const paid = path === null ? [] : pathWithinBudget(path, input.cells);
+/** Une case de contact doit être libre : ni l'ennemi, ni la cible, ni un tiers vivant. */
+function freeContactCells(input: ApproachInput): Position[] {
+  const taken = [input.enemy.position, input.target.position, ...blockers(input.state, input.enemy.id, input.target.id)];
+  return neighborCells(input.target.position).filter((cell) => !taken.some((takenCell) => samePosition(takenCell, cell)));
+}
+
+/** Pour une case de contact, la cible elle-même bloque : on ne la traverse pas. */
+function contactPathTo(input: ApproachInput, to: Position): Position[] | null {
+  return pathTo(input, to, [input.target.position]);
+}
+
+/**
+ * Le contact ne fait que se resserrer : seule une case qui **baisse** la distance
+ * de Manhattan (la métrique de portée, cf. `rangeOf`) est une approche. Sans ce
+ * garde, un monstre déjà adjacent orthogonalement se décalerait latéralement.
+ */
+function tighterContact(input: ApproachInput, cell: Position): boolean {
+  return manhattan(cell, input.target.position) < manhattan(input.enemy.position, input.target.position);
+}
+
+/** Dernière case payée d'un chemin de contact : au moins le départ et un pas. */
+function paidLanding(path: Position[] | null, cells: number): Position | null {
+  if (path === null) return null;
+  const paid = pathWithinBudget(path, cells);
   return paid.length < 2 ? null : (paid.at(-1) ?? null);
+}
+
+/** Repli : la cible occupe sa propre case, on vise la meilleure case **libre** au contact. */
+function contactLanding(input: ApproachInput): Position | null {
+  const paths = freeContactCells(input).map((cell) => contactPathTo(input, cell)).filter(isPath);
+  const cell = paidLanding(cheapest(paths), input.cells);
+  return cell !== null && tighterContact(input, cell) ? cell : null;
 }
 
 function isBlocked(input: ApproachInput): boolean {
