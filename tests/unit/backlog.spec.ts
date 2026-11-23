@@ -742,18 +742,28 @@ describe("backlog — dettes versées en v15", () => {
   });
 });
 
-const DELIVERED_5C: Array<[string, number, string]> = [
-  ["5C-a", 44, "f6a113e"],
-  ["5C-e", 45, "8a84b15"],
-  ["5C-b", 46, "32ae2a3"],
-  ["5C-c", 48, "74e739d"],
+/**
+ * Un tuple = une tâche, sa PR et **la liste des squashes** qu'elle doit citer.
+ * Une liste, et pas un sha seul : `5C-path-8dirs` est close par deux livraisons
+ * — `c5b8867` (PR #108, le moteur) et `65e194a` (PR #113, le TC3 et le §1 de la
+ * spec alignés sur DEC-10) — et coller `65e194a` à la PR #108 faisait mentir la
+ * table. Toute la liste est exigée, pas seulement le premier sha.
+ */
+const DELIVERED_5C: Array<[string, number, string[]]> = [
+  ["5C-a", 44, ["f6a113e"]],
+  ["5C-e", 45, ["8a84b15"]],
+  ["5C-b", 46, ["32ae2a3"]],
+  ["5C-c", 48, ["74e739d"]],
+  ["5C-explore-hp", 109, ["2793727"]],
+  ["5C-hover-highlight", 110, ["326988d"]],
+  ["5C-cast-cadence", 111, ["b1bf9a8"]],
+  ["5C-path-8dirs", 108, ["c5b8867", "65e194a"]],
 ];
 
 const OPEN_5C = [
   "5C-actor-ring",
   "5C-hover-hp",
   "5C-pm-zone",
-  "5C-path-8dirs",
   "5C-hero-move",
   "5C-cast-preview",
   "5C-turn-rail",
@@ -763,26 +773,25 @@ const OPEN_5C = [
   "5C-set-panoplies",
   "5C-equip-requirements",
   "5C-heal-between-rooms",
-  "5C-explore-hp",
-  "5C-hover-highlight",
-  "5C-cast-cadence",
   "5C-spell-range-rebalance",
 ];
 
 function deliveryGaps(backlog: Backlog): string[] {
-  return DELIVERED_5C.flatMap(([id, pr, squash]) => {
+  return DELIVERED_5C.flatMap(([id, pr, squashes]) => {
     const task = taskById(backlog, id);
-    const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
-    return ok ? [] : [`${id}:${task?.status ?? "absent"}`];
+    const notes = task?.notes ?? "";
+    const ok = task?.status === "done" && task.pr === pr && squashes.every((sha) => notes.includes(sha));
+    const missing = squashes.filter((sha) => !notes.includes(sha));
+    return ok ? [] : [`${id}:${task?.status ?? "absent"}:${missing.join("+")}`];
   });
 }
 
 describe("backlog — vague 5C/5D après les merges #46 et #48", () => {
-  it("enregistre les livraisons 5C-a, 5C-b, 5C-c et 5C-e avec leur squash", () => {
+  it("enregistre chaque livraison 5C avec sa PR et toute sa liste de squashes", () => {
     expect(deliveryGaps(readBacklog())).toEqual([]);
   });
 
-  it("garde 5C ouverte sur les dix-sept tâches restantes, 5C-d livrée par #50", () => {
+  it("garde 5C ouverte sur les treize tâches restantes, 5C-d livrée par #50", () => {
     const backlog = readBacklog();
     expect(taskById(backlog, "5C-d")?.status).toBe("done");
     const open = taskIdsOf(backlog, "5C").filter((id) => taskById(backlog, id)?.status !== "done");
@@ -921,7 +930,6 @@ const UI_TASKS: Array<[string, string, string[]]> = [
   ["5C-actor-ring", "5C", []],
   ["5C-hover-hp", "5C", ["5C-actor-ring"]],
   ["5C-pm-zone", "5C", ["5C-actor-ring"]],
-  ["5C-path-8dirs", "5C", []],
   ["5C-hero-move", "5C", ["5C-path-8dirs"]],
   ["5C-cast-preview", "5C", ["5C-pm-zone", "5C-path-8dirs"]],
   ["5C-turn-rail", "5C", ["5C-actor-ring"]],
@@ -978,8 +986,16 @@ describe("backlog — spec UI Dofus Retro", () => {
 });
 
 describe("backlog — tâches d'interface Dofus Retro", () => {
-  it("ouvre les treize tâches en todo dans 5C et 5D", () => {
+  it("ouvre les douze tâches en todo dans 5C et 5D", () => {
     expect(uiTaskGaps(readBacklog())).toEqual([]);
+  });
+
+  it("acte 5C-path-8dirs done sans perdre sa spec ni sa section", () => {
+    const task = taskById(readBacklog(), "5C-path-8dirs");
+    expect(task?.status).toBe("done");
+    const notes = task?.notes ?? "";
+    expect(notes).toContain(UI_SPEC);
+    expect(notes).toMatch(/§\d/);
   });
 
   it("renvoie chaque tâche vers la spec et cite les règles R1 à R8", () => {
@@ -1003,8 +1019,6 @@ describe("backlog — tâches d'interface Dofus Retro", () => {
 
 describe("backlog — dettes de l'audit UI et donjon du 22/11", () => {
   const UI_DEBTS: Array<[string, string, string, string]> = [
-    ["D68", "high", "5C-path-8dirs", "findPath"],
-    ["D69", "medium", "5C-path-8dirs", "manhattan(from,to)"],
     ["D70", "medium", "5C-hero-move", "resolveTackle"],
     ["D71", "high", "5C-set-panoplies", "panoplies"],
     ["D72", "medium", "5C-set-panoplies", "minRange"],
@@ -1021,22 +1035,21 @@ describe("backlog — dettes de l'audit UI et donjon du 22/11", () => {
     });
   }
 
-  it("verse D68 à D73 avec sévérité, cible et note factuelle", () => {
+  it("verse D70 à D73 avec sévérité, cible et note factuelle", () => {
     expect(uiDebtGaps(readBacklog())).toEqual([]);
   });
 
-  it("grade en high D68, D71 et D73", () => {
+  it("grade en high D71 et D73", () => {
     const backlog = readBacklog();
-    expect(debtById(backlog, "D68")?.severity).toBe("high");
     expect(debtById(backlog, "D71")?.severity).toBe("high");
     expect(debtById(backlog, "D73")?.severity).toBe("high");
   });
 
-  it("recible D68 et D69 sur la tâche moteur 5C-path-8dirs", () => {
+  it("solde D68 et D69 avec la tâche moteur 5C-path-8dirs", () => {
     const backlog = readBacklog();
-    expect(debtById(backlog, "D68")?.target).toBe("5C-path-8dirs");
-    expect(debtById(backlog, "D69")?.target).toBe("5C-path-8dirs");
-    expect(taskById(backlog, "5C-path-8dirs")?.status).toBe("todo");
+    expect(debtById(backlog, "D68")).toBeUndefined();
+    expect(debtById(backlog, "D69")).toBeUndefined();
+    expect(taskById(backlog, "5C-path-8dirs")?.status).toBe("done");
   });
 });
 
@@ -1078,8 +1091,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 28", () => {
-    expect(readBacklog().meta.version).toEqual(28);
+  it("versionne le backlog en 30", () => {
+    expect(readBacklog().meta.version).toEqual(30);
   });
 });
 
@@ -1728,12 +1741,12 @@ describe("backlog — dettes du 22/11 versées en v22", () => {
 });
 
 /**
- * Six dettes constatées pendant les audits de la nuit du 22/11 : elles existaient
+ * Cinq dettes constatées pendant les audits de la nuit du 22/11 (la sixième,
+ * `D96`, est soldée avec la tâche moteur) : elles existaient
  * dans des rapports, donc nulle part dans le dépôt. Chacune nomme un symbole et un
  * `fichier:ligne`, sinon elle n'est pas actionnable.
  */
 const WAVE2_DEBTS: Array<[string, string, string, string]> = [
-  ["D96", "medium", "5C-path-8dirs", "stepDistance"],
   ["D97", "low", "5C-actor-ring", "DEGENERATE_SIZE"],
   ["D98", "low", "7B", "minY"],
   ["D99", "medium", "5C-equip-requirements", "anneau_interdit"],
@@ -1755,12 +1768,12 @@ function wave2Unlocated(backlog: Backlog): string[] {
   return WAVE2_DEBTS.filter(([id]) => !NOTE_LOCATION.test(debtById(backlog, id)?.notes ?? "")).map(([id]) => id);
 }
 
-describe("backlog — six dettes des audits de la nuit (v24)", () => {
-  it("verse D96 à D101 avec sévérité, cible et note factuelle", () => {
+describe("backlog — cinq dettes des audits de la nuit (v24)", () => {
+  it("verse D97 à D101 avec sévérité, cible et note factuelle", () => {
     expect(wave2DebtGaps(readBacklog())).toEqual([]);
   });
 
-  it("nomme un fichier:ligne dans chacune des six notes", () => {
+  it("nomme un fichier:ligne dans chacune des cinq notes", () => {
     expect(wave2Unlocated(readBacklog())).toEqual([]);
   });
 
@@ -1859,7 +1872,7 @@ describe("backlog — retours de playtest : rendu et exploration (v26)", () => {
 
   it("masque les barres de vie en exploration sans dépendre de la barre de combat", () => {
     const task = taskById(readBacklog(), "5C-explore-hp");
-    expect(task?.status).toBe("todo");
+    expect(task?.status).toBe("done");
     expect(task?.owner).toBe("tdd-coder");
     expect(task?.depends_on ?? []).toEqual([]);
     const text = `${task?.title} ${task?.notes}`;
@@ -1880,7 +1893,7 @@ describe("backlog — retours de playtest : rendu et exploration (v26)", () => {
 describe("backlog — retours de playtest : cadence et portées (v26)", () => {
   it("borne la cadence des sorts par une constante unique et injectable", () => {
     const task = taskById(readBacklog(), "5C-cast-cadence");
-    expect(task?.status).toBe("todo");
+    expect(task?.status).toBe("done");
     const text = `${task?.title} ${task?.notes}`;
     expect(text).toContain("0,75 s");
     expect(text).toContain("injectable");
@@ -1933,28 +1946,15 @@ describe("backlog — DEC-10 : la diagonale coûte deux PM (v26)", () => {
   });
 });
 
-describe("backlog — dettes de déplacement recadrées par DEC-10 (v26)", () => {
-  it("réduit D96 à la facture et à la règle de coin, confirmation en jeu comprise", () => {
-    const debt = debtById(readBacklog(), "D96");
-    expect(debt?.severity).toBe("medium");
-    expect(debt?.target).toBe("5C-path-8dirs");
-    const text = `${debt?.title} ${debt?.notes}`;
-    expect(text).toContain("src/engine/multiCombat/enemies.ts");
-    expect(text).toContain("Chebyshev");
-    expect(text).toContain("déjà 8-voisins");
-    expect(text).toContain("Confirmation en jeu");
-    expect(text).toContain("règle de coin");
+describe("backlog — dettes de déplacement solées par DEC-10 (v26, v30)", () => {
+  it("solde D96 : la facture est le chemin réel, plus la distance Chebyshev", () => {
+    expect(debtById(readBacklog(), "D96")).toBeUndefined();
+    expect(rawBacklog()).not.toContain("Chebyshev");
   });
 
-  it("corrige D68 : findPath est déjà 8-voisins à HEAD", () => {
-    const debt = debtById(readBacklog(), "D68");
-    expect(debt?.severity).toBe("high");
-    expect(debt?.target).toBe("5C-path-8dirs");
-    const text = `${debt?.title} ${debt?.notes}`;
-    expect(text).toContain("findPath");
-    expect(text).toContain("8-voisins");
-    expect(text).toContain("règle de coin");
-    expect(text).not.toContain("4-voisins");
+  it("solde D68 : findPath est 8-voisins et le coin est interdit", () => {
+    expect(debtById(readBacklog(), "D68")).toBeUndefined();
+    expect(rawBacklog()).not.toContain("4-voisins");
   });
 
   it("verse la documentation manquante de la règle PM hors périmètre agent", () => {
@@ -2009,5 +2009,114 @@ describe("backlog — dette D103 exacte et contact diagonal bloqué (v28)", () =
     expect(text).toContain("DEC-03 (a)");
     expect(text).toContain("48 PV de monstres restants");
     expect(text).toContain("105 actions");
+  });
+});
+
+/**
+ * Les quatre retours de playtest ouverts en v26 ont été livrés par les PR
+ * #108 à #111. Les quatre sont **soldés** : `5C-path-8dirs` ne l'était pas en
+ * v29 parce que le TC3 de la spec UI annonçait encore « diagonale = 1 pas » ;
+ * la PR #113 (squash `65e194a`) a aligné ce TC3 et le tableau §1 sur DEC-10,
+ * donc le deuxième verrou est tombé et la tâche se ferme.
+ * Le survol d'entité ne couvre pas la salle de donjon : limite assumée, `D105`.
+ */
+const V29_DONE: Array<[string, number, string]> = [
+  ["5C-explore-hp", 109, "2793727"],
+  ["5C-hover-highlight", 110, "326988d"],
+  ["5C-cast-cadence", 111, "b1bf9a8"],
+];
+
+function v29Gaps(backlog: Backlog): string[] {
+  return V29_DONE.flatMap(([id, pr, squash]) => {
+    const task = taskById(backlog, id);
+    const dated = task?.updated_at === "2026-11-23" ? [] : [`${id}:${task?.updated_at}`];
+    const ok = task?.status === "done" && task.pr === pr && (task.notes ?? "").includes(squash);
+    return ok ? dated : [...dated, `${id}:${task?.status ?? "absent"}`];
+  });
+}
+
+describe("backlog — v29 : les livraisons de playtest soldées", () => {
+  it("clôt 5C-explore-hp, 5C-hover-highlight et 5C-cast-cadence avec PR et squash", () => {
+    expect(v29Gaps(readBacklog())).toEqual([]);
+  });
+
+  it("clôt 5C-path-8dirs en v30 : les deux squashes cités, le tacle laissé à D70", () => {
+    const task = taskById(readBacklog(), "5C-path-8dirs");
+    expect({ status: task?.status, pr: task?.pr, updated_at: task?.updated_at }).toEqual({
+      status: "done",
+      pr: 108,
+      updated_at: "2026-11-23",
+    });
+    const text = `${task?.title} ${task?.notes}`;
+    expect(text).toContain("c5b8867");
+    expect(text).toContain("65e194a");
+    expect(text).toContain("pathCost");
+    expect(text).toContain("cutsCorner");
+    expect(text).toContain("D70");
+  });
+
+  it("verse D105 : le survol d'entité ne couvre pas la salle de donjon", () => {
+    const debt = debtById(readBacklog(), "D105");
+    expect({ severity: debt?.severity, target: debt?.target, status: debt?.status }).toEqual({
+      severity: "low",
+      target: "5C-cast-preview",
+      status: "todo",
+    });
+    const text = `${debt?.title} ${debt?.notes}`;
+    expect(text).toContain("src/renderer/CombatCanvas.tsx");
+    expect(text).toContain("salle de donjon");
+    expect(text).toContain("exploration");
+    expect(text).toContain("carte");
+  });
+});
+
+/**
+ * La roadmap est un doublon du backlog : elle dérive dès qu'une tâche se ferme
+ * sans qu'on y touche. Le garde-fou est borné pour rester honnête — la roadmap
+ * est plus grossière que le backlog (des tâches `done` des vagues 3.5, 4A et 5A
+ * n'y ont jamais eu de ligne), donc on n'exige pas une ligne pour chaque tâche :
+ * on exige qu'une ligne **existante** ne contredise jamais le backlog, et on
+ * épingle les quatre livraisons de playtest pour que leur ligne ne disparaisse pas.
+ */
+const ROADMAP_ENTRY = /^- \[( |x)\] (\S+)/;
+
+function roadmapChecks(): Map<string, boolean> {
+  const checks = new Map<string, boolean>();
+  uncheckedRoadmapLines().forEach((line) => {
+    const match = ROADMAP_ENTRY.exec(line);
+    if (match?.[2] !== undefined) checks.set(match[2], match[1] === "x");
+  });
+  return checks;
+}
+
+function roadmapMismatches(backlog: Backlog): string[] {
+  const checks = roadmapChecks();
+  return allTasks(backlog).flatMap((task) => {
+    const checked = checks.get(task.id);
+    if (checked === undefined) return [];
+    return checked === (task.status === "done") ? [] : [`${task.id}:${task.status}/${checked ? "x" : " "}`];
+  });
+}
+
+const ROADMAP_PINNED = ["5C-explore-hp", "5C-hover-highlight", "5C-cast-cadence", "5C-path-8dirs"];
+
+function roadmapPinnedGaps(): string[] {
+  const checks = roadmapChecks();
+  return ROADMAP_PINNED.filter((id) => checks.get(id) !== true);
+}
+
+describe("backlog — la roadmap ne contredit plus le backlog (v30)", () => {
+  it("coche toute tâche done qui a une ligne et laisse décochée une tâche ouverte", () => {
+    expect(roadmapMismatches(readBacklog())).toEqual([]);
+  });
+
+  it("porte une ligne cochée pour les quatre livraisons de playtest", () => {
+    expect(roadmapPinnedGaps()).toEqual([]);
+  });
+
+  it("aligne les restes annoncés par la phase 5C sur OPEN_5C, sans pathfinding", () => {
+    const notes = phaseById(readBacklog(), "5C")?.notes ?? "";
+    expect(OPEN_5C.filter((id) => !notes.includes(id))).toEqual([]);
+    expect(notes).not.toContain("le pathfinding 8 directions");
   });
 });
