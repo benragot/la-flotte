@@ -4,7 +4,7 @@ import type { CombatantState } from "../engine/combatLoop/types";
 import type { CombatantLike, Side } from "../engine/multiCombat";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
 import { TILE_H, TILE_W, gridToIso, originScale } from "./gridProjection";
-import { depthOf } from "./scene";
+import { depthOf, cellKey } from "./scene";
 import type { Facing, SpriteAnimationName } from "./sprites/types";
 
 export const PLAYER_TOKEN_COLOR = 0x3f7fd6;
@@ -15,12 +15,12 @@ export const TOKEN_RADIUS = TILE_H * 0.4;
 export const HP_BAR_BG = 0x101820;
 export const HP_BAR_BG_ALPHA = 0.8;
 export const HP_BAR_FILL = 0x6ad06a;
-export const HP_BAR_WIDTH = TILE_W * 0.5;
-export const HP_BAR_HEIGHT = 5;
-/** Dégagement entre la barre et le bas du jeton. */
-export const HP_BAR_GAP = 4;
-/** Dégagement au-dessus d'un sprite : la barre de PV passe au-dessus de la tête. */
-export const SPRITE_HEADROOM = 30;
+/** Largeur de la barre de survol : `0.55 × TILE_W` (`ui-dofus-retro.md` §5). */
+export const HP_BAR_WIDTH = TILE_W * 0.55;
+/** Hauteur de la barre de survol : 4 px (§5). */
+export const HP_BAR_HEIGHT = 4;
+/** Barre de survol au-dessus de la tête : `-2.6 × TILE_H` du centre du losange (§5). */
+export const HP_BAR_LIFT_TILES = 2.6;
 
 export const BADGE_RADIUS = 9;
 export const BADGE_FILL = 0x1b2430;
@@ -217,17 +217,12 @@ export function combatantTokenView(input: CombatantTokenInput, origin: IsoOrigin
   return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }
 
-function barLift(token: TokenView): number {
-  return token.spriteId === null ? 0 : SPRITE_HEADROOM * token.scale;
-}
-
-/** Géométrie de la mini-barre de PV au-dessus du jeton (et au-dessus de la tête d'un sprite). */
+/** Géométrie de la barre de PV de survol, centrée au-dessus de la tête (`ui-dofus-retro.md` §5). */
 export function hpBarFor(token: TokenView): HpBar {
   const width = HP_BAR_WIDTH * token.scale;
   const height = HP_BAR_HEIGHT * token.scale;
-  const gap = HP_BAR_GAP * token.scale;
   const x = token.center.x - width / 2;
-  const y = token.center.y - token.radius - height - gap - barLift(token);
+  const y = token.center.y - TILE_H * HP_BAR_LIFT_TILES * token.scale;
   return { x, y, width, height, fillWidth: width * token.hpRatio };
 }
 
@@ -239,7 +234,15 @@ export function drawHpBar(graphics: Graphics, token: TokenView): void {
   graphics.fill({ color: HP_BAR_FILL, alpha: 1 });
 }
 
-/** Barres de PV seules, pour les jetons rendus par un `EntitySprite`. */
+/** Barres de PV de la scène : **une seule**, celle du jeton survolé (§6 R4, §8.1). */
+export function hoveredHpBarTokens(tokens: readonly TokenView[], cell: Position | null): readonly TokenView[] {
+  if (cell === null) return [];
+  const key = cellKey(cell);
+  const hovered = tokens.find((token) => cellKey(token.cell) === key);
+  return hovered === undefined ? [] : [hovered];
+}
+
+/** Barres de PV seules : la couche de scène ne lui transmet que la barre à peindre. */
 export function drawHpBars(graphics: Graphics, tokens: readonly TokenView[]): void {
   tokens.forEach((token) => drawHpBar(graphics, token));
 }

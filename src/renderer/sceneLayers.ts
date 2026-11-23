@@ -28,7 +28,7 @@ import { drawExitMarks } from "./exitPaint";
 import { drawTeamRings } from "./teamRing";
 import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
-import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, tokensNeedingCircle } from "./tokens";
+import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawHpBars, drawTokens, hoveredHpBarTokens, tokensNeedingCircle } from "./tokens";
 import type { SceneLayerName } from "./sceneLayerOrder";
 import { SCENE_LAYER_ORDER } from "./sceneLayerOrder";
 
@@ -231,14 +231,22 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawPath(layers.path, view.path);
 }
 
-/** Anneau d'équipe sous le sprite, anneau doré **sous** les acteurs, puis jetons, PV déclarés et badges. */
+/** Anneau d'équipe sous le sprite, anneau doré **sous** les acteurs, puis jetons, décor haut et badges. */
 function drawActorLayers(layers: SceneLayers, view: ViewModel, viewport: { width: number; height: number }): void {
   drawTeamRings(layers.teamRings, view.tokens);
   drawActiveRings(layers.tokens, view.tokens);
   drawTokens(layers.tokens, tokensNeedingCircle(view.tokens, layers.actors.sheetIds));
   drawDecor(layers.decorAbove, layerViews(view.scene.decor, "above"));
-  drawHpBars(layers.hpBars, view.hpBarTokens);
   drawLabels(layers.labels, view, viewport);
+}
+
+/**
+ * Une **seule** barre de vie à l'écran : celle du jeton dont la case logique est
+ * survolée (`ui-dofus-retro.md` §6 R4, §8.1). Case vide ou aucun survol ⇒ rien ;
+ * l'exploration ne déclare aucune barre, donc elle reste muette quoi qu'il arrive.
+ */
+function drawFieldHpBars(layers: SceneLayers, view: ViewModel, cell: Position | null): void {
+  drawHpBars(layers.hpBars, hoveredHpBarTokens(view.hpBarTokens, cell));
 }
 
 /** Surbrillance de l'entité survolée : un seul aplat, sur la case logique du jeton. */
@@ -249,9 +257,11 @@ function drawHover(layers: SceneLayers, view: ViewModel, cell: Position | null):
 /** Tout jeton qu'aucune feuille ne rend est peint en cercle : jamais omis, ni en combat ni en exploration. */
 function drawLayers(paint: ScenePaint): void {
   const { layers, view, input, app } = paint;
+  const cell = input.hoveredCell ?? null;
   drawBoardLayers(layers, view);
-  drawHover(layers, view, input.hoveredCell ?? null);
+  drawHover(layers, view, cell);
   drawActorLayers(layers, view, app.screen);
+  drawFieldHpBars(layers, view, cell);
 }
 
 /** Ce qu'un rendu doit connaître en plus de l'image : feuilles, carte et case survolée. */
