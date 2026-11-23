@@ -97,3 +97,44 @@ export const SLOT_SELECTED =
 
 export const SLOT_DISABLED =
   "rounded-[2px] border-2 border-[var(--color-line-field)] bg-[var(--color-slot-disabled)] text-[var(--color-btn-disabled-ink)]";
+
+/**
+ * Carte d'initiative, variante A « Pont de navire » (§3) : planche de bois
+ * 240 px × **44 px**, joints et clous fournis par `--texture-wood`
+ * (`theme.css`), arêtes nettes et socle `0 2px 0` — aucun flou (I6).
+ *
+ * `h-11` = 44 px **bordure comprise** : 16 px de nom + 12 px de PV + 4 px de
+ * marge + 4 px de mini-barre = 36 px de contenu, plus 4 px de bordure et 4 px
+ * de padding. Mesuré à 1280×720 : bandeau 29 px + dock 150 px sur les 240 px du
+ * HUD laissent 61 px à la bande d'initiative, dont 52 px occupés par la rangée
+ * (`py-1`) — la carte n'a donc **pas** besoin d'agrandir le budget vertical.
+ * La couleur de filet n'est pas dans la base : chaque état la pose, sinon
+ * l'ordre de la feuille générée déciderait de l'état affiché.
+ */
+const WOOD_CARD = [
+  "h-11 w-60 min-w-0 shrink-0 rounded-[2px] border-2 px-2 py-0.5",
+  "bg-[var(--color-wood-face)] [background-image:var(--texture-wood)]",
+  "text-[var(--color-wood-ink)]",
+  "shadow-[inset_2px_2px_0_var(--color-wood-high),inset_-2px_-2px_0_var(--color-wood-low),0_2px_0_var(--color-surface-0)]",
+].join(" ");
+
+/** Carte au repos : filet de bois `wood-line`, 3.08:1 sur le dock (§1.6). */
+export const TIMELINE_CARD = `${WOOD_CARD} border-[var(--color-wood-line)]`;
+
+/**
+ * Carte du combattant qui joue (§3) : filet **et** `outline 2 px` or à 2 px
+ * d'offset. L'`outline` remplace le halo `shadow-[0_0_8px_#d4a537]` ; il ne
+ * prend pas de place, donc la bande de 62 px ne grandit pas.
+ */
+export const TIMELINE_CARD_ACTIVE = [
+  WOOD_CARD,
+  "border-[var(--color-line-gold)]",
+  "outline outline-2 outline-offset-2 outline-[var(--color-line-gold)]",
+].join(" ");
+
+/** Mini-barre de PV de la carte : piste creuse de **4 px** (§2.3). */
+export const MINI_HP_TRACK = `${FIELD_MATERIAL} mt-1 h-1 w-full overflow-hidden`;
+
+/** Remplissage PV : rouge de vie, arête haute, bout net. */
+export const MINI_HP_FILL =
+  "h-full bg-[var(--color-hp)] shadow-[inset_0_1px_0_var(--color-hp-high)]";

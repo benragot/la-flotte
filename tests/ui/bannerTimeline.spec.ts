@@ -192,7 +192,9 @@ test.describe("frise d'initiative — planche de bois", () => {
     expect(active.outlineWidth, "outline de 2 px").toBe("2px");
     expect(active.outlineColor, "outline or #D4A537").toBe(GOLD);
     expect(active.filter, "aucun filtre CSS").toBe("none");
-    expect(blurRadii(active.boxShadow), `aucun flou dans ${active.boxShadow}`).toEqual([]);
+    /** Tailwind compose 4 anneaux neutres à flou nul : seul compte le flou positif. */
+    const blur = Math.max(0, ...blurRadii(active.boxShadow));
+    expect(blur, `aucun flou dans ${active.boxShadow}`).toBe(0);
   });
 
   test("la carte inactive n'a pas d'outline : l'état se lit d'un coup d'œil", async ({ page }) => {
