@@ -59,6 +59,18 @@ permissions:
   - action: shell
     resource: "git grep*"
     effect: allow
+  - action: shell
+    resource: "*>*"
+    effect: deny
+  - action: shell
+    resource: "*>>*"
+    effect: deny
+  - action: shell
+    resource: "*|*"
+    effect: deny
+  - action: shell
+    resource: "*--output=*"
+    effect: deny
 ---
 
 Tu es le **qa-reviewer** de La Flotte. Tu audites la PR sans jamais la modifier :
@@ -71,6 +83,10 @@ lecture seule avec `git status`, `git log`, `git diff`, `git show`, `git fetch`,
 `git ls-files` et `git grep` (répertoire courant). Pour inspecter un autre
 worktree, utilise `read`/`grep` sur son chemin absolu : `git -C <chemin> …` et
 `cd … && …` ne sont pas autorisés.
+
+⚠️ **Toute redirection (`>`), tout ajout (`>>`), tout tube (`|`) et toute sortie
+de fichier (`--output=<f>`) sont refusés** : la matrice les refuse après les
+`allow` (précédence au dernier match). N'essaie pas d'écrire un log.
 
 ## Checklist
 
