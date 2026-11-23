@@ -169,6 +169,23 @@ function expectSameMaterial(sheets: readonly Material[]): void {
 }
 
 test.describe("overlays — une seule matière", () => {
+  /**
+   * Budget de **temps seulement** : ce spec ouvre puis referme quatre fenêtres,
+   * soit six clics soumis à l'actionnabilité. En headless sans compositeur une
+   * frame coûte ~1 s (voir `helpers.ts`, contrat D84) : mesuré 21,8 s à 4
+   * workers et 28,5 s à 6 workers en 1920×1080, donc plus de 30 s dès que le
+   * runner est chargé. Reproduit sous charge : `Test timeout of 30000ms
+   * exceeded … waiting for element to be visible, enabled and stable`, alors
+   * que la capture d'échec montre la fenêtre **ouverte**, le bouton cliqué
+   * `[active]` et **aucun** « intercepts pointer events » — le `timeout`
+   * frappait, aucune assertion, et le voile n'interceptait rien.
+   *
+   * Aucune assertion n'est élargie et aucun clic n'est `force` : chaque clic
+   * reste hit-testé, donc un voile qui avalerait les coups ferait toujours
+   * échouer ce spec (même précédent que `overlayCapture.spec.ts`).
+   */
+  test.setTimeout(90_000);
+
   test("fiche, grimoire, inventaire et donjons partagent la même surface", async ({ page }) => {
     await createHero(page);
     const sheets = [

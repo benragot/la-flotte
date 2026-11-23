@@ -61,6 +61,13 @@ const LAYER_BASE =
  * (1280×720) : en `absolute`, le voile épousait la seule zone jouable et
  * laissait la colonne du journal et le dock en pleine lumière — deux surfaces
  * qui rivalisaient avec la fenêtre ouverte. `fixed` couvre le viewport entier.
+ *
+ * **Arbitrage : le voile intercepte les clics** (`pointer-events-auto`). Une
+ * fenêtre ouverte est modale : la barre d'accès (`z-30`) et le dock sont
+ * inertes tant qu'elle est là. Laisser passer les clics rendrait le dock
+ * cliquable *derrière* une modale — c'est un bug d'ergonomie, pas un
+ * raccourci. Conséquence pour les tests : on referme la fenêtre (Échap) et on
+ * attend sa disparition **avant** de cliquer le bouton suivant.
  */
 export const LAYER_SCRIM = `${LAYER_BASE} fixed z-40`;
 
