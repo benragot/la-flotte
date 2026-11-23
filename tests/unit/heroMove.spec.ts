@@ -57,6 +57,20 @@ function countingRng(value: number): { rng: Rng; calls: () => number } {
   return { rng, calls: () => calls };
 }
 
+function sequenceRng(values: readonly number[]): { rng: Rng; calls: () => number } {
+  let calls = 0;
+  const rng = () => {
+    const value = values[calls] ?? values[values.length - 1] ?? 0;
+    calls += 1;
+    return value;
+  };
+  return { rng, calls: () => calls };
+}
+
+function enemyAt(id: string, position: Position, agility: number): CombatantLike {
+  return makeCombatant({ id, side: "enemy", name: id, position, stats: { ...STATS, agility } });
+}
+
 interface DuelOverrides {
   player?: Partial<CombatantLike>;
   enemy?: Partial<CombatantLike>;
@@ -228,6 +242,48 @@ describe("moveHero — T11 sort et déplacement sans couplage", () => {
     });
     expect(combatantOf(again, "p1").ap).toBe(0);
     expect(combatantOf(again, "p1").mp).toBe(2);
+  });
+});
+
+describe("moveHero — T12 tacle raté au 2e pas", () => {
+  it("s'arrête sur la case du 1er pas, sans sauter de case", () => {
+    const player = { position: { x: 1, y: 1 }, mp: 3, stats: { ...STATS, agility: 0 } };
+    const enemy = { position: { x: 2, y: 2 }, stats: { ...STATS, agility: 200 } };
+    const state = openDuel({ player, enemy });
+    const rng = countingRng(0);
+    const next = moveHero(moveInput(state, { x: 1, y: 4 }, rng.rng));
+    expect(combatantOf(next, "p1").position).toEqual({ x: 1, y: 2 });
+    expect(combatantOf(next, "p1").mp).toBe(1);
+    expect(rng.calls()).toBe(1);
+    expect(next.log).toEqual(["Iop se déplace de 1 case(s)."]);
+  });
+});
+
+describe("moveHero — T13 un jet réussi puis un raté", () => {
+  it("paie le 1er pas, s'arrête au 2e et ne tire que deux fois", () => {
+    const player = makeCombatant({ id: "p1", side: "player", name: "Iop", initiative: 120, mp: 3, position: { x: 1, y: 1 } });
+    const guards = [enemyAt("e1", { x: 2, y: 1 }, 100), enemyAt("e2", { x: 2, y: 2 }, 100)];
+    const state = makeState([player, ...guards], { map: OPEN });
+    const rng = sequenceRng([0.2, 0.9]);
+    const next = moveHero(moveInput(state, { x: 1, y: 4 }, rng.rng));
+    expect(combatantOf(next, "p1").position).toEqual({ x: 1, y: 2 });
+    expect(combatantOf(next, "p1").mp).toBe(1);
+    expect(rng.calls()).toBe(2);
+    expect(next.log).toEqual(["Iop se déplace de 1 case(s)."]);
+  });
+});
+
+describe("moveHero — T14 deux pas, deux échappées", () => {
+  it("atteint la case exacte et paie les deux pas", () => {
+    const player = makeCombatant({ id: "p1", side: "player", name: "Iop", initiative: 120, mp: 3, position: { x: 1, y: 1 } });
+    const guards = [enemyAt("e1", { x: 2, y: 1 }, 100), enemyAt("e2", { x: 2, y: 2 }, 100)];
+    const state = makeState([player, ...guards], { map: OPEN });
+    const rng = sequenceRng([0.2, 0.2]);
+    const next = moveHero(moveInput(state, { x: 1, y: 3 }, rng.rng));
+    expect(combatantOf(next, "p1").position).toEqual({ x: 1, y: 3 });
+    expect(combatantOf(next, "p1").mp).toBe(1);
+    expect(rng.calls()).toBe(2);
+    expect(next.log).toEqual(["Iop se déplace de 2 case(s)."]);
   });
 });
 
