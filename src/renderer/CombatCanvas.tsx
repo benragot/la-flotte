@@ -66,7 +66,8 @@ function useBoardWiring(input: BoardWiringInput): void {
   const mode = props.mode ?? "combat";
   const pointerCombat = mode === "exploration" ? null : view.combat;
   useCombatScene({ app, ...view, viewport: size, mode, exploration: props.exploration });
-  useCombatPointer({ app, combat: pointerCombat, viewport: size });
+  // La salle prime sur le 1v1, exactement comme la peinture (`arenaSceneView`).
+  useCombatPointer({ app, combat: pointerCombat, battle: view.battle, viewport: size });
   useSceneHover({ host, map: hoverMap(view, props), viewport: size });
 }
 

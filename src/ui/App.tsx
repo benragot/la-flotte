@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { ReactNode, ReactElement } from "react";
 import "./theme.css";
+import type { Position } from "../engine/grid";
 import type { ArenaMode, ExplorationView } from "../renderer";
 import { CombatCanvas } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
@@ -103,16 +104,25 @@ function useArenaView(): ArenaView {
 
 /**
  * Case du héros écrite dans le DOM : sans elle, la position du héros n'est
- * observable par aucun test (le canvas PixiJS n'expose rien au DOM).
+ * observable par aucun test (le canvas PixiJS n'expose rien au DOM). Une salle
+ * ouverte **prime** : le canvas peint ce héros, et la donnée reste immédiate
+ * (position du store, aucune animation).
  */
-function heroCellLabel(playerPos: ExplorationView["playerPos"] | undefined): string | undefined {
-  if (playerPos === undefined) return undefined;
-  return `${playerPos.x},${playerPos.y}`;
+function heroCellLabel(battleHero: Position | undefined, playerPos: Position | undefined): string | undefined {
+  const cell = battleHero ?? playerPos;
+  return cell === undefined ? undefined : `${cell.x},${cell.y}`;
+}
+
+/** Héros de la salle courante, lu dans le même store que la peinture. */
+function useBattleHero(): Position | undefined {
+  const battle = useCombatStore((state) => state.battle);
+  return battle?.combatants.find((entry) => entry.side === "player")?.position;
 }
 
 /** Le canvas remplit la zone libre : `useContainerSize` mesure la surface réellement jouable. */
 function ArenaStage({ mode, exploration }: ArenaStageProps) {
-  const heroCell = heroCellLabel(exploration?.playerPos);
+  const battleHero = useBattleHero();
+  const heroCell = heroCellLabel(battleHero, exploration?.playerPos);
   return (
     <main aria-label="Terrain de combat" data-hero-cell={heroCell} className={ARENA_STAGE_CLASS}>
       <CombatCanvas mode={mode} exploration={exploration} />
