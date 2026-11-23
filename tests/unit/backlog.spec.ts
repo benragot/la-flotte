@@ -603,6 +603,13 @@ describe("backlog — dette D84 soldée", () => {
   });
 });
 
+describe("backlog — dette D98 soldée", () => {
+  it("ne trouve plus la dette du clamp x-only, soldée par le clamp vertical des étiquettes", () => {
+    expect(debtById(readBacklog(), "D98")).toBeUndefined();
+    expect(rawBacklog()).not.toContain("le clamp des étiquettes est x-only");
+  });
+});
+
 describe("backlog — vague 4D wiring", () => {
   it("enregistre la tâche de câblage App et ouvre la phase 4D", () => {
     const backlog = readBacklog();
@@ -1091,8 +1098,8 @@ describe("backlog — jalon « donjon jouable » (v19)", () => {
     expect(phase?.notes ?? "").toContain("jouable");
   });
 
-  it("versionne le backlog en 31", () => {
-    expect(readBacklog().meta.version).toEqual(31);
+  it("versionne le backlog en 32", () => {
+    expect(readBacklog().meta.version).toEqual(32);
   });
 });
 
@@ -1741,14 +1748,14 @@ describe("backlog — dettes du 22/11 versées en v22", () => {
 });
 
 /**
- * Cinq dettes constatées pendant les audits de la nuit du 22/11 (la sixième,
- * `D96`, est soldée avec la tâche moteur) : elles existaient
- * dans des rapports, donc nulle part dans le dépôt. Chacune nomme un symbole et un
- * `fichier:ligne`, sinon elle n'est pas actionnable.
+ * Quatre dettes constatées pendant les audits de la nuit du 22/11 (deux sont
+ * soldées : `D96` avec la tâche moteur, `D98` avec le clamp vertical des
+ * étiquettes) : elles existaient dans des rapports, donc nulle part dans le
+ * dépôt. Chacune nomme un symbole et un `fichier:ligne`, sinon elle n'est pas
+ * actionnable.
  */
 const WAVE2_DEBTS: Array<[string, string, string, string]> = [
   ["D97", "low", "5C-actor-ring", "DEGENERATE_SIZE"],
-  ["D98", "low", "7B", "minY"],
   ["D99", "medium", "5C-equip-requirements", "anneau_interdit"],
   ["D100", "low", "5D-exits", "landingFor"],
   ["D101", "medium", "7A-spritesheets", "ensureAnimationLoop"],
@@ -1768,12 +1775,12 @@ function wave2Unlocated(backlog: Backlog): string[] {
   return WAVE2_DEBTS.filter(([id]) => !NOTE_LOCATION.test(debtById(backlog, id)?.notes ?? "")).map(([id]) => id);
 }
 
-describe("backlog — cinq dettes des audits de la nuit (v24)", () => {
-  it("verse D97 à D101 avec sévérité, cible et note factuelle", () => {
+describe("backlog — quatre dettes des audits de la nuit (v24)", () => {
+  it("verse D97 et D99 à D101 avec sévérité, cible et note factuelle", () => {
     expect(wave2DebtGaps(readBacklog())).toEqual([]);
   });
 
-  it("nomme un fichier:ligne dans chacune des cinq notes", () => {
+  it("nomme un fichier:ligne dans chacune des quatre notes", () => {
     expect(wave2Unlocated(readBacklog())).toEqual([]);
   });
 
