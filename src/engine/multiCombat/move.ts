@@ -77,28 +77,46 @@ function tackledStep(walk: Walk, mover: CombatantLike, mpLoss: number): Walk {
   return { ...walk, state: withCombatant(walk.state, docked) };
 }
 
-/**
- * Un pas atomique : le tacle est jugé **avant** le paiement, et un pas sans
- * budget n'est jamais commencé (`mp` ne descend donc jamais sous 0).
- */
-function attemptStep(input: StepInput): Walk | null {
-  const mover = findCombatant(input.walk.state, input.walk.moverId);
-  if (mover === undefined) return null;
-  const cost = stepCost(input.from, input.next);
-  if (mover.mp < cost) return null;
-  const tackle = tackleCheck({ state: input.walk.state, moverId: input.walk.moverId, rng: input.rng });
-  if (!tackle.escaped) return tackledStep(input.walk, mover, tackle.mpLoss);
-  return paidStep(input.walk, mover, { next: input.next, cost });
+/** Verdict d'un pas : la marche ne continue que si ce pas a été **payé**. */
+interface StepOutcome {
+  walk: Walk;
+  moved: boolean;
 }
 
-/** Marche récursive : l'adjacence est réévaluée à **chaque** case de départ. */
+/** Marche close sans rien payer de plus : budget épuisé, tacle raté, marcheur absent. */
+function halted(walk: Walk): StepOutcome {
+  return { walk, moved: false };
+}
+
+/**
+ * Un pas atomique : le tacle est jugé **avant** le paiement, et un pas sans
+ * budget n'est jamais commencé (`mp` ne descend donc jamais sous 0). Un tacle
+ * raté clôt la marche : le pas n'est jamais facturé, seul `mpLoss` est prélevé.
+ */
+function attemptStep(input: StepInput): StepOutcome {
+  const mover = findCombatant(input.walk.state, input.walk.moverId);
+  if (mover === undefined) return halted(input.walk);
+  const cost = stepCost(input.from, input.next);
+  if (mover.mp < cost) return halted(input.walk);
+  const tackle = tackleCheck({ state: input.walk.state, moverId: input.walk.moverId, rng: input.rng });
+  if (!tackle.escaped) return halted(tackledStep(input.walk, mover, tackle.mpLoss));
+  return { walk: paidStep(input.walk, mover, { next: input.next, cost }), moved: true };
+}
+
+/** Position réelle du marcheur : source de vérité du coût, jamais un index de chemin. */
+function moverPosition(walk: Walk): Position | null {
+  const mover = findCombatant(walk.state, walk.moverId);
+  return mover?.position ?? null;
+}
+
+/** Marche récursive : coût et adjacence repartent de la position réellement occupée. */
 function walkStep(input: WalkInput, index: number): Walk {
-  const from = input.path[index - 1];
+  const from = moverPosition(input.walk);
   const next = input.path[index];
-  if (from === undefined || next === undefined) return input.walk;
+  if (from === null || next === undefined) return input.walk;
   const stepped = attemptStep({ walk: input.walk, from, next, rng: input.rng });
-  if (stepped === null) return input.walk;
-  return walkStep({ ...input, walk: stepped }, index + 1);
+  if (!stepped.moved) return stepped.walk;
+  return walkStep({ ...input, walk: stepped.walk }, index + 1);
 }
 
 /** Une seule ligne de journal, et seulement si le héros a réellement payé. */
@@ -120,6 +138,8 @@ function settled(state: BattleState, walk: Walk): BattleState {
  * Ordre exact : garde actif+vivant+carte → `findPath` (bloqueurs vivants,
  * murs, eau, coins) → un pas par case du chemin, chacun jugé par
  * `tackleCheck` puis payé selon DEC-10 (1 PM orthogonal, 2 PM diagonal).
+ * Un tacle raté **arrête** la marche sur la case courante (le pas n'est pas
+ * facturé, seul le PM du tacle est prélevé) et aucun pas suivant n'est jugé.
  * Un clic plus loin que le budget s'arrête sur la dernière case payable, sans
  * message de refus ; `findPath` nul ⇒ identité.
  */
