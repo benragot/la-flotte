@@ -14,20 +14,20 @@ function statText(line: PanelStatLine): string {
   return `${line.label} ${formatStatValue(line.value)}`;
 }
 
-/** Stat inerte : grisée + annotée, sans prétendre qu'elle s'applique (D45). */
+/** Stat inerte : encre tertiaire + mention, sans prétendre qu'elle s'applique (D45). */
 function TierStat({ line }: { line: PanelStatLine }) {
   if (line.application === "applied") return <span>{statText(line)}</span>;
-  return <span className="opacity-60" title={STAT_PENDING_HINT}>{statText(line)} · {STAT_PENDING_LABEL}</span>;
+  return <span className="text-[var(--color-ink-3)]" title={STAT_PENDING_HINT}>{statText(line)} · {STAT_PENDING_LABEL}</span>;
 }
 
 function tierTone(isActive: boolean): string {
   return isActive ? TEXT_GOLD : TEXT_MUTED;
 }
 
-/** Palier doré s'il est atteint, grisé s'il reste à débloquer. */
+/** Palier doré s'il est atteint, en encre tertiaire s'il reste à débloquer. */
 function TierChip({ tier, isActive }: { tier: SetBonusTier; isActive: boolean }) {
   return (
-    <li className={`${CHIP} ${tierTone(isActive)}`}>
+    <li className={`${CHIP} inline-flex flex-wrap items-center gap-1 ${tierTone(isActive)}`}>
       <span className="font-bold">{tier.pieces} pièces</span>
       {buildAppliedStatLines(tier.stats).map((line) => <TierStat key={line.key} line={line} />)}
     </li>
@@ -42,7 +42,7 @@ function tierChips(set: SetViewSet, view: SetView) {
 
 function NextTierHint({ hint }: { hint: string | null }) {
   if (hint === null) return null;
-  return <span className="text-[9px] opacity-60">{hint}</span>;
+  return <span className="text-[9px] leading-3 text-[var(--color-ink-3)]">{hint}</span>;
 }
 
 function nextTierHint(view: SetView): string | null {

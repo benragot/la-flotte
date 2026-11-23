@@ -83,6 +83,39 @@ export const BUTTON_GOLD = [
 ].join(" ");
 
 /**
+ * Bouton danger (§2.2) : la seule action destructrice de l'interface —
+ * « Nouvelle partie → Continuer ». Fond `danger-face` `#9C2F2F`, filet
+ * `danger-line`, encre `ink-1` : **5,42:1** au repos, 6,08:1 au survol.
+ * Les quatre états restent francs, §2.2 l'exige (aucun `opacity`).
+ */
+export const BUTTON_DANGER = [
+  BUTTON_BASE,
+  "border-[var(--color-danger-line)] bg-[var(--color-danger-face)] text-[var(--color-ink-1)]",
+  "shadow-[inset_0_1px_0_var(--color-danger-line),inset_0_-2px_0_var(--color-danger-inset),0_2px_0_var(--color-surface-0)]",
+  "enabled:hover:-translate-y-px enabled:hover:bg-[var(--color-danger-face-hover)]",
+  "enabled:hover:shadow-[inset_0_1px_0_var(--color-danger-line),inset_0_-2px_0_var(--color-danger-inset),0_3px_0_var(--color-surface-0)]",
+  "enabled:active:translate-y-px enabled:active:bg-[var(--color-danger-face-hover)]",
+  "enabled:active:shadow-[inset_0_2px_4px_var(--color-danger-inset)]",
+  BUTTON_OFF,
+].join(" ");
+
+/**
+ * Bouton compact (§2.2, taille réduite) : la plaque `surface-1` des sorties de
+ * fenêtre (« Fermer », « Annuler », « Exporter »…) et des petites actions.
+ * Mêmes quatre états ; désactivé **franc**, jamais délavé (I10).
+ */
+export const BUTTON_COMPACT = [
+  "rounded-[2px] border-2 border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-0.5",
+  "text-[10px] font-bold leading-4 text-[var(--color-ink-1)]",
+  "transition-[background-color,border-color,color,box-shadow] duration-[90ms] ease-out",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]",
+  "enabled:hover:border-[var(--color-line-gold)] enabled:hover:text-[var(--color-line-gold)]",
+  "enabled:active:translate-y-px enabled:active:bg-[var(--color-surface-2)]",
+  "disabled:cursor-not-allowed disabled:border-[var(--color-line-field)]",
+  "disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-btn-disabled-ink)]",
+].join(" ");
+
+/**
  * Socle d'une case de sort : 2 px de filet, rayon 2 px, aucun `opacity` (§2.4).
  * Les cinq états **francs** ne diffèrent que par la face, le filet et l'encre :
  * c'est la seule façon de rester lisible pour un daltonien, une teinte seule

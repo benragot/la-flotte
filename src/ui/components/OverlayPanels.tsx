@@ -14,6 +14,7 @@ import { InventoryPanel } from "./inventory";
 import { DungeonEntryPanel, DungeonNotice } from "./dungeon";
 import NewGameButton from "./NewGameButton";
 import SpellbookPanel from "./spellbook/SpellbookPanel";
+import { OVERLAY_HEAD, LAYER_SCRIM } from "./overlayTheme";
 import { CHROME_BUTTON } from "./hudTheme";
 
 /** Panneaux superposés accessibles depuis l'arène en exploration. */
@@ -21,8 +22,7 @@ type PanelId = "inventory" | "hero" | "dungeon" | "spells";
 
 const ACCESS_BAR = "pointer-events-auto absolute right-2 top-2 z-30 flex gap-2";
 const ACCESS_BUTTON = CHROME_BUTTON;
-const LAYER =
-  "pointer-events-auto absolute inset-0 z-40 flex items-center justify-center overflow-auto bg-[var(--color-scrim)] p-4";
+const LAYER = LAYER_SCRIM;
 const SHEET = HERO_SHEET;
 /** Ligne de PV de la fiche : monospace tabulaire, encre de PV (§1.5) — le `❤` reste. */
 const HERO_VITALS = "font-mono text-[13px] font-bold leading-4 tabular-nums text-[var(--color-ink-danger)]";
@@ -85,7 +85,7 @@ function PanelClose({ onClose }: { onClose: () => void }) {
 
 function SheetHead({ title, onClose }: { title: string; onClose: () => void }) {
   return (
-    <header className="flex items-center justify-between gap-2 border-b border-[var(--color-line-soft)] pb-2">
+    <header className={OVERLAY_HEAD}>
       <h2 className={HERO_SHEET_TITLE}>{title}</h2>
       <PanelClose onClose={onClose} />
     </header>

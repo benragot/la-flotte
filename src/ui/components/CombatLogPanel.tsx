@@ -4,6 +4,7 @@ import { getRecentLog, logTone } from "../hudHelpers";
 import type { ElementTone, LogLook } from "../logElements";
 import { logLook } from "../logElements";
 import { LOG_BAND, LOG_GLYPH, LOG_TEXT, PANEL_TITLE } from "../uiTokens";
+import { ELEMENT_BAND, ELEMENT_INK } from "./elementInk";
 import { DOCK_PANEL } from "./hudTheme";
 
 const LOG_LIMIT = 5;
@@ -19,31 +20,6 @@ const SPEAKER_INK: Readonly<Record<LogTone, string>> = {
   player: "text-[var(--color-ink-1)]",
   enemy: "text-[var(--color-ink-danger)]",
   system: "text-[var(--color-ink-3)]",
-};
-
-/**
- * Teinte d'élément (§3.1) : le **texte** prend l'encre (≥ 4,5:1), le **bandeau**
- * de 2 px prend le remplissage. Feu `#D2452F` en texte ne pèse que 2,69:1 : il
- * ne sert donc jamais à écrire.
- */
-const ELEMENT_INK: Readonly<Record<ElementTone, string>> = {
-  feu: "text-[var(--color-el-feu-ink)]",
-  eau: "text-[var(--color-el-eau-ink)]",
-  air: "text-[var(--color-el-air-ink)]",
-  terre: "text-[var(--color-el-terre-ink)]",
-  soin: "text-[var(--color-el-soin-ink)]",
-  echec: "text-[var(--color-el-echec-ink)]",
-  neutre: "",
-};
-
-const ELEMENT_BAND: Readonly<Record<ElementTone, string>> = {
-  feu: "bg-[var(--color-el-feu)]",
-  eau: "bg-[var(--color-el-eau)]",
-  air: "bg-[var(--color-el-air)]",
-  terre: "bg-[var(--color-el-terre)]",
-  soin: "bg-[var(--color-el-soin)]",
-  echec: "bg-[var(--color-el-echec)]",
-  neutre: "bg-transparent",
 };
 
 interface LogEntryProps {

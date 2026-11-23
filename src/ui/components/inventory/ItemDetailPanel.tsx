@@ -9,6 +9,7 @@ import {
   DETAIL_HINT,
   DETAIL_META,
   DETAIL_PANEL,
+  DETAIL_TITLE,
   HEADING,
   ROW,
   SMALL_BUTTON,
@@ -68,7 +69,7 @@ function PriceLine({ sellPrice, buyPrice }: { sellPrice: number; buyPrice: numbe
 function DetailHead({ view }: { view: ItemDetailView }) {
   return (
     <header className="flex items-baseline gap-2">
-      <h3 className="text-[12px] font-bold text-[#d4a537]">{view.title}</h3>
+      <h3 className={DETAIL_TITLE}>{view.title}</h3>
       <span className={DETAIL_META}>{view.id}</span>
     </header>
   );

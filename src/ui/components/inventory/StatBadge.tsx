@@ -25,7 +25,7 @@ export default function StatBadge({ label, value, pending = false }: StatBadgePr
   return (
     <span className={`${CHIP} ${toneOf(value, pending)}`} title={titleOf(label, pending)}>
       {label} <strong>{formatStatValue(value)}</strong>
-      {pending ? <em className="ml-1 not-italic opacity-70">{STAT_PENDING_LABEL}</em> : null}
+      {pending ? <em className="ml-1 not-italic text-[var(--color-ink-3)]">{STAT_PENDING_LABEL}</em> : null}
     </span>
   );
 }

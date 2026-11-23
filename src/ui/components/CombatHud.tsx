@@ -138,7 +138,7 @@ function ExplorationHud() {
 function IdlePanel() {
   const startDemoCombat = useCombatStore((state) => state.startDemoCombat);
   return (
-    <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-[#2b241d]/80">
+    <div className="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-[var(--color-scrim)]">
       <button type="button" onClick={startDemoCombat} className={PRIMARY_BUTTON}>Lancer le combat de démonstration</button>
     </div>
   );

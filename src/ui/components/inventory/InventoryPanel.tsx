@@ -9,7 +9,8 @@ import { nextSelection, selectionAfterKey } from "./itemSelection";
 import SaveControls from "./SaveControls";
 import SetBonusPanel from "./SetBonusPanel";
 import StatSummary from "./StatSummary";
-import { COLUMN, COLUMNS, HEADING, PANEL, ROW, SMALL_BUTTON } from "./inventoryTheme";
+import { OVERLAY_HEAD, OVERLAY_TITLE } from "../overlayTheme";
+import { COLUMN, COLUMNS, PANEL, SMALL_BUTTON } from "./inventoryTheme";
 
 export interface InventoryPanelProps {
   onClose?: (() => void) | undefined;
@@ -35,8 +36,8 @@ function CloseButton({ onClose }: { onClose: () => void }) {
 
 function PanelHeader({ onClose }: InventoryPanelProps) {
   return (
-    <header className={ROW}>
-      <h2 className={HEADING}>Inventaire</h2>
+    <header className={OVERLAY_HEAD}>
+      <h2 className={OVERLAY_TITLE}>Inventaire</h2>
       {onClose === undefined ? null : <CloseButton onClose={onClose} />}
     </header>
   );

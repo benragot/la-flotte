@@ -1,9 +1,17 @@
+import { OVERLAY_BODY, OVERLAY_SHEET, OVERLAY_TITLE } from "../overlayTheme";
+
 /**
  * Matière de l'écran de création et de la fiche du héros — « registre de bord ».
  *
  * Toutes les couleurs sont des `var()` de `src/ui/theme.css` (hex du
  * `docs/design/specs/ui-visual-direction.md` §1) ; les matières composées
  * suivent §2.1 (panneau, creux), §2.2 (bouton) et §2.5 (typographie).
+ *
+ * **La feuille n'est pas définie ici** : le corps de parchemin vient de
+ * `../overlayTheme` (`OVERLAY_BODY`) et la fiche du héros **est** la fenêtre
+ * modale standard (`OVERLAY_SHEET`), pas une copie. C'est la décision du lot 5 :
+ * fiche, grimoire, inventaire, donjons, confirmation et fin de combat partagent
+ * une seule matière, donc aucune ne peut rediverger.
  *
  * Règles tenues ici, pas dans les composants :
  * - rayon **2 px** (1 px pour un creux), jamais 4 px ;
@@ -12,27 +20,18 @@
  * - aucun état par `opacity` (I10), aucune transition implicite (I8).
  */
 
-/** Corps de feuille : panneau `surface-2`, filet fort 2 px, fibres de parchemin. */
-const SHEET_BODY = [
-  "rounded-[2px] border-2 border-[var(--color-line-strong)]",
-  "bg-[var(--color-surface-2)] [background-image:var(--texture-parchment)]",
-  "text-[var(--color-ink-1)]",
-  "shadow-[inset_0_2px_0_var(--color-line-gold),inset_0_0_0_1px_var(--color-inner-line),inset_0_-2px_0_var(--color-edge-low),0_2px_0_var(--color-surface-0)]",
-].join(" ");
-
 /** Feuille de création : une seule liseré doré en tête (§2.1), 16 px de respiration. */
-export const CREATION_SHEET = `pointer-events-auto flex w-full max-w-3xl flex-col gap-4 p-4 ${SHEET_BODY}`;
+export const CREATION_SHEET = `pointer-events-auto flex w-full max-w-3xl flex-col gap-4 p-4 ${OVERLAY_BODY}`;
 
-/** Fiche du héros : même matière, plus étroite, défilante dans son voile. */
-export const HERO_SHEET = `flex max-h-full w-full max-w-xl flex-col gap-2 overflow-auto p-3 ${SHEET_BODY}`;
+/** Fiche du héros : **la** fenêtre modale standard, même jeton que le grimoire. */
+export const HERO_SHEET = OVERLAY_SHEET;
 
 /** Titre d'écran : `display` 30 / 36, Georgia, or `line-gold` (§2.5). */
 export const CREATION_TITLE =
   "font-[family-name:var(--font-display)] text-[30px] font-bold leading-9 text-[var(--color-line-gold)]";
 
 /** Titre de la fiche : `title` 18 / 24, Georgia, or (§2.5). */
-export const HERO_SHEET_TITLE =
-  "font-[family-name:var(--font-display)] text-[18px] font-bold leading-6 text-[var(--color-line-gold)]";
+export const HERO_SHEET_TITLE = OVERLAY_TITLE;
 
 /** Planche de classe : bois `wood-face` texturé, filet 2 px, socle net (§3 A). */
 const CLASS_CARD = [
