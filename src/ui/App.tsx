@@ -15,8 +15,9 @@ import { useEscapeLayer } from "./useEscapeClose";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
 
+/** Écran de création : pontage de bois en fond, feuille centrée (§1.8). */
 const CREATION_SHELL =
-  "flex h-screen w-screen items-center justify-center overflow-auto bg-[var(--color-surface-0)] p-4";
+  "flex h-screen w-screen items-center justify-center overflow-auto bg-[var(--color-surface-0)] [background-image:var(--texture-deck)] p-4";
 const ARENA_SHELL = "relative flex h-screen w-screen flex-col overflow-hidden";
 /** Surface de la carte : le canvas y remplit tout, le HUD est un frère. */
 const ARENA_STAGE_CLASS =

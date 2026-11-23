@@ -50,3 +50,18 @@ export const OVERLAY_SHEET =
 
 /** Action principale : bouton or à quatre états (§2.2). Plus d'`opacity-40`. */
 export const PRIMARY_BUTTON = BUTTON_GOLD;
+
+/**
+ * Bouton de barre d'accès (Inventaire, Fiche perso, Sorts, Donjons) : plaque
+ * `surface-1` à filet 2 px, rayon 2 px, socle net. Le survol éclaire le filet
+ * en or ; désactivé, il prend les valeurs de §2.2 — jamais d'`opacity`.
+ */
+export const CHROME_BUTTON = [
+  "rounded-[2px] border-2 border-[var(--color-line)] bg-[var(--color-surface-1)] px-2 py-1",
+  "text-[12px] font-semibold text-[var(--color-ink-1)]",
+  "shadow-[inset_0_1px_0_var(--color-edge-high),0_2px_0_var(--color-surface-0)]",
+  "transition-[background-color,border-color,color] duration-[90ms] ease-out",
+  "enabled:hover:border-[var(--color-line-gold)] enabled:hover:text-[var(--color-line-gold)]",
+  "disabled:cursor-not-allowed disabled:border-[var(--color-line-field)] disabled:text-[var(--color-btn-disabled-ink)]",
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]",
+].join(" ");
