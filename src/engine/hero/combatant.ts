@@ -12,10 +12,13 @@ export interface HeroCombatantInput {
   spellIds: string[];
 }
 
-const NO_ELEMENT_RES: Record<Element, number> = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
+/** La donnée est globale (`flatRes` / `percentRes`) : chaque élément la reçoit. */
+function perElement(value: number): Record<Element, number> {
+  return { earth: value, fire: value, water: value, air: value, neutral: value };
+}
 
-function zeroResistances(): CombatResistances {
-  return { flat: { ...NO_ELEMENT_RES }, percent: { ...NO_ELEMENT_RES } };
+function itemResistances(stats: TotalStats): CombatResistances {
+  return { flat: perElement(stats.flatRes), percent: perElement(stats.percentRes) };
 }
 
 /** Bonus de PV porté par l'équipement et la Vitalité : commun aux deux domaines. */
@@ -66,13 +69,15 @@ function combatStats(stats: TotalStats): CombatStats {
 
 /**
  * Projette le héros persistant (équipement et panoplies inclus) vers le
- * combattant attendu par `combatLoop`. Les résistances restent à 0 tant que
- * les objets n'en fournissent pas par élément.
+ * combattant attendu par `combatLoop` : résistances fixes et pourcentages par
+ * élément, `% Dégâts` et stats. La donnée ne distingue pas les éléments, donc
+ * `flatRes`/`percentRes` s'appliquent aux cinq.
  */
 export function combatantFromHero(input: HeroCombatantInput): CombatantState {
   const { hero, stats, position, spellIds } = input;
   const identity = { id: "player", kind: "player" as const, name: hero.name, level: hero.level };
   const pools = { ...hpPool(hero, stats), ...apPool(hero, stats), ...mpPool(hero, stats) };
   const extras = { accuracyPct: 0, pp: combatPp(hero, stats), stats: combatStats(stats) };
-  return { ...identity, position, ...pools, ...extras, resistances: zeroResistances(), spellIds };
+  const damage = { percentDmg: stats.percentDmg, resistances: itemResistances(stats) };
+  return { ...identity, position, ...pools, ...extras, ...damage, spellIds };
 }

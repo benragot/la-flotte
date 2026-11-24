@@ -106,15 +106,16 @@ function elementStat(caster: CombatantState, element: Element): number {
   return caster.stats[ELEMENT_STAT[element]];
 }
 
+function resistanceInput(victim: CombatantState, element: Element): Pick<DamageInput, "flatRes" | "pctRes"> {
+  return { flatRes: victim.resistances.flat[element], pctRes: victim.resistances.percent[element] };
+}
+
+/** Le caster apporte sa stat et son `% Dégâts`, la cible ses deux résistances. */
 function damageInput(context: DamageContext): DamageInput {
-  const element = context.spell.element ?? "neutral";
-  return {
-    base: context.roll,
-    stat: elementStat(context.caster, element),
-    flatRes: context.victim.resistances.flat[element],
-    pctRes: context.victim.resistances.percent[element],
-    isPlayer: context.victim.kind === "player",
-  };
+  const { spell, roll, caster, victim } = context;
+  const element = spell.element ?? "neutral";
+  const offense = { base: roll, stat: elementStat(caster, element), percentDmg: caster.percentDmg };
+  return { ...offense, ...resistanceInput(victim, element), isPlayer: victim.kind === "player" };
 }
 
 function pushbackFor(context: HitContext, push: PushResult): number {

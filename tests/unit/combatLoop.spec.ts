@@ -232,6 +232,50 @@ describe("castSpell : PA et dégâts", () => {
   });
 });
 
+/**
+ * ITEM-01 — mêmes cinq cas chiffrés que `multiCombat.spec.ts`, appliqués au
+ * moteur 1v1 : base nue 100, stat nulle, pour que les valeurs attendues se
+ * lisent sans recalcul.
+ */
+describe("castSpell : stats d'équipement", () => {
+  const BASE = 100;
+  const NO_STAT = { strength: 0, intelligence: 0, chance: 0, agility: 0, wisdom: 0 };
+
+  function damageWith(options: { percentDmg?: number; pctRes?: number } = {}): number {
+    const state = buildState(["P.M.", "...."]);
+    const spell = { ...mustFind(spells, "pression"), damage: { min: BASE, max: BASE } };
+    const percent = { ...state.enemy.resistances.percent, earth: options.pctRes ?? 0 };
+    const crafted = {
+      ...state,
+      player: { ...state.player, stats: NO_STAT, percentDmg: options.percentDmg ?? 0 },
+      enemy: { ...state.enemy, hp: 1000, maxHp: 1000, resistances: { ...state.enemy.resistances, percent } },
+      spellsById: { ...state.spellsById, pression: spell },
+    };
+    const cast = castSpell({ state: crafted, spellId: "pression", target: { x: 2, y: 0 }, rng: alwaysZero });
+    return crafted.enemy.hp - cast.enemy.hp;
+  }
+
+  it("retranche 10 % de résistance sans % Dégâts : 100 → 90", () => {
+    expect(damageWith({ pctRes: 10 })).toBe(90);
+  });
+
+  it("ajoute 20 % Dégâts sans résistance : 100 → 120", () => {
+    expect(damageWith({ percentDmg: 20 })).toBe(120);
+  });
+
+  it("applique le % Dégâts AVANT la résistance : 100 → 120 → 108", () => {
+    expect(damageWith({ percentDmg: 20, pctRes: 10 })).toBe(108);
+  });
+
+  it("tombe à 0 dégât sur 100 % de résistance, jamais négatif", () => {
+    expect(damageWith({ pctRes: 100 })).toBe(0);
+  });
+
+  it("ne change rien à 0 % Dégâts et 0 % résistance", () => {
+    expect(damageWith()).toBe(BASE);
+  });
+});
+
 describe("castSpell : validation de cible", () => {
   it("refuse une cible hors portée ou sans ligne de vue", () => {
     const near = buildState(["P.M.", "...."]);

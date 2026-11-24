@@ -839,6 +839,44 @@ describe("enemiesAct — critique ennemi", () => {
   });
 });
 
+/**
+ * ITEM-01 — l'équipement doit peser sur les dégâts. Les cinq cas chiffrés sont
+ * les mêmes que dans `combatLoop.spec.ts` : base nue 100, donc les valeurs
+ * attendues sont lisibles sans recalcul.
+ */
+describe("resolveAttack — stats d'équipement", () => {
+  const NAKED = { strength: 0, intelligence: 0, chance: 0, agility: 0, wisdom: 0 };
+
+  function strikeWith(options: { percentDmg?: number; pctRes?: number } = {}): CombatantLike {
+    const overrides = { stats: { ...NAKED }, percentDmg: options.percentDmg ?? 0 };
+    const { player, enemy } = duel({ player: overrides, enemy: { resistances: resistances(options.pctRes ?? 0) } });
+    const state = makeState([player, enemy]);
+    const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack: attackSpec({ base: 100 }), rng: () => 0.99 });
+    return next.combatants[1] as CombatantLike;
+  }
+
+  it("retranche 10 % de résistance sans % Dégâts : 100 → 90", () => {
+    expect(strikeWith({ pctRes: 10 }).hp).toBe(110);
+  });
+
+  it("ajoute 20 % Dégâts sans résistance : 100 → 120", () => {
+    expect(strikeWith({ percentDmg: 20 }).hp).toBe(80);
+  });
+
+  it("applique le % Dégâts AVANT la résistance : 100 → 120 → 108", () => {
+    expect(strikeWith({ percentDmg: 20, pctRes: 10 }).hp).toBe(92);
+  });
+
+  it("tombe à 0 dégât sur 100 % de résistance, jamais négatif", () => {
+    const enemy = strikeWith({ pctRes: 100 });
+    expect(enemy.hp).toBe(enemy.maxHp);
+  });
+
+  it("ne change rien à 0 % Dégâts et 0 % résistance", () => {
+    expect(strikeWith().hp).toBe(100);
+  });
+});
+
 describe("immuabilité", () => {
   it("ne mute jamais l'état d'entrée", () => {
     const { player, enemy } = duel({

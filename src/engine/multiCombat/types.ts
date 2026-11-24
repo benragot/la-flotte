@@ -30,6 +30,8 @@ export interface CombatantLike {
   stats: CombatStats;
   /** Résistances par élément, alignées sur `CombatantState` (1v1). */
   resistances: CombatResistances;
+  /** `% Dégâts` de l'équipement (défaut 0), appliqué avant les résistances. */
+  percentDmg?: number;
   /** Armure plate optionnelle, cumulée aux résistances fixes dans `computeDamage`. */
   armor?: number;
   /** Sorts du combattant, recopiés depuis la donnée (`MonsterDef` / héros). */

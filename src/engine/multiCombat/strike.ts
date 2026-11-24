@@ -43,19 +43,24 @@ function resistanceInput(target: CombatantLike, element: Element): Pick<DamageIn
   };
 }
 
+/** `% Dégâts` d'équipement et bonus de critique s'ajoutent dans la même parenthèse. */
+function damageBonus(attacker: CombatantLike, critical: boolean, critDamagePct: number): number {
+  return (attacker.percentDmg ?? 0) + (critical ? critDamagePct : 0);
+}
+
 /** `isPlayer` décrit bien la **cible** (plafond 50 % sur ses résistances %). */
 function damageInput(context: DamageContext): DamageInput {
   const { attack, attacker, target, critical, critDamagePct } = context;
   return {
     base: attack.base,
     stat: elementStat(attacker.stats, attack.element),
-    percentDmg: critical ? critDamagePct : 0,
+    percentDmg: damageBonus(attacker, critical, critDamagePct),
     ...resistanceInput(target, attack.element),
     isPlayer: target.side === "player",
   };
 }
 
-/** Dégâts du coup, `percentDmg` ne portant que le bonus de critique. */
+/** Dégâts du coup : équipement de l'attaquant (`% Dégâts`) et critique inclus. */
 export function damageOf(context: DamageContext): number {
   return computeDamage(damageInput(context));
 }
@@ -65,7 +70,8 @@ export function damageOf(context: DamageContext): number {
  * `applyPush` ne lit que `map` et les deux positions.
  */
 function asPushCombatant(combatant: CombatantLike): CombatantState {
-  return { ...combatant, kind: combatant.side, accuracyPct: 0, pp: 0, spellIds: [] };
+  const extra = { percentDmg: combatant.percentDmg ?? 0, accuracyPct: 0, pp: 0, spellIds: [] };
+  return { ...combatant, kind: combatant.side, ...extra };
 }
 
 /** `remainingCells` = cases réellement parcourues (comme le 1v1 dans cast.ts). */
