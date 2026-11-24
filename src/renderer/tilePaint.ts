@@ -1,23 +1,18 @@
 import type { Graphics } from "pixi.js";
 import type { GridOutline, TileView } from "./scene";
-import { TILE_H, TILE_W } from "./gridProjection";
 import { paintShapes } from "./paintShapes";
 import { groundColor } from "./tileMaterials";
+import type { WallFace } from "./wallFaces";
+import { wallFaces, wallTopPoints } from "./wallFaces";
 import {
   CELL_OUTLINE,
   CELL_OUTLINE_ALPHA,
   CELL_OUTLINE_WIDTH,
   GRID_LINE,
   GRID_LINE_ALPHA,
-  WALL_HEIGHT,
   WALL_SIDE,
   WALL_TOP,
 } from "./tileStyle";
-
-/** Sommets du losange translatés verticalement, pour le relief. */
-function shiftPoints(points: readonly number[], dy: number): number[] {
-  return points.map((value, index) => (index % 2 === 0 ? value : value + dy));
-}
 
 function paintOutline(graphics: Graphics, points: number[]): void {
   graphics.poly(points);
@@ -47,24 +42,35 @@ function paintFlat(graphics: Graphics, view: TileView): void {
   paintStyleStroke(graphics, view);
 }
 
-/** Quadrilatère latéral sud-ouest qui donne de l'épaisseur aux murs. */
-function wallSide(view: TileView): number[] {
-  const { x, y } = view.center;
-  const halfW = (TILE_W / 2) * view.scale;
-  const halfH = (TILE_H / 2) * view.scale;
-  const height = WALL_HEIGHT * view.scale;
-  return [x - halfW, y, x, y + halfH, x, y + halfH - height, x - halfW, y - height];
+/** Socle du mur : le losange au sol, plein — c'est lui qui bouche le trou des bords. */
+function paintWallFoundation(graphics: Graphics, view: TileView): void {
+  graphics.poly(view.points);
+  graphics.fill({ color: WALL_SIDE, alpha: 1 });
 }
 
-function paintWall(graphics: Graphics, view: TileView): void {
-  const height = WALL_HEIGHT * view.scale;
-  graphics.poly(wallSide(view));
-  graphics.fill({ color: WALL_SIDE, alpha: 1 });
-  const top = shiftPoints(view.points, -height);
+function paintWallFace(graphics: Graphics, face: WallFace): void {
+  graphics.poly(face.points);
+  graphics.fill({ color: face.color, alpha: 1 });
+}
+
+/** Les deux flancs visibles : sans le second, le mur se lit comme une feuille de papier. */
+function paintWallSides(graphics: Graphics, view: TileView): void {
+  wallFaces(view).forEach((face) => paintWallFace(graphics, face));
+}
+
+function paintWallTop(graphics: Graphics, view: TileView): void {
+  const top = wallTopPoints(view);
   graphics.poly(top);
   graphics.fill({ color: WALL_TOP, alpha: 1 });
   paintOutline(graphics, top);
   paintShapes(graphics, view.texture);
+}
+
+/** Mur : socle plein, deux flancs, puis le dessus — jamais de trou visible. */
+function paintWall(graphics: Graphics, view: TileView): void {
+  paintWallFoundation(graphics, view);
+  paintWallSides(graphics, view);
+  paintWallTop(graphics, view);
 }
 
 function paintBaseTile(graphics: Graphics, view: TileView): void {

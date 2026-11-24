@@ -26,6 +26,7 @@ export {
   TILE_COLORS,
   WALL_HEIGHT,
   WALL_SIDE,
+  WALL_SIDE_EAST,
   WALL_TOP,
   getTileColor,
   resolveTileStyle,
