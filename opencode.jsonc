@@ -4,10 +4,11 @@
   "instructions": [
     "AGENTS.md"
   ],
+  "worktree": { "directory": ".wt" },
   "references": {
     "dofus-source": {
       "path": "/Users/benjaminragot/dofus-1-29-decompose",
-      "description": "Decompilation Dofus Retro 1.29 (ActionScript, sprites, outils)"
+      "description": "Decompilation Dofus Retro 1.29"
     }
   },
   "permissions": [
