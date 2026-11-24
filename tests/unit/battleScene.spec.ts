@@ -10,6 +10,7 @@ import type { DungeonRoom } from "../../src/engine/dungeon";
 import type { BattleState } from "../../src/engine/multiCombat";
 import { battleViewModel } from "../../src/renderer/battleViewModel";
 import { buildBattleViewModel } from "../../src/renderer/battleSceneModel";
+import { LABEL_FONT_SIZE, hoverBarInBounds, labelsFor, viewportBounds } from "../../src/renderer/labels";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { useCombatStore } from "../../src/store/useCombatStore";
@@ -64,6 +65,31 @@ describe("salle de donjon — un jeton par combattant", () => {
     const view = buildBattleViewModel({ battle, viewport: VIEWPORT });
     expect(view.tokens).toHaveLength(4);
     expect(new Set(cellKeys(view)).size).toBe(4);
+  });
+});
+
+describe("salle de donjon — chaque jeton porte le nom de son combattant", () => {
+  it("expose le nom venu du moteur pour le héros comme pour chaque monstre", () => {
+    const battle = roomBattle();
+    const view = buildBattleViewModel({ battle, viewport: VIEWPORT });
+    const engineNames = battle.combatants.map((combatant) => combatant.name);
+    expect(view.tokens.map((token) => token.name)).toEqual(engineNames);
+    expect(engineNames[0]).not.toBe("");
+    expect(new Set(engineNames).size).toBeGreaterThan(1);
+  });
+
+  it("ne masque jamais la barre de PV : l'encre du nom reste sous la barre bornée", () => {
+    const battle = roomBattle();
+    const token = buildBattleViewModel({ battle, viewport: VIEWPORT }).tokens[0];
+    if (token === undefined) throw new Error("jeton du héros absent");
+    const bounds = viewportBounds({ minX: 0, minY: 0, maxX: VIEWPORT.width, maxY: VIEWPORT.height }, VIEWPORT);
+    const height = LABEL_FONT_SIZE * token.scale;
+    const labels = labelsFor({ token, bounds, nameWidth: 120, nameHeight: height });
+    const name = labels.find((label) => label.kind === "name");
+    if (name === undefined) throw new Error("étiquette du nom absente");
+    const bar = hoverBarInBounds(token, bounds);
+    expect(name.y - height).toBeGreaterThanOrEqual(bar.y + bar.height);
+    expect(name.y).toBeLessThanOrEqual(bounds.maxY);
   });
 });
 
