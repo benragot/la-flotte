@@ -3,9 +3,10 @@
 > Suite de `AUDIT/ISSUES.md` : 71 constats, 5 vagues. La règle est la même pour
 > chaque ligne, sans exception.
 >
-> **État au 2026-11-24** : 7 constats faits (vague 0 entièrement, plus
-> COMBAT-04, COMBAT-08, GRID-01, RENDER-02 et BALANCE-01 en vague 1),
-> 64 restants. Détail des hashes dans `AUDIT/ISSUES.md` → `## Suivi des merges`.
+> **État au 2026-11-24** : 7 constats faits — **vague 0 complète** (3 sur 3 :
+> COMBAT-01, COMBAT-02, COMBAT-04) et **vague 1 à 4 sur 11** (GRID-01,
+> BALANCE-01, COMBAT-08, RENDER-02) — 64 restants. Détail des hashes dans
+> `AUDIT/ISSUES.md` → `## Suivi des merges`.
 
 ## Reste en tête
 

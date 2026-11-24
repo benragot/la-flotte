@@ -129,18 +129,19 @@ relevant d'une spec à écrire), un par ligne :
 
 ## Suivi des merges
 
-État des PR qui ont clos un constat, dans l'ordre de merge. La colonne
-`Constats clos` renvoie aux `ID` du tableau principal ; `—` signale une PR
-documentaire ou de préparation qui ne corrige rien.
+État des PR qui ont clos un constat, **dans l'ordre réel de merge** (vérifié
+par `git log --reverse`, pas par numéro de PR). La colonne `Constats clos`
+renvoie aux `ID` du tableau principal ; `—` signale une PR documentaire ou de
+préparation qui ne corrige rien.
 
 | PR | Titre | Hash | Constats clos |
 | --- | --- | --- | --- |
 | #135 | `fix(combat): 🐛 retirer les combattants morts du panneau` | `1512b56` | COMBAT-04 |
-| #136 | `fix(combat): 🐛 démarrer la cadence ennemie à l'ouverture` | `8797ac5` | COMBAT-02 |
 | #137 | `docs(audit): 📝 inventaire des écarts Dofus 1.29` | `d40db77` | — |
-| #138 | `fix(render): 🐛 rendre le canvas net sur écran HiDPI` | `10d516b` | RENDER-02 |
 | #139 | `fix(combat): 🐛 respecter l'initiative à l'ouverture du 1v1` | `fff5d3d` | COMBAT-01 |
 | #140 | `fix(combat): 🐛 faire tirer l'IA à portée au lieu de coller` | `4ed327c` | COMBAT-08 |
+| #138 | `fix(render): 🐛 rendre le canvas net sur écran HiDPI` | `10d516b` | RENDER-02 |
+| #136 | `fix(combat): 🐛 démarrer la cadence ennemie à l'ouverture` | `8797ac5` | COMBAT-02 |
 | #141 | `fix(combat): 🐛 mesurer la portée des sorts en Chebyshev` | `62ecdda` | GRID-01 |
 | #142 | `fix(data): 🐛 rétablir la victoire niveau 16 (DEC-03)` | `5ae59cf` | BALANCE-01 |
 
