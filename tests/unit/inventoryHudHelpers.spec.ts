@@ -292,13 +292,13 @@ describe("statApplicationStatus", () => {
     expect(statApplicationStatus("vitality")).toBe("applied");
   });
 
-  it("signale comme pending les résistances que le combattant n'applique pas (D45b)", () => {
-    expect(statApplicationStatus("flatRes")).toBe("pending");
-    expect(statApplicationStatus("percentRes")).toBe("pending");
+  it("déclare appliquées les résistances projetées en combat (ITEM-01)", () => {
+    expect(statApplicationStatus("flatRes")).toBe("applied");
+    expect(statApplicationStatus("percentRes")).toBe("applied");
   });
 
-  it("classe percentDmg en pending : combatantFromHero ne le transporte pas", () => {
-    expect(statApplicationStatus("percentDmg")).toBe("pending");
+  it("déclare appliqué le % Dégâts transporté par combatantFromHero (ITEM-01)", () => {
+    expect(statApplicationStatus("percentDmg")).toBe("applied");
   });
 
   it("déclare applied les stats réellement lues par combatantFromHero", () => {

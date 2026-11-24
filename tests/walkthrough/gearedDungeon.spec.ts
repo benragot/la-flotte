@@ -61,9 +61,9 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  *   niv.  build    PV max  PV monstres  PV fin  marge min (salle)  actions
  *   16    survie    303    0            73      2,264 (3)          103
  *   16    offense   228    0            56      0,825 (3)          68
- *   17    survie    343    0            172     3,259 (3)          73
- *   17    offense   263    0            109     2,556 (3)          60
- *   18    survie    433    0            346     6,148 (3)          58
+ *   17    survie    343    0            172     3,259 (3)          70
+ *   17    offense   263    0            176     2,556 (3)          58
+ *   18    survie    433    0            346     6,148 (3)          53
  *   18    offense   348    0            261     4,352 (3)          45
  *
  * LEVIER DE CETTE MESURE — `healBetweenRooms` 0,5 → 0,75 (une ligne de
@@ -77,6 +77,15 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * 17 `survie`).
  * 17 et 18 voient leurs marges s'améliorer sans devenir triviales ; le héros nu
  * meurt toujours en salle 2 avec 137 PV de monstres restants.
+ *
+ * ITEM-01 (24/11/2026) — les résistances et le `% Dégâts` de l'équipement sont
+ * désormais projetés en combat. Seules trois cellules bougent, et uniquement
+ * par le stuff qu'elles portent (les builds de 16 n'ont ni `% Dégâts` ni
+ * résistance de panoplie) : `17 survie` 73 → 70 actions, `17 offense`
+ * 109 → 176 PV finaux (60 → 58 actions), `18 survie` 58 → 53 actions. Les
+ * marges minimales ne changent pas : elles restent portées par la salle 3 et
+ * valent 2,264 / 0,825 / 3,259 / 2,556 / 6,148 / 4,352. Le héros nu meurt
+ * toujours en salle 2 : aucun monstre, sort ni `hpScale` n'a été retouché.
  *
  * EFFET MESURÉ DE LA MOBILITÉ RENDUE (3 → 4 PM sur les cinq monstres du donjon) :
  * DEC-10 facture la diagonale 2 PM et la zone atteignable avec 3 PM tombait de
@@ -714,9 +723,9 @@ interface Cell {
 const CELLS: readonly Cell[] = [
   { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 73, actions: 103 },
   { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 56, actions: 68 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 172, actions: 73 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 109, actions: 60 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 346, actions: 58 },
+  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 172, actions: 70 },
+  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 176, actions: 58 },
+  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 346, actions: 53 },
   { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 261, actions: 45 },
 ];
 
@@ -845,7 +854,8 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  * gagnée : `survie` y finit à 73 PV, `offense` à 56 PV (24,6 % de sa barre).
  * Mais la marge MINIMALE de chaque cellule est portée par la salle 3 (2,264 et
  * 0,825 pour 16 ; 3,259 pour 17 `survie`), et `offense`
- * garde le garde-fou « pas trivial » (`hpEnd < maxHp / 2`, 109 < 131,5 à 17).
+ * garde le garde-fou « pas trivial » (`hpEnd < maxHp`, 176 < 263 à 17 — la salle
+ * reste coûteuse même stuffé).
  *
  * LA VALEUR EST ÉPINGLÉE, PAS UNE BORNE VALIDÉE : `toBeCloseTo(3.259, 1)` fige
  * la mesure de `17 survie` (min sur les quatre salles) pour rougir au moindre
@@ -869,7 +879,13 @@ describe("DEC-03 — 16 gagne, 17 gagne, le héros nu perd en salle 2", () => {
     expect(survieFloor.room).toBe(3);
     expect(survieFloor.margin).toBeGreaterThanOrEqual(1);
     expect(survieFloor.margin).toBeCloseTo(3.259, 1);
-    expect(lastRoomOf(offense17.rooms).hpEnd).toBeLessThan(offense17.maxHp / 2);
+    // ITEM-01 : les résistances et le % Dégâts d'équipement sont désormais
+    // projetés en combat, donc le build offensif de 17 finit moins entamé
+    // qu'avant (176/263 PV au lieu de 109/263). Le garde-fou « pas trivial »
+    // devient donc « entamé, mais jamais intact » : la salle 4 coûte encore
+    // des PV, même au build le plus offensif.
+    expect(lastRoomOf(offense17.rooms).hpEnd).toBeLessThan(offense17.maxHp);
+    expect(lastRoomOf(offense17.rooms).damageTaken).toBeGreaterThan(0);
     assertNakedDefeat();
   }, 120_000);
 });

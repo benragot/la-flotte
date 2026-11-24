@@ -80,7 +80,14 @@ function explorationToken(monsterId: string): TokenView {
 function roomToken(combatant: CombatantLike): TokenView {
   const spriteId = knownSpriteId(combatant.id);
   const sprite: TokenSprite = { spriteId, facing: "left", animation: "idle", animationKey: "static" };
-  const state: CombatantState = { ...combatant, kind: "enemy", accuracyPct: 0, pp: 0, spellIds: [...(combatant.spellIds ?? [])] };
+  const state: CombatantState = {
+    ...combatant,
+    kind: "enemy",
+    accuracyPct: 0,
+    pp: 0,
+    percentDmg: 0,
+    spellIds: [...(combatant.spellIds ?? [])],
+  };
   return tokenView(state, sceneOrigin({ width: 1, height: 1 }, VIEWPORT), sprite);
 }
 

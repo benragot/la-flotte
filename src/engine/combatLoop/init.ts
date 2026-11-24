@@ -87,7 +87,7 @@ function indexSpells(spells: readonly SpellDef[]): Record<string, SpellDef> {
 }
 
 function combatantBase(input: CombatantBase): CombatantState {
-  const defaults = { level: 1, hp: 1, maxHp: 1, ap: 0, maxAp: 0, mp: 0, maxMp: 0, accuracyPct: 0, pp: 0 };
+  const defaults = { level: 1, hp: 1, maxHp: 1, ap: 0, maxAp: 0, mp: 0, maxMp: 0, accuracyPct: 0, pp: 0, percentDmg: 0 };
   const extras = { stats: zeroStats(), resistances: zeroResistances(), spellIds: [] };
   return { ...input, ...defaults, ...extras };
 }

@@ -39,6 +39,8 @@ export interface CombatantState {
   /** Précision en pourcentage : réservée à la Vague 2, inutilisée en V1. */
   accuracyPct: number;
   pp: number;
+  /** `% Dégâts` de l'équipement, appliqué à la base avant toute résistance. */
+  percentDmg: number;
   position: Position;
   stats: CombatStats;
   resistances: CombatResistances;

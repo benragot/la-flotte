@@ -597,7 +597,8 @@ describe("hero — projection en combattant", () => {
       spellIds,
       stats: { strength: 10, intelligence: 0, chance: 0, agility: 2, wisdom: 5 },
     });
-    expect(combatant.resistances.flat.earth).toBe(0);
+    expect(combatant.resistances.flat.earth).toBe(stats.flatRes);
+    expect(combatant.percentDmg).toBe(stats.percentDmg);
   });
 
 });

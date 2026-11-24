@@ -55,6 +55,7 @@ function makeCombatant(overrides: Partial<CombatantState> = {}): CombatantState 
     maxMp: 3,
     accuracyPct: 100,
     pp: 100,
+    percentDmg: 0,
     position: { x: 0, y: 0 },
     stats: { strength: 10, intelligence: 10, chance: 10, agility: 10, wisdom: 10 },
     resistances: { flat: zeroElements(), percent: zeroElements() },

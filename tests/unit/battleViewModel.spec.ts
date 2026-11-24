@@ -50,6 +50,7 @@ const HERO: CombatantState = {
   maxMp: 3,
   accuracyPct: 0,
   pp: 0,
+  percentDmg: 0,
   position: { x: 0, y: 0 },
   stats: { strength: 20, intelligence: 0, chance: 0, agility: 10, wisdom: 0 },
   resistances: { flat: { ...ZERO }, percent: { ...ZERO } },
