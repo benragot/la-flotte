@@ -45,6 +45,12 @@ export interface CraftRecipeInput {
   times?: number;
 }
 
+/** Budget de capital à investir dans une caractéristique (coût du prochain point). */
+export interface AllocateStatInput {
+  stat: StatKey;
+  points: number;
+}
+
 export interface CraftRecipeResult {
   crafted: number;
 }
@@ -67,7 +73,7 @@ export interface GameStore {
   /** Bascule sur un personnage du roster ; `false` si l'id est inconnu ou déjà actif. */
   switchCharacter: (characterId: string) => boolean;
   setLastPosition: (position: CharacterPosition) => void;
-  allocateStat: (input: { stat: StatKey; points: number }) => void;
+  allocateStat: (input: AllocateStatInput) => void;
   equip: (input: { itemId: string }) => void;
   unequip: (input: { slot: EquipmentSlot }) => void;
   drinkConsumable: (input: { itemId: string }) => void;
@@ -233,11 +239,25 @@ function createdGame(state: GameStore, input: CreateCharacterInput): Partial<Gam
   return newCharacterState(roster, input, classDef);
 }
 
-function allocatedGame(hero: Hero | null, input: { stat: StatKey; points: number }): Partial<GameState> {
+function allocatedGame(hero: Hero | null, input: AllocateStatInput): Partial<GameState> {
   if (hero === null) return {};
   const classDef = classDefFor(hero.classId);
   if (classDef === undefined) return {};
   return { hero: spendCapitalPoints({ hero, ...input, classDef }).hero };
+}
+
+/**
+ * Investir est définitif : l'action persiste, comme la victoire de combat.
+ * Sans cela, un rechargement restaure la sauvegarde antérieure et rend les
+ * points déjà investis (Bug 5). Un refus rend le héros par identité : on
+ * n'écrit alors rien.
+ */
+function allocateAndSave(set: StoreSetter, get: () => GameStore, input: AllocateStatInput): void {
+  const current = get().hero;
+  const update = allocatedGame(current, input);
+  if (update.hero === undefined || update.hero === current) return;
+  set(update);
+  get().saveGame();
 }
 
 /** Équipe un id du catalogue : le niveau du héros arme les gardes du moteur. */
@@ -430,10 +450,10 @@ type CharacterActions = Pick<
   "createCharacter" | "allocateStat" | "equip" | "unequip" | "drinkConsumable" | "creditCombatRewards"
 >;
 
-function characterActions(set: StoreSetter): CharacterActions {
+function characterActions(set: StoreSetter, get: () => GameStore): CharacterActions {
   return {
     createCharacter: (input) => set((state) => createdGame(state, input)),
-    allocateStat: (input) => set((state) => allocatedGame(state.hero, input)),
+    allocateStat: (input) => allocateAndSave(set, get, input),
     equip: (input) => set((state) => equippedGame(state.hero, state.inventory, input.itemId)),
     unequip: (input) => set((state) => unequippedGame(state.inventory, input.slot)),
     drinkConsumable: (input) => set((state) => drunkGame(state.hero, state.inventory, input.itemId)),
@@ -498,7 +518,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   ...emptyStore(),
   knownRecipeIds: KNOWN_RECIPE_IDS,
   saveKey: DEFAULT_SAVE_KEY,
-  ...characterActions(set),
+  ...characterActions(set, get),
   ...rosterActions(set, get),
   ...bankActions(set),
   ...craftActions(set, get),
