@@ -459,13 +459,15 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
     expect(first.victory).toBe(true);
     expect(first.hpEnd).toBeGreaterThan(0);
     expect(first.hpEnd).toBeLessThan(first.hpStart);
-    expect(first.hpEnd).toBe(32);
+    // GRID-01 : la portée Chebyshev fait frapper les monstres en diagonale, donc
+    // la salle 1 coûte 16 PV de plus qu'avant le correctif (32 → 16 PV finaux).
+    expect(first.hpEnd).toBe(16);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(2);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(DEATH_ROOM);
-    // DEC-03 : 32 PV + ceil(130 × 0,5) = 97 PV à la porte de la salle 2.
-    expect(second.hpStart).toBe(97);
+    // DEC-03 : 16 PV + ceil(130 × 0,5) = 81 PV à la porte de la salle 2.
+    expect(second.hpStart).toBe(81);
     expect(second.defeat).toBe(true);
     expect(second.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();
