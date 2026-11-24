@@ -18,6 +18,16 @@ function startEnemyTurn(state: CombatState): CombatState {
 }
 
 /**
+ * Ouverture ennemie : le monstre joue son tour sans faire avancer le tour.
+ * Une défaite est rendue telle quelle ; sinon le héros reçoit la main.
+ */
+export function openWithEnemy(state: CombatState, rng: Rng): CombatState {
+  const resolved = runEnemyTurn(startEnemyTurn(state), rng);
+  if (resolved.phase !== "enemy_turn") return resolved;
+  return startPlayerTurn(resolved);
+}
+
+/**
  * Clôt le tour du joueur : restaure les PA/PM de l'ennemi, joue l'IA,
  * incrémente le tour, puis rend la main avec PA/PM du joueur restaurés si
  * celui-ci est vivant. Les phases `victory` et `defeat` laissent l'état
