@@ -12,8 +12,8 @@
 #     qui les fonde.
 
 meta:
-  version: 31
-  updated_at: "2026-11-23"
+  version: 32
+  updated_at: "2026-11-24"
   # Phase réellement suivante : pointeur de reprise de l'orchestrateur.
   next: 5B
   # L'orchestrateur ne modifie AUCUN fichier (AGENTS.md règle 1) : il fait écrire
@@ -933,11 +933,6 @@ debts:
     severity: low
     target: 5C-actor-ring
     notes: "tests/ui/helpers.ts:77 (`const DEGENERATE_SIZE = 1.5`) et tests/ui/helpers.ts:79-81 (`isDegenerate`) ne reconnaissent que le canvas 1×1 d'avant resize : une boîte de 20×20 passe pour saine, `readSettledBox` (tests/ui/helpers.ts:89) ne re-settle pas et les assertions mesurent cette taille. Le contrat principal `expectCoverage` (tests/ui/helpers.ts:179) rougit bruyamment dans ce cas, donc pas de faux vert global ; `expectCenteredIn` (tests/ui/helpers.ts:165) passerait, et une assertion de taille en px aussi. Correctif : remplacer le seuil par l'**invariant réel** — la boîte égale la taille attendue du conteneur — pas un nombre magique."
-  - id: D98
-    title: "`viewportBounds` calcule `minY`/`maxY` que personne ne lit : le clamp des étiquettes est x-only, un nom posé sur la case du sommet iso sortirait par le haut du canvas"
-    severity: low
-    target: 7B
-    notes: "src/renderer/labels.ts:132-138 (`viewportBounds`) calcule `minY` et `maxY`, mais src/renderer/labels.ts:97-103 (`clampLabelX`) n'utilise que `minX`/`maxX` ; aucun `clampLabelY` n'existe et la pose est non bornée : src/renderer/sceneLayers.ts:97 fait `text.position.set(name.x, name.y)`. Inatteignable aujourd'hui : les cases du sommet iso sont en eau sur la plage. **Dette pour les cartes futures** (7B) : dès qu'une carte rend jouable une case du sommet, le nom du jeton sort du canvas."
   - id: D99
     title: "Le fixture « pièce illégale » utilise `anneau_interdit`, absent de `data/items.yaml` : la règle de niveau de #72 n'est pas réellement évaluée"
     severity: medium

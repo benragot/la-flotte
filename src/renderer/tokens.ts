@@ -227,7 +227,11 @@ export function hpBarFor(token: TokenView): HpBar {
 }
 
 export function drawHpBar(graphics: Graphics, token: TokenView): void {
-  const bar = hpBarFor(token);
+  paintHpBar(graphics, hpBarFor(token));
+}
+
+/** Peint une barre **déjà calculée** : le rendu peut la borner sans refaire sa géométrie. */
+export function paintHpBar(graphics: Graphics, bar: HpBar): void {
   graphics.rect(bar.x, bar.y, bar.width, bar.height);
   graphics.fill({ color: HP_BAR_BG, alpha: HP_BAR_BG_ALPHA });
   graphics.rect(bar.x, bar.y, bar.fillWidth, bar.height);
