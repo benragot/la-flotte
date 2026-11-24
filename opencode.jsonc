@@ -7,5 +7,6 @@
   "worktree": { "directory": ".wt" },
   "permissions": [
     { "action": "skill", "resource": "*", "effect": "allow" }
-  ]
+  ],
+  "compaction": { "auto": true, "buffer": 700000, "keep": { "tokens": 15000 } }
 }
