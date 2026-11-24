@@ -210,10 +210,28 @@ describe("hasLineOfSight", () => {
     const map = parseAsciiMap(["~~~~~", "~~~~~"]);
     expect(hasLineOfSight({ map, from: { x: 0, y: 0 }, to: { x: 4, y: 1 } })).toBe(true);
   });
+});
 
-  it("accepte une diagonale parfaite sans cellule intermédiaire", () => {
+describe("hasLineOfSight — règle des coins", () => {
+  it("bloque la diagonale dont les deux coins sont des murs", () => {
     const map = parseAsciiMap(["P#", "#M"]);
+    expect(hasLineOfSight({ map, from: { x: 0, y: 0 }, to: { x: 1, y: 1 } })).toBe(false);
+  });
+
+  it("laisse passer la diagonale quand un seul coin est un mur", () => {
+    const map = parseAsciiMap(["P#", ".."]);
     expect(hasLineOfSight({ map, from: { x: 0, y: 0 }, to: { x: 1, y: 1 } })).toBe(true);
+  });
+
+  it("bloque une diagonale lointaine coupée par deux coins", () => {
+    const map = parseAsciiMap(["P##", "#..", "..M"]);
+    expect(hasLineOfSight({ map, from: { x: 0, y: 0 }, to: { x: 2, y: 2 } })).toBe(false);
+  });
+
+  it("bloque la diagonale dont les deux coins sont occupés", () => {
+    const map = parseAsciiMap(OPEN);
+    const blockers = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+    expect(hasLineOfSight({ map, from: { x: 0, y: 0 }, to: { x: 1, y: 1 }, blockers })).toBe(false);
   });
 });
 
