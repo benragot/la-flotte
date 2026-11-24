@@ -67,6 +67,25 @@ function withActive(battle: BattleState, id: string): BattleState {
   return { ...battle, activeIndex: Math.max(0, battle.order.indexOf(id)) };
 }
 
+/** Force les PV des ids donnés : `0` les tue sans toucher à `order`. */
+function withHp(battle: BattleState, ids: readonly string[], hp: number): BattleState {
+  const combatants = battle.combatants.map((entry) => (ids.includes(entry.id) ? { ...entry, hp } : entry));
+  return { ...battle, combatants };
+}
+
+function mustGet<T>(list: readonly T[], index: number): T {
+  const found = list[index];
+  if (found === undefined) throw new Error(`index ${index} absent`);
+  return found;
+}
+
+/** Ennemis dans l'ordre de la timeline, morts compris. */
+function enemyOrder(battle: BattleState): string[] {
+  return battle.order.filter((id) => battle.combatants.find((entry) => entry.id === id)?.side === "enemy");
+}
+
+const ALL_ENEMIES = ["piou_mazoute-0", "piou_mazoute-1", "fer_rat_de_cale-2"];
+
 describe("battleViewModel — N combattants", () => {
   it("expose le héros puis les trois ennemis de la salle 1, dans l'ordre des combattants", () => {
     const views = battleViewModel(realBattle());
@@ -116,13 +135,45 @@ describe("battleViewModel — actif et ciblable", () => {
 
   it("retire des cibles un ennemi mort", () => {
     const base = withActive(realBattle(), "player");
-    const combatants = base.combatants.map((entry) => (entry.id === "piou_mazoute-0" ? { ...entry, hp: 0 } : entry));
-    const views = battleViewModel({ ...base, combatants });
+    const views = battleViewModel(withHp(base, ["piou_mazoute-0"], 0));
     expect(views.filter((view) => view.isTargetable).map((view) => view.id)).toEqual([
       "piou_mazoute-1",
       "fer_rat_de_cale-2",
     ]);
-    expect(views.find((view) => view.id === "piou_mazoute-0")?.hp).toBe(0);
+    expect(views.some((view) => view.id === "piou_mazoute-0")).toBe(false);
+  });
+});
+
+describe("battleViewModel — les morts sortent du panneau", () => {
+  it("masque un ennemi à 0 PV et garde les vivants dans l'ordre d'affichage", () => {
+    const base = withActive(realBattle(), "player");
+    const views = battleViewModel(withHp(base, ["piou_mazoute-0"], 0));
+    expect(views.map((view) => view.id)).toEqual(["player", "piou_mazoute-1", "fer_rat_de_cale-2"]);
+  });
+
+  it("garde l'actif exact quand un mort le précède dans la timeline", () => {
+    const base = realBattle();
+    const enemies = enemyOrder(base);
+    const dead = mustGet(enemies, 0);
+    const active = mustGet(enemies, 1);
+    const battle = withActive(withHp(base, [dead], 0), active);
+    const views = battleViewModel(battle);
+    expect(views.map((view) => view.id)).not.toContain(dead);
+    expect(views.filter((view) => view.isActive).map((view) => view.id)).toEqual([active]);
+  });
+
+  it("ne garde que le héros quand tous les ennemis sont morts", () => {
+    const base = withActive(realBattle(), "player");
+    const views = battleViewModel(withHp(base, ALL_ENEMIES, 0));
+    expect(views.map((view) => view.id)).toEqual(["player"]);
+    expect(views.filter((view) => view.isTargetable)).toEqual([]);
+  });
+
+  it("ne cible aucun ennemi quand le héros est mort, même s'il est encore l'actif", () => {
+    const base = withActive(realBattle(), "player");
+    const views = battleViewModel(withHp(base, ["player"], 0));
+    expect(views.some((view) => view.id === "player")).toBe(false);
+    expect(views.filter((view) => view.isTargetable)).toEqual([]);
   });
 });
 
