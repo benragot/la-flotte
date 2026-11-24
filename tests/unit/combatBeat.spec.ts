@@ -292,27 +292,13 @@ describe("useCombatStore.playEnemyStepOnce — un seul pas de timeline", () => {
 
 describe("useCombatBeat — le minuteur vit dans le hook et se nettoie", () => {
   it("planifie avec setTimeout et nettoie avec clearTimeout au démontage", () => {
+    // Le câblage d'ouverture est couvert par le comportement (`openingStepAllowed`,
+    // `createOpeningClaim`) : lire la source ne prouvait rien de plus.
     const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
     expect(source).toContain("setTimeout");
     expect(source).toContain("clearTimeout");
     expect(source).toMatch(/alive\.current = false/);
     expect(source).toContain("playEnemyStepOnce");
-  });
-
-  it("réclame l'ouverture dans l'effet et la libère au cleanup : StrictMode rejoue", () => {
-    const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
-    expect(source).toContain("createOpeningClaim");
-    expect(source).toContain("openingBeatNeeded");
-    expect(source).toContain("claim.tryClaim(");
-    expect(source).toContain("claim.release()");
-    expect(source).toContain("scheduleStep(refs, 0, true)");
-  });
-
-  it("marque la chaîne d'ouverture et revérifie la main au déclenchement", () => {
-    const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
-    expect(source).toContain("openingStepAllowed");
-    expect(source).toContain("openingOnly");
-    expect(source).toContain("scheduleStep(refs, 0, false)");
   });
 });
 
