@@ -1,4 +1,5 @@
 import type { CellType } from "../schemas/mapSchema";
+import { shiftColor } from "./tileMaterials";
 
 export interface TileStyle {
   fill: number;
@@ -43,9 +44,12 @@ export const CELL_OUTLINE = 0xe8dcc8;
 export const CELL_OUTLINE_ALPHA = 0.22;
 export const CELL_OUTLINE_WIDTH = 1;
 
-/** Faces du relief des murs : dessus éclairé, flanc dans l'ombre. */
+/** Faces du relief des murs : dessus éclairé, flanc ouest dans l'ombre. */
 export const WALL_TOP = 0x79828c;
 export const WALL_SIDE = 0x3c424a;
+/** Flanc est : la même pierre que `WALL_SIDE`, un cran plus claire — la lumière vient du nord-est. */
+export const WALL_SIDE_EAST = shiftColor(WALL_SIDE, 18);
+/** Hauteur du relief en pixels de référence, avant l'échelle de la caméra. */
 export const WALL_HEIGHT = 14;
 
 /** Style d'une étape du chemin A* en exploration. */
