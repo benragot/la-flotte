@@ -112,6 +112,10 @@ function openingLog(player: CombatantState, enemy: CombatantState): string[] {
   return [`${player.name} affronte ${enemy.name}.`];
 }
 
+/**
+ * État de combat brut : la phase vaut ici `player_turn` par défaut. Le 1v1
+ * la corrige via `beginCombat` **après** l'équipement du héros.
+ */
 export function initCombat(input: InitCombatInput): CombatState {
   const player = buildPlayer(input);
   const enemy = buildEnemy(input, player.position);
