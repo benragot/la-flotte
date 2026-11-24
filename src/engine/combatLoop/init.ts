@@ -2,6 +2,8 @@ import type { MonsterDef } from "../../schemas/monsterSchema";
 import type { Element, SpellDef } from "../../schemas/spellSchema";
 import type { Hero } from "../createHero";
 import type { AsciiMap, Position } from "../grid";
+import { isWalkableCell, samePosition } from "../grid";
+import { allPositions, manhattan } from "./cells";
 import type {
   CombatResistances,
   CombatStats,
@@ -40,6 +42,37 @@ function requireSpawn(spawns: readonly Position[], label: string): Position {
   return spawn;
 }
 
+/** Une carte d'extérieur sans `M` : le monstre s'écarte du héros au lieu d'échouer. */
+function farFromOrigin(a: Position, b: Position, origin: Position): boolean {
+  return manhattan(origin, a) > manhattan(origin, b);
+}
+
+/** Case praticable la plus loin du héros, départage en lecture (jamais la sienne). */
+function farthestCell(map: AsciiMap, player: Position): Position | null {
+  const cells = allPositions(map).filter((cell) => isWalkableCell(map, cell) && !samePosition(cell, player));
+  return cells.reduce<Position | null>((best, cell) => keepFarther(best, cell, player), null);
+}
+
+/** Conserve la meilleure candidate : le premier maximum rencontré gagne. */
+function keepFarther(best: Position | null, cell: Position, origin: Position): Position {
+  if (best === null) return cell;
+  return farFromOrigin(cell, best, origin) ? cell : best;
+}
+
+/**
+ * Case de l'ennemi : les `M` de `data/maps.yaml` d'abord (la plage, les salles),
+ * sinon la case praticable la plus loin du héros. Quai et cale déclarent leurs
+ * monstres dans `data/spawns.yaml` et n'ont aucun `M` : sans ce repli, cliquer
+ * un groupe levait « placement monstre absent de la carte » et n'ouvrait RIEN.
+ */
+function enemySpawn(map: AsciiMap, player: Position): Position {
+  const declared = map.monsterSpawns.filter((cell) => isWalkableCell(map, cell))[0];
+  if (declared !== undefined) return declared;
+  const fallback = farthestCell(map, player);
+  if (fallback === null) throw new Error("placement monstre absent de la carte");
+  return fallback;
+}
+
 function vitals(source: { hp: number; ap: number; mp: number }): Partial<CombatantState> {
   const { hp, ap, mp } = source;
   return { hp, maxHp: hp, ap, maxAp: ap, mp, maxMp: mp };
@@ -67,9 +100,9 @@ function buildPlayer(input: InitCombatInput): CombatantState {
   return { ...base, ...vitals(hero), ...extras };
 }
 
-function buildEnemy(input: InitCombatInput): CombatantState {
+function buildEnemy(input: InitCombatInput, player: Position): CombatantState {
   const { monster, map } = input;
-  const position = requireSpawn(map.monsterSpawns, "monstre");
+  const position = enemySpawn(map, player);
   const base = combatantBase({ id: monster.id, kind: "enemy", name: monster.name, position });
   const extras = { level: monster.level, pp: 0, spellIds: monster.spellIds };
   return { ...base, ...vitals(monster), ...extras, stats: monster.stats, resistances: monster.resistances };
@@ -81,7 +114,7 @@ function openingLog(player: CombatantState, enemy: CombatantState): string[] {
 
 export function initCombat(input: InitCombatInput): CombatState {
   const player = buildPlayer(input);
-  const enemy = buildEnemy(input);
+  const enemy = buildEnemy(input, player.position);
   const base = { turn: 1, map: input.map, player, enemy, rewards: null };
   const spellsById = indexSpells(input.spells);
   return { ...base, phase: "player_turn", spellsById, log: openingLog(player, enemy) };
