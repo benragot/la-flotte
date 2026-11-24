@@ -2,8 +2,10 @@ import { useEffect, useRef } from "react";
 import type { ReactNode, ReactElement } from "react";
 import "./theme.css";
 import type { Position } from "../engine/grid";
+import type { BattleState } from "../engine/multiCombat";
 import type { ArenaMode, ExplorationView } from "../renderer";
 import { CombatCanvas } from "../renderer";
+import { turnSide } from "../store/battleSelectors";
 import { useCombatStore } from "../store/useCombatStore";
 import { useGameStore } from "../store/useGameStore";
 import { appScreen, shouldStartExploration } from "./appRouting";
@@ -113,18 +115,26 @@ function heroCellLabel(battleHero: Position | undefined, playerPos: Position | u
   return cell === undefined ? undefined : `${cell.x},${cell.y}`;
 }
 
-/** Héros de la salle courante, lu dans le même store que la peinture. */
-function useBattleHero(): Position | undefined {
-  const battle = useCombatStore((state) => state.battle);
-  return battle?.combatants.find((entry) => entry.side === "player")?.position;
+/** Données de scène publiées au DOM : position logique du héros et main en cours. */
+function heroPositionOf(battle: BattleState | null): Position | undefined {
+  if (battle === null) return undefined;
+  return battle.combatants.find((entry) => entry.side === "player")?.position;
+}
+
+function arenaData(battle: BattleState | null, exploration: ExplorationView | undefined) {
+  const cell = heroCellLabel(heroPositionOf(battle), exploration?.playerPos);
+  return { "data-hero-cell": cell, "data-turn-side": turnSide(battle) ?? undefined };
+}
+
+function useArenaData(exploration: ExplorationView | undefined) {
+  return arenaData(useCombatStore((state) => state.battle), exploration);
 }
 
 /** Le canvas remplit la zone libre : `useContainerSize` mesure la surface réellement jouable. */
 function ArenaStage({ mode, exploration }: ArenaStageProps) {
-  const battleHero = useBattleHero();
-  const heroCell = heroCellLabel(battleHero, exploration?.playerPos);
+  const data = useArenaData(exploration);
   return (
-    <main aria-label="Terrain de combat" data-hero-cell={heroCell} className={ARENA_STAGE_CLASS}>
+    <main aria-label="Terrain de combat" {...data} className={ARENA_STAGE_CLASS}>
       <CombatCanvas mode={mode} exploration={exploration} />
     </main>
   );

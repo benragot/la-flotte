@@ -21,6 +21,7 @@ import type {
   EnemyStrategy,
   RangeSpec,
   Rng,
+  Side,
 } from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
 
@@ -266,8 +267,14 @@ function isBattleOver(state: BattleState): boolean {
   return isDefeat(state) || isVictory(state);
 }
 
+/** Côté qui a la main : la scène l'expose (`data-turn-side`), le panneau s'y soumet. */
+export function turnSide(state: BattleState | null): Side | null {
+  if (state === null) return null;
+  return activeCombatant(state)?.side ?? null;
+}
+
 function heroHasHand(state: BattleState): boolean {
-  return activeCombatant(state)?.side === "player";
+  return turnSide(state) === "player";
 }
 
 function enemyStep(input: EnemyTurnsInput, state: BattleState): BattleState {
