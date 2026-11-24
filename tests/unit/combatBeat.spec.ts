@@ -23,7 +23,7 @@ import {
   openingBeatNeeded,
 } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
-import { nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
+import { createOpeningClaim, nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const monsters = parseMonstersYaml(read("monsters.yaml"));
@@ -177,6 +177,42 @@ describe("openingBeatNeeded — la cadence démarre-t-elle sans clic ?", () => {
   });
 });
 
+describe("createOpeningClaim — l'ouverture survit au double montage StrictMode", () => {
+  function enemyTurn(): BattleState {
+    return crabBattle().state;
+  }
+
+  function heroTurn(): BattleState {
+    const state = crabBattle().state;
+    return { ...state, activeIndex: state.order.indexOf("player") };
+  }
+
+  it("réclame, puis réclame encore après release : mount → unmount → mount", () => {
+    const claim = createOpeningClaim();
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+    claim.release();
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+  });
+
+  it("refuse quand le héros a la main : son tour n'est jamais passé tout seul", () => {
+    const claim = createOpeningClaim();
+    expect(claim.tryClaim(heroTurn())).toBe(false);
+    expect(claim.tryClaim(null)).toBe(false);
+  });
+
+  it("ne planifie qu'une fois sans release : deux tryClaim, un seul true", () => {
+    const claim = createOpeningClaim();
+    expect([claim.tryClaim(enemyTurn()), claim.tryClaim(enemyTurn())]).toEqual([true, false]);
+  });
+
+  it("se libère quand le héros reprend la main : la main suivante réclame à nouveau", () => {
+    const claim = createOpeningClaim();
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+    expect(claim.tryClaim(heroTurn())).toBe(false);
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+  });
+});
+
 describe("nextBeatDelay — la cadence vue par le pilote", () => {
   it("attend 750 ms puis zéro, jamais un délai négatif", () => {
     expect(nextBeatDelay({ lastActionAt: 1000, now: 1000, needed: true })).toBe(750);
@@ -234,9 +270,12 @@ describe("useCombatBeat — le minuteur vit dans le hook et se nettoie", () => {
     expect(source).toContain("playEnemyStepOnce");
   });
 
-  it("planifie le pas d'ouverture quand l'ennemi a la main, sans passer le tour du héros", () => {
+  it("réclame l'ouverture dans l'effet et la libère au cleanup : StrictMode rejoue", () => {
     const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
+    expect(source).toContain("createOpeningClaim");
     expect(source).toContain("openingBeatNeeded");
+    expect(source).toContain("claim.tryClaim(");
+    expect(source).toContain("claim.release()");
     expect(source).toContain("scheduleStep(refs, 0)");
   });
 });
