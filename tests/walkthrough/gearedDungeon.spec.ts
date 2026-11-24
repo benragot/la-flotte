@@ -147,20 +147,20 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  *
  * RÉPONSE DEC-03 APRÈS GRID-01 (rétablie par la calibration de soin) : (a) « au
  * niveau recommandé (16) avec un bon équipement, le joueur gagne » est de
- * nouveau vraie — les deux builds gagnent la salle 4 avec 73 et 56 PV finaux,
- * et une marge positive sur cette salle (3,174 et 2,182 tours). La marge
- * minimale du donjon n'est pas en salle 4 mais en salle 3 (2,264 et 0,825),
+ * nouveau vraie — les deux builds gagnent la salle 4 avec 78 et 65 PV finaux,
+ * et une marge positive sur cette salle (3,391 et 2,532 tours). La marge
+ * minimale du donjon n'est pas en salle 4 mais en salle 3 (2,400 et 0,931),
  * comme le dit la table. Le levier est le soin de franchissement (0,5 → 0,75),
  * explicitement autorisé par DEC-03 ; ni les dégâts, ni les sorts, ni les PV de
  * référence des monstres ne bougent. (b) le héros nu perd toujours, et toujours
- * en salle 2 (114 PV à la porte, 137 PV de monstres restants) : le soin plus
+ * en salle 2 (123 PV à la porte, 137 PV de monstres restants) : le soin plus
  * généreux ne remplace pas une panoplie.
  *
  * CONSTAT D'ARITHMÉTIQUE ASSUMÉ, REMESURÉ À 0,75 : la fenêtre 1-2 tours n'est
- * pas atteignable pour les deux builds. `16 survie` (303 PV) sort par le haut
- * (2,264 tours, salle 3) tandis que `16 offense` (228 PV) sort par le bas
- * (0,825 tour, salle 3) ; l'offense est donc borné par son ratio de PV
- * restants, `hpEnd < maxHp / 2` (56/228 = 24,6 %), pas par la fenêtre de tours.
+ * pas atteignable pour les deux builds. `16 survie` (308 PV) sort par le haut
+ * (2,400 tours, salle 3) tandis que `16 offense` (233 PV) sort par le bas
+ * (0,931 tour, salle 3) ; l'offense est donc borné par son ratio de PV
+ * restants, `hpEnd < maxHp / 2` (65/233 = 27,9 %), pas par la fenêtre de tours.
  * On ne prétend pas calibrer les deux à 1-2 tours ; le test ne fige pas un
  * instantané au centième. (Historique : au soin 0,5, la même case offense
  * mesurait 2,04 tours et 63/228 = 28 %.)
@@ -717,7 +717,7 @@ interface Cell {
  * Aucun dégât, sort, PV de référence, butin ni `hpScale` n'est touché : seule
  * la part du pool effectif rendue au franchissement change. Les deux builds de
  * 16 franchissent les salles 1-3 à pleine barre (`16 offense` entre en salle 4
- * à 210/228), puis gagnent la salle 4 qu'ils perdaient ; la marge minimale,
+ * à 219/233), puis gagnent la salle 4 qu'ils perdaient ; la marge minimale,
  * elle, reste portée par la salle 3. Le héros nu meurt toujours en salle 2.
  */
 const CELLS: readonly Cell[] = [
@@ -849,7 +849,7 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  *
  * CE QUE LA MESURE DIT DE L'ARITHMÉTIQUE : le soin de franchissement remet les
  * deux builds de 16 à pleine barre entre les salles (sauf `16 offense`, qui
- * entre en salle 4 à 210/228), donc les salles 1-3 ne se disputent plus la
+ * entre en salle 4 à 219/233), donc les salles 1-3 ne se disputent plus la
  * victoire. La salle 4 — celle que 16 perdait avant la calibration — est
  * gagnée : `survie` y finit à 73 PV, `offense` à 56 PV (24,6 % de sa barre).
  * Mais la marge MINIMALE de chaque cellule est portée par la salle 3 (2,264 et

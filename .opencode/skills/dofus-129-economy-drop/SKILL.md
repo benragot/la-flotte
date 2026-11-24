@@ -103,13 +103,13 @@ const tiers = [
 
 - Les PA passent à 7 **au niveau 100 exactement**, et n'augmentent plus
   ensuite.
-- `baseHp` est celui de la classe (50 par défaut).
+- `baseHp` est celui de la classe (55 par défaut : 55 PV au niveau 1, +5 par niveau en 1.29).
 
 | Cas | Niveau | PV | Capital | Points de sort | PA |
 | --- | ------ | -- | ------- | -------------- | -- |
-| Départ | 1 | 50 | 0 | 0 | 6 |
-| Premier gain | 2 | 55 | 5 | 1 | 6 |
-| Seuil PA | 100 | 545 | 495 | 99 | 7 |
+| Départ | 1 | 55 | 0 | 0 | 6 |
+| Premier gain | 2 | 60 | 5 | 1 | 6 |
+| Seuil PA | 100 | 550 | 495 | 99 | 7 |
 | Fin de courbe | 200 | 1045 | 995 | 199 | 7 |
 
 ## Marché

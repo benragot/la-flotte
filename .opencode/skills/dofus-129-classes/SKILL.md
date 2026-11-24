@@ -28,8 +28,12 @@ description: "Référentiel complet des 12 classes Dofus 1.29 : stats de base, s
 | -------- | ----------------- | ---------------- |
 | `basePa` | 6                 | —                |
 | `basePm` | 3                 | —                |
-| `baseHp` | 50                | —                |
+| `baseHp` | 55                | —                |
 | `basePp` | 100               | `enutrof` : 120  |
+
+En 1.29, un personnage démarre à **55 PV** au niveau 1, puis gagne
+**+5 PV par niveau** (source : règle 1.29 « starts with 55 HP and gets 5 extra
+HP per level »).
 
 ```yaml
 classes:
@@ -37,13 +41,13 @@ classes:
     name: Iop
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
   - id: enutrof
     name: Enutrof
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 120
 ```
 
