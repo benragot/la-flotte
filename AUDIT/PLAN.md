@@ -1,7 +1,26 @@
 # PLAN — ordre d'attaque
 
-> Suite de `AUDIT/ISSUES.md` : 70 constats, 5 vagues. La règle est la même pour
+> Suite de `AUDIT/ISSUES.md` : 71 constats, 5 vagues. La règle est la même pour
 > chaque ligne, sans exception.
+>
+> **État au 2026-11-24** : 7 constats faits (vague 0 entièrement, plus
+> COMBAT-04, COMBAT-08, GRID-01, RENDER-02 et BALANCE-01 en vague 1),
+> 64 restants. Détail des hashes dans `AUDIT/ISSUES.md` → `## Suivi des merges`.
+
+## Reste en tête
+
+Ce qui décide de la prochaine PR, dans cet ordre :
+
+1. **Aperçu du chemin** — GRID-03 (et INPUT-01 derrière) : `buildPathPreview` n'a
+   toujours aucun appelant, le clic-to-move reste à l'aveugle.
+2. **Sorts honnêtes** — UI-01 (plus de clic mort), puis SPELL-03 (CC réel) et
+   SPELL-02 (moteur d'effets) : un sort jouable doit annoncer sa règle.
+3. **Stuff** — ITEM-01 (résistances et `% Dégâts` dans `CombatantState`) :
+   prérequis de SPELL-03 et SPELL-08, donc avant eux.
+4. **Donjon et kamas** — DATA-01 + DATA-02 ensemble : une salle nettoyée doit
+   créditer XP, butin et kamas, sinon la boucle de progression reste morte.
+
+Le reste (vagues 2 à 4, puis les 39 `P2`) suit l'ordre des sections ci-dessous.
 
 ## Règle d'exécution
 
@@ -15,35 +34,37 @@
 6. PR ouverte, auditée par `qa-reviewer`, mergée par `pr-merger` — jamais en
    direct sur `main`.
 
-## Vague 0 — P0 (débloquer le combat)
+## Vague 0 — P0 (débloquer le combat) — ✅ faite
 
 Ordre imposé, la zone `combat` est la même et COMBAT-02 dépend du chemin ouvert
-par COMBAT-01.
+par COMBAT-01. Les trois constats sont mergés.
 
-| Ordre | ID | Effort | Pourquoi d'abord |
-| --- | --- | --- | --- |
-| 1 | COMBAT-01 | S | Le 1v1 ne calcule pas l'initiative : tout le reste du combat 1v1 se joue sur un ordre faux. |
-| 2 | COMBAT-02 | S | Panneau figé quand un monstre ouvre la salle : bloque toute observation du 1vN. |
-| 3 | COMBAT-04 | S | Les morts restent dans `order` : filtre nécessaire avant d'afficher quoi que ce soit. |
+| Ordre | ID | Effort | Pourquoi d'abord | Statut |
+| --- | --- | --- | --- | --- |
+| 1 | COMBAT-01 | S | Le 1v1 ne calcule pas l'initiative : tout le reste du combat 1v1 se joue sur un ordre faux. | ✅ fait (#139, `fff5d3d`) |
+| 2 | COMBAT-02 | S | Panneau figé quand un monstre ouvre la salle : bloque toute observation du 1vN. | ✅ fait (#136, `8797ac5`) |
+| 3 | COMBAT-04 | S | Les morts restent dans `order` : filtre nécessaire avant d'afficher quoi que ce soit. | ✅ fait (#135, `1512b56`) |
 
-## Vague 1 — P1 courts, fort impact
+## Vague 1 — P1 courts, fort impact — 4 faits sur 11
 
 Correctifs qui changent immédiatement la lisibilité du jeu. Tous `S` sauf
 COMBAT-03 (`M`), placé en tête parce qu'il débloque UI-04 et toute valeur
-d'initiative — **après COMBAT-01**.
+d'initiative — **après COMBAT-01** (fait).
 
-| ID | Effort | Note |
-| --- | --- | --- |
-| COMBAT-03 | M | Stats de base par classe dans `classes.yaml` : initiative du héros non nulle. **Après COMBAT-01** (dépendance ci-dessous) et avant UI-04. |
-| GRID-01 | S | Portée Chebyshev, les 8 voisins en test. Débloque le corps-à-corps diagonal. |
-| GRID-02 | S | Règle des coins en LoS ; corriger `tests/unit/grid.spec.ts:214-217` **en même temps**. |
-| COMBAT-08 | S | Filtrer l'IA 1v1 par la portée réelle. |
-| DATA-03 | S | Table d'écart de niveau en données, `levelGapFactor` cesse d'être un `1`. |
-| UI-02 | S | Désactiver « Attaquer » à 0 PA / en recharge. |
-| UI-03 | S | Espace ne termine plus le tour si un bouton a le focus. |
-| RENDER-02 | S | `resolution: devicePixelRatio` + `autoDensity`. |
-| RENDER-03 | S | Deuxième face des murs + base remplie. |
-| RENDER-06 | S | Nom des combattants sur les jetons. |
+| ID | Effort | Note | Statut |
+| --- | --- | --- | --- |
+| COMBAT-03 | M | Stats de base par classe dans `classes.yaml` : initiative du héros non nulle. **Après COMBAT-01** (dépendance ci-dessous) et avant UI-04. | ouvert |
+| GRID-01 | S | Portée Chebyshev, les 8 voisins en test. Débloque le corps-à-corps diagonal. | ✅ fait (#141, `62ecdda`) |
+| BALANCE-01 | S | **Suite de GRID-01** : le donjon niveau 16 perdait la salle 4 ; soin entre salles 0,50→0,75 (levier autorisé par DEC-03), sans nerf de dégâts ni `hpScale`. | ✅ fait (#142, `5ae59cf`) |
+| GRID-02 | S | Règle des coins en LoS ; corriger `tests/unit/grid.spec.ts:214-217` **en même temps**. | ouvert |
+| COMBAT-08 | S | Filtrer l'IA 1v1 par la portée réelle. | ✅ fait (#140, `4ed327c`) |
+| DATA-03 | S | Table d'écart de niveau en données, `levelGapFactor` cesse d'être un `1`. | ouvert |
+| UI-02 | S | Désactiver « Attaquer » à 0 PA / en recharge. | ouvert |
+| UI-03 | S | Espace ne termine plus le tour si un bouton a le focus. | ouvert |
+| RENDER-02 | S | `resolution: devicePixelRatio` + `autoDensity`. | ✅ fait (#138, `10d516b`) |
+| RENDER-03 | S | Deuxième face des murs + base remplie. | ouvert |
+| RENDER-06 | S | Nom des combattants sur les jetons. | ouvert |
+
 
 ## Vague 2 — P1 moyens, « sente Dofus »
 
@@ -100,6 +121,7 @@ dans l'ordre : `GRID-05`, `GRID-04`, `GRID-06/07/08/09` → `UI-06…UI-15` →
 | **DATA-01 et DATA-02 ensemble** | Même point de crédit en fin de salle : deux PR successives casseraient la comptabilité. |
 | **COMBAT-01 avant COMBAT-03** | Le calcul d'initiative doit exister avant qu'une valeur non nulle ait un effet. |
 | **RENDER-03 avant RENDER-01** | Un décor intercalé avec des murs à une face reste illisible. |
+| **GRID-01 avant BALANCE-01** | La portée Chebyshev change l'atteignabilité en salle : le soin entre salles (BALANCE-01) se recalibre **après** elle, jamais avant. |
 
 ## Points d'arrêt (arbitrage propriétaire)
 

@@ -1,13 +1,17 @@
 # ISSUES — constats dédupliqués
 
-> 70 constats, triés **P0** puis **P1** puis **P2**, puis par domaine à
+> 71 constats, triés **P0** puis **P1** puis **P2**, puis par domaine à
 > l'intérieur d'une sévérité. Tous les chemins sont relatifs à `src/` sauf
 > mention contraire (`data/`, `tests/`, `docs/`, `scripts/`).
 >
 > Colonnes : `ID | Domaine | Problème | Preuves | Impact | Sévérité | Référence | Fix | Effort | Statut`.
 > Effort : `S` ≈ une micro-PR d'une passe, `M` ≈ plusieurs fichiers, `L` ≈ nouveau
-> sous-système. Aucun de ces constats n'a été corrigé par cet audit : tous sont
-> `ouvert`.
+> sous-système.
+>
+> **Compteurs (2026-11-24, après les correctifs mergés)** : 71 constats,
+> **7 `fixed`**, **64 restants** — P0 : **0** restant (2 corrigés),
+> P1 : **25** restants sur 30 (5 corrigés), P2 : **39** restants. La somme des
+> lignes du tableau vaut 71 ; les hashes sont dans `## Suivi des merges`.
 >
 > `Référence` = preuve 1.29 **par constat** : un `chemin:ligne` de la
 > décompilation (`AUDIT/01_reference.md`, sections citées), ou `serveur (non
@@ -20,14 +24,14 @@
 
 | ID | Domaine | Problème | Preuves | Impact | Sévérité | Référence | Fix | Effort | Statut |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| COMBAT-01 | combat | Le 1v1 ne calcule jamais l'initiative : le héros joue toujours en premier. | `combatLoop/init.ts:118-120`, `store/useCombatStore.ts:280-283` | Combat joué d'avance. | P0 | `serveur (non lisible)` | Calculer les deux initiatives et en déduire la phase d'ouverture. | S | ouvert |
-| COMBAT-02 | combat | En 1vN, si un monstre est le plus rapide, la cadence ennemie ne démarre jamais : panneau figé. | `ui/components/battle/useCombatBeat.ts:100-106`, `BattlePanel.tsx:82` | Le joueur doit cliquer « Terminer le tour » pour un monstre. | P0 | `référence non trouvée` | Lancer `scheduleStep` au montage si `needsEnemyStep`. | S | ouvert |
-| GRID-01 | grille | Portée mesurée en Manhattan : une cible diagonale adjacente est à distance 2. | `combatLoop/castable.ts:16-18`, `multiCombat/range.ts:33-43` | Corps-à-corps diagonal impossible. | P1 | `serveur (non lisible)` | `rangeDistance = max(\|dx\|,\|dy\|)`, test des 8 voisins. | S | ouvert |
+| COMBAT-01 | combat | Le 1v1 ne calcule jamais l'initiative : le héros joue toujours en premier. | `combatLoop/init.ts:118-120`, `store/useCombatStore.ts:280-283` | Combat joué d'avance. | P0 | `serveur (non lisible)` | Calculer les deux initiatives et en déduire la phase d'ouverture. | S | fixed (#139, fff5d3d) |
+| COMBAT-02 | combat | En 1vN, si un monstre est le plus rapide, la cadence ennemie ne démarre jamais : panneau figé. | `ui/components/battle/useCombatBeat.ts:100-106`, `BattlePanel.tsx:82` | Le joueur doit cliquer « Terminer le tour » pour un monstre. | P0 | `référence non trouvée` | Lancer `scheduleStep` au montage si `needsEnemyStep`. | S | fixed (#136, 8797ac5) |
+| GRID-01 | grille | Portée mesurée en Manhattan : une cible diagonale adjacente est à distance 2. | `combatLoop/castable.ts:16-18`, `multiCombat/range.ts:33-43` | Corps-à-corps diagonal impossible. | P1 | `serveur (non lisible)` | `rangeDistance = max(\|dx\|,\|dy\|)`, test des 8 voisins. | S | fixed (#141, 62ecdda) |
 | GRID-02 | grille | La LoS traverse un coin où les deux orthogonales sont des murs. | `grid/lineOfSight.ts:33-50`, `tests/unit/grid.spec.ts:214-217` | Sorts tirés à travers un angle. | P1 | `%16%04%09/battlefield/%1B%17%07/%16%1E%11.as:583` | Règle des coins sur les pas diagonaux + corriger le test. | S | ouvert |
 | GRID-03 | grille | Aucun aperçu de chemin ni de coût PM au survol ; `buildPathPreview` n'a aucun appelant. | `renderer/explorationScene.ts:38,101`, `combatSceneModel.ts:185`, `pathPreview.ts:80` | Clic-to-move à l'aveugle. | P1 | `%16%04%09/battlefield/%1B%17%07/%1A%04%0E.as:1196` | Alimenter `view.path` depuis `buildPathPreview(hoveredCell)`. | M | ouvert |
 | INPUT-01 | input | Le clic est résolu par la case sous le pointeur, jamais par le sprite. | `renderer/pointer.ts:52-71`, `useCombatPointer.ts:56-58`, `sprites/EntitySprite.ts:8-9` | Mauvaise case visée, ennemi non attaquable à la souris. | P1 | `%16%04%09/battlefield/%17%05%03/%16%17%1B.as:633` | Hit-test des jetons avant `isoToGrid`. | M | ouvert |
 | RENDER-01 | rendu | Décor non intercalé : il masque les acteurs. | `renderer/sceneLayerOrder.ts:13-27`, capture `play-report/05b-salle-donjon.png` | Héros caché derrière les barils. | P1 | `référence non trouvée` | Tri `x+y` commun acteurs + décor. | M | ouvert |
-| RENDER-02 | rendu | Canvas en 1× : pas de `devicePixelRatio`. | `renderer/usePixiApp.ts:52,111` | Flou sur écran Retina. | P1 | `référence non trouvée` | `resolution: devicePixelRatio`, `autoDensity: true`. | S | ouvert |
+| RENDER-02 | rendu | Canvas en 1× : pas de `devicePixelRatio`. | `renderer/usePixiApp.ts:52,111` | Flou sur écran Retina. | P1 | `référence non trouvée` | `resolution: devicePixelRatio`, `autoDensity: true`. | S | fixed (#138, 10d516b) |
 | RENDER-03 | rendu | Murs à une seule face, base non remplie. | `renderer/tilePaint.ts:51-73` | Murs en papier avec un trou. | P1 | `référence non trouvée` | Deuxième face + remplissage du losange de base. | S | ouvert |
 | RENDER-04 | rendu | Portée des sorts = nappe bleue opaque au-dessus du décor. | `renderer/tileStyle.ts:31,65`, `sceneLayerOrder.ts:15-16` | Décor et cases masqués. | P1 | `référence non trouvée` | Contour alpha 0,18 teinté par élément. | M | ouvert |
 | RENDER-05 | rendu | En salle, aucune animation `attack`/`hit`. | `renderer/battleSceneModel.ts:47,63,68` | Coups invisibles hors nombres flottants. | P1 | `référence non trouvée` | Exposer `lastAction` typé. | M | ouvert |
@@ -46,11 +50,12 @@
 | DATA-02 | données | Kamas déclarés mais jamais crédités ni dépensés. | `data/monsters.yaml:52-53`, `store/useGameStore.ts:287-295` | Monnaie morte. | P1 | `serveur (non lisible)` | Tirage kamas + action vendre. | M | ouvert |
 | DATA-03 | données | `levelGapFactor: 1` neutralise le malus d'écart de niveau. | `data/progression.yaml:59`, `economy/xp.ts:13-16` | Farm de bas niveau sans rendement décroissant. | P1 | `serveur (non lisible)` | Table d'écart niveau en données. | S | ouvert |
 | COMBAT-03 | combat | Initiative du héros à 0 : il joue après tous les monstres en donjon. | `engine/createHero.ts:41-43`, `engine/dungeon/combatants.ts:54-58` | Monstres frappent d'abord à chaque salle. | P1 | `serveur (non lisible)` | Stats de base par classe dans `classes.yaml`. | M | ouvert |
-| COMBAT-04 | combat | Les morts restent dans `order` et dans le panneau. | `multiCombat/turn.ts:10-13,37-44`, `renderer/battleViewModel.ts:113-118` | Carte morte affichée. | P1 | `serveur (non lisible)` | Filtrer `hp > 0`, purger `order`. | S | ouvert |
+| COMBAT-04 | combat | Les morts restent dans `order` et dans le panneau. | `multiCombat/turn.ts:10-13,37-44`, `renderer/battleViewModel.ts:113-118` | Carte morte affichée. | P1 | `serveur (non lisible)` | Filtrer `hp > 0`, purger `order`. | S | fixed (#135, 1512b56) |
 | COMBAT-05 | combat | L'ordre d'initiative du 1vN n'est jamais affiché. | `renderer/battleViewModel.ts:112-118`, `BattlePanel.tsx:57-58` | Impossible d'anticiper. | P1 | `serveur (non lisible)` | Afficher `order` filtré des vivants. | M | ouvert |
 | COMBAT-06 | combat | Aucune phase de fin de tour : poison, régénération, durées inertes. | `combatLoop/turn.ts:26-32`, `multiCombat/turn.ts:37-45` | Sorts à durée sans effet. | P1 | `serveur (non lisible)` | Hook `endTurn` pur (états + poison). | L | ouvert |
 | COMBAT-07 | combat | Les blocs `ai:` des monstres ne sont jamais lus. | `schemas/monsterSchema.ts:44-50`, `store/battleSelectors.ts:226-237` | Toutes les IA sont identiques. | P1 | `serveur (non lisible)` | Brancher `archetype`/`preferredDistance`. | M | ouvert |
-| COMBAT-08 | combat | L'IA 1v1 choisit un sort sans tester la portée. | `combatLoop/enemy.ts:22-37` | Monstre colle au lieu de tirer. | P1 | `serveur (non lisible)` | Filtrer par `canHitOpponent`. | S | ouvert |
+| COMBAT-08 | combat | L'IA 1v1 choisit un sort sans tester la portée. | `combatLoop/enemy.ts:22-37` | Monstre colle au lieu de tirer. | P1 | `serveur (non lisible)` | Filtrer par `canHitOpponent`. | S | fixed (#140, 4ed327c) |
+| BALANCE-01 | équilibrage | Après GRID-01, le donjon niveau 16 perdait la salle 4 (violation DEC-03) ; soin entre salles 0,50→0,75, levier autorisé par DEC-03, sans nerf de dégâts ni `hpScale`. | `data/dungeons.yaml` (`healBetweenRooms`), `tests/walkthrough/gearedDungeon.spec.ts` | Donjon recommandé niveau 16 injouable. | P1 | `docs/design/DECISIONS.md:25-32` | Soin entre salles 0,75, rien d'autre. | S | fixed (#142, 5ae59cf) |
 | GRID-04 | grille | En 1vN, un clic hors budget s'arrête en marche partielle ; le propriétaire veut un refus sec. | `multiCombat/move.ts:143-150`, `docs/design/PENDING.md:25-26` | Règle différente entre modes. | P2 | `serveur (non lisible)` | Aligner le 1vN sur le refus sec. | S | ouvert |
 | GRID-05 | grille | Le 1v1 traite l'adversaire comme bloqueur de LoS, le 1vN non. | `combatLoop/castable.ts:21-25`, `multiCombat/range.ts:46-49` | Comportement imprévisible. | P2 | `%16%04%09/battlefield/%1B%17%07/%16%1E%11.as:583` | Retirer `[opponent.position]`. | S | ouvert |
 | GRID-06 | grille | Le tacle n'est jamais appliqué en 1v1. | `combatLoop/move.ts:24-30`, `multiCombat/move.ts:96-103` | Fuite gratuite. | P2 | `serveur (non lisible)` | `tackleCheck` à chaque pas. | M | ouvert |
@@ -121,3 +126,24 @@ relevant d'une spec à écrire), un par ligne :
 - `data/recipes.yaml` et `src/engine/craft/` : code présent, aucune UI — fonctionnalité future, pas un écart 1.29.
 - Durée de tour (timer) : absent côté client 1.29 aussi, donc non comparable.
 - Invocations : aucun système d'invocation, donc « ordre des invocations » sans objet.
+
+## Suivi des merges
+
+État des PR qui ont clos un constat, dans l'ordre de merge. La colonne
+`Constats clos` renvoie aux `ID` du tableau principal ; `—` signale une PR
+documentaire ou de préparation qui ne corrige rien.
+
+| PR | Titre | Hash | Constats clos |
+| --- | --- | --- | --- |
+| #135 | `fix(combat): 🐛 retirer les combattants morts du panneau` | `1512b56` | COMBAT-04 |
+| #136 | `fix(combat): 🐛 démarrer la cadence ennemie à l'ouverture` | `8797ac5` | COMBAT-02 |
+| #137 | `docs(audit): 📝 inventaire des écarts Dofus 1.29` | `d40db77` | — |
+| #138 | `fix(render): 🐛 rendre le canvas net sur écran HiDPI` | `10d516b` | RENDER-02 |
+| #139 | `fix(combat): 🐛 respecter l'initiative à l'ouverture du 1v1` | `fff5d3d` | COMBAT-01 |
+| #140 | `fix(combat): 🐛 faire tirer l'IA à portée au lieu de coller` | `4ed327c` | COMBAT-08 |
+| #141 | `fix(combat): 🐛 mesurer la portée des sorts en Chebyshev` | `62ecdda` | GRID-01 |
+| #142 | `fix(data): 🐛 rétablir la victoire niveau 16 (DEC-03)` | `5ae59cf` | BALANCE-01 |
+
+Total : **7 constats clos** sur 71, **64 ouverts** (P0 : 0, P1 : 25, P2 : 39) —
+cohérent avec les compteurs du chapeau et la colonne `Statut`.
+
