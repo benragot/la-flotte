@@ -16,6 +16,61 @@ export interface ShortcutContext {
 
 type ShortcutEffect = () => void;
 
+/**
+ * Cible minimale d'un `keydown` : seule compte la présence de `closest`, ce qui
+ * garde la décision testable sans jsdom (le dépôt n'en a pas).
+ */
+export interface ShortcutKeyEvent {
+  code: string;
+  target?: unknown;
+}
+
+/** Contrôles dont Espace est le comportement natif (clic, saisie). */
+export const INTERACTIVE_SELECTOR = [
+  "button",
+  "a",
+  "input",
+  "select",
+  "textarea",
+  '[role="button"]',
+  '[contenteditable="true"]',
+].join(", ");
+
+const NATIVE_SPACE_CODES: readonly string[] = ["Space", "Spacebar"];
+
+interface ClosestLike {
+  closest: (selector: string) => unknown;
+}
+
+function hasClosest(target: unknown): target is ClosestLike {
+  if (typeof target !== "object" || target === null) return false;
+  return typeof (target as ClosestLike).closest === "function";
+}
+
+/** Vrai si la cible est (ou baigne dans) un contrôle dont Espace est le rôle natif. */
+export function isInteractiveTarget(target: unknown): boolean {
+  if (!hasClosest(target)) return false;
+  return target.closest(INTERACTIVE_SELECTOR) !== null;
+}
+
+function isSpaceCode(code: string): boolean {
+  return NATIVE_SPACE_CODES.includes(code);
+}
+
+function focusedElement(): unknown {
+  if (typeof document === "undefined") return null;
+  return document.activeElement;
+}
+
+function hasInteractiveFocus(event: ShortcutKeyEvent): boolean {
+  return isInteractiveTarget(focusedElement()) || isInteractiveTarget(event.target);
+}
+
+/** Espace appartient au contrôle actif : le navigateur garde le clic natif. */
+function yieldsSpace(event: ShortcutKeyEvent): boolean {
+  return isSpaceCode(event.code) && hasInteractiveFocus(event);
+}
+
 function isTextField(target: Element | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName.toLowerCase();
@@ -27,7 +82,7 @@ function focusInTextField(): boolean {
   return isTextField(document.activeElement);
 }
 
-export function toShortcutContext(event: KeyboardEvent, phase: CombatPhase): ShortcutInput {
+export function toShortcutContext(event: ShortcutKeyEvent, phase: CombatPhase): ShortcutInput {
   return { code: event.code, phase, focusInTextField: focusInTextField() };
 }
 
@@ -54,9 +109,15 @@ export function applyShortcut(shortcut: Shortcut, context: ShortcutContext): Sho
   return null;
 }
 
-function onKeyDown(event: KeyboardEvent, context: ShortcutContext): void {
+/** Décision pure d'un raccourci ; `null` quand le navigateur doit garder la main. */
+export function shortcutForKey(event: ShortcutKeyEvent, context: ShortcutContext): ShortcutEffect | null {
+  if (yieldsSpace(event)) return null;
   const shortcut = resolveShortcut(toShortcutContext(event, context.phase));
-  const effect = applyShortcut(shortcut, context);
+  return applyShortcut(shortcut, context);
+}
+
+function onKeyDown(event: KeyboardEvent, context: ShortcutContext): void {
+  const effect = shortcutForKey(event, context);
   if (effect === null) return;
   event.preventDefault();
   effect();
