@@ -18,21 +18,30 @@ function isUsable(state: CombatState, enemy: CombatantState, spell: SpellDef | u
   return isSpellAvailable({ usage: state.spellUsage ?? {}, key, limit: spell, turn: state.turn });
 }
 
-/** Premier sort du monstre réellement lançable avec ses PA restants. */
-function findSpell(state: CombatState, enemy: CombatantState) {
-  const spells = enemy.spellIds.map((id) => state.spellsById[id]);
-  return spells.find((spell) => isUsable(state, enemy, spell));
-}
-
 function canHitOpponent(state: CombatState, spellId: string): boolean {
   const target = getOpponent(state).position;
   return getCastableCells(state, spellId).some((cell) => samePosition(cell, target));
 }
 
+/**
+ * Premier sort du monstre payable, hors recharge ET dont la portée/LoS couvre
+ * la cible : sans ce filtre, un sort de contact en tête de `spellIds` masquait
+ * le sort à distance et l'IA venait coller au héros.
+ */
+function findSpell(state: CombatState, enemy: CombatantState) {
+  const spells = enemy.spellIds.map((id) => state.spellsById[id]);
+  return spells.find((spell) => isUsable(state, enemy, spell) && canHitOpponent(state, spell.id));
+}
+
+/** Au moins un sort couvre la cible : l'IA garde sa distance de tir. */
+function hasSpellInRange(state: CombatState, enemy: CombatantState): boolean {
+  return enemy.spellIds.some((id) => canHitOpponent(state, id));
+}
+
 function attackOpponent(state: CombatState, rng: Rng): CombatState {
   const enemy = getActiveCombatant(state);
   const spell = findSpell(state, enemy);
-  if (spell === undefined || !canHitOpponent(state, spell.id)) return state;
+  if (spell === undefined) return state;
   return castSpell({ state, spellId: spell.id, target: getOpponent(state).position, rng });
 }
 
@@ -53,6 +62,7 @@ function approachOpponent(state: CombatState): CombatState {
 function enemyTurnStep(state: CombatState, rng: Rng): CombatState {
   const attacked = attackOpponent(state, rng);
   if (attacked !== state) return attacked;
+  if (hasSpellInRange(state, getActiveCombatant(state))) return state;
   return approachOpponent(state);
 }
 
