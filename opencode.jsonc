@@ -5,8 +5,15 @@
     "AGENTS.md"
   ],
   "worktree": { "directory": ".wt" },
+  "references": {
+    "dofus-source": {
+      "path": "/Users/benjaminragot/dofus-1-29-decompose",
+      "description": "Decompilation Dofus Retro 1.29"
+    }
+  },
   "permissions": [
-    { "action": "skill", "resource": "*", "effect": "allow" }
+    { "action": "skill", "resource": "*", "effect": "allow" },
+    { "action": "external_directory", "resource": "/Users/benjaminragot/dofus-1-29-decompose/**", "effect": "allow" }
   ],
   "compaction": { "auto": true, "buffer": 748576, "keep": { "tokens": 15000 } }
 }
