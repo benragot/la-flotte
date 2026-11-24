@@ -70,8 +70,22 @@ function clampedName(input: LabelsInput): TokenLabel | null {
   const name = nameLabelFor(input.token);
   if (name === null) return null;
   const x = clampLabelX({ x: name.x, halfWidth: input.nameWidth / 2, bounds: input.bounds, rightReserve: badgeReserve(input.token) });
-  const y = clampLabelY({ y: name.y, height: nameInkHeight(input), bounds: input.bounds, anchorY: 1 });
-  return { ...name, x, y };
+  const height = nameInkHeight(input);
+  const y = clampLabelY({ y: name.y, height, bounds: input.bounds, anchorY: 1 });
+  return { ...name, x, y: clearOfBar(input, y, height) };
+}
+
+/** Barre déclarée par le jeton, bornée comme celle que peint la couche de survol. */
+function barFor(input: LabelsInput): HpBar | null {
+  return input.token.hasHpBar === true ? hoverBarInBounds(input.token, input.bounds) : null;
+}
+
+/** Le nom descend sous la barre quand son encre la recouvrirait : la barre reste visible. */
+function clearOfBar(input: LabelsInput, y: number, height: number): number {
+  const bar = barFor(input);
+  if (bar === null || y - height >= bar.y + bar.height) return y;
+  const top = bar.y + bar.height + LABEL_BADGE_GAP * input.token.scale;
+  return clampLabelY({ y: top + height, height, bounds: input.bounds, anchorY: 1 });
 }
 
 function badgeAnchor(input: LabelsInput, name: TokenLabel | null): { x: number; y: number } {

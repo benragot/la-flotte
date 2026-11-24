@@ -74,6 +74,11 @@ export interface TokenView extends TokenSprite {
   badge: string | null;
   /** Nom complet affiché au-dessus de la barre de vie ; `null` = aucune étiquette. */
   name: string | null;
+  /**
+   * Le jeton déclare une barre de PV (combat) : le nom s'abaisse pour ne jamais
+   * la masquer. Absent = aucune barre, le nom garde sa place de §5.
+   */
+  hasHpBar?: boolean;
   /** Profondeur de grille `x + y`, utilisée pour l'ordre peintre des acteurs. */
   depth: number;
   /** C'est son tour : un anneau doré l'entoure, comme le cadre de sa carte. */
@@ -96,6 +101,7 @@ interface TokenSpec {
   maxHp: number;
   badge: string | null;
   name: string | null;
+  hasHpBar?: boolean;
   depth: number;
   sprite: TokenSprite;
   scale: number;
@@ -139,10 +145,10 @@ export function tokensNeedingCircle(
 }
 
 function tokenAt(center: PixelPoint, spec: TokenSpec): TokenView {
-  const { id, cell, fill, hp, maxHp, badge, name, depth, sprite, scale, active } = spec;
+  const { id, cell, fill, hp, maxHp, badge, name, hasHpBar, depth, sprite, scale, active } = spec;
   const ratio = hpRatio(hp, maxHp);
   const radius = TOKEN_RADIUS * scale;
-  return { id, cell, center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, name, depth, active, ...sprite };
+  return { id, cell, center, radius, scale, fill, hp, maxHp, hpRatio: ratio, badge, name, hasHpBar, depth, active, ...sprite };
 }
 
 /** Jeton d'un combattant, centré sur le losange de sa case. */
@@ -151,8 +157,8 @@ export function tokenView(
   origin: IsoOrigin,
   sprite: TokenSprite = STATIC_TOKEN_SPRITE,
 ): TokenView {
-  const { id, hp, maxHp, kind, position } = combatant;
-  const base = { id, cell: position, hp, maxHp, badge: null, name: null, depth: depthOf(position), sprite, scale: originScale(origin), active: false };
+  const { id, hp, maxHp, kind, position, name } = combatant;
+  const base = { id, cell: position, hp, maxHp, badge: null, name, hasHpBar: true, depth: depthOf(position), sprite, scale: originScale(origin), active: false };
   const spec = { ...base, fill: tokenColor(kind) };
   return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }
@@ -212,7 +218,7 @@ export interface CombatantTokenInput {
 export function combatantTokenView(input: CombatantTokenInput, origin: IsoOrigin): TokenView {
   const { combatant, sprite, active } = input;
   const scale = originScale(origin);
-  const base = { id: combatant.id, cell: combatant.position, hp: combatant.hp, maxHp: combatant.maxHp, badge: null, name: null, sprite, scale, active };
+  const base = { id: combatant.id, cell: combatant.position, hp: combatant.hp, maxHp: combatant.maxHp, badge: null, name: combatant.name, hasHpBar: true, sprite, scale, active };
   const spec = { ...base, fill: fillForSide(combatant.side), depth: depthOf(combatant.position) };
   return tokenAt(gridToIso({ ...combatant.position, origin }), spec);
 }
