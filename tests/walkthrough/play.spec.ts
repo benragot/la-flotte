@@ -62,15 +62,15 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * (`data/spells.yaml` seul, portée et LoS comprises), aucun `Math.random`
  * (LCG injecté pour le spawn et le drop, `() => 0.5` pour le combat).
  *
- * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.5`), le
+ * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.75`), le
  * correctif `castsPerTurn`/`cooldown` est en place, le pas diagonal est facturé
  * au chemin (DEC-10) et la mêlée joue jusqu'au contact (correctif `D104`) :
- *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 52 PV, 16 actions ;
- *   franchissement : 52 + ceil(130 × 0,5) = 117 PV rendus par la porte (DEC-03) ;
- *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 117 → 0 PV, 28 actions.
+ *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 16 PV, 16 actions ;
+ *   franchissement : 16 + ceil(130 × 0,75) = 114 PV rendus par la porte (DEC-03) ;
+ *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 114 → 0 PV, 20 actions.
  * DEC-03 (b) est la seule propriété défendue ici : le héros nu perd TOUJOURS, et
  * toujours sans finir le donjon, même après l'adoucissement de la salle 3
- * (hpScale 0,29).
+ * (hpScale 0,29) et le soin de franchissement porté à 0,75.
  *
  * AVANT LE CORRECTIF `D104` (même fichier, même soin, mesure du 22/11/2026) : la
  * salle 1 finissait à 98 PV et la salle 2 était GAGNÉE (98 → 22, porte à 87 PV),
@@ -81,10 +81,11 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  *
  * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force
  * n'inflige que ~28 PV par tour. La salle 2 aligne 287 PV de monstres et frappe
- * désormais à chaque tour ; la porte de la salle 1 ne rend que la moitié de la
- * barre. Le héros arrive à 117 PV, encaisse plus qu'il ne peut rendre et tombe
- * sans vider la salle. Une salle qui dure plus longtemps que le pool effectif ne
- * se soigne pas de l'intérieur — c'est exactement la limite mesurée ici.
+ * désormais à chaque tour ; même porté aux trois quarts de sa barre, le héros
+ * arrive à 114 PV, encaisse plus qu'il ne peut rendre et tombe sans vider la
+ * salle (137 PV de monstres restants). Une salle qui dure plus longtemps que le
+ * pool effectif ne se soigne pas de l'intérieur — c'est exactement la limite
+ * mesurée ici.
  *
  * OBSERVATION DATÉE DU 22/11/2026 — LA RECALIBRATION A EU LIEU SANS INVERSER
  * L'ASSERTION : `hpScale` 0,35 sur la salle 3 et 0,30 sur la salle 4 (PR #84)
@@ -466,8 +467,8 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
     expect(currentRoomNumber()).toBe(2);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(DEATH_ROOM);
-    // DEC-03 : 16 PV + ceil(130 × 0,5) = 81 PV à la porte de la salle 2.
-    expect(second.hpStart).toBe(81);
+    // DEC-03 : 16 PV + ceil(130 × 0,75) = 114 PV à la porte de la salle 2.
+    expect(second.hpStart).toBe(114);
     expect(second.defeat).toBe(true);
     expect(second.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();

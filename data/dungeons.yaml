@@ -8,12 +8,20 @@
 # Vitalité) rendue au franchissement d'une salle gagnée. 0 = aucun soin,
 # 1 = retour au maximum. Rien n'est rendu à l'entrée du donjon, en cours de
 # salle, après la dernière salle, ni au rechargement.
+#
+# 0,75 (24/11/2026) : le soin est le levier DEC-03 qui rétablit la victoire au
+# niveau 16 après GRID-01. Les deux builds du walkthrough franchissent les
+# salles 1-3 avec une barre pleine et la salle 4 reste la salle qui décide
+# (73 PV finaux pour `survie`, 56 pour `offense`). Aucun dégât, sort, PV de
+# référence, butin ni `hpScale` n'est retouché. À 1, le héros nu gagnait la
+# salle 2 ; à 0,75 il meurt toujours en salle 2 (114 PV à la porte, 137 PV de
+# monstres restants), donc DEC-03(b) tient.
 dungeons:
   - id: fer_donjon_casse_vis_sans_fin
     name: "La Casse aux Vis-Sans-Fin"
     recommendedLevel: 16
     keyItemId: cle_donjon_ile_de_la_ferraille
-    healBetweenRooms: 0.5
+    healBetweenRooms: 0.75
     rooms:
       - roomNumber: 1
         name: "La Cour aux Volatiles Gras"
