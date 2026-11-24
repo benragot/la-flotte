@@ -315,6 +315,24 @@ export function openingBeatNeeded(state: BattleState | null): boolean {
   return needsEnemyStep(state, true);
 }
 
+/** Ce que la chaîne planifiée sait d'elle-même au moment où le minuteur tire. */
+export interface OpeningStepInput {
+  /** `true` : chaîne née de l'ouverture ; `false` : chaîne née d'un « terminer le tour ». */
+  openingOnly: boolean;
+  battle: BattleState | null;
+}
+
+/**
+ * Verdict **au tir** : une chaîne d'ouverture ne joue que si l'ennemi a encore
+ * la main. Un héros qui l'a reprise entre la planification et le timer garde
+ * son tour. Une chaîne `endTurn` doit toujours pouvoir passer la main du héros.
+ */
+export function openingStepAllowed(input: OpeningStepInput): boolean {
+  if (input.battle === null || isBattleOver(input.battle)) return false;
+  if (!input.openingOnly) return true;
+  return openingBeatNeeded(input.battle);
+}
+
 function stepLimit(input: EnemyTurnsInput): number {
   return input.maxSteps ?? MAX_ENEMY_STEPS;
 }

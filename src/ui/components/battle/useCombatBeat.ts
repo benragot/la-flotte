@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { nextBeatAt } from "../../../engine/combat/beat";
 import type { BattleState } from "../../../engine/multiCombat";
-import { MAX_ENEMY_STEPS, needsEnemyStep, openingBeatNeeded } from "../../../store/battleSelectors";
+import { MAX_ENEMY_STEPS, needsEnemyStep, openingBeatNeeded, openingStepAllowed } from "../../../store/battleSelectors";
 import { useCombatStore } from "../../../store/useCombatStore";
 
 type BeatTimer = ReturnType<typeof setTimeout>;
@@ -59,22 +59,23 @@ function clearBeatTimer(timer: { current: BeatTimer | null }): void {
 }
 
 /** Un pas, horodaté : la borne basse de l'action suivante repart de maintenant. */
-function stepNow(refs: BeatRefs, steps: number): void {
+function stepNow(refs: BeatRefs, steps: number, openingOnly: boolean): void {
   if (!refs.alive.current) return;
   const store = useCombatStore.getState();
+  if (!openingStepAllowed({ openingOnly, battle: store.battle })) return;
   store.playEnemyStepOnce();
   store.stampActionAt(Date.now());
-  scheduleStep(refs, steps + 1);
+  scheduleStep(refs, steps + 1, openingOnly);
 }
 
 /** Planifie le pas suivant ; un seul minuteur vivant, la borne dure ferme la boucle. */
-function scheduleStep(refs: BeatRefs, steps: number): void {
+function scheduleStep(refs: BeatRefs, steps: number, openingOnly: boolean): void {
   clearBeatTimer(refs.timer);
   if (!refs.alive.current || steps >= MAX_ENEMY_STEPS) return;
   const store = useCombatStore.getState();
   const options = { lastActionAt: store.lastActionAt, now: Date.now(), needed: needsEnemyStep(store.battle, steps > 0) };
   const delay = nextBeatDelay(options);
-  if (delay !== null) refs.timer.current = setTimeout(() => stepNow(refs, steps), delay);
+  if (delay !== null) refs.timer.current = setTimeout(() => stepNow(refs, steps, openingOnly), delay);
 }
 
 /** Nettoyage au démontage : `clearTimeout` puis plus aucune écriture de store. */
@@ -104,7 +105,7 @@ function useBeatStart(refs: BeatRefs): () => void {
   return useCallback(() => {
     clearBeatTimer(timer);
     useCombatStore.getState().stampActionAt(Date.now());
-    scheduleStep(refs, 0);
+    scheduleStep(refs, 0, false);
   }, [refs, timer]);
 }
 
@@ -149,7 +150,7 @@ export function createOpeningClaim(): OpeningClaim {
 function useOpeningEffect(refs: BeatRefs, claim: OpeningClaim, opening: boolean): void {
   useEffect(() => {
     if (!opening) return;
-    if (claim.tryClaim(useCombatStore.getState().battle)) scheduleStep(refs, 0);
+    if (claim.tryClaim(useCombatStore.getState().battle)) scheduleStep(refs, 0, true);
     return () => {
       claim.release();
       clearBeatTimer(refs.timer);
