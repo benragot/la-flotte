@@ -5,7 +5,7 @@ lieux, pas un tableau de bord.
 
 ## Bugs constatés en jeu
 
-1. **Bug 7** — sur `quai_02`/`quai_03`, cliquer un monstre ne déclenche **aucun**
+1. **Bug 7** — sur `quai_02`/`cale_03`, cliquer un monstre ne déclenche **aucun**
    combat (ça marche sur la plage). *Worktree `.wt/quai`, WIP committé,
    diagnostic à reprendre.* Test de reproduction obligatoire.
 2. **Bug 5** — points de caractéristiques perdus : **corrigé** (PR #130,
