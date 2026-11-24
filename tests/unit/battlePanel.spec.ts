@@ -82,7 +82,8 @@ function combatantLike() {
       flat: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 },
       percent: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 },
     },
-    spellIds: [],
+    // Comme en jeu : le héros entre en salle avec ses sorts de classe.
+    spellIds: ["pression"],
   };
 }
 
@@ -122,6 +123,31 @@ function enemyFirstBattle(): BattleState {
   return { ...battle, activeIndex: Math.max(0, enemyIndex) };
 }
 
+/** Balise exacte d'un bouton d'attaque (prêt ou en recharge) : `disabled` s'y lit. */
+function attackButton(html: string): string {
+  const match = /<button[^>]*>(?:Attaquer|Recharge)[^<]*<\/button>/.exec(html);
+  if (match === null) throw new Error("bouton « Attaquer » absent du rendu");
+  return match[0];
+}
+
+/** `disabled` en **attribut**, jamais la classe : les jetons portent `disabled:*`. */
+function attackDisabled(html: string): boolean {
+  return attackButton(html).replace(/ class="[^"]*"/, "").includes(" disabled");
+}
+
+/** Bataille dont le héros a dépensé tous ses PA (le sort en coûte 3). */
+function brokeHeroBattle(): BattleState {
+  const battle = heroFirstBattle();
+  const broke = battle.combatants.map((entry) => (entry.side === "player" ? { ...entry, ap: 0 } : entry));
+  return { ...battle, combatants: broke };
+}
+
+/** Bataille tour 2 avec le sort du héros encore en recharge jusqu'au tour 4. */
+function rechargingHeroBattle(): BattleState {
+  const usage = { "player:pression": { casts: 1, turn: 1, readyAt: 4 } };
+  return { ...heroFirstBattle(), turn: 2, spellUsage: usage };
+}
+
 describe("panneau de bataille — rendu des N ennemis", () => {
   it("affiche le héros et les trois ennemis de la salle avec leurs PV", () => {
     const html = renderToStaticMarkup(createElement(BattleSections, { battle: roomBattle() }));
@@ -144,14 +170,43 @@ describe("panneau de bataille — rendu des N ennemis", () => {
 
   it("propose une action Attaquer par cible valide seulement", () => {
     const views = battleViewModel(heroFirstBattle());
-    const html = renderToStaticMarkup(createElement(CombatantList, { views, onAttack: () => undefined }));
-    expect(count(html, ">Attaquer<")).toBe(3);
+    const attack = { disabled: false, label: "Attaquer (3 PA)" };
+    const html = renderToStaticMarkup(createElement(CombatantList, { views, attack, onAttack: () => undefined }));
+    expect(count(html, ">Attaquer (3 PA)<")).toBe(3);
   });
 
   it("propose Terminer le tour et Clore la salle", () => {
     const html = renderToStaticMarkup(createElement(BattleSections, { battle: roomBattle() }));
     expect(html).toContain("Terminer le tour");
     expect(html).toContain("Clore la salle");
+  });
+});
+
+describe("panneau de bataille — bouton Attaquer soumis aux PA et à la recharge (UI-02)", () => {
+  it("annonce le coût réel du sort et laisse le clic actif quand tout est payable", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: heroFirstBattle() }));
+    expect(attackButton(html)).toContain("Attaquer (3 PA)");
+    expect(attackDisabled(html)).toBe(false);
+    expect(html).not.toContain('aria-disabled="true"');
+  });
+
+  it("désactive chaque bouton quand le héros n'a plus les PA du sort", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: brokeHeroBattle() }));
+    expect(count(html, ">Attaquer (3 PA)<")).toBe(3);
+    expect(attackDisabled(html)).toBe(true);
+    expect(attackButton(html)).toContain('aria-disabled="true"');
+  });
+
+  it("désactive le bouton pendant la recharge et annonce les tours restants", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: rechargingHeroBattle() }));
+    expect(count(html, ">Recharge (2)<")).toBe(3);
+    expect(attackDisabled(html)).toBe(true);
+  });
+
+  it("ne rend aucun bouton quand le héros n'a pas la main", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: enemyFirstBattle() }));
+    expect(html).not.toContain(">Attaquer");
+    expect(html).not.toContain(">Recharge");
   });
 });
 
