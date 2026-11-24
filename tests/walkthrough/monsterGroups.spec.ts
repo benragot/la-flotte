@@ -80,6 +80,37 @@ function exitTo(target: string): Position {
   return { x: exit.x, y: exit.y };
 }
 
+/** Chaîne de sorties depuis la carte courante jusqu'à `target`. */
+function routeFrom(startId: string, target: string): MapDef[] {
+  const queue: MapDef[][] = [[mapById(startId)]];
+  const visited = new Set<string>();
+  while (queue.length > 0) {
+    const route = queue.shift() ?? [];
+    const last = route[route.length - 1];
+    if (last === undefined) continue;
+    if (last.id === target) return route;
+    if (visited.has(last.id)) continue;
+    visited.add(last.id);
+    last.exits.forEach((exit) => queue.push([...route, mapById(exit.to)]));
+  }
+  throw new Error(`${target} est injoignable depuis ${startId}`);
+}
+
+/** Le joueur rejoint `target` à pied, par les seules sorties de la donnée. */
+function travelTo(target: string): void {
+  const { mapId } = useCombatStore.getState();
+  const route = routeFrom(mapId, target);
+  for (let index = 0; index < route.length - 1; index += 1) {
+    const from = route[index];
+    const to = route[index + 1];
+    if (from === undefined || to === undefined) throw new Error("trajet incomplet");
+    const exit = from.exits.find((candidate) => candidate.to === to.id);
+    if (exit === undefined) throw new Error(`${from.id} ne mène pas à ${to.id}`);
+    clickCell({ x: exit.x, y: exit.y });
+    expect(useCombatStore.getState().mapId).toBe(to.id);
+  }
+}
+
 beforeEach(() => {
   useGameStore.getState().resetGame();
   useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
@@ -109,4 +140,29 @@ describe("walkthrough — la disposition d'une carte ne bouge pas", () => {
     expect(back.positions).toEqual(quai.positions);
     expect(back.count).toBe(quai.count);
   });
+});
+
+/**
+ * Bug 7 — sur le quai et la cale, cliquer un monstre ne faisait RIEN : le 1v1
+ * cherchait une case `M` absente de ces grilles et levait une exception. Le
+ * joueur doit pouvoir cliquer n'importe quel groupe, sur n'importe quelle carte.
+ */
+describe("walkthrough — cliquer un monstre engage le combat partout", () => {
+  for (const target of ["ferraille_plage_01", "ferraille_quai_02", "ferraille_cale_03"]) {
+    it(`engage le combat sur ${target}`, () => {
+      travelTo(target);
+      const { map, scene } = exploration();
+      const group = scene.monsterGroups[0];
+      if (group === undefined) throw new Error(`aucun groupe sur ${map.id}`);
+      clickCell(group.pos);
+      const { mode, combat, mapId } = useCombatStore.getState();
+      const enemy = combat?.enemy.position ?? { x: -1, y: -1 };
+      expect(mode).toBe("combat");
+      expect(mapId).toBe(target);
+      expect(combat?.enemy.name).toBe((group.label.split(" · ")[0] ?? "").trim());
+      expect(getCell(scene.map, enemy)).not.toBe("#");
+      expect(getCell(scene.map, enemy)).not.toBe("~");
+      expect(samePosition(enemy, scene.playerPos)).toBe(false);
+    });
+  }
 });
