@@ -4,6 +4,8 @@ import type { BattleCombatantView } from "../../../renderer/battleViewModel";
 import { battleViewModel, shouldRenderBattle } from "../../../renderer/battleViewModel";
 import { turnSide } from "../../../store/battleSelectors";
 import { useCombatStore } from "../../../store/useCombatStore";
+import { battleAttackButton } from "../../battle/attackButtonState";
+import type { AttackButtonState } from "../../battle/attackButtonState";
 import { useEscapeClose } from "../../useEscapeClose";
 import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
 import { closeBattle } from "./closeBattle";
@@ -25,6 +27,7 @@ interface BattleHandlers {
 interface BattleChromeProps {
   battle: BattleState;
   views: readonly BattleCombatantView[];
+  attack: AttackButtonState;
   handlers: BattleHandlers;
 }
 
@@ -96,12 +99,12 @@ function PanelFoot({ log, defeated, heroTurn, onEndTurn }: PanelFootProps) {
   );
 }
 
-function BattleChrome({ battle, views, handlers }: BattleChromeProps) {
+function BattleChrome({ battle, views, attack, handlers }: BattleChromeProps) {
   const heroTurn = turnSide(battle) === "player";
   return (
     <section aria-label="Combat de salle" className={BATTLE_PANEL}>
       <PanelHead battle={battle} views={views} onClose={() => handlers.close(battle)} />
-      <CombatantList views={views} onAttack={handlers.attack} />
+      <CombatantList views={views} attack={attack} onAttack={handlers.attack} />
       <PanelFoot log={battle.log} defeated={isDefeat(battle)} heroTurn={heroTurn} onEndTurn={handlers.endTurn} />
     </section>
   );
@@ -111,10 +114,11 @@ function BattleChrome({ battle, views, handlers }: BattleChromeProps) {
 export function BattleSections({ battle }: { battle: BattleState }) {
   const views = battleViewModel(battle);
   const handlers = useBattleHandlers();
+  const attack = battleAttackButton(battle);
   // Échap emprunte la **seule** sortie du panneau : `closeBattle` reporte la
   // victoire ou abandonne la salle, donc jamais un combat orphelin.
   useEscapeClose(() => handlers.close(battle));
-  return <BattleChrome battle={battle} views={views} handlers={handlers} />;
+  return <BattleChrome battle={battle} views={views} attack={attack} handlers={handlers} />;
 }
 
 /** Portillon : `battle` seul décide, le 1v1 (`combat`) garde son arène et son HUD. */
