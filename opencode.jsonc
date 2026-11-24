@@ -4,6 +4,7 @@
   "instructions": [
     "AGENTS.md"
   ],
+  "worktree": { "directory": ".wt" },
   "permissions": [
     { "action": "skill", "resource": "*", "effect": "allow" }
   ]
