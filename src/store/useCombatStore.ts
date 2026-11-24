@@ -10,6 +10,7 @@ import { castSpell } from "../engine/combatLoop/cast";
 import { initCombat } from "../engine/combatLoop/init";
 import { appendLog } from "../engine/combatLoop/log";
 import { moveActiveEntity } from "../engine/combatLoop/move";
+import { beginCombat } from "../engine/combatLoop/opening";
 import { resolveCombatRewards } from "../engine/combatLoop/rewards";
 import { endPlayerTurn } from "../engine/combatLoop/turn";
 import type { CombatantState, CombatRewards, CombatState } from "../engine/combatLoop/types";
@@ -275,10 +276,12 @@ function playerFor(hero: Hero, position: Position): CombatantState {
   return combatantFromHero({ hero, stats, position, spellIds });
 }
 
+/** L'initiative se calcule **après** l'équipement : le héros joue ses vrais stats. */
 function buildCombat(input: { hero: Hero; monsterId: string; mapId: string }): CombatState {
   const monster = mustFind(monsters, input.monsterId);
   const base = initCombat({ map: mapById(input.mapId), hero: input.hero, monster, spells });
-  return { ...base, player: playerFor(input.hero, base.player.position) };
+  const geared = { ...base, player: playerFor(input.hero, base.player.position) };
+  return beginCombat(geared, Math.random);
 }
 
 function buildDemoCombat(mapId: string): CombatState {
