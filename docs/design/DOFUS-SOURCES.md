@@ -1,24 +1,20 @@
-# Sources Dofus 1.29 — index de lecture
+# Sources Dofus 1.29 — où lire
 
-> Dépôt externe **en lecture seule** : `/Users/benjaminragot/dofus-1-29-decompose`.
-> L'agent `dofus-source` l'interroge ; `opencode.jsonc` le déclare en `references`.
+> Dépôt externe **en lecture seule** : `/Users/benjaminragot/dofus-1-29-decompose`,
+> déclaré en `references` dans `opencode.jsonc` (accès `external_directory`).
 
-- **Briefing** : `EXPLORATION.md` (règles d'or, recettes, pièges) — à lire en premier.
-- **Carte** : `ARCHITECTURE.md` (launcher Electron, modules Flash, namespaces).
+**À lire en premier** : `06_notes/00_index.md`, **leur** index des acquis — il fait
+autorité ; si la réponse y est, cite la fiche et **ne re-cherche pas**. Puis
+`ARCHITECTURE.md` (namespaces), `07_index/packages.md` (ciblage) et les fiches de
+`06_notes/` (`namespaces`, `inventaire`, `assets`, `reseau`) : **pointe**-les, ne
+les recopie pas.
 
-## Chemins utiles
-- `03_decompiled_as/loader|core|preloader|soma` : ActionScript décompilé (7 218 `.as`).
-- `04_retro_client_raw/…/clips/sprites/sprites.xml` : catalogue **1 183 sprites** (id → nom).
-- `02_electron_src/` : launcher Zaap ; `tools/` : scripts Python à ne **pas** lancer.
+**Namespaces utiles** — `dofus.graphics.gapi.ui` (`…/dofus/%18%03%17/gapi/ui/`,
+148 classes UI nommées), `ank.battlefield` (`…/%16%04%09/battlefield/`, grille iso
+`MapHandler`), `dofus.aks` (`…/dofus/%16%02%11/`, réseau/métier `Items`, `Spells`).
 
-## Namespaces
-- `dofus.graphics.gapi.ui` → `__Packages/dofus/%18%03%17/gapi/ui/` : **148 classes UI nommées**.
-- `ank.battlefield` → `__Packages/%16%04%09/battlefield/` : **grille iso** (`MapHandler`).
-- `dofus.aks` → `__Packages/dofus/%16%02%11/` : réseau/métier (`Items`, `Spells`, `Chat`).
+**Règles d'or** — ⚠️ `grep -a` **obligatoire** (les `.as` sont non UTF-8), **lecture
+seule**, aucun script lancé, jamais de décompilation en masse (`clips/`, `data/maps/`, `audio/` — **30 clips / 1 Go**).
 
-## Règles d'or
-- ⚠️ **30 clips** et **1 Go** max par session ; `grep -a` **obligatoire** (`.as` non UTF-8).
-- ⚠️ Jamais de décompilation en masse de `clips/`, `data/maps/`, `audio/`.
-- ⚠️ **Lecture seule** : aucune écriture, aucun script exécuté, donc aucun export.
-- ⚠️ Un subagent ne peut pas en lancer un autre : **l'orchestrateur** appelle
-  `dofus-source` puis transmet les faits à `dofus-129-expert` ou à un codeur.
+**Limite** — un subagent ne peut pas en lancer un autre : c'est **l'orchestrateur**
+qui appelle `dofus-source` et **transmet** les faits.
