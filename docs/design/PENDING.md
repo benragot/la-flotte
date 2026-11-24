@@ -56,3 +56,29 @@ lieux, pas un tableau de bord.
 19. Dettes ouvertes : `D82` (arme sans dégâts), `D78` (pods), `D79` (récolte),
     `D80` (médaillon/chrono), `D102` (règle PM non documentée), `D105` (survol
     absent en salle de donjon).
+
+## Suites techniques (aucun bug actif)
+
+20. **Test composé manquant**, suite du #130 : `allocateAndSave`
+    (`src/store/useGameStore.ts`) est sur `main`, mais **aucun test ne rejoue
+    le scénario du joueur** — investir des points → **niveau 4** → **recharger**
+    ⇒ Force **10** **et** `capitalPoints` **5** ensemble. Les tests couvrent
+    chaque moitié séparément.
+21. **Échec d'engagement muet** : `clickCell` → `combatUpdate` → `initCombat`
+    n'a **aucun `try/catch`, aucune ligne de journal, aucun `console.error`**.
+    C'est ce qui a rendu le bug du quai/cale **invisible trois heures** :
+    l'exception annulait le `set`, donc aucun combat **et** aucune erreur. Le
+    #132 a tué **la cause** (cartes `ferraille_quai_02`/`ferraille_cale_03` sans
+    case `M` ⇒ repli sur la case praticable la plus lointaine), **pas
+    l'invisibilité** : une autre erreur d'initialisation redonnerait un bouton
+    mort silencieux. Une trace à l'échec = quelques lignes.
+22. **Départage du repli non figé** : `farthestCell`
+    (`src/engine/combatLoop/init.ts`) garde le **premier** maximum d'un parcours
+    **ordonné** (y puis x), sans RNG ni tri — déterministe, mais **aucun test ne
+    met deux cases à égalité**. Un refactor de l'ordre de parcours changerait la
+    case de l'ennemi **sans qu'un test rougisse**, et rendrait le walkthrough
+    **flaky**.
+23. **`compaction.keep.tokens` à 15 000** : `opencode.jsonc` pose
+    `buffer: 748576` ⇒ compaction à **300 000** tokens (fenêtre 1 048 576), mais
+    on ne garde que **15 000** tokens en clair, soit **5 %** du seuil. L'audit
+    suggérait **30 000** (10 %). **Non bloquant, à trancher.**
