@@ -6,11 +6,10 @@ import { useCombatStore } from "../../../store/useCombatStore";
 
 type BeatTimer = ReturnType<typeof setTimeout>;
 
-/** Réfs stables du pilote : le minuteur, le drapeau de vie et l'ouverture déjà jouée. */
+/** Réfs stables du pilote : le minuteur et le drapeau de vie. */
 interface BeatRefs {
   timer: { current: BeatTimer | null };
   alive: { current: boolean };
-  opened: { current: boolean };
 }
 
 export interface BeatPlanInput {
@@ -68,9 +67,9 @@ function stepNow(refs: BeatRefs, steps: number): void {
   scheduleStep(refs, steps + 1);
 }
 
-/** Planifie le pas suivant ; la borne dure `MAX_ENEMY_STEPS` ferme toute boucle. */
+/** Planifie le pas suivant ; un seul minuteur vivant, la borne dure ferme la boucle. */
 function scheduleStep(refs: BeatRefs, steps: number): void {
-  refs.timer.current = null;
+  clearBeatTimer(refs.timer);
   if (!refs.alive.current || steps >= MAX_ENEMY_STEPS) return;
   const store = useCombatStore.getState();
   const options = { lastActionAt: store.lastActionAt, now: Date.now(), needed: needsEnemyStep(store.battle, steps > 0) };
@@ -110,34 +109,70 @@ function useBeatStart(refs: BeatRefs): () => void {
 }
 
 /**
- * L'ouverture ne part qu'**une fois** par main ennemie : le drapeau retombe dès
- * que le héros reprend la main, donc aucune double planification ni relance
- * après la borne `MAX_ENEMY_STEPS`.
+ * Réclamation de l'ouverture : un pas d'ouverture au plus par main ennemie,
+ * libérable au cleanup pour qu'un second montage puisse réclamer à nouveau.
  */
-function claimOpening(refs: BeatRefs, battle: BattleState | null): boolean {
-  if (!openingBeatNeeded(battle)) {
-    refs.opened.current = false;
-    return false;
-  }
-  if (refs.opened.current || refs.timer.current !== null) return false;
-  refs.opened.current = true;
+export interface OpeningClaim {
+  /** `true` si l'ouverture est due **et** libre ; la main du héros la libère. */
+  tryClaim: (battle: BattleState | null) => boolean;
+  /** Rend la réclamation : le prochain setup (StrictMode) repart libre. */
+  release: () => void;
+}
+
+interface ClaimState {
+  held: boolean;
+}
+
+function releaseClaim(state: ClaimState): false {
+  state.held = false;
+  return false;
+}
+
+function holdClaim(state: ClaimState): boolean {
+  if (state.held) return false;
+  state.held = true;
   return true;
 }
 
-/** Panneau monté sur une main ennemie : le premier pas part sans clic. */
-function useOpeningBeat(refs: BeatRefs): void {
-  const battle = useCombatStore((state) => state.battle);
+/** Une seule ouverture planifiée tant que la main reste ennemie, jamais deux. */
+export function createOpeningClaim(): OpeningClaim {
+  const state: ClaimState = { held: false };
+  const tryClaim = (battle: BattleState | null): boolean =>
+    openingBeatNeeded(battle) ? holdClaim(state) : releaseClaim(state);
+  const release = (): void => {
+    state.held = false;
+  };
+  return { tryClaim, release };
+}
+
+/** Le setup réclame puis planifie ; le cleanup libère **et** coupe le minuteur. */
+function useOpeningEffect(refs: BeatRefs, claim: OpeningClaim, opening: boolean): void {
   useEffect(() => {
-    if (claimOpening(refs, battle)) scheduleStep(refs, 0);
-  }, [refs, battle]);
+    if (!opening) return;
+    if (claim.tryClaim(useCombatStore.getState().battle)) scheduleStep(refs, 0);
+    return () => {
+      claim.release();
+      clearBeatTimer(refs.timer);
+    };
+  }, [refs, claim, opening]);
+}
+
+/** Panneau monté sur une main ennemie : le premier pas part sans clic. */
+function useOpeningBeat(refs: BeatRefs, claim: OpeningClaim): void {
+  const opening = useCombatStore((state) => openingBeatNeeded(state.battle));
+  useOpeningEffect(refs, claim, opening);
+}
+
+/** Réclamation stable : elle survit aux rendus, pas aux cleanups (qui la libèrent). */
+function useBeatClaim(): OpeningClaim {
+  return useMemo(() => createOpeningClaim(), []);
 }
 
 /** Réfs stables du pilote : un minuteur qui survit aux rendus, rien de plus. */
 function useBeatRefs(): BeatRefs {
   const timer = useRef<BeatTimer | null>(null);
   const alive = useRef(true);
-  const opened = useRef(false);
-  return useMemo(() => ({ timer, alive, opened }), [timer, alive, opened]);
+  return useMemo(() => ({ timer, alive }), [timer, alive]);
 }
 
 /**
@@ -147,7 +182,8 @@ function useBeatRefs(): BeatRefs {
  */
 export function useCombatBeat(): CombatBeatHandlers {
   const refs = useBeatRefs();
+  const claim = useBeatClaim();
   useBeatLifecycle(refs);
-  useOpeningBeat(refs);
+  useOpeningBeat(refs, claim);
   return { attack: useBeatAttack(), endTurn: useBeatStart(refs) };
 }
