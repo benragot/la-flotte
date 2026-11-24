@@ -1442,14 +1442,24 @@ function limitsSection(): string {
 }
 
 describe("backlog — limites assumées du rendu iso (PR #68)", () => {
-  it("documente le flou au-delà de ×1 et les coins vides comme des choix mesurés", () => {
+  it("documente le flou d'écran et les coins vides comme des choix mesurés", () => {
     const text = readFileSync(join(process.cwd(), UI_SPEC), "utf8");
     expect(text).toContain("## 12. Limites connues du rendu iso");
     expect(text).toContain("choix assumés, mesurés, pas des oublis");
-    expect(text).toContain("Flou des sprites au-delà de ×1");
+    expect(text).toContain("Flou d'écran");
     expect(text).toContain("1,33");
     expect(text).toContain("2,19");
     expect(text).toContain("nearest");
+    expect(text).toContain("SPRITE_FRAME_SIZE");
+    expect(text).toContain("128 px");
+  });
+
+  it("ne promet plus de feuilles à générer ni un rastérisé en 64 px", () => {
+    const section = limitsSection();
+    expect(section).not.toContain("SPRITE_FRAME_SIZE = 64");
+    expect(section).not.toContain("Piste : feuilles de sprites");
+    expect(section).not.toContain("cela demande des feuilles en **2×**");
+    expect(section).toContain("ne déclenche aucun événement");
   });
 
   it("démontre c ≥ 2 pour un losange de même rapport et ×2,5 pour un 4:3 en 2:1", () => {

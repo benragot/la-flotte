@@ -3,6 +3,9 @@ import { useEffect, useState } from "react";
 import type { RefObject } from "react";
 import { isApplicationAlive } from "./appLifecycle";
 import type { GridSize } from "./gridProjection";
+import type { PixiInitOptions } from "./pixiResolution";
+import { pixiInitOptions } from "./pixiResolution";
+import { resizeRenderer } from "./rendererResize";
 
 export interface PixiAppOptions {
   background: number;
@@ -25,9 +28,15 @@ interface MountState {
   destroyed: boolean;
 }
 
+interface RendererOptions extends PixiInitOptions {
+  background: number;
+  width: number;
+  height: number;
+}
+
 interface MountContext {
   host: HTMLDivElement;
-  options: { background: number; width: number; height: number };
+  options: RendererOptions;
   state: MountState;
   onReady: (app: Application) => void;
   onError: (message: string) => void;
@@ -82,7 +91,8 @@ function attachApp(state: MountState, app: Application, setApp: (app: Applicatio
 function startLifecycle(input: LifecycleInput, state: MountState): void {
   const element = input.host.current;
   if (element === null) return;
-  const options = { background: input.background, ...INITIAL_CANVAS_SIZE };
+  const hidpi = pixiInitOptions(window.devicePixelRatio);
+  const options = { background: input.background, ...INITIAL_CANVAS_SIZE, ...hidpi };
   const onReady = (app: Application) => attachApp(state, app, input.setApp);
   void mountApp({ host: element, options, state, onReady, onError: input.setError });
 }
@@ -107,10 +117,8 @@ function usePixiEffect(input: LifecycleInput): void {
 function usePixiResize(app: Application | null, size: GridSize): void {
   const { width, height } = size;
   useEffect(() => {
-    if (!isApplicationAlive(app)) return;
-    app.renderer.resize(width, height);
-    app.stage.hitArea = app.screen;
-    app.render();
+    if (app === null) return;
+    resizeRenderer(app, { width, height }, window.devicePixelRatio);
   }, [app, width, height]);
 }
 

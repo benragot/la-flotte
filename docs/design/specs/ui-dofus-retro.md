@@ -297,20 +297,33 @@ régressions en attente de correction, mais les conséquences géométriques et
 techniques du rendu retenu. Elles sont écrites ici parce qu'elles ne vivaient
 que dans la revue de la PR #68, où elles auraient été perdues.
 
-### 12.1 Flou des sprites au-delà de ×1
+### 12.1 Flou d'écran — c'est une affaire de `resolution`, pas de feuilles
 
 La scène est mise à l'échelle « cover » pour remplir l'arène (PR #68,
 `arenaScale` = `min(coverScale, cornerSafeScale)` dans
 `src/renderer/gridProjection.ts`). Les **tuiles sont vectorielles**
 (`Graphics.poly`, `src/renderer/tilePaint.ts:17`) et restent nettes à tout
-facteur ; les **sprites de personnages et monstres sont des SVG rastérisés en
-64 px** (`SPRITE_FRAME_SIZE = 64`, `src/renderer/sprites/frameMath.ts:8`) puis
-agrandis par `EntitySprite.update` (PR #68 : `node.scale` suit l'échelle du
-décor), donc **adoucis** au-delà de ×1. Facteurs observés : **×1,33** (1024×480),
-**×1,45** (1024×570), **×2,19** (1664×840).
+facteur. Les **sprites ne sont pas rastérisés en 64 px** : les feuilles sont
+générées à **2×**, cellules de **128 px** (`SPRITE_FRAME_SIZE`,
+`src/renderer/sprites/frameMath.ts`), affichées sur **64 px monde**
+(`SPRITE_DISPLAY_SIZE` via `displayScaleFor`) et échantillonnées en `nearest`
+(`src/renderer/sprites/spriteLoader.ts`). Facteurs observés : ×1,33 (1024×480),
+×1,45 (1024×570), ×2,19 (1664×840) — à ×2,19 une cellule de 128 px couvre
+≈ 140 px d'écran (1,09×), agrandissement résiduel que le `nearest` garde franc.
 
-Piste : feuilles de sprites en **2×** (ou `resolution` Pixi) et texture
-`nearest` pour rester pixel-art. Chantier `data/**` + générateur.
+Le flou qui restait venait de l'**écran**, pas des sprites : l'`Application`
+PixiJS était créée en 1× et le navigateur agrandissait le canvas. Elle est
+créée avec `resolution: devicePixelRatio` borné à `[1, 3]` et
+`autoDensity: true` (`src/renderer/pixiResolution.ts`) ; chaque
+`resizeRenderer` réaligne la résolution (`src/renderer/rendererResize.ts`) et
+le canvas reste dimensionné en **pixels CSS**, donc le hit-test de `isoToGrid`
+ne change pas.
+
+Limite assumée : la résolution est relue au montage puis à chaque `resize`.
+Un changement de taille de fenêtre — et le zoom navigateur, qui redimensionne
+le viewport — déclenche ce `resize` et est donc suivi. **Basculer sur un écran
+externe de même taille CSS ne déclenche aucun événement** : rien n'écoute
+`matchMedia`, la résolution reste celle du dernier resize.
 
 ### 12.2 Les coins de l'écran restent vides — c'est géométrique
 
