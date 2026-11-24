@@ -10,12 +10,14 @@
 # salle, après la dernière salle, ni au rechargement.
 #
 # 0,75 (24/11/2026) : le soin est le levier DEC-03 qui rétablit la victoire au
-# niveau 16 après GRID-01. Les deux builds du walkthrough franchissent les
-# salles 1-3 avec une barre pleine et la salle 4 reste la salle qui décide
-# (73 PV finaux pour `survie`, 56 pour `offense`). Aucun dégât, sort, PV de
-# référence, butin ni `hpScale` n'est retouché. À 1, le héros nu gagnait la
-# salle 2 ; à 0,75 il meurt toujours en salle 2 (114 PV à la porte, 137 PV de
-# monstres restants), donc DEC-03(b) tient.
+# niveau 16 après GRID-01. Les deux builds de 16 entrent à pleine barre en
+# salles 1-3 ; seul `16 offense` entre en salle 4 à 210/228. La salle 4 est
+# celle que 16 perdait avant calibration et qui est désormais gagnée (73 PV
+# finaux pour `survie`, 56 pour `offense`) ; la marge minimale reste portée par
+# la salle 3 (2,264 et 0,825 tours). Aucun dégât, sort, PV de référence, butin
+# ni `hpScale` n'est retouché. À 1, le héros nu gagnait la salle 2 ; à 0,75 il
+# meurt toujours en salle 2 (114 PV à la porte, 137 PV de monstres restants),
+# donc DEC-03(b) tient.
 dungeons:
   - id: fer_donjon_casse_vis_sans_fin
     name: "La Casse aux Vis-Sans-Fin"
@@ -56,8 +58,9 @@ dungeons:
         isBossRoom: true
         # DEC-03 : 0,33 (0,30 avant les diagonales). La marge du build contraignant
         # est QUANTIFIÉE : à 0,32 la salle 4 rendait 2,70 tours, à 0,33 elle en rend
-        # 1,20 — et c'est elle qui doit être la salle contraignante, sinon la marge
-        # minimale retombe sur la salle 3 (0,80 ou 2,08, jamais entre les deux).
+        # 1,20 — et c'est elle qui devait être la salle contraignante à l'époque,
+        # sinon la marge minimale retombait sur la salle 3 (0,80 ou 2,08, jamais
+        # entre les deux). Après le soin à 0,75, la marge minimale est en salle 3.
         hpScale: 0.33
         monsters:
           - { monsterId: fer_boss_yvon_rouiller, count: 1 }

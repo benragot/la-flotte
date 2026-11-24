@@ -68,11 +68,13 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  *
  * LEVIER DE CETTE MESURE — `healBetweenRooms` 0,5 → 0,75 (une ligne de
  * `data/dungeons.yaml`). Aucun dégât, sort, PV de référence, butin ni `hpScale`
- * n'est retouché : le héros arrive plein aux salles 2, 3 et 4. La salle 4 est
- * celle que le niveau 16 perdait avant la calibration ; elle est désormais
- * gagnée avec 73 PV (`survie`) et 56 PV (`offense`), soit des marges de 3,174
- * et 2,182 tours sur cette salle. La marge MINIMALE de chaque cellule reste
- * portée par la salle 3 (2,264 et 0,825 pour 16, 3,259 pour 17 `survie`).
+ * n'est retouché : les deux builds de 16 franchissent les salles 2 et 3 à
+ * pleine barre ; `16 offense` entre en salle 4 à 210/228, `16 survie` à
+ * 303/303. La salle 4 est celle que le niveau 16 perdait avant la calibration ;
+ * elle est désormais gagnée avec 73 PV (`survie`) et 56 PV (`offense`), soit des
+ * marges de 3,174 et 2,182 tours sur cette salle. La marge MINIMALE de chaque
+ * cellule reste portée par la salle 3 (2,264 et 0,825 pour 16, 3,259 pour
+ * 17 `survie`).
  * 17 et 18 voient leurs marges s'améliorer sans devenir triviales ; le héros nu
  * meurt toujours en salle 2 avec 137 PV de monstres restants.
  *
@@ -704,10 +706,10 @@ interface Cell {
  *  17 survie  155/74 → 172/73 · 17 offense 99/60 → 109/60
  *  18 survie  346/58 → 346/58 · 18 offense 261/45 → 261/45
  * Aucun dégât, sort, PV de référence, butin ni `hpScale` n'est touché : seule
- * la part du pool effectif rendue au franchissement change. 16 franchit les
- * salles 1-3 avec une barre pleine, puis gagne la salle 4 qu'il perdait ; la
- * marge minimale, elle, reste portée par la salle 3. Le héros nu meurt toujours
- * en salle 2.
+ * la part du pool effectif rendue au franchissement change. Les deux builds de
+ * 16 franchissent les salles 1-3 à pleine barre (`16 offense` entre en salle 4
+ * à 210/228), puis gagnent la salle 4 qu'ils perdaient ; la marge minimale,
+ * elle, reste portée par la salle 3. Le héros nu meurt toujours en salle 2.
  */
 const CELLS: readonly Cell[] = [
   { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 73, actions: 103 },
@@ -836,12 +838,13 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  * salles ; (b) le héros nu perd, en salle 2, et son déficit reste CHIFFRÉ
  * (`deficitOf`), jamais toléré silencieusement.
  *
- * CE QUE LA MESURE DIT DE L'ARITHMÉTIQUE : le soin de franchissement porte le
- * héros de 16 à pleine barre entre les salles, donc les salles 1-3 ne se
- * disputent plus la victoire. La salle 4 — celle que 16 perdait avant la
- * calibration — est gagnée : `survie` y finit à 73 PV, `offense` à 56 PV
- * (24,6 % de sa barre). Mais la marge MINIMALE de chaque cellule est portée par
- * la salle 3 (2,264 et 0,825 pour 16 ; 3,259 pour 17 `survie`), et `offense`
+ * CE QUE LA MESURE DIT DE L'ARITHMÉTIQUE : le soin de franchissement remet les
+ * deux builds de 16 à pleine barre entre les salles (sauf `16 offense`, qui
+ * entre en salle 4 à 210/228), donc les salles 1-3 ne se disputent plus la
+ * victoire. La salle 4 — celle que 16 perdait avant la calibration — est
+ * gagnée : `survie` y finit à 73 PV, `offense` à 56 PV (24,6 % de sa barre).
+ * Mais la marge MINIMALE de chaque cellule est portée par la salle 3 (2,264 et
+ * 0,825 pour 16 ; 3,259 pour 17 `survie`), et `offense`
  * garde le garde-fou « pas trivial » (`hpEnd < maxHp / 2`, 109 < 131,5 à 17).
  *
  * LA VALEUR EST ÉPINGLÉE, PAS UNE BORNE VALIDÉE : `toBeCloseTo(3.259, 1)` fige
