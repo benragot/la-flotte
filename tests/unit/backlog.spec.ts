@@ -1989,7 +1989,7 @@ describe("backlog — dettes de déplacement solées par DEC-10 (v26, v30)", () 
 /**
  * Audit de la PR #108, mis à jour en v31 puis après la calibration du soin
  * (0,75) : aucune borne n'a été élargie. `D103` reste ouverte (la fenêtre 1-2 ne
- * vit que dans la docstring) mais sa mesure est désormais propre — 3,259 tours
+ * vit que dans la docstring) mais sa mesure est désormais propre — 3,365 tours
  * (salle 3), épinglés ±0,05. `D104` est SOLDÉE : le contact diagonal attaque, et
  * le test qui le prouve est le test inversé de l'audit.
  */
@@ -2004,9 +2004,9 @@ describe("backlog — dette D103 re-mesurée et contact diagonal corrigé (v31)"
     });
     const text = `${debt?.title} ${debt?.notes}`;
     expect(text).toContain("n'énonce aucune fenêtre 1-2 tours");
-    expect(text).toContain("3,259");
+    expect(text).toContain("3,365");
     expect(text).toContain("re-mesurée après le correctif `D104`");
-    expect(text).toContain("toBeCloseTo(3.259, 1)");
+    expect(text).toContain("toBeCloseTo(3.365, 1)");
     expect(text).toContain("Aucune borne élargie");
   });
 

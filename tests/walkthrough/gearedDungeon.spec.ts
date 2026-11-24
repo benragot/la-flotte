@@ -59,21 +59,21 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * est la plus petite des quatre salles et la salle qui la porte est donnée
  * entre parenthèses — pour les six cellules, c'est la salle 3 :
  *   niv.  build    PV max  PV monstres  PV fin  marge min (salle)  actions
- *   16    survie    303    0            73      2,264 (3)          103
- *   16    offense   228    0            56      0,825 (3)          68
- *   17    survie    343    0            172     3,259 (3)          70
- *   17    offense   263    0            176     2,556 (3)          58
- *   18    survie    433    0            346     6,148 (3)          53
- *   18    offense   348    0            261     4,352 (3)          45
+ *   16    survie    308    0            78      2,400 (3)          103
+ *   16    offense   233    0            65      0,931 (3)          68
+ *   17    survie    348    0            177     3,365 (3)          70
+ *   17    offense   268    0            181     2,662 (3)          58
+ *   18    survie    438    0            351     6,254 (3)          53
+ *   18    offense   353    0            266     4,458 (3)          45
  *
  * LEVIER DE CETTE MESURE — `healBetweenRooms` 0,5 → 0,75 (une ligne de
  * `data/dungeons.yaml`). Aucun dégât, sort, PV de référence, butin ni `hpScale`
  * n'est retouché : les deux builds de 16 franchissent les salles 2 et 3 à
- * pleine barre ; `16 offense` entre en salle 4 à 210/228, `16 survie` à
- * 303/303. La salle 4 est celle que le niveau 16 perdait avant la calibration ;
- * elle est désormais gagnée avec 73 PV (`survie`) et 56 PV (`offense`), soit des
- * marges de 3,174 et 2,182 tours sur cette salle. La marge MINIMALE de chaque
- * cellule reste portée par la salle 3 (2,264 et 0,825 pour 16, 3,259 pour
+ * pleine barre ; `16 offense` entre en salle 4 à 219/233, `16 survie` à
+ * 308/308. La salle 4 est celle que le niveau 16 perdait avant la calibration ;
+ * elle est désormais gagnée avec 78 PV (`survie`) et 65 PV (`offense`), soit des
+ * marges de 3,391 et 2,532 tours sur cette salle. La marge MINIMALE de chaque
+ * cellule reste portée par la salle 3 (2,400 et 0,931 pour 16, 3,365 pour
  * 17 `survie`).
  * 17 et 18 voient leurs marges s'améliorer sans devenir triviales ; le héros nu
  * meurt toujours en salle 2 avec 137 PV de monstres restants.
@@ -82,9 +82,9 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * désormais projetés en combat. Seules trois cellules bougent, et uniquement
  * par le stuff qu'elles portent (les builds de 16 n'ont ni `% Dégâts` ni
  * résistance de panoplie) : `17 survie` 73 → 70 actions, `17 offense`
- * 109 → 176 PV finaux (60 → 58 actions), `18 survie` 58 → 53 actions. Les
+ * 114 → 181 PV finaux (60 → 58 actions), `18 survie` 58 → 53 actions. Les
  * marges minimales ne changent pas : elles restent portées par la salle 3 et
- * valent 2,264 / 0,825 / 3,259 / 2,556 / 6,148 / 4,352. Le héros nu meurt
+ * valent 2,400 / 0,931 / 3,365 / 2,662 / 6,254 / 4,458. Le héros nu meurt
  * toujours en salle 2 : aucun monstre, sort ni `hpScale` n'a été retouché.
  *
  * EFFET MESURÉ DE LA MOBILITÉ RENDUE (3 → 4 PM sur les cinq monstres du donjon) :
@@ -97,7 +97,7 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * 318 → 289, `18 offense` 247 → 261. À l'état d'alors (soin 0,5, avant GRID-01),
  * les SIX victoires étaient conservées et la marge du build contraignant passait
  * de 2,28 à 2,376 tours ; cette valeur est HISTORIQUE, la mesure courante est
- * 3,259 tours.
+ * 3,365 tours.
  *
  * EFFET MESURÉ DU CORRECTIF D104 : les monstres de mêlée collés en diagonale ne
  * restent plus figés, donc chaque salle encaisse des coups de plus et le héros
@@ -147,20 +147,20 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  *
  * RÉPONSE DEC-03 APRÈS GRID-01 (rétablie par la calibration de soin) : (a) « au
  * niveau recommandé (16) avec un bon équipement, le joueur gagne » est de
- * nouveau vraie — les deux builds gagnent la salle 4 avec 73 et 56 PV finaux,
- * et une marge positive sur cette salle (3,174 et 2,182 tours). La marge
- * minimale du donjon n'est pas en salle 4 mais en salle 3 (2,264 et 0,825),
+ * nouveau vraie — les deux builds gagnent la salle 4 avec 78 et 65 PV finaux,
+ * et une marge positive sur cette salle (3,391 et 2,532 tours). La marge
+ * minimale du donjon n'est pas en salle 4 mais en salle 3 (2,400 et 0,931),
  * comme le dit la table. Le levier est le soin de franchissement (0,5 → 0,75),
  * explicitement autorisé par DEC-03 ; ni les dégâts, ni les sorts, ni les PV de
  * référence des monstres ne bougent. (b) le héros nu perd toujours, et toujours
- * en salle 2 (114 PV à la porte, 137 PV de monstres restants) : le soin plus
+ * en salle 2 (123 PV à la porte, 137 PV de monstres restants) : le soin plus
  * généreux ne remplace pas une panoplie.
  *
  * CONSTAT D'ARITHMÉTIQUE ASSUMÉ, REMESURÉ À 0,75 : la fenêtre 1-2 tours n'est
- * pas atteignable pour les deux builds. `16 survie` (303 PV) sort par le haut
- * (2,264 tours, salle 3) tandis que `16 offense` (228 PV) sort par le bas
- * (0,825 tour, salle 3) ; l'offense est donc borné par son ratio de PV
- * restants, `hpEnd < maxHp / 2` (56/228 = 24,6 %), pas par la fenêtre de tours.
+ * pas atteignable pour les deux builds. `16 survie` (308 PV) sort par le haut
+ * (2,400 tours, salle 3) tandis que `16 offense` (233 PV) sort par le bas
+ * (0,931 tour, salle 3) ; l'offense est donc borné par son ratio de PV
+ * restants, `hpEnd < maxHp / 2` (65/233 = 27,9 %), pas par la fenêtre de tours.
  * On ne prétend pas calibrer les deux à 1-2 tours ; le test ne fige pas un
  * instantané au centième. (Historique : au soin 0,5, la même case offense
  * mesurait 2,04 tours et 63/228 = 28 %.)
@@ -717,16 +717,16 @@ interface Cell {
  * Aucun dégât, sort, PV de référence, butin ni `hpScale` n'est touché : seule
  * la part du pool effectif rendue au franchissement change. Les deux builds de
  * 16 franchissent les salles 1-3 à pleine barre (`16 offense` entre en salle 4
- * à 210/228), puis gagnent la salle 4 qu'ils perdaient ; la marge minimale,
+ * à 219/233), puis gagnent la salle 4 qu'ils perdaient ; la marge minimale,
  * elle, reste portée par la salle 3. Le héros nu meurt toujours en salle 2.
  */
 const CELLS: readonly Cell[] = [
-  { level: 16, build: "survie", maxHp: 303, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 73, actions: 103 },
-  { level: 16, build: "offense", maxHp: 228, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 56, actions: 68 },
-  { level: 17, build: "survie", maxHp: 343, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 172, actions: 70 },
-  { level: 17, build: "offense", maxHp: 263, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 176, actions: 58 },
-  { level: 18, build: "survie", maxHp: 433, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 346, actions: 53 },
-  { level: 18, build: "offense", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 261, actions: 45 },
+  { level: 16, build: "survie", maxHp: 308, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 78, actions: 103 },
+  { level: 16, build: "offense", maxHp: 233, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 65, actions: 68 },
+  { level: 17, build: "survie", maxHp: 348, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 177, actions: 70 },
+  { level: 17, build: "offense", maxHp: 268, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 181, actions: 58 },
+  { level: 18, build: "survie", maxHp: 438, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 351, actions: 53 },
+  { level: 18, build: "offense", maxHp: 353, outcome: "victoire", room: 4, enemyHpLeft: 0, hpEnd: 266, actions: 45 },
 ];
 
 
@@ -849,15 +849,15 @@ describe.each(CELLS)("niveau $level, build $build", (cell) => {
  *
  * CE QUE LA MESURE DIT DE L'ARITHMÉTIQUE : le soin de franchissement remet les
  * deux builds de 16 à pleine barre entre les salles (sauf `16 offense`, qui
- * entre en salle 4 à 210/228), donc les salles 1-3 ne se disputent plus la
+ * entre en salle 4 à 219/233), donc les salles 1-3 ne se disputent plus la
  * victoire. La salle 4 — celle que 16 perdait avant la calibration — est
- * gagnée : `survie` y finit à 73 PV, `offense` à 56 PV (24,6 % de sa barre).
- * Mais la marge MINIMALE de chaque cellule est portée par la salle 3 (2,264 et
- * 0,825 pour 16 ; 3,259 pour 17 `survie`), et `offense`
- * garde le garde-fou « pas trivial » (`hpEnd < maxHp`, 176 < 263 à 17 — la salle
+ * gagnée : `survie` y finit à 78 PV, `offense` à 65 PV (27,9 % de sa barre).
+ * Mais la marge MINIMALE de chaque cellule est portée par la salle 3 (2,400 et
+ * 0,931 pour 16 ; 3,365 pour 17 `survie`), et `offense`
+ * garde le garde-fou « pas trivial » (`hpEnd < maxHp`, 181 < 268 à 17 — la salle
  * reste coûteuse même stuffé).
  *
- * LA VALEUR EST ÉPINGLÉE, PAS UNE BORNE VALIDÉE : `toBeCloseTo(3.259, 1)` fige
+ * LA VALEUR EST ÉPINGLÉE, PAS UNE BORNE VALIDÉE : `toBeCloseTo(3.365, 1)` fige
  * la mesure de `17 survie` (min sur les quatre salles) pour rougir au moindre
  * changement de contenu ou de moteur. La salle 3 n'a pas bougé ; c'est la
  * salle 4 qui a été rendue franchissable par le soin, pas les monstres.
@@ -868,20 +868,20 @@ describe("DEC-03 — 16 gagne, 17 gagne, le héros nu perd en salle 2", () => {
     for (const cell of cells16) assertSixteenWin(cell);
     const [survie16, offense16] = cells16;
     if (survie16 === undefined || offense16 === undefined) throw new Error("cellule 16 manquante");
-    assertFloor({ floor: marginFloor(survie16.rooms), expected: 2.264 });
-    assertFloor({ floor: marginFloor(offense16.rooms), expected: 0.825 });
-    expect(margin(lastRoomOf(survie16.rooms))).toBeCloseTo(3.174, 1);
-    expect(margin(lastRoomOf(offense16.rooms))).toBeCloseTo(2.182, 1);
+    assertFloor({ floor: marginFloor(survie16.rooms), expected: 2.400 });
+    assertFloor({ floor: marginFloor(offense16.rooms), expected: 0.931 });
+    expect(margin(lastRoomOf(survie16.rooms))).toBeCloseTo(3.391, 1);
+    expect(margin(lastRoomOf(offense16.rooms))).toBeCloseTo(2.532, 1);
     const survie17 = measureAt(17, "survie");
     const offense17 = measureAt(17, "offense");
     for (const cell of [survie17, offense17]) assertRoom4Victory(cell);
     const survieFloor = marginFloor(survie17.rooms);
     expect(survieFloor.room).toBe(3);
     expect(survieFloor.margin).toBeGreaterThanOrEqual(1);
-    expect(survieFloor.margin).toBeCloseTo(3.259, 1);
+    expect(survieFloor.margin).toBeCloseTo(3.365, 1);
     // ITEM-01 : les résistances et le % Dégâts d'équipement sont désormais
     // projetés en combat, donc le build offensif de 17 finit moins entamé
-    // qu'avant (176/263 PV au lieu de 109/263). Le garde-fou « pas trivial »
+    // qu'avant (181/268 PV au lieu de 114/268). Le garde-fou « pas trivial »
     // devient donc « entamé, mais jamais intact » : la salle 4 coûte encore
     // des PV, même au build le plus offensif.
     expect(lastRoomOf(offense17.rooms).hpEnd).toBeLessThan(offense17.maxHp);

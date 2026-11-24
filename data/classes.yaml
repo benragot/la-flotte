@@ -3,7 +3,7 @@ classes:
     name: Iop
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -18,7 +18,7 @@ classes:
     name: Féca
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -33,7 +33,7 @@ classes:
     name: Osamodas
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -48,7 +48,7 @@ classes:
     name: Enutrof
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 120
     vitalityGainPerPoint: 1
     softCaps:
@@ -63,7 +63,7 @@ classes:
     name: Sram
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -78,7 +78,7 @@ classes:
     name: Xélor
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -93,7 +93,7 @@ classes:
     name: Ecaflip
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -108,7 +108,7 @@ classes:
     name: Eniripsa
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -123,7 +123,7 @@ classes:
     name: Crâ
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -138,7 +138,7 @@ classes:
     name: Sadida
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:
@@ -153,7 +153,7 @@ classes:
     name: Sacrieur
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 2
     softCaps:
@@ -168,7 +168,7 @@ classes:
     name: Pandawa
     basePa: 6
     basePm: 3
-    baseHp: 50
+    baseHp: 55
     basePp: 100
     vitalityGainPerPoint: 1
     softCaps:

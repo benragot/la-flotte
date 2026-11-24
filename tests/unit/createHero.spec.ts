@@ -7,7 +7,7 @@ const IOP: ClassDef = {
   name: "Iop",
   basePa: 6,
   basePm: 3,
-  baseHp: 50,
+  baseHp: 55,
   basePp: 100,
   vitalityGainPerPoint: 1,
   softCaps: {
@@ -32,7 +32,7 @@ describe("createHero", () => {
     expect(hero.level).toBe(1);
     expect(hero.ap).toBe(6);
     expect(hero.mp).toBe(3);
-    expect(hero.hp).toBe(50);
+    expect(hero.hp).toBe(55);
     expect(hero.pp).toBe(100);
   });
 

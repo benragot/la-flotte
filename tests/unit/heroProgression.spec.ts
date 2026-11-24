@@ -104,8 +104,8 @@ describe("createHero : champs persistants", () => {
 describe("applyLevelUp", () => {
   it("applique les gains du niveau 1 au niveau 2", () => {
     const { hero, applied } = applyLevelUp({ hero: freshHero(), targetLevel: 2, gainRules: GAIN_RULES, apRules: AP_RULES });
-    expect(hero.maxHp).toBe(55);
-    expect(hero.hp).toBe(55);
+    expect(hero.maxHp).toBe(60);
+    expect(hero.hp).toBe(60);
     expect(hero.capitalPoints).toBe(5);
     expect(hero.spellPoints).toBe(1);
     expect(applied).toHaveLength(1);

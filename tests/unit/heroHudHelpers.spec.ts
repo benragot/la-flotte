@@ -141,7 +141,7 @@ describe("classSummary", () => {
       name: "Iop",
       basePa: 6,
       basePm: 3,
-      baseHp: 50,
+      baseHp: 55,
       basePp: 100,
     });
   });

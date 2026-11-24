@@ -11,12 +11,12 @@
 #
 # 0,75 (24/11/2026) : le soin est le levier DEC-03 qui rétablit la victoire au
 # niveau 16 après GRID-01. Les deux builds de 16 entrent à pleine barre en
-# salles 1-3 ; seul `16 offense` entre en salle 4 à 210/228. La salle 4 est
-# celle que 16 perdait avant calibration et qui est désormais gagnée (73 PV
-# finaux pour `survie`, 56 pour `offense`) ; la marge minimale reste portée par
-# la salle 3 (2,264 et 0,825 tours). Aucun dégât, sort, PV de référence, butin
+# salles 1-3 ; seul `16 offense` entre en salle 4 à 219/233. La salle 4 est
+# celle que 16 perdait avant calibration et qui est désormais gagnée (78 PV
+# finaux pour `survie`, 65 pour `offense`) ; la marge minimale reste portée par
+# la salle 3 (2,400 et 0,931 tours). Aucun dégât, sort, PV de référence, butin
 # ni `hpScale` n'est retouché. À 1, le héros nu gagnait la salle 2 ; à 0,75 il
-# meurt toujours en salle 2 (114 PV à la porte, 137 PV de monstres restants),
+# meurt toujours en salle 2 (123 PV à la porte, 137 PV de monstres restants),
 # donc DEC-03(b) tient.
 dungeons:
   - id: fer_donjon_casse_vis_sans_fin

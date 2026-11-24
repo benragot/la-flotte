@@ -121,7 +121,7 @@ describe("walkthrough : progression", () => {
     expect(hero.level).toBe(1);
     expect(hero.ap).toBe(6);
     expect(hero.mp).toBe(3);
-    expect(hero.hp).toBe(50);
+    expect(hero.hp).toBe(55);
     expect(hero.pp).toBe(100);
   });
 

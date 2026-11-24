@@ -220,7 +220,7 @@ describe("useGameStore — consommables", () => {
     addToBag("soupe_de_baleine_tiede", 2);
     useGameStore.getState().drinkConsumable({ itemId: "soupe_de_baleine_tiede" });
     const state = useGameStore.getState();
-    expect(state.hero?.hp).toBe(50);
+    expect(state.hero?.hp).toBe(55);
     expect(countItem(state.inventory, "soupe_de_baleine_tiede")).toBe(1);
   });
 
@@ -229,7 +229,7 @@ describe("useGameStore — consommables", () => {
     addToBag("soupe_de_baleine_tiede", 1);
     const before = useGameStore.getState().inventory;
     useGameStore.getState().drinkConsumable({ itemId: "soupe_de_baleine_tiede" });
-    expect(useGameStore.getState().hero?.hp).toBe(50);
+    expect(useGameStore.getState().hero?.hp).toBe(55);
     expect(useGameStore.getState().inventory).toBe(before);
   });
 });
@@ -584,9 +584,9 @@ describe("hero — projection en combattant", () => {
       kind: "player",
       name: "Anselme",
       level: 1,
-      // 50 PV de base + 43 Vitalité des 4 pièces (5+10+8 objets, +20 panoplie) × 1 PV.
-      hp: 93,
-      maxHp: 93,
+      // 55 PV de base + 43 Vitalité des 4 pièces (5+10+8 objets, +20 panoplie) × 1 PV.
+      hp: 98,
+      maxHp: 98,
       ap: 7,
       maxAp: 7,
       mp: 3,
@@ -608,7 +608,7 @@ describe("hero — PV courants bornés", () => {
     const hero = { ...createHero("Anselme", iop()), hp: 40 };
     const stats = totalStatsFor({ hero, inventory: emptyInventory(), items, sets });
     const combatant = combatantFromHero({ hero, stats, position: { x: 0, y: 0 }, spellIds: [] });
-    expect([combatant.hp, combatant.maxHp]).toEqual([40, 50]);
+    expect([combatant.hp, combatant.maxHp]).toEqual([40, 55]);
   });
 });
 

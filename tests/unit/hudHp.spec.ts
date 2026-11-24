@@ -89,12 +89,12 @@ beforeEach(() => {
 });
 
 describe("PV du HUD — un seul domaine, celui du moteur", () => {
-  it("affiche 93 / 93 pour une sauvegarde ancienne 50 / 50 avec 43 de Vitalité", () => {
-    expect(hpOf(heroAt({ vitality: 43 }))).toEqual({ hp: 93, maxHp: 93 });
+  it("affiche 98 / 98 pour un héros de niveau 1 (maxHp 55) avec 43 de Vitalité", () => {
+    expect(hpOf(heroAt({ vitality: 43 }))).toEqual({ hp: 98, maxHp: 98 });
   });
 
-  it("préserve le déficit : 45 / 50 avec 10 de Vitalité donne 55 / 60", () => {
-    expect(hpOf(heroAt({ vitality: 10, hp: 45 }))).toEqual({ hp: 55, maxHp: 60 });
+  it("préserve le déficit : 45 / 55 avec 10 de Vitalité donne 55 / 65", () => {
+    expect(hpOf(heroAt({ vitality: 10, hp: 45 }))).toEqual({ hp: 55, maxHp: 65 });
   });
 
   it("garde le même total pour l'inventaire, le HUD et le jeton de combat", () => {
@@ -104,12 +104,15 @@ describe("PV du HUD — un seul domaine, celui du moteur", () => {
     const hpLine = buildStatLines(block).find((line) => line.key === "hp");
     const hudMarkup = renderToStaticMarkup(createElement(HeroVitalsLine, { hp: hpOf(hero), className: "text-xs" }));
     const view = battleViewOf(hero);
-    expect(hpLine?.value).toBe(60);
-    expect(hudMarkup).toContain("❤ 55 / 60");
+    expect(hpLine?.value).toBe(65);
+    expect(hudMarkup).toContain("❤ 55 / 65");
     expect({ hp: view.hp, maxHp: view.maxHp }).toEqual(hpOf(hero));
   });
 
   it("n'annonce jamais le maximum de niveau quand la Vitalité l'augmente", () => {
+    // Sauvegarde dont le maxHp persisté (50) diffère volontairement de la
+    // classe (55) : le HUD doit lire 50 + 43 de Vitalité = 93, jamais
+    // recalculer depuis le maximum de classe.
     const hero = heroAt({ vitality: 43, hp: 50, maxHp: 50 });
     const view = battleViewOf(hero);
     expect(view.maxHp).toBe(93);

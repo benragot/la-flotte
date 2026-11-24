@@ -65,9 +65,9 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * RÉSULTAT MESURÉ AUJOURD'HUI — DEC-03 est actif (`healBetweenRooms: 0.75`), le
  * correctif `castsPerTurn`/`cooldown` est en place, le pas diagonal est facturé
  * au chemin (DEC-10) et la mêlée joue jusqu'au contact (correctif `D104`) :
- *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 130 → 16 PV, 16 actions ;
- *   franchissement : 16 + ceil(130 × 0,75) = 114 PV rendus par la porte (DEC-03) ;
- *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 114 → 0 PV, 20 actions.
+ *   salle 1 « La Cour aux Volatiles Gras » : GAGNÉE, 135 → 21 PV, 16 actions ;
+ *   franchissement : 21 + ceil(135 × 0,75) = 123 PV rendus par la porte (DEC-03) ;
+ *   salle 2 « Le Hangar à Mazout » : DÉFAITE, 123 → 0 PV, 20 actions.
  * DEC-03 (b) est la seule propriété défendue ici : le héros nu perd TOUJOURS, et
  * toujours sans finir le donjon, même après l'adoucissement de la salle 3
  * (hpScale 0,29) et le soin de franchissement porté à 0,75.
@@ -82,7 +82,7 @@ import { useCombatStore } from "../../src/store/useCombatStore";
  * POURQUOI CE TEST EST VERT AVEC UNE DÉFAITE : sans panoplie, ce héros Force
  * n'inflige que ~28 PV par tour. La salle 2 aligne 287 PV de monstres et frappe
  * désormais à chaque tour ; même porté aux trois quarts de sa barre, le héros
- * arrive à 114 PV, encaisse plus qu'il ne peut rendre et tombe sans vider la
+ * arrive à 123 PV, encaisse plus qu'il ne peut rendre et tombe sans vider la
  * salle (137 PV de monstres restants). Une salle qui dure plus longtemps que le
  * pool effectif ne se soigne pas de l'intérieur — c'est exactement la limite
  * mesurée ici.
@@ -462,13 +462,13 @@ describe("walkthrough : je joue, du héros créé à la mort en salle 2", () => 
     expect(first.hpEnd).toBeLessThan(first.hpStart);
     // GRID-01 : la portée Chebyshev fait frapper les monstres en diagonale, donc
     // la salle 1 coûte 16 PV de plus qu'avant le correctif (32 → 16 PV finaux).
-    expect(first.hpEnd).toBe(16);
+    expect(first.hpEnd).toBe(21);
     useCombatStore.getState().settleDungeonRoom({ storage });
     expect(currentRoomNumber()).toBe(2);
     const second = playRoom(currentRoomNumber(), storage);
     expect(second.roomNumber).toBe(DEATH_ROOM);
-    // DEC-03 : 16 PV + ceil(130 × 0,75) = 114 PV à la porte de la salle 2.
-    expect(second.hpStart).toBe(114);
+    // DEC-03 : 21 PV + ceil(135 × 0,75) = 123 PV à la porte de la salle 2.
+    expect(second.hpStart).toBe(123);
     expect(second.defeat).toBe(true);
     expect(second.hpEnd).toBe(0);
     useCombatStore.getState().endBattle();
