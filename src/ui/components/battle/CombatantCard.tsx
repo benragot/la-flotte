@@ -1,5 +1,6 @@
 import type { BattleCombatantView } from "../../../renderer/battleViewModel";
 import type { CastBlock } from "../../../engine/multiCombat";
+import type { AttackButtonState } from "../../battle/attackButtonState";
 import {
   ACTION_BUTTON,
   ACTIVE_CARD,
@@ -17,6 +18,8 @@ export interface CombatantCardProps {
   view: BattleCombatantView;
   /** Le camp du héros joue : les cibles valides peuvent être attaquées. */
   canAttack: boolean;
+  /** État du bouton (coût, PA, recharge), calculé une fois pour tout le panneau. */
+  attack: AttackButtonState;
   onAttack: (targetId: string) => void;
 }
 
@@ -60,11 +63,22 @@ function StatsLine({ view }: { view: BattleCombatantView }) {
   return <p className={STATS_LINE}>❤ {view.hp} / {view.maxHp} · ★ {view.ap} PA · 👢 {view.mp} PM</p>;
 }
 
-function AttackButton({ view, onAttack }: { view: BattleCombatantView; onAttack: (targetId: string) => void }) {
+interface AttackActionProps {
+  view: BattleCombatantView;
+  attack: AttackButtonState;
+  onAttack: (targetId: string) => void;
+}
+
+/**
+ * Le moteur refuserait le clic (PA manquants, recharge) : le bouton le dit
+ * **avant** le clic, en attribut `disabled` et en `aria-disabled`, jamais
+ * seulement par la couleur.
+ */
+function AttackButton({ view, attack, onAttack }: AttackActionProps) {
   if (!view.isTargetable) return null;
   return (
-    <button type="button" className={ACTION_BUTTON} onClick={() => onAttack(view.id)}>
-      Attaquer
+    <button type="button" className={ACTION_BUTTON} onClick={() => onAttack(view.id)} disabled={attack.disabled} aria-disabled={attack.disabled}>
+      {attack.label}
     </button>
   );
 }
@@ -75,30 +89,30 @@ function BlockedHint({ view }: { view: BattleCombatantView }) {
   return <p className={BLOCKED_HINT}>{BLOCK_LABEL[view.blockedReason]}</p>;
 }
 
-function Actions({ view, onAttack }: { view: BattleCombatantView; onAttack: (targetId: string) => void }) {
+function Actions({ view, attack, onAttack }: AttackActionProps) {
   return (
     <>
       <BlockedHint view={view} />
-      <AttackButton view={view} onAttack={onAttack} />
+      <AttackButton view={view} attack={attack} onAttack={onAttack} />
     </>
   );
 }
 
-function CardBody({ view, canAttack, onAttack }: CombatantCardProps) {
+function CardBody({ view, canAttack, attack, onAttack }: CombatantCardProps) {
   return (
     <>
       <CardHead view={view} />
       <StatsLine view={view} />
       <HpBar ratio={view.hpRatio} color={view.color} />
-      {canAttack ? <Actions view={view} onAttack={onAttack} /> : null}
+      {canAttack ? <Actions view={view} attack={attack} onAttack={onAttack} /> : null}
     </>
   );
 }
 
-export function CombatantCard({ view, canAttack, onAttack }: CombatantCardProps) {
+export function CombatantCard({ view, canAttack, attack, onAttack }: CombatantCardProps) {
   return (
     <li className={cardClass(view)} aria-label={`Combattant ${view.name}`} aria-current={activeFlag(view)}>
-      <CardBody view={view} canAttack={canAttack} onAttack={onAttack} />
+      <CardBody view={view} canAttack={canAttack} attack={attack} onAttack={onAttack} />
     </li>
   );
 }
