@@ -38,7 +38,7 @@ export interface CombatantLike {
   initiative: number;
 }
 
-/** Portée d'un sort : bornes incluses, en cases (distance de `combatLoop/cells`). */
+/** Portée d'un sort : bornes incluses, en cases (Chebyshev, `grid/range`). */
 export interface RangeSpec {
   min: number;
   max: number;

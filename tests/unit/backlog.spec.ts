@@ -2018,7 +2018,8 @@ describe("backlog — dette D103 re-mesurée et contact diagonal corrigé (v31)"
     expect(unit).toContain("contact (D104)");
     expect(unit).toContain("un monstre collé en diagonale obtient la case orthogonale de contact");
     const retaliation = readFileSync(join(process.cwd(), "tests/unit/enemyRetaliation.spec.ts"), "utf8");
-    expect(retaliation).toContain("se décale d'un pas orthogonal, puis frappe dans le même tour");
+    expect(retaliation).toContain("décide d'attaquer depuis la diagonale, sans se décaler d'abord");
+    expect(retaliation).toContain("frappe en diagonale sans dépenser un seul PM");
   });
 });
 

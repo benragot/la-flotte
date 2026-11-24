@@ -1,8 +1,8 @@
 import type { SpellDef } from "../../schemas/spellSchema";
 import type { Position } from "../grid";
-import { hasLineOfSight, isWalkableCell, samePosition } from "../grid";
+import { hasLineOfSight, isWalkableCell, rangeDistance, samePosition } from "../grid";
 import { getActiveCombatant, getOpponent } from "./active";
-import { allPositions, manhattan } from "./cells";
+import { allPositions } from "./cells";
 import type { CombatantState, CombatState } from "./types";
 
 interface CastCellInput {
@@ -14,7 +14,7 @@ interface CastCellInput {
 }
 
 function inRange(input: CastCellInput): boolean {
-  const range = manhattan(input.caster.position, input.cell);
+  const range = rangeDistance(input.caster.position, input.cell);
   return range >= input.spell.minRange && range <= input.spell.maxRange;
 }
 

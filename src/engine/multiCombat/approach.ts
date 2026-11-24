@@ -60,8 +60,9 @@ function contactPathTo(input: ApproachInput, to: Position): Position[] | null {
 
 /**
  * Le contact ne fait que se resserrer : seule une case qui **baisse** la distance
- * de Manhattan (la métrique de portée, cf. `rangeOf`) est une approche. Sans ce
- * garde, un monstre déjà adjacent orthogonalement se décalerait latéralement.
+ * de Manhattan (métrique d'approche/placement, jamais de portée — la portée des
+ * sorts est Chebyshev, cf. `rangeDistance`) est une approche. Sans ce garde, un
+ * monstre déjà adjacent orthogonalement se décalerait latéralement.
  */
 function tighterContact(input: ApproachInput, cell: Position): boolean {
   return manhattan(cell, input.target.position) < manhattan(input.enemy.position, input.target.position);

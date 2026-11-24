@@ -12,7 +12,6 @@ import { endPlayerTurn } from "../../src/engine/combatLoop/turn";
 import type { CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import { isWalkableCell, parseAsciiMap, samePosition } from "../../src/engine/grid";
-import { findPath, pathCost } from "../../src/engine/grid/pathfinding";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -180,12 +179,12 @@ describe("getCastableCells : sorts de dégâts", () => {
     expect(getCastableCells(state, "pression")).toEqual([{ x: 2, y: 0 }]);
   });
 
-  it("garde la portée en losange, jamais en carré", () => {
+  it("garde la portée en carré (Chebyshev), jamais en losange", () => {
     const state = buildState(["P...", "....", "..M.", "...."]);
-    // DEC-10 : (0,0) → (2,2) coûte 4 PM (deux pas diagonaux à 2 PM).
-    const walk = findPath({ map: state.map, from: { x: 0, y: 0 }, to: { x: 2, y: 2 }, maxPm: 4 });
-    expect(pathCost(walk ?? [])).toBe(4);
-    expect(getCastableCells(state, "pression")).toEqual([]);
+    // GRID-01 : (0,0) → (2,2) vaut 2 en Chebyshev (la diagonale est un pas de
+    // portée), donc la cible diagonale de Pression (2 PO) est atteignable.
+    expect(getCastableCells(state, "pression")).toEqual([{ x: 2, y: 2 }]);
+    expect(getCastableCells(buildState(["P...", "....", "...M", "...."]), "pression")).toEqual([]);
   });
 
   it("respecte la portée 1 du Bec Mazouté", () => {

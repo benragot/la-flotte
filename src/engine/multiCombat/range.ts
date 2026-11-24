@@ -1,13 +1,13 @@
-import { manhattan } from "../combatLoop/cells";
 import type { Position } from "../grid";
-import { hasLineOfSight } from "../grid";
+import { hasLineOfSight, rangeDistance } from "../grid";
 import type { AttackSpec, BattleState, CombatantLike, RangeSpec } from "./types";
 
 /**
  * Géométrie du 1vN. La distance de portée est **celle du projet** :
- * `manhattan` de `combatLoop/cells`, celle qu'utilise `castable.ts` pour
- * `minRange`/`maxRange` en 1v1. La ligne de vue est **celle de `grid`**
- * (`hasLineOfSight`), jamais réimplémentée : seuls les murs `#` bloquent.
+ * `rangeDistance` de `grid`, la métrique de Chebyshev utilisée par `castable.ts`
+ * pour `minRange`/`maxRange` en 1v1. Ce n'est pas la facture DEC-10 des
+ * déplacements. La ligne de vue est **celle de `grid`** (`hasLineOfSight`),
+ * jamais réimplémentée : seuls les murs `#` bloquent.
  */
 /**
  * Refus géométrique. `too-close` est distinct de `out-of-range` : à distance 0
@@ -31,7 +31,7 @@ export function rangeOf(attack: AttackSpec): RangeSpec | undefined {
 }
 
 function distanceOf(check: RangeCheck): number {
-  return manhattan(check.attacker.position, check.target.position);
+  return rangeDistance(check.attacker.position, check.target.position);
 }
 
 function tooClose(check: RangeCheck): boolean {
