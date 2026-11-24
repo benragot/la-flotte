@@ -21,6 +21,7 @@ import type {
   EnemyStrategy,
   RangeSpec,
   Rng,
+  Side,
 } from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
 
@@ -266,8 +267,14 @@ function isBattleOver(state: BattleState): boolean {
   return isDefeat(state) || isVictory(state);
 }
 
+/** Côté qui a la main : la scène l'expose (`data-turn-side`), le panneau s'y soumet. */
+export function turnSide(state: BattleState | null): Side | null {
+  if (state === null) return null;
+  return activeCombatant(state)?.side ?? null;
+}
+
 function heroHasHand(state: BattleState): boolean {
-  return activeCombatant(state)?.side === "player";
+  return turnSide(state) === "player";
 }
 
 function enemyStep(input: EnemyTurnsInput, state: BattleState): BattleState {
@@ -304,6 +311,33 @@ export function playStepOnce(input: EnemyTurnsInput): BattleState {
 export function needsEnemyStep(state: BattleState | null, started: boolean): boolean {
   if (state === null || isBattleOver(state)) return false;
   return started ? !heroHasHand(state) : true;
+}
+
+/**
+ * Ouverture de combat : l'ennemi a la main au montage du panneau, donc la
+ * cadence doit démarrer **sans clic**. `started: true` est essentiel : il ne
+ * couvre pas le passage du tour du héros, contrairement au premier pas.
+ */
+export function openingBeatNeeded(state: BattleState | null): boolean {
+  return needsEnemyStep(state, true);
+}
+
+/** Ce que la chaîne planifiée sait d'elle-même au moment où le minuteur tire. */
+export interface OpeningStepInput {
+  /** `true` : chaîne née de l'ouverture ; `false` : chaîne née d'un « terminer le tour ». */
+  openingOnly: boolean;
+  battle: BattleState | null;
+}
+
+/**
+ * Verdict **au tir** : une chaîne d'ouverture ne joue que si l'ennemi a encore
+ * la main. Un héros qui l'a reprise entre la planification et le timer garde
+ * son tour. Une chaîne `endTurn` doit toujours pouvoir passer la main du héros.
+ */
+export function openingStepAllowed(input: OpeningStepInput): boolean {
+  if (input.battle === null || isBattleOver(input.battle)) return false;
+  if (!input.openingOnly) return true;
+  return openingBeatNeeded(input.battle);
 }
 
 function stepLimit(input: EnemyTurnsInput): number {

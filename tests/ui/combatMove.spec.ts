@@ -19,10 +19,10 @@ import { parseMapsYaml } from "../../src/schemas/mapSchema";
  */
 const ARENA = 'main[aria-label="Terrain de combat"]';
 const ROOM_PANEL = 'section[aria-label="Combat de salle"]';
-const ACTIVE = `${ROOM_PANEL} header p`;
 const HERO_CARD = 'li[aria-label="Combattant Balthazar"] p';
 const BATTLE_LOG = 'ul[aria-label="Journal du combat"]';
-const HERO_NAME = "Balthazar";
+/** Côté qui a la main, publié par la scène : l'initiative décide qui ouvre. */
+const TURN_SIDE = "data-turn-side";
 
 interface Cell {
   x: number;
@@ -82,12 +82,13 @@ async function openRoom(page: Page): Promise<void> {
   await expect(page.locator(ARENA)).toBeVisible();
 }
 
-/** La timeline démarre sur l'initiative la plus haute : « Terminer le tour » rend la main au héros. */
-async function giveHeroHand(page: Page): Promise<void> {
-  const active = page.locator(ACTIVE);
-  const text = (await active.textContent()) ?? "";
-  if (!text.includes(HERO_NAME)) await page.getByRole("button", { name: "Terminer le tour" }).click();
-  await expect(active).toContainText(HERO_NAME, { timeout: 15_000 });
+/**
+ * La main est le **seul** état qui autorise un clic de déplacement. COMBAT-01
+ * peut faire ouvrir un monstre : on attend la main du héros au lieu de cliquer
+ * dans le vide pendant que la cadence ennemie tourne encore.
+ */
+async function waitHeroTurn(page: Page): Promise<void> {
+  await expect(page.locator(ARENA)).toHaveAttribute(TURN_SIDE, "player", { timeout: 20_000 });
 }
 
 async function heroMp(page: Page): Promise<number> {
@@ -105,6 +106,7 @@ async function heroAp(page: Page): Promise<number> {
 }
 
 async function clickCell(page: Page, cell: Cell, size: GridSize): Promise<void> {
+  await waitHeroTurn(page);
   const arena = page.locator(ARENA);
   const box = await arena.boundingBox();
   if (box === null) throw new Error("Zone jouable sans rectangle");
@@ -112,11 +114,11 @@ async function clickCell(page: Page, cell: Cell, size: GridSize): Promise<void> 
   await page.mouse.click(box.x + pixel.x, box.y + pixel.y);
 }
 
-/** Salle ouverte, main au héros, et position de départ vérifiée avant tout clic. */
+/** Salle ouverte, main au héros obtenue sans clic, position de départ vérifiée. */
 async function startBattle(page: Page): Promise<RoomMap> {
   const room = readFirstRoom();
   await openRoom(page);
-  await giveHeroHand(page);
+  await waitHeroTurn(page);
   await expect(page.locator(ARENA)).toHaveAttribute("data-hero-cell", label(room.hero));
   return room;
 }

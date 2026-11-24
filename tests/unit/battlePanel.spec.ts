@@ -104,6 +104,24 @@ function count(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
+/** Balise exacte du bouton de fin de tour : `disabled` se vérifie sur son ouverture. */
+function endTurnButton(html: string): string {
+  const match = /<button[^>]*>Terminer le tour<\/button>/.exec(html);
+  if (match === null) throw new Error("bouton « Terminer le tour » absent du rendu");
+  return match[0];
+}
+
+/** `disabled` en **attribut**, jamais la classe : les jetons portent `disabled:*`. */
+function endTurnDisabled(html: string): boolean {
+  return endTurnButton(html).replace(/ class="[^"]*"/, "").includes(" disabled");
+}
+
+function enemyFirstBattle(): BattleState {
+  const battle = roomBattle();
+  const enemyIndex = battle.order.findIndex((id) => id !== "player");
+  return { ...battle, activeIndex: Math.max(0, enemyIndex) };
+}
+
 describe("panneau de bataille — rendu des N ennemis", () => {
   it("affiche le héros et les trois ennemis de la salle avec leurs PV", () => {
     const html = renderToStaticMarkup(createElement(BattleSections, { battle: roomBattle() }));
@@ -134,6 +152,25 @@ describe("panneau de bataille — rendu des N ennemis", () => {
     const html = renderToStaticMarkup(createElement(BattleSections, { battle: roomBattle() }));
     expect(html).toContain("Terminer le tour");
     expect(html).toContain("Clore la salle");
+  });
+});
+
+describe("panneau de bataille — « Terminer le tour » soumis à la main du héros", () => {
+  it("désactive le bouton quand l'actif n'est pas le héros", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: enemyFirstBattle() }));
+    expect(endTurnDisabled(html)).toBe(true);
+  });
+
+  it("laisse le bouton actif quand le héros a la main", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: heroFirstBattle() }));
+    expect(endTurnDisabled(html)).toBe(false);
+  });
+
+  it("garde le bouton désactivé sur une bataille déjà perdue", () => {
+    const battle = heroFirstBattle();
+    const fallen = battle.combatants.map((entry) => (entry.side === "player" ? { ...entry, hp: 0 } : entry));
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: { ...battle, combatants: fallen } }));
+    expect(endTurnDisabled(html)).toBe(true);
   });
 });
 

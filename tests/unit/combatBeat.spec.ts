@@ -20,9 +20,11 @@ import {
   MAX_ENEMY_STEPS,
   enemyStepOnce,
   needsEnemyStep,
+  openingBeatNeeded,
+  openingStepAllowed,
 } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
-import { nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
+import { createOpeningClaim, nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
 
 const read = (file: string) => readFileSync(join(process.cwd(), "data", file), "utf8");
 const monsters = parseMonstersYaml(read("monsters.yaml"));
@@ -87,6 +89,12 @@ function heroHp(state: BattleState): number {
   return hero === undefined ? -1 : hero.hp;
 }
 
+/** Héros tombé : la bataille est finie, plus aucun pas n'est dû. */
+function fallenHero(state: BattleState): BattleState {
+  const combatants = state.combatants.map((entry) => (entry.side === "player" ? { ...entry, hp: 0 } : entry));
+  return { ...state, combatants };
+}
+
 describe("beat — la primitive de temps, sans horloge", () => {
   it("vaut 750 ms et se projette en une borne exacte", () => {
     expect(MIN_BEAT_MS).toBe(750);
@@ -149,6 +157,91 @@ describe("needsEnemyStep — la main est-elle revenue ?", () => {
   });
 });
 
+describe("openingBeatNeeded — la cadence démarre-t-elle sans clic ?", () => {
+  it("rend faux sans bataille et sur une bataille finie", () => {
+    expect(openingBeatNeeded(null)).toBe(false);
+    const { state } = crabBattle();
+    expect(openingBeatNeeded(fallenHero(state))).toBe(false);
+  });
+
+  it("rend vrai quand le monstre joue en premier : le panneau ne reste pas figé", () => {
+    const { state, enemy } = crabBattle();
+    expect(state.order[state.activeIndex]).toBe(enemy.id);
+    expect(openingBeatNeeded(state)).toBe(true);
+  });
+
+  it("rend faux quand le héros a la main : son tour n'est jamais passé tout seul", () => {
+    const { state } = crabBattle();
+    const heroTurn = { ...state, activeIndex: state.order.indexOf("player") };
+    expect(needsEnemyStep(heroTurn, false)).toBe(true);
+    expect(openingBeatNeeded(heroTurn)).toBe(false);
+  });
+});
+
+describe("openingStepAllowed — la main se revérifie AU TIR, pas au planning", () => {
+  function heroTurn(): BattleState {
+    const state = crabBattle().state;
+    return { ...state, activeIndex: state.order.indexOf("player") };
+  }
+
+  it("refuse un pas d'ouverture quand le héros a repris la main entre-temps", () => {
+    expect(openingStepAllowed({ openingOnly: true, battle: heroTurn() })).toBe(false);
+  });
+
+  it("autorise le pas d'ouverture tant que l'ennemi a la main", () => {
+    const { state, enemy } = crabBattle();
+    expect(state.order[state.activeIndex]).toBe(enemy.id);
+    expect(openingStepAllowed({ openingOnly: true, battle: state })).toBe(true);
+  });
+
+  it("laisse une chaîne endTurn passer la main du héros : comportement inchangé", () => {
+    expect(openingStepAllowed({ openingOnly: false, battle: heroTurn() })).toBe(true);
+  });
+
+  it("refuse tout pas sur une bataille finie ou absente", () => {
+    const { state } = crabBattle();
+    expect(openingStepAllowed({ openingOnly: true, battle: fallenHero(state) })).toBe(false);
+    expect(openingStepAllowed({ openingOnly: false, battle: fallenHero(state) })).toBe(false);
+    expect(openingStepAllowed({ openingOnly: true, battle: null })).toBe(false);
+  });
+});
+
+describe("createOpeningClaim — l'ouverture survit au double montage StrictMode", () => {
+  function enemyTurn(): BattleState {
+    return crabBattle().state;
+  }
+
+  function heroTurn(): BattleState {
+    const state = crabBattle().state;
+    return { ...state, activeIndex: state.order.indexOf("player") };
+  }
+
+  it("réclame, puis réclame encore après release : mount → unmount → mount", () => {
+    const claim = createOpeningClaim();
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+    claim.release();
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+  });
+
+  it("refuse quand le héros a la main : son tour n'est jamais passé tout seul", () => {
+    const claim = createOpeningClaim();
+    expect(claim.tryClaim(heroTurn())).toBe(false);
+    expect(claim.tryClaim(null)).toBe(false);
+  });
+
+  it("ne planifie qu'une fois sans release : deux tryClaim, un seul true", () => {
+    const claim = createOpeningClaim();
+    expect([claim.tryClaim(enemyTurn()), claim.tryClaim(enemyTurn())]).toEqual([true, false]);
+  });
+
+  it("se libère quand le héros reprend la main : la main suivante réclame à nouveau", () => {
+    const claim = createOpeningClaim();
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+    expect(claim.tryClaim(heroTurn())).toBe(false);
+    expect(claim.tryClaim(enemyTurn())).toBe(true);
+  });
+});
+
 describe("nextBeatDelay — la cadence vue par le pilote", () => {
   it("attend 750 ms puis zéro, jamais un délai négatif", () => {
     expect(nextBeatDelay({ lastActionAt: 1000, now: 1000, needed: true })).toBe(750);
@@ -199,6 +292,8 @@ describe("useCombatStore.playEnemyStepOnce — un seul pas de timeline", () => {
 
 describe("useCombatBeat — le minuteur vit dans le hook et se nettoie", () => {
   it("planifie avec setTimeout et nettoie avec clearTimeout au démontage", () => {
+    // Le câblage d'ouverture est couvert par le comportement (`openingStepAllowed`,
+    // `createOpeningClaim`) : lire la source ne prouvait rien de plus.
     const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
     expect(source).toContain("setTimeout");
     expect(source).toContain("clearTimeout");
