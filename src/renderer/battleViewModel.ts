@@ -1,5 +1,5 @@
 import type { BattleState, CastBlock, CombatantLike, RangeSpec, Side } from "../engine/multiCombat";
-import { activeCombatant, castBlock, targetsOf } from "../engine/multiCombat";
+import { activeCombatant, castBlock, isAlive, targetsOf } from "../engine/multiCombat";
 import { hpRatio } from "./tokens";
 
 /** Vue d'un combattant 1vN : tout vient de `BattleState`, aucune valeur en dur. */
@@ -69,7 +69,7 @@ interface ViewFlags {
 
 /** Cibles du camp opposé : la vivacité seule, la géométrie vient ensuite. */
 function targetIds(state: BattleState, active: CombatantLike | null): ReadonlySet<string> {
-  if (active === null) return new Set();
+  if (active === null || !isAlive(active)) return new Set();
   return new Set(targetsOf(state, active.side).map((combatant) => combatant.id));
 }
 
@@ -109,12 +109,16 @@ function combatantView(combatant: CombatantLike, context: ViewContext): BattleCo
   return { id, name, side, level, hp, maxHp, ap, mp, hpRatio: hpRatio(hp, maxHp), color: colorForId(id), ...flags };
 }
 
-/** Vue du 1vN dans l'ordre de `state.combatants` : héros puis les N ennemis. */
+/**
+ * Vue du 1vN : seuls les vivants, dans l'ordre de `state.combatants`
+ * (héros puis les N ennemis). `order` n'est pas modifié : le tour saute déjà
+ * les morts, ce panneau ne fait que les masquer.
+ */
 export function battleViewModel(state: BattleState | null): BattleCombatantView[] {
   if (state === null) return [];
   const active = activeCombatant(state);
   const context = { state, active, targets: targetIds(state, active) };
-  return state.combatants.map((combatant) => combatantView(combatant, context));
+  return state.combatants.filter(isAlive).map((combatant) => combatantView(combatant, context));
 }
 
 /** Portillon du panneau : `battle` seul décide, le 1v1 (`combat`) n'est jamais concerné. */
