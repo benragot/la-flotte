@@ -49,7 +49,7 @@ lieux, pas un tableau de bord.
 15. **`allocateStat`** écrit `localStorage` **à chaque point** : un bouton
     **+5/+10** serait plus juste (coût synchrone par clic).
 16. **Flake** `dockTheme` observé **une fois** (navigation) — à surveiller.
-17. **D103** pression 3,259 (salle 3) ; **D98** et **D104** soldées.
+17. **D103** pression 3,365 (salle 3) ; **D98** et **D104** soldées.
 18. **`5C-hero-move`** livré (moteur + clic + tacle `D70`). Restent :
     `5C-turn-rail`, `5C-info-panel`, `5C-group-stars`, `5C-log-channel`,
     `5C-cast-preview`, `5C-hover-hp` ✅, `5C-pm-zone` ✅.
