@@ -21,6 +21,7 @@ import {
   enemyStepOnce,
   needsEnemyStep,
   openingBeatNeeded,
+  openingStepAllowed,
 } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
 import { createOpeningClaim, nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
@@ -177,6 +178,34 @@ describe("openingBeatNeeded — la cadence démarre-t-elle sans clic ?", () => {
   });
 });
 
+describe("openingStepAllowed — la main se revérifie AU TIR, pas au planning", () => {
+  function heroTurn(): BattleState {
+    const state = crabBattle().state;
+    return { ...state, activeIndex: state.order.indexOf("player") };
+  }
+
+  it("refuse un pas d'ouverture quand le héros a repris la main entre-temps", () => {
+    expect(openingStepAllowed({ openingOnly: true, battle: heroTurn() })).toBe(false);
+  });
+
+  it("autorise le pas d'ouverture tant que l'ennemi a la main", () => {
+    const { state, enemy } = crabBattle();
+    expect(state.order[state.activeIndex]).toBe(enemy.id);
+    expect(openingStepAllowed({ openingOnly: true, battle: state })).toBe(true);
+  });
+
+  it("laisse une chaîne endTurn passer la main du héros : comportement inchangé", () => {
+    expect(openingStepAllowed({ openingOnly: false, battle: heroTurn() })).toBe(true);
+  });
+
+  it("refuse tout pas sur une bataille finie ou absente", () => {
+    const { state } = crabBattle();
+    expect(openingStepAllowed({ openingOnly: true, battle: fallenHero(state) })).toBe(false);
+    expect(openingStepAllowed({ openingOnly: false, battle: fallenHero(state) })).toBe(false);
+    expect(openingStepAllowed({ openingOnly: true, battle: null })).toBe(false);
+  });
+});
+
 describe("createOpeningClaim — l'ouverture survit au double montage StrictMode", () => {
   function enemyTurn(): BattleState {
     return crabBattle().state;
@@ -276,7 +305,14 @@ describe("useCombatBeat — le minuteur vit dans le hook et se nettoie", () => {
     expect(source).toContain("openingBeatNeeded");
     expect(source).toContain("claim.tryClaim(");
     expect(source).toContain("claim.release()");
-    expect(source).toContain("scheduleStep(refs, 0)");
+    expect(source).toContain("scheduleStep(refs, 0, true)");
+  });
+
+  it("marque la chaîne d'ouverture et revérifie la main au déclenchement", () => {
+    const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
+    expect(source).toContain("openingStepAllowed");
+    expect(source).toContain("openingOnly");
+    expect(source).toContain("scheduleStep(refs, 0, false)");
   });
 });
 
