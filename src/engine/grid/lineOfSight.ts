@@ -45,6 +45,33 @@ function blocksSight(input: LineOfSightInput, position: Position): boolean {
   return (input.blockers ?? []).some((blocker) => samePosition(blocker, position));
 }
 
+type SightStep = readonly [Position, Position];
+
+function sightSteps(cells: Position[]): SightStep[] {
+  return cells.slice(1).map((cell, index) => [cells[index] ?? cell, cell] as const);
+}
+
+function isDiagonalStep(from: Position, to: Position): boolean {
+  return from.x !== to.x && from.y !== to.y;
+}
+
+/** Les deux cases orthogonales qui bordent un pas diagonal. */
+function cornerCells(from: Position, to: Position): Position[] {
+  return [
+    { x: to.x, y: from.y },
+    { x: from.x, y: to.y },
+  ];
+}
+
+/** Règle 1.29 des coins : un pas diagonal est coupé si ses deux coins bloquent. */
+function cutsSightCorner(input: LineOfSightInput, [from, to]: SightStep): boolean {
+  if (!isDiagonalStep(from, to)) return false;
+  return cornerCells(from, to).every((corner) => blocksSight(input, corner));
+}
+
 export function hasLineOfSight(input: LineOfSightInput): boolean {
-  return intermediateCells(input.from, input.to).every((cell) => !blocksSight(input, cell));
+  const intermediates = intermediateCells(input.from, input.to);
+  if (intermediates.some((cell) => blocksSight(input, cell))) return false;
+  const steps = sightSteps([input.from, ...intermediates, input.to]);
+  return steps.every((step) => !cutsSightCorner(input, step));
 }
