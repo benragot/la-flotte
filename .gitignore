@@ -44,6 +44,8 @@ pnpm-debug.log*
 # `.vite/` ne le couvre pas : le motif ne matche que le nom exact `.vite`.
 .vite-cache/
 
+.wt/
+
 # macOS
 .DS_Store
 .AppleDouble
