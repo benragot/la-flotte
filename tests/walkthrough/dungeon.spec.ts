@@ -220,8 +220,14 @@ function assertOccurrences(room: DungeonRoom, fallen: readonly string[]): void {
 
 function monsterXp(monsterId: string): number {
   const monster: MonsterDef = mustFind(monsters, monsterId);
-  const { wisdom } = heroOrThrow();
-  const input = { baseMonsterXp: monster.baseXp, wisdom, levelGapFactor: progression.levelGapFactor };
+  const { level, wisdom } = heroOrThrow();
+  const input = {
+    baseMonsterXp: monster.baseXp,
+    playerLevel: level,
+    monsterLevel: monster.level,
+    wisdom,
+    ...progression.experience,
+  };
   return computeCombatXp(input);
 }
 
@@ -330,9 +336,11 @@ describe("walkthrough donjon de la Ferraille", () => {
     // XP CALCULÉE depuis les `baseXp` du YAML (via `computeCombatXp`),
     // mais CRÉDITÉE via un `rewards` fabriqué à la main (cf. `creditXp`).
     // Ce n'est donc pas `resolveCombatRewards` qui est exercé.
-    expect(traversal.xp).toBe(2135);
+    // Depuis le rendement décroissant 1.29, le héros niveau 16 ne touche plus
+    // l'XP pleine des monstres 1 à 15 : 2135 → 1736 (écart de niveau + anti-farm).
+    expect(traversal.xp).toBe(1736);
     expect(hero.level).toBe(4);
-    expect(hero.xp).toBe(2135);
+    expect(hero.xp).toBe(1736);
     expect(hero.hp).toBeGreaterThan(0);
     expect(hero.hp).toBeLessThan(hero.maxHp);
     expect(invariants()).toEqual(before);

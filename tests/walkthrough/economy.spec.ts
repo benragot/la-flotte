@@ -58,10 +58,14 @@ describe("walkthrough : économie — chaîne de calcul", () => {
       baseDropRate: loot.baseDropRate,
     });
     expect(dropChance).toBeCloseTo(0.4);
+    const { levelGapRules, antiFarm } = progression.experience;
     const xp = computeCombatXp({
       baseMonsterXp: piou().baseXp,
+      playerLevel: hero.level,
+      monsterLevel: piou().level,
       wisdom: hero.wisdom,
-      levelGapFactor: progression.levelGapFactor,
+      levelGapRules,
+      antiFarm,
     });
     expect(xp).toBe(120);
     useGameStore.getState().createCharacter({ name: "Anselme", classId: "iop" });
@@ -76,11 +80,12 @@ describe("walkthrough : économie — chaîne de calcul", () => {
 });
 
 describe("walkthrough : économie — câblage du store", () => {
-  it("lit le levelGapFactor de progression.yaml au lieu du 1 en dur", () => {
+  it("lit les règles d'écart de niveau de progression.yaml au lieu du 1 en dur", () => {
     const state = initCombat({ map: tinyArena(), hero: levelOneHero(), monster: piou(), spells });
-    const doubled = { ...progression, levelGapFactor: 2 };
+    const halvedRules = progression.experience.levelGapRules.map((rule) => ({ ...rule, factor: rule.factor / 2 }));
+    const halved = { ...progression, experience: { ...progression.experience, levelGapRules: halvedRules } };
     const options = { heroXp: 0, hero: state.player, monster: piou(), rng: () => 0.99 };
-    expect(resolveCombatRewards({ ...options, progression: doubled }).xpGained).toBe(240);
+    expect(resolveCombatRewards({ ...options, progression: halved }).xpGained).toBe(60);
   });
 
   it("crédite au héros persistant l'XP d'une victoire dans l'arène", () => {

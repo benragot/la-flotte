@@ -242,10 +242,12 @@ describe("walkthrough : boucle de farm déterministe", () => {
   it("atteint le niveau 5 en moins de 60 combats réels", () => {
     const hero = heroState();
     expect(combatsPlayed).toBeLessThanOrEqual(MAX_COMBATS);
-    expect(combatsPlayed).toBe(24);
+    // Rendement décroissant 1.29 : les Pious niveau 1 ne rendent plus 120 XP
+    // dès que le héros les dépasse de plus de 5 niveaux (24 → 38 combats).
+    expect(combatsPlayed).toBe(38);
     expect(hero.level).toBe(5);
     expect(hero.xp).toBeGreaterThanOrEqual(2800);
-    expect(hero.xp).toBe(2880);
+    expect(hero.xp).toBe(2840);
   });
 
   it("investit les points de capital gagnés dans la Force de l'Iop", () => {
