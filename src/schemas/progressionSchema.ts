@@ -17,8 +17,39 @@ export const levelUpGainSchema = z.object({
   spellPoints: z.number().int().nonnegative(),
 });
 
+/**
+ * Une règle d'écart de niveau : `mode` porte le calcul (neutre, `M / P`,
+ * `(P + 10) / M`), `factor` l'échelle de la règle. Un facteur constant seul ne
+ * peut pas exprimer le rendement décroissant 1.29.
+ */
+export const levelGapRuleSchema = z
+  .object({
+    minGap: z.number().int(),
+    maxGap: z.number().int(),
+    factor: z.number().gte(0).lte(1),
+    mode: z.enum(["flat", "over", "under"]),
+  })
+  .strict()
+  .refine((rule) => rule.minGap <= rule.maxGap, {
+    message: "minGap doit être ≤ maxGap",
+    path: ["minGap"],
+  });
+
+export const antiFarmSchema = z
+  .object({ maxMonsterLevelRatio: z.number().positive() })
+  .strict();
+
+export const experienceRulesSchema = z
+  .object({
+    levelGapRules: z.array(levelGapRuleSchema).min(1),
+    antiFarm: antiFarmSchema,
+  })
+  .strict();
+
 export type XpTierDef = z.infer<typeof xpTierSchema>;
 export type ApRuleDef = z.infer<typeof apRuleSchema>;
+export type LevelGapRuleDef = z.infer<typeof levelGapRuleSchema>;
+export type ExperienceRulesDef = z.infer<typeof experienceRulesSchema>;
 
 const MIN_TIER_COUNT = 2;
 const FIRST_LEVEL = 1;
@@ -71,7 +102,7 @@ export const progressionFileSchema = z
     xpThresholds: z.array(xpTierSchema).min(1),
     apRules: z.array(apRuleSchema).min(1),
     gainRules: levelUpGainSchema,
-    levelGapFactor: z.number().positive().default(1),
+    experience: experienceRulesSchema,
   })
   .superRefine((def, ctx) => {
     checkTierCount(def.xpThresholds, ctx);

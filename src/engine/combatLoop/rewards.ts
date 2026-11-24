@@ -1,6 +1,6 @@
 import type { LootEntry, MonsterDef } from "../../schemas/monsterSchema";
 import type { ProgressionDef } from "../../schemas/progressionSchema";
-import type { LevelUpGain } from "../economy";
+import type { CombatXpInput, LevelUpGain } from "../economy";
 import {
   computeCombatXp,
   computeDropChance,
@@ -24,11 +24,19 @@ interface XpOutcome {
   level: number;
 }
 
-function xpOutcome(input: RewardsInput): XpOutcome {
-  const { baseXp } = input.monster;
-  const levelGapFactor = input.progression.levelGapFactor;
+/**
+ * Règles d'XP lues au YAML. `H` (niveau du plus gros monstre) vaut `M` ici :
+ * ce chemin ne résout que le 1v1 ; le 1vN (ΣM, max M) n'est pas traité.
+ */
+function xpInput(input: RewardsInput): CombatXpInput {
+  const { baseXp: baseMonsterXp, level: monsterLevel } = input.monster;
   const wisdom = input.hero.stats.wisdom;
-  const xpGained = computeCombatXp({ baseMonsterXp: baseXp, wisdom, levelGapFactor });
+  const base = { baseMonsterXp, monsterLevel, wisdom };
+  return { ...base, playerLevel: input.hero.level, ...input.progression.experience };
+}
+
+function xpOutcome(input: RewardsInput): XpOutcome {
+  const xpGained = computeCombatXp(xpInput(input));
   const totalXp = input.heroXp + xpGained;
   return { xpGained, totalXp, level: computeLevelFromXp(totalXp, input.progression.xpThresholds) };
 }

@@ -56,4 +56,14 @@ apRules:
   - { minLevel: 1, ap: 6 }
   - { minLevel: 100, ap: 7 }
 gainRules: { hp: 5, capitalPoints: 5, spellPoints: 1 }
-levelGapFactor: 1
+# Rendement décroissant de l'XP (1.29) : le `mode` porte le calcul, pas une
+# constante. Bande neutre −10 ≤ (niveau joueur − niveau monstre) ≤ 5, puis
+# `under` ⇒ M / P et `over` ⇒ (P + 10) / M. Aucune interpolation, plafond 1.
+experience:
+  levelGapRules:
+    - { minGap: -999, maxGap: -11, factor: 1, mode: over }
+    - { minGap: -10, maxGap: 5, factor: 1, mode: flat }
+    - { minGap: 6, maxGap: 999, factor: 1, mode: under }
+  # Anti-farm : C = 1 tant que P ≤ floor(2,5 × H), sinon floor(2,5 × H) / P.
+  # H = niveau du plus gros monstre du combat (H = M en 1v1).
+  antiFarm: { maxMonsterLevelRatio: 2.5 }
