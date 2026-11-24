@@ -20,6 +20,7 @@ import {
   MAX_ENEMY_STEPS,
   enemyStepOnce,
   needsEnemyStep,
+  openingBeatNeeded,
 } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
 import { nextBeatDelay, runBeatAction } from "../../src/ui/components/battle/useCombatBeat";
@@ -87,6 +88,12 @@ function heroHp(state: BattleState): number {
   return hero === undefined ? -1 : hero.hp;
 }
 
+/** Héros tombé : la bataille est finie, plus aucun pas n'est dû. */
+function fallenHero(state: BattleState): BattleState {
+  const combatants = state.combatants.map((entry) => (entry.side === "player" ? { ...entry, hp: 0 } : entry));
+  return { ...state, combatants };
+}
+
 describe("beat — la primitive de temps, sans horloge", () => {
   it("vaut 750 ms et se projette en une borne exacte", () => {
     expect(MIN_BEAT_MS).toBe(750);
@@ -149,6 +156,27 @@ describe("needsEnemyStep — la main est-elle revenue ?", () => {
   });
 });
 
+describe("openingBeatNeeded — la cadence démarre-t-elle sans clic ?", () => {
+  it("rend faux sans bataille et sur une bataille finie", () => {
+    expect(openingBeatNeeded(null)).toBe(false);
+    const { state } = crabBattle();
+    expect(openingBeatNeeded(fallenHero(state))).toBe(false);
+  });
+
+  it("rend vrai quand le monstre joue en premier : le panneau ne reste pas figé", () => {
+    const { state, enemy } = crabBattle();
+    expect(state.order[state.activeIndex]).toBe(enemy.id);
+    expect(openingBeatNeeded(state)).toBe(true);
+  });
+
+  it("rend faux quand le héros a la main : son tour n'est jamais passé tout seul", () => {
+    const { state } = crabBattle();
+    const heroTurn = { ...state, activeIndex: state.order.indexOf("player") };
+    expect(needsEnemyStep(heroTurn, false)).toBe(true);
+    expect(openingBeatNeeded(heroTurn)).toBe(false);
+  });
+});
+
 describe("nextBeatDelay — la cadence vue par le pilote", () => {
   it("attend 750 ms puis zéro, jamais un délai négatif", () => {
     expect(nextBeatDelay({ lastActionAt: 1000, now: 1000, needed: true })).toBe(750);
@@ -204,6 +232,12 @@ describe("useCombatBeat — le minuteur vit dans le hook et se nettoie", () => {
     expect(source).toContain("clearTimeout");
     expect(source).toMatch(/alive\.current = false/);
     expect(source).toContain("playEnemyStepOnce");
+  });
+
+  it("planifie le pas d'ouverture quand l'ennemi a la main, sans passer le tour du héros", () => {
+    const source = readFileSync(join(process.cwd(), HOOK_PATH), "utf8");
+    expect(source).toContain("openingBeatNeeded");
+    expect(source).toContain("scheduleStep(refs, 0)");
   });
 });
 

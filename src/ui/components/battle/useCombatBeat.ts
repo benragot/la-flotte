@@ -1,14 +1,16 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { nextBeatAt } from "../../../engine/combat/beat";
-import { MAX_ENEMY_STEPS, needsEnemyStep } from "../../../store/battleSelectors";
+import type { BattleState } from "../../../engine/multiCombat";
+import { MAX_ENEMY_STEPS, needsEnemyStep, openingBeatNeeded } from "../../../store/battleSelectors";
 import { useCombatStore } from "../../../store/useCombatStore";
 
 type BeatTimer = ReturnType<typeof setTimeout>;
 
-/** Réfs stables du pilote : le minuteur et le drapeau de vie du composant. */
+/** Réfs stables du pilote : le minuteur, le drapeau de vie et l'ouverture déjà jouée. */
 interface BeatRefs {
   timer: { current: BeatTimer | null };
   alive: { current: boolean };
+  opened: { current: boolean };
 }
 
 export interface BeatPlanInput {
@@ -68,12 +70,12 @@ function stepNow(refs: BeatRefs, steps: number): void {
 
 /** Planifie le pas suivant ; la borne dure `MAX_ENEMY_STEPS` ferme toute boucle. */
 function scheduleStep(refs: BeatRefs, steps: number): void {
+  refs.timer.current = null;
   if (!refs.alive.current || steps >= MAX_ENEMY_STEPS) return;
   const store = useCombatStore.getState();
   const options = { lastActionAt: store.lastActionAt, now: Date.now(), needed: needsEnemyStep(store.battle, steps > 0) };
   const delay = nextBeatDelay(options);
-  if (delay === null) return;
-  refs.timer.current = setTimeout(() => stepNow(refs, steps), delay);
+  if (delay !== null) refs.timer.current = setTimeout(() => stepNow(refs, steps), delay);
 }
 
 /** Nettoyage au démontage : `clearTimeout` puis plus aucune écriture de store. */
@@ -108,12 +110,44 @@ function useBeatStart(refs: BeatRefs): () => void {
 }
 
 /**
+ * L'ouverture ne part qu'**une fois** par main ennemie : le drapeau retombe dès
+ * que le héros reprend la main, donc aucune double planification ni relance
+ * après la borne `MAX_ENEMY_STEPS`.
+ */
+function claimOpening(refs: BeatRefs, battle: BattleState | null): boolean {
+  if (!openingBeatNeeded(battle)) {
+    refs.opened.current = false;
+    return false;
+  }
+  if (refs.opened.current || refs.timer.current !== null) return false;
+  refs.opened.current = true;
+  return true;
+}
+
+/** Panneau monté sur une main ennemie : le premier pas part sans clic. */
+function useOpeningBeat(refs: BeatRefs): void {
+  const battle = useCombatStore((state) => state.battle);
+  useEffect(() => {
+    if (claimOpening(refs, battle)) scheduleStep(refs, 0);
+  }, [refs, battle]);
+}
+
+/** Réfs stables du pilote : un minuteur qui survit aux rendus, rien de plus. */
+function useBeatRefs(): BeatRefs {
+  const timer = useRef<BeatTimer | null>(null);
+  const alive = useRef(true);
+  const opened = useRef(false);
+  return useMemo(() => ({ timer, alive, opened }), [timer, alive, opened]);
+}
+
+/**
  * Pilote la cadence de combat : un beat de lecture entre deux actions, aucune
  * animation. Le minuteur vit ici, pas dans le JSX : `clearTimeout` au démontage
  * et drapeau `alive`, donc **aucune** écriture de store après démontage.
  */
 export function useCombatBeat(): CombatBeatHandlers {
-  const refs = { timer: useRef<BeatTimer | null>(null), alive: useRef(true) };
+  const refs = useBeatRefs();
   useBeatLifecycle(refs);
+  useOpeningBeat(refs);
   return { attack: useBeatAttack(), endTurn: useBeatStart(refs) };
 }

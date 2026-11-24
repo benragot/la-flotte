@@ -306,6 +306,15 @@ export function needsEnemyStep(state: BattleState | null, started: boolean): boo
   return started ? !heroHasHand(state) : true;
 }
 
+/**
+ * Ouverture de combat : l'ennemi a la main au montage du panneau, donc la
+ * cadence doit démarrer **sans clic**. `started: true` est essentiel : il ne
+ * couvre pas le passage du tour du héros, contrairement au premier pas.
+ */
+export function openingBeatNeeded(state: BattleState | null): boolean {
+  return needsEnemyStep(state, true);
+}
+
 function stepLimit(input: EnemyTurnsInput): number {
   return input.maxSteps ?? MAX_ENEMY_STEPS;
 }
