@@ -163,3 +163,46 @@ dans ce document et **ne peuvent pas servir de preuve d'écart** à eux seuls.
    déplacement ou de choix de sort n'est lisible dans le client.
 6. **Validation du chemin** — le client calcule le pathfinding et envoie la
    demande ; le budget est confirmé (ou refusé) par le serveur.
+
+## Mapping `ID` (ISSUES.md) → point de checklist
+
+Cette table relie chaque constat **P0/P1** au point ci-dessus qui le fonde ; c'est
+elle qui remplit la colonne `Référence` d'`ISSUES.md`. Les P2 suivent la même
+règle (voir leur ligne dans `ISSUES.md`) et ne sont pas répétés ici. « hors
+checklist » = le point est purement client/rendu et n'a pas d'équivalent 1.29
+lisible dans la décompilation : la référence d'`ISSUES.md` vaut alors
+`référence non trouvée`.
+
+| ID | Point de checklist |
+| --- | --- |
+| COMBAT-01 | §3 Tours — ordre d'initiative (serveur) |
+| COMBAT-02 | hors checklist — cadence d'affichage du panneau |
+| COMBAT-03 | §3 Tours — initiative (serveur) ; §8 PA, PM, PO — 6 PA / 3 PM |
+| COMBAT-04 | §3 Tours — ordre purgé des morts (serveur) |
+| COMBAT-05 | §3 Tours — timeline d'initiative reçue du serveur |
+| COMBAT-06 | §3 Tours — effets à durée, début et fin de tour (serveur) |
+| COMBAT-07 | « Ce que le client ne prouve pas » §5 — IA des monstres (serveur) |
+| COMBAT-08 | « Ce que le client ne prouve pas » §5 — IA des monstres (serveur) |
+| GRID-01 | §2 Portée des sorts — métrique Chebyshev (`[mémoire]`) |
+| GRID-02 | §1 Grille et déplacement — LoS vs pas, règle des coins |
+| GRID-03 | §1 Grille et déplacement — pathfinding client |
+| INPUT-01 | §2 Portée des sorts — `isTargetable` (ciblage) |
+| RENDER-01 | hors checklist — intercalage décor/acteurs |
+| RENDER-02 | hors checklist — `devicePixelRatio` |
+| RENDER-03 | hors checklist — faces de mur |
+| RENDER-04 | hors checklist — nappe de portée |
+| RENDER-05 | hors checklist — animations d'action |
+| RENDER-06 | hors checklist — nom au-dessus du jeton |
+| UI-01 | §4 Sorts — données par niveau (coût, recharge) |
+| UI-02 | §4 Sorts — 1 attaque d'arme par tour (serveur) |
+| UI-03 | hors checklist — raccourcis clavier locaux |
+| UI-04 | §8 PA, PM, PO — 6 PA / 3 PM au niveau 1 |
+| UI-05 | hors checklist — mise en page du panneau de salle |
+| SPELL-01 | §4 Sorts — zones (données `SpellDatas` / `SpellLevel`) |
+| SPELL-02 | §4 Sorts — effets par niveau (données) |
+| SPELL-03 | §4 Sorts — CC par sort et par niveau, jet max (serveur) |
+| SPELL-04 | §2 Portée des sorts — cases ciblables demandées au serveur |
+| ITEM-01 | §5 Dégâts — forme des résistances reçues ; §9 Panoplies |
+| DATA-01 | §6 Drop et Prospection + §7 Expérience — crédit de récompense (serveur) |
+| DATA-02 | §6 Drop — kamas (serveur, aucune preuve client) |
+| DATA-03 | §7 Expérience — coefficient d'écart de niveau (serveur) |

@@ -28,10 +28,13 @@ par COMBAT-01.
 
 ## Vague 1 — P1 courts, fort impact
 
-Correctifs `S` qui changent immédiatement la lisibilité du jeu.
+Correctifs qui changent immédiatement la lisibilité du jeu. Tous `S` sauf
+COMBAT-03 (`M`), placé en tête parce qu'il débloque UI-04 et toute valeur
+d'initiative — **après COMBAT-01**.
 
 | ID | Effort | Note |
 | --- | --- | --- |
+| COMBAT-03 | M | Stats de base par classe dans `classes.yaml` : initiative du héros non nulle. **Après COMBAT-01** (dépendance ci-dessous) et avant UI-04. |
 | GRID-01 | S | Portée Chebyshev, les 8 voisins en test. Débloque le corps-à-corps diagonal. |
 | GRID-02 | S | Règle des coins en LoS ; corriger `tests/unit/grid.spec.ts:214-217` **en même temps**. |
 | COMBAT-08 | S | Filtrer l'IA 1v1 par la portée réelle. |
@@ -104,5 +107,5 @@ dans l'ordre : `GRID-05`, `GRID-04`, `GRID-06/07/08/09` → `UI-06…UI-15` →
   décision écrite ; en attendant, chaque formule corrigée est appliquée **deux
   fois** (`combatLoop` et `multiCombat`) et testée deux fois.
 - **DEC-10** : la diagonale reste à 2 PM ; ne pas « corriger » vers 1 PM.
-- **GRID-04** : le refus sec hors budget est une décision (`docs/design/PENDING.md:27`),
+- **GRID-04** : le refus sec hors budget est une décision (`docs/design/PENDING.md:25-26`),
   pas une préférence d'implémentation.

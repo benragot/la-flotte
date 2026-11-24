@@ -95,7 +95,7 @@ Ce qui **manque** à l'observation :
 | --- | --- |
 | `npm run check` | **vert** — 167 tests `data` + 1612 `unit` + 51 `walkthrough` = **1830 tests**, 116 fichiers |
 | `npm run build` | **OK** — `dist/assets/index-*.js` 823,73 kB (250,94 kB gzip), avertissement de chunk > 500 kB |
-| Erreurs console dans le harness | **0** `consoleErrors`, 0 `pageErrors`, 0 `failedRequests`, 0 étape en échec ; 4 avertissements et 1 erreur console **documentée** (fallback WebGL logiciel de Chromium headless) |
+| Erreurs console dans le harness | **0** `consoleErrors`, 0 `pageErrors`, 0 `failedRequests`, 0 étape en échec, et `documentedConsoleErrors: 0` dans `play-report/errors.json` ; **4 warnings GPU** (message `ReadPixels` / `GL_CLOSE_PATH_NV` de Chromium headless), aucun n'est une erreur console |
 
 ## 6. Limites de cet audit
 
