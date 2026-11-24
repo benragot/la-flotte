@@ -110,7 +110,7 @@ const tiers = [
 | Départ | 1 | 55 | 0 | 0 | 6 |
 | Premier gain | 2 | 60 | 5 | 1 | 6 |
 | Seuil PA | 100 | 550 | 495 | 99 | 7 |
-| Fin de courbe | 200 | 1045 | 995 | 199 | 7 |
+| Fin de courbe | 200 | 1050 | 995 | 199 | 7 |
 
 ## Marché
 
