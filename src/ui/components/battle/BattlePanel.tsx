@@ -2,6 +2,7 @@ import type { BattleState } from "../../../engine/multiCombat";
 import { isDefeat } from "../../../engine/multiCombat";
 import type { BattleCombatantView } from "../../../renderer/battleViewModel";
 import { battleViewModel, shouldRenderBattle } from "../../../renderer/battleViewModel";
+import { turnSide } from "../../../store/battleSelectors";
 import { useCombatStore } from "../../../store/useCombatStore";
 import { useEscapeClose } from "../../useEscapeClose";
 import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
@@ -36,6 +37,8 @@ interface PanelHeadProps {
 interface PanelFootProps {
   log: readonly string[];
   defeated: boolean;
+  /** `false` : l'actif n'est pas le héros, « Terminer le tour » est alors sans effet. */
+  heroTurn: boolean;
   onEndTurn: () => void;
 }
 
@@ -74,22 +77,32 @@ function DefeatNotice() {
   return <p role="alert" className={HINT}>Défaite : le héros est tombé, la salle reste aux monstres.</p>;
 }
 
-function PanelFoot({ log, defeated, onEndTurn }: PanelFootProps) {
+/** La main du héros est la condition du bouton : hors main, le tour n'est pas le sien. */
+function EndTurnButton({ enabled, onEndTurn }: { enabled: boolean; onEndTurn: () => void }) {
+  return (
+    <button type="button" className={PRIMARY_BUTTON} onClick={onEndTurn} disabled={!enabled}>
+      Terminer le tour
+    </button>
+  );
+}
+
+function PanelFoot({ log, defeated, heroTurn, onEndTurn }: PanelFootProps) {
   return (
     <footer className={FOOT}>
       <LogLines log={log} />
       {defeated ? <DefeatNotice /> : null}
-      <button type="button" className={PRIMARY_BUTTON} onClick={onEndTurn}>Terminer le tour</button>
+      <EndTurnButton enabled={heroTurn && !defeated} onEndTurn={onEndTurn} />
     </footer>
   );
 }
 
 function BattleChrome({ battle, views, handlers }: BattleChromeProps) {
+  const heroTurn = turnSide(battle) === "player";
   return (
     <section aria-label="Combat de salle" className={BATTLE_PANEL}>
       <PanelHead battle={battle} views={views} onClose={() => handlers.close(battle)} />
       <CombatantList views={views} onAttack={handlers.attack} />
-      <PanelFoot log={battle.log} defeated={isDefeat(battle)} onEndTurn={handlers.endTurn} />
+      <PanelFoot log={battle.log} defeated={isDefeat(battle)} heroTurn={heroTurn} onEndTurn={handlers.endTurn} />
     </section>
   );
 }
