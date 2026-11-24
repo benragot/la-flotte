@@ -16,7 +16,7 @@ import { HeroSheet } from "../../src/ui/components/OverlayPanels";
  * Garde-fou de **câblage** : le helper `effectiveHp` peut rester parfait alors
  * que le composant lit encore le domaine de niveau (`hero.maxHp`). Ce test rend
  * les vrais consommateurs — dock d'exploration et fiche perso — avec un héros
- * 50 / 50 porteur de 43 Vitalité : ils doivent écrire 93 / 93, jamais 50 / 50.
+ * 55 / 55 porteur de 43 Vitalité : ils doivent écrire 98 / 98, jamais 55 / 55.
  *
  * Le dépôt n'a ni jsdom ni testing-library : `renderToStaticMarkup` suffit car
  * on n'observe que le texte, pas la géométrie. Le store est doublé pour fixer
@@ -42,7 +42,7 @@ vi.mock("../../src/store/useGameStore", async (importOriginal) => {
   return { ...actual, useGameStore: useGameStore as unknown as typeof actual.useGameStore };
 });
 
-/** 50 / 50 persisté, 43 de Vitalité : le domaine effectif vaut 93 / 93. */
+/** 55 / 55 persisté, 43 de Vitalité : le domaine effectif vaut 98 / 98. */
 const HERO: Hero = { ...createHero("Anselme", IOP), vitality: 43 };
 
 function markup(node: ReactElement): string {
@@ -50,8 +50,8 @@ function markup(node: ReactElement): string {
 }
 
 function expectEffectiveHp(html: string): void {
-  expect(html).toContain("93 / 93");
-  expect(html).not.toContain("50 / 50");
+  expect(html).toContain("98 / 98");
+  expect(html).not.toContain("55 / 55");
 }
 
 beforeEach(() => {
@@ -60,11 +60,11 @@ beforeEach(() => {
 });
 
 describe("câblage du HUD sur le domaine de PV effectif", () => {
-  it("le dock d'exploration affiche 93 / 93, pas le maximum de niveau", () => {
+  it("le dock d'exploration affiche 98 / 98, pas le maximum de niveau", () => {
     expectEffectiveHp(markup(createElement(CombatHud, { mode: "exploration" })));
   });
 
-  it("la fiche perso affiche 93 / 93, pas le maximum de niveau", () => {
+  it("la fiche perso affiche 98 / 98, pas le maximum de niveau", () => {
     expectEffectiveHp(markup(createElement(HeroSheet, { hero: HERO, onClose: () => undefined })));
   });
 });

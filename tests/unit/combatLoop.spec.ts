@@ -346,7 +346,7 @@ describe("runEnemyTurn", () => {
   it("attaque deux fois quand le joueur est au contact", () => {
     const state = { ...buildState(["PM.."]), phase: "enemy_turn" as const };
     const next = runEnemyTurn(state, alwaysZero);
-    expect(next.player.hp).toBe(40);
+    expect(next.player.hp).toBe(45);
     expect(next.enemy.ap).toBe(0);
   });
 
@@ -402,11 +402,11 @@ describe("endPlayerTurn : restauration des PA/PM ennemis", () => {
   it("remet les PA et PM de l'ennemi à chaque début de tour", () => {
     const state = buildState(["PM.."]);
     const first = endPlayerTurn(state, alwaysZero);
-    expect(first.player.hp).toBe(40);
+    expect(first.player.hp).toBe(45);
     expect(first.turn).toBe(2);
     expect(first.enemy.ap).toBe(first.enemy.maxAp % 3);
     const second = endPlayerTurn(first, alwaysZero);
-    expect(second.player.hp).toBe(30);
+    expect(second.player.hp).toBe(35);
     expect(second.turn).toBe(3);
   });
 
