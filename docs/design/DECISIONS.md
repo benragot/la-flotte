@@ -6,7 +6,7 @@
 > Chaque décision dit **ce qu'elle interdit** : c'est cette colonne qui tranche un
 > désaccord, pas l'intention générale.
 >
-> **Identifiants** : `DEC-01` à `DEC-12`, uniques dans tout le dépôt. Le préfixe
+> **Identifiants** : `DEC-01` à `DEC-13`, uniques dans tout le dépôt. Le préfixe
 > `Dnn` est **réservé aux dettes** de `backlog.yaml` : aucun alias `Dnn` n'est
 > admis pour une décision (deux noms pour une chose recréeraient la collision).
 
@@ -94,5 +94,5 @@
 
 **Décision** : en Dofus 1.29, le taux de coup critique est un **dénominateur `1/X`** : le tirage est `rng() * X < 1`, soit une chance exacte de `1/X`, et `X = 2` est un **plafond de chance** (1 sur 2). Un CC applique le **jet maximum** de la fourchette de dégâts, jamais un multiplicateur. Le `+CC` d'équipement est retiré **avant** l'Agilité : `base = critRate - bonusCrit`. Aucun CC garanti.
 **Interdit** : lire `X` comme un pourcentage (`rng() * 100 < X`) ; garantir un CC à partir d'un seuil (`isCritical` ≥ 100) ; multiplier les dégâts d'un CC (`×1,5`, `critDamagePct`) ; poser un `baseCrit: 0` par défaut, le « 2 % fantôme » ; inventer un `critRate` ou un `critDamage` dans `data/spells.yaml` — absent = aucun CC, la valeur viendra avec sa source.
-**Conséquence** : aucun sort ne porte de `critRate` pour l'instant, donc aucun CC : le moteur cesse de mentir, et la donnée arrivera sourcée. Le skill `dofus-129-combat` §2 doit être corrigé (« plancher 2 % » = **plafond 1/2**, sortie = dénominateur).
+**Conséquence** : aucun sort ne porte de `critRate` pour l'instant, donc aucun CC : le moteur cesse de mentir, et la donnée arrivera sourcée. Le skill `dofus-129-combat` §2 est **faux** sur ce point (il parle d'un plancher 2 %, alors que `X = 2` est un **plafond de chance** 1/2) — à corriger hors du dépôt.
 **Références** : `src/engine/combat/crit.ts`, `src/engine/multiCombat/crit.ts`, `src/engine/multiCombat/strike.ts`, `src/schemas/spellSchema.ts`.

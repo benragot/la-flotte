@@ -34,14 +34,15 @@ appelle** — vérifié dans le code, pas supposé :
 
 | Règle | 1v1 `combatLoop` | 1vN `multiCombat` | Preuve |
 | --- | --- | --- | --- |
-| Initiative | calculée à l'ouverture seulement (`initiativeOf`), égalité ⇒ héros | timeline triée, égalité ⇒ **id le plus petit** ; l'adaptateur doit donc nommer le héros `0_player` | `combatLoop/opening.ts:9-18` ; `multiCombat/timeline.ts:9-27` |
+| Initiative | calculée à l'ouverture seulement (`initiativeOf`), égalité ⇒ héros ; **donnée réelle** : Piou Mazouté `initiative: 0` ⇒ le héros ouvre (MONSTER-01, #167) | timeline triée, égalité ⇒ **id le plus petit** ; l'adaptateur nomme le héros `0_player`, donc il ouvre à égalité | `combatLoop/opening.ts:13-22` ; `multiCombat/timeline.ts:9-27` ; `data/monsters.yaml:26` ; `battleBridge/fromExploration.ts:18-25` |
 | Ordre des tours | alternance stricte joueur → ennemi ; pas de timeline | `advanceTurn` saute les morts, restaure PA/PM, tour +1 au bouclage | `combatLoop/turn.ts:36-42` ; `multiCombat/turn.ts:37-45` |
 | Tacle | **absent** : `moveActiveEntity(state, target)` n'a pas de `rng`, aucune Agilité ne le déclenche | **présent** : jugé à chaque pas, 4 orthogonales, 1 PM | `combatLoop/move.ts:24-31` ; `multiCombat/tackle.ts:9,30-84` |
-| Coup critique | **absent** : `rollDamage` puis `computeDamage`, aucun `computeCritRate` | **présent** : ≥ 100 % garanti sans jet, sinon `rng()×100 < taux`, `critDamagePct` | `combatLoop/cast.ts:98-103,132-150` ; `multiCombat/crit.ts:27-31` |
+| Coup critique | **absent** : `rollDamage` puis `computeDamage`, aucun tirage de CC | **présent** : dénominateur `1/X`, tirage `rng()×X < 1`, jet max sans multiplicateur ; **aucun CC garanti** ; aucun `critRate` en données ⇒ aucun CC (DEC-13, #171) | `combatLoop/cast.ts:98-103,132-150` ; `multiCombat/crit.ts:16-19` ; `multiCombat/attack.ts:58-77` ; `data/spells.yaml` |
 | Attaque de base | **absente** : tout passe par un `SpellDef` | possible (`resolveAttack` sans `spellId`), mais l'UI n'expose que le premier sort de dégâts | `combatLoop/cast.ts:177-184` ; `multiCombat/attack.ts:75-81` ; `store/battleSelectors.ts:79-83` |
 | Sorts et quotas | `castsPerTurn`/`cooldown` dans `spellUsage` | idem via `isAttackAvailable`/`recordAttack` | `combatLoop/cast.ts:65-96` ; `multiCombat/spellUse.ts:21-44` |
 | Portée / LoS | Chebyshev `rangeDistance`, LoS `hasLineOfSight`, murs seuls | idem, avec refus typé `too-close`/`out-of-range`/`no-los` | `combatLoop/castable.ts:16-41` ; `multiCombat/range.ts:33-66` |
-| Déplacement / PM | chemin réel, DEC-10 (1 PM orthogonal, 2 PM diagonal), refus en bloc | même facture, mais pas par pas avec tacle | `combatLoop/move.ts:12-31` ; `multiCombat/move.ts:96-153` |
+| Déplacement / PM | chemin réel, DEC-10 (1 PM orthogonal, 2 PM diagonal), refus en bloc ; **chemin et coût PM au survol** (#166) | même facture, mais pas par pas avec tacle ; **aucun chemin au survol** : `battleSceneModel.ts:104` et `explorationScene.ts:101` renvoient `path: []` (GRID-03) | `combatLoop/move.ts:12-31` ; `multiCombat/move.ts:96-153` ; `renderer/combatSceneModel.ts:123` ; `renderer/battleSceneModel.ts:104` ; `renderer/explorationScene.ts:101` |
+| Affichage de l'initiative | pas de bande (HUD 1v1 à deux emplacements) | bande des vivants dans l'ordre de `state.order` (`initiativeOrder` → `Timeline`) : COMBAT-05 clos (#168) | `renderer/battleViewModel.ts:136-155` ; `ui/components/battle/BattlePanel.tsx:116` |
 | Poussée | `applyPush` sans tiers, dégâts de collision si bloqué | `applyPush` avec cases des tiers vivants | `combatLoop/push.ts:65-72` ; `multiCombat/move.ts` (via `strike.ts`) |
 | Occupation | impossible par construction (2 combattants) | invariant « aucune case partagée » + `separateOccupants` | `multiCombat/overlap.ts:120-129` |
 | Récompenses | XP (H=M, un monstre), butin, prospection, niveau ; **aucun kamas** | **aucune** récompense moteur ; une salle = soin DEC-03 + avancement du run | `combatLoop/rewards.ts:81-87` ; `dungeon/heal.ts:29-32` ; `dungeon/run.ts:71-77` |
@@ -62,7 +63,7 @@ disparaître. Valeurs figées aujourd'hui :
 
 | Sujet | Valeur figée |
 | --- | --- |
-| Ouverture | héros plus rapide ⇒ `player_turn` (identité) ; égalité ⇒ héros, verrouillé par `buildTimeline(["0_player", "piou_mazoute"])` ; monstre 15 vs héros 0 ⇒ `enemy_turn`, journal `« initiative 15 vs 0 »`, tour 1 |
+| Ouverture | héros plus rapide ⇒ `player_turn` (identité) ; égalité ⇒ héros, verrouillé par `buildTimeline(["0_player", "piou_mazoute"])` ; monstre 15 vs héros 0 ⇒ `enemy_turn`, journal `« initiative 15 vs 0 »`, tour 1 ; **donnée réelle** : Piou Mazouté `initiative: 0` ⇒ `player_turn`, aucun journal d'ouverture (MONSTER-01) |
 | Dégâts | Pression, rng 0 ⇒ 8 dégâts (35 → 27 PV), 3 PA ; résistances fixes 2 + 25 % ⇒ 4 dégâts (31 PV) ; rng 0,99 ⇒ 12 dégâts (23 PV) |
 | Critique | **absent** : 1 seul `rng()` consommé, même à 100 000 d'Agilité, dégâts inchangés |
 | Tacle | **absent** : même avec un tacleur à 1 000 000 d'Agilité, le héros avance 2 pas et paie 2 PM |
@@ -76,7 +77,7 @@ disparaître. Valeurs figées aujourd'hui :
 | --- | --- |
 | Timeline | `[zz_fast 300, aaa_tie 120, bbb_tie 120]` ; saut des morts, PA/PM restaurés, tour +1 au bouclage |
 | Tacle | 0 % ⇒ tacle certain (1 PM) ; 100 % ⇒ échappée (0 PM) ; diagonale non taclée ; tacle raté ⇒ arrêt sur place + 1 PM ; réussi ⇒ pas payé au prix du chemin |
-| Critique | 20 base + 100 Agilité = 12 % ; seuil garanti 157 → non, 158 → oui ; garanti 200 ⇒ 0 jet, +50 % (200 → 185 PV) ; probabiliste 5 % → 185 PV, 50 % → 190 PV |
+| Critique | `X = 12` pour 20 base + 100 Agilité ; 157 ⇒ `X = 99`, 158 ⇒ `X = 100` (jamais garanti, 1/100) ; `critRate: 2` ⇒ 1 jet, jet max 12 sans multiplicateur (200 → 188 PV) ; tirage exact 1/2 : 0,49 ⇒ 188 PV, 0,50 ⇒ 190 PV ; sans `critRate`, aucun CC et aucun jet consommé (DEC-13) |
 | Attaque nue | `AttackSpec` sans `spellId` : 200 → 190 PV, aucun `spellUsage` |
 | Récompenses de salle | `ceil(max × 0,75)` borné au max (10/100 → 85 ; 90/100 → 100) ; salle nettoyée ⇒ `roomIndex` +1, aucun XP/kamas/butin ; salle incomplète ⇒ run par identité |
 
