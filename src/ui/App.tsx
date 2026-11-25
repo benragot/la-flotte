@@ -17,6 +17,7 @@ import { explorationView } from "./explorationView";
 import { useEscapeLayer } from "./useEscapeClose";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
+import { dockHidden } from "./dockGate";
 
 /** Écran de création : pontage de bois en fond, feuille centrée (§1.8). */
 const CREATION_SHELL =
@@ -161,8 +162,14 @@ const HUD_CLASS: Record<ArenaMode, string> = {
 /**
  * Le HUD est un frère dans la colonne : sa hauteur suit ses bandes, donc la
  * grille ne passe jamais dessous et aucune bande vide ne mange l'arène.
+ *
+ * DEC-12 étape 3 : en mode unifié, `BattlePanel` tient le rôle de dock de
+ * combat ; la bande de 240 px disparaît donc au lieu de rester vide.
  */
 function Dock({ mode, onReturnToMap }: { mode: ArenaMode; onReturnToMap: () => void }) {
+  const combat = useCombatStore((state) => state.combat);
+  const battle = useCombatStore((state) => state.battle);
+  if (dockHidden({ mode, combat, battle })) return null;
   return (
     <div className={HUD_CLASS[mode]}>
       <CombatHud mode={mode} onReturnToMap={onReturnToMap} />
