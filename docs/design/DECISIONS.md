@@ -6,7 +6,7 @@
 > Chaque décision dit **ce qu'elle interdit** : c'est cette colonne qui tranche un
 > désaccord, pas l'intention générale.
 >
-> **Identifiants** : `DEC-01` à `DEC-11`, uniques dans tout le dépôt. Le préfixe
+> **Identifiants** : `DEC-01` à `DEC-12`, uniques dans tout le dépôt. Le préfixe
 > `Dnn` est **réservé aux dettes** de `backlog.yaml` : aucun alias `Dnn` n'est
 > admis pour une décision (deux noms pour une chose recréeraient la collision).
 
@@ -83,3 +83,9 @@
 **Interdit** : inventer une `baseInitiative` ou des statistiques de départ par classe, dans `data/classes.yaml` ou ailleurs. Tout gain d'initiative vient des **points investis**, de l'**équipement** ou des **sorts**.
 **Conséquence** : si un héros joue systématiquement après les monstres, la cause est à chercher dans les **données de monstres** (`MONSTER-01`), jamais dans une table de stats de classe — le moteur (`src/engine/combat/initiative.ts`) est déjà conforme.
 **Références** : `src/engine/combat/initiative.ts`, `src/engine/createHero.ts:36-43`, `data/classes.yaml`.
+
+## DEC-12 — Un seul moteur de combat (2026-11-25)
+
+**Décision** : `multiCombat` est le **seul** moteur de combat. Le donjon et l'extérieur appliquent exactement les mêmes règles : timeline d'initiative, tacle, coups critiques, attaque de base, sorts, portée/LoS, poussée et récompenses. L'exploration devient un combat `multiCombat` à **un seul monstre** (`N = 1`) ; `src/engine/combatLoop/` est condamné à disparaître.
+**Conséquence** : `ARCH-01` passe de « interdit sans décision » à « **migration planifiée** ». Le plan en quatre étapes (filet de tests, adaptateur + drapeau `VITE_COMBAT_ENGINE=unified`, bascule de l'UI, suppression de `combatLoop`) et son critère de sortie vivent dans `docs/design/specs/combat-unification.md`. Cette PR ne livre que l'étape 1 (tests golden) et le plan : **aucun comportement de jeu ne change**.
+**Interdit** : implémenter une nouvelle règle de combat dans `src/engine/combatLoop/` ; maintenir deux jeux de règles entre le donjon et l'extérieur (tacle, critique, timeline ou récompenses différents) ; supprimer `combatLoop` avant que les tests golden de parité soient verts sur le moteur unifié ; modifier une valeur de gameplay dans la PR de planification.
