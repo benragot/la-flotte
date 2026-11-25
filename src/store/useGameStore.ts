@@ -284,15 +284,26 @@ function drunkGame(hero: Hero | null, inventory: InventoryState, itemId: string)
   return { hero: { ...hero, hp: result.hp }, inventory: result.inventory };
 }
 
+/** Kamas d'une récompense : champ optionnel, donc neutre pour le 1v1 (DATA-02). */
+function withKamas(hero: Hero, kamas: number): Hero {
+  return kamas > 0 ? { ...hero, kamas: hero.kamas + kamas } : hero;
+}
+
+/** Options XP recomposées une fois : `creditedGame` reste sous 10 lignes. */
+function xpOptions(hero: Hero, amount: number) {
+  const tiers = progression.xpThresholds;
+  return { hero, amount, tiers, gainRules: progression.gainRules, apRules: progression.apRules };
+}
+
 function creditedGame(
   hero: Hero | null,
   inventory: InventoryState,
   rewards: CombatRewards,
 ): Partial<GameState> {
   if (hero === null) return {};
-  const options = { hero, amount: rewards.xpGained, apRules: progression.apRules };
-  const leveled = gainXp({ ...options, tiers: progression.xpThresholds, gainRules: progression.gainRules });
-  return { hero: leveled.hero, inventory: creditDrops({ inventory, drops: rewards.drops, items }) };
+  const leveled = gainXp(xpOptions(hero, rewards.xpGained));
+  const credited = withKamas(leveled.hero, rewards.kamas ?? 0);
+  return { hero: credited, inventory: creditDrops({ inventory, drops: rewards.drops, items }) };
 }
 
 interface TransferInput {

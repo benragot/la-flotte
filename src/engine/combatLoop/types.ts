@@ -54,6 +54,8 @@ export interface CombatRewards {
   levelUp: LevelUpGain | null;
   prospection: number;
   drops: string[];
+  /** Kamas gagnés : renseigné par une salle de donjon, absent en 1v1 (DATA-02). */
+  kamas?: number;
 }
 
 export interface CombatState {
