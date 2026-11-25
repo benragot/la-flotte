@@ -1,5 +1,5 @@
 import type { Graphics } from "pixi.js";
-import type { GridOutline, TileView } from "./scene";
+import type { GridOutline, PathHint, TileView } from "./scene";
 import { paintShapes } from "./paintShapes";
 import { groundColor } from "./tileMaterials";
 import type { WallFace } from "./wallFaces";
@@ -10,6 +10,13 @@ import {
   CELL_OUTLINE_WIDTH,
   GRID_LINE,
   GRID_LINE_ALPHA,
+  INVALID_CROSS_HALF,
+  INVALID_TARGET,
+  INVALID_TARGET_ALPHA,
+  INVALID_TARGET_WIDTH,
+  PATH_ALPHA,
+  PATH_DOT_RADIUS,
+  PATH_HIGHLIGHT,
   WALL_SIDE,
   WALL_TOP,
 } from "./tileStyle";
@@ -104,7 +111,39 @@ export function drawHighlights(graphics: Graphics, views: readonly TileView[]): 
   paintTiles(graphics, views);
 }
 
-/** Peint les losanges translucides du chemin A* en exploration. */
+/** Pastille du chemin prévisualisé : un point par case, sans contour ni aplat (§3.2, §5). */
+function paintPathDot(graphics: Graphics, view: TileView): void {
+  graphics.circle(view.center.x, view.center.y, PATH_DOT_RADIUS * view.scale);
+  graphics.fill({ color: PATH_HIGHLIGHT, alpha: PATH_ALPHA });
+}
+
+/** Chemin survolé : une pastille ronde par case, l'aplat de case resterait illisible. */
 export function drawPath(graphics: Graphics, views: readonly TileView[]): void {
-  paintTiles(graphics, views);
+  views.forEach((view) => paintPathDot(graphics, view));
+}
+
+function isInvalidTarget(hint: PathHint | null | undefined): hint is PathHint {
+  return hint !== null && hint !== undefined && !hint.payable;
+}
+
+function paintStroke(graphics: Graphics, target: TileView): void {
+  const width = INVALID_TARGET_WIDTH * target.scale;
+  graphics.stroke({ width, color: INVALID_TARGET, alpha: INVALID_TARGET_ALPHA });
+}
+
+/** Croix de la cible invalide (§3.2) : deux branches posées sur le losange visé. */
+function paintCross(graphics: Graphics, target: TileView): void {
+  const { x, y } = target.center;
+  const half = INVALID_CROSS_HALF * target.scale;
+  graphics.moveTo(x - half, y - half).lineTo(x + half, y + half);
+  graphics.moveTo(x + half, y - half).lineTo(x - half, y + half);
+  paintStroke(graphics, target);
+}
+
+/** Cible hors budget : contour + croix `#B83B3B` α 0.85, distinct du chemin `#F0B429`. */
+export function drawInvalidTarget(graphics: Graphics, hint: PathHint | null | undefined): void {
+  if (!isInvalidTarget(hint)) return;
+  graphics.poly(hint.target.points);
+  paintStroke(graphics, hint.target);
+  paintCross(graphics, hint.target);
 }

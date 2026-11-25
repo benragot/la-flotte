@@ -1,5 +1,5 @@
 import type { AsciiMap, Position } from "../engine/grid";
-import { findPath, getCell, pathCost, samePosition } from "../engine/grid";
+import { findPath, getCell, mapPathBudget, pathCost, samePosition } from "../engine/grid";
 import type { CellType } from "../schemas/mapSchema";
 import type { IsoOrigin, PixelPoint } from "./gridProjection";
 import { gridToIso } from "./gridProjection";
@@ -85,4 +85,42 @@ export function buildPathPreview(input: PathPreviewInput): PathPreview {
 /** Centres iso des cases du chemin, projetés par `gridToIso`. */
 export function pathIsoCenters(input: PathCentersInput): PixelPoint[] {
   return input.path.map((position) => gridToIso({ ...position, origin: input.origin }));
+}
+
+/** Aperçu d'un survol : le coût est facturé **même** quand les PM ne le paient pas. */
+export interface HoverPath {
+  /** Cases à peindre ; vide si la cible est refusée ou si le budget ne paie pas. */
+  path: Position[];
+  /** Facture DEC-10 du plus court chemin — 0 seulement s'il n'existe aucun chemin. */
+  cost: number;
+  /** `true` : le déplacement réel passera (chemin trouvé **et** payé par les PM). */
+  payable: boolean;
+  blockedBy: BlockReason | null;
+}
+
+/**
+ * Chemin le plus court **sans plafond de PM** : `mapPathBudget` est le budget qui
+ * couvre toute carte, donc la recherche ne s'arrête que sur un vrai obstacle.
+ * Le plafond des PM est jugé après, pour pouvoir annoncer ce qu'il en coûte.
+ */
+function unboundedPath(input: PathPreviewInput): Position[] | null {
+  if (isStartBlocked(input)) return null;
+  return findPath({ ...input, maxPm: mapPathBudget(input.map) });
+}
+
+function refused(input: PathPreviewInput): HoverPath {
+  return { path: [], cost: 0, payable: false, blockedBy: blockedReason(input) };
+}
+
+/**
+ * Aperçu de survol : réutilise l'A* et la facture du moteur, n'ajoute **aucune**
+ * règle de grille. Hors budget, `path` reste vide (on ne promet pas un trajet
+ * impossible) mais `cost` est conservé pour que le rendu l'annonce en rouge.
+ */
+export function hoverPathPreview(input: PathPreviewInput): HoverPath {
+  const path = unboundedPath(input);
+  if (path === null) return refused(input);
+  const cost = pathCost(path);
+  const payable = cost <= input.maxPm;
+  return { path: payable ? path : [], cost, payable, blockedBy: payable ? null : "range" };
 }

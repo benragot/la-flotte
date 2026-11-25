@@ -1,7 +1,8 @@
 import { TILE_H } from "./gridProjection";
-import type { TileView } from "./scene";
+import type { PathHint, TileView } from "./scene";
 import type { HpBar, TokenView } from "./tokens";
 import { BADGE_RADIUS, hpBarFor } from "./tokens";
+import { INVALID_TARGET, PATH_HIGHLIGHT } from "./tileStyle";
 
 export const LABEL_FONT_SIZE = 11;
 /** Or du badge de niveau ; le nom, lui, prend `NAME_LABEL_FILL` (§5). */
@@ -193,6 +194,49 @@ export function viewportBounds(bounds: LabelBounds, viewport: { width: number; h
     minY: Math.max(bounds.minY, 0),
     maxY: Math.min(bounds.maxY, viewport.height),
   };
+}
+
+/** Écart entre la pastille de coût et le centre du losange visé, en tuiles. */
+export const PATH_COST_LIFT_TILES = 0.9;
+
+export interface PathCostInput {
+  hint: PathHint;
+  bounds: LabelBounds;
+  /** Largeur mesurée par Pixi : elle seule garantit que la pastille tient dans la carte. */
+  width: number;
+}
+
+export interface PathCostLabel {
+  text: string;
+  x: number;
+  y: number;
+}
+
+/**
+ * « 3 PM » au-dessus du losange visé : la couleur dit si le déplacement est payable
+ * (`#F0B429`, la teinte du chemin) ou non (`#B83B3B`, la cible invalide §3.2).
+ */
+export function pathCostLabel(input: PathCostInput): PathCostLabel {
+  const { hint, bounds, width } = input;
+  const { target } = hint;
+  const top = target.center.y - TILE_H * PATH_COST_LIFT_TILES * target.scale;
+  const x = clampLabelX({ x: target.center.x, halfWidth: width / 2, bounds });
+  const y = clampLabelY({ y: top, height: LABEL_FONT_SIZE * target.scale, bounds, anchorY: 0.5 });
+  return { text: `${hint.cost} PM`, x, y };
+}
+
+/** Style de la pastille : encre de chemin ou de refus, contour sombre pour rester lisible. */
+export interface PathCostStyle {
+  fontSize: number;
+  fontWeight: "bold";
+  fill: number;
+  stroke: { color: number; width: number };
+}
+
+export function pathCostStyle(hint: PathHint): PathCostStyle {
+  const color = hint.payable ? PATH_HIGHLIGHT : INVALID_TARGET;
+  const stroke = { color: LABEL_STROKE, width: LABEL_STROKE_WIDTH };
+  return { fontSize: LABEL_FONT_SIZE * hint.target.scale, fontWeight: "bold", fill: color, stroke };
 }
 
 function isLabel(label: TokenLabel | null): label is TokenLabel {
