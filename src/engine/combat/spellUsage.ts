@@ -2,7 +2,9 @@
  * Quotas de lancement lus dans `data/spells.yaml` : `castsPerTurn` (nombre
  * maximum de lancements de CE sort par tour et par lanceur), `castsPerTarget`
  * (lancers sur une **même** cible pendant ce tour) et `cooldown` (nombre de
- * tours d'indisponibilité après un lancement).
+ * tours d'indisponibilité après un lancement). En 1.29, `0` est la sentinelle
+ * « aucune limite » (toujours présente dans le record de sort) : elle vaut
+ * absence ici — cf. `normalizeLimit`.
  *
  * L'état vit dans la bataille (`BattleState.spellUsage`), jamais dans une
  * variable de module : deux salles, deux batailles, deux compteurs. Le tour qui
@@ -41,6 +43,24 @@ export interface SpellUsageInput {
 
 export function spellUsageKey(casterId: string, spellId: string): string {
   return `${casterId}:${spellId}`;
+}
+
+/** `0` est la sentinelle 1.29 de « aucune limite » (Pression #141 = `0,0`). */
+function capOf(max: number | undefined): number | undefined {
+  return max === 0 ? undefined : max;
+}
+
+/**
+ * **Une seule** normalisation décide de la sentinelle : `0` vaut absence, donc
+ * « illimité », pour le quota du tour, le quota par cible et l'armement de la
+ * recharge. Aucun consommateur ne compare jamais un compteur à `0`.
+ */
+function normalizeLimit(limit: SpellLimit): SpellLimit {
+  return {
+    castsPerTurn: capOf(limit.castsPerTurn),
+    castsPerTarget: capOf(limit.castsPerTarget),
+    cooldown: limit.cooldown,
+  };
 }
 
 /** Aucun quota déclaré : le sort n'est limité que par les PA du lanceur. */
@@ -93,10 +113,11 @@ function withinTargetQuota(usage: SpellUsage | undefined, input: SpellUsageInput
 
 /** `true` si le sort peut encore être lancé à ce tour par ce lanceur. */
 export function isSpellAvailable(input: SpellUsageInput): boolean {
-  if (!hasLimit(input.limit)) return true;
-  const usage = input.usage[input.key];
-  if (!isReady(usage, input.turn)) return false;
-  return withinQuota(usage, input.limit, input.turn) && withinTargetQuota(usage, input);
+  const quota = { ...input, limit: normalizeLimit(input.limit) };
+  if (!hasLimit(quota.limit)) return true;
+  const usage = quota.usage[quota.key];
+  if (!isReady(usage, quota.turn)) return false;
+  return withinQuota(usage, quota.limit, quota.turn) && withinTargetQuota(usage, quota);
 }
 
 /** Contexte de calcul de la recharge armée par un lancement. */
@@ -150,12 +171,15 @@ function nextTargetCasts(input: SpellUsageInput, previous: SpellUsage | undefine
 /**
  * Enregistre un lancement. Sans quota déclaré, la carte est rendue **par
  * identité** : aucun état inutile dans les batailles qui n'en ont pas besoin.
+ * `0` est normalisé en « illimité » avant toute décision, comme pour la
+ * disponibilité : une sentinelle 1.29 ne crée donc jamais de compteur.
  */
 export function recordSpellCast(input: SpellUsageInput): SpellUsageMap {
-  if (!hasLimit(input.limit)) return input.usage;
+  const quota = { ...input, limit: normalizeLimit(input.limit) };
+  if (!hasLimit(quota.limit)) return input.usage;
   const previous = input.usage[input.key];
   const casts = castsOn(previous, input.turn) + 1;
-  const readyAt = nextReadyAt({ limit: input.limit, turn: input.turn, previous, casts });
-  const castsByTarget = nextTargetCasts(input, previous);
+  const readyAt = nextReadyAt({ limit: quota.limit, turn: input.turn, previous, casts });
+  const castsByTarget = nextTargetCasts(quota, previous);
   return { ...input.usage, [input.key]: { casts, turn: input.turn, readyAt, castsByTarget } };
 }
