@@ -52,6 +52,36 @@ export const OVERLAY_TITLE =
 export const OVERLAY_HEAD =
   "flex items-center justify-between gap-2 border-b border-[var(--color-line-soft)] pb-2";
 
+/**
+ * Pile réelle des voiles, de bas en haut — le panneau de salle n'y figure
+ * **pas**, et c'est volontaire :
+ * - `z-auto` : l'arène (`Zone jouable`) **et** le panneau de salle
+ *   (`BATTLE_PANEL` est `relative` sans `z-index`) — peints avant les
+ *   `z-index` positifs, dans l'ordre du DOM ;
+ * - `z-20` : voiles de fin et voiles locaux — ce n'est pas l'ordre du DOM qui
+ *   les sauve, c'est leur `z-index` positif qui les peint **après** les
+ *   `z-auto` ;
+ * - `z-30` : barre d'accès (`OverlayPanels.tsx`), ancrée `right-2` ;
+ * - `z-40` : voile des fenêtres modales ;
+ * - `z-50` : dialogue « Nouvelle partie » monté dans la barre.
+ *
+ * Règle de non-régression : **le panneau de salle n'a pas de `z-index` ; ne pas
+ * lui en donner un.** Le voile de fin (`fixed z-20`) est un frère de
+ * `section[aria-label="Combat de salle"]` dans `ARENA_ROW` (`BattlePanel` ne
+ * rend aucun élément, c'est un fragment) et partage donc son contexte
+ * d'empilement. Y ajouter un `z-index` sur `BATTLE_PANEL` crée un concurrent :
+ * la feuille de fin, **centrée sur 448 px**, ne croise la colonne de **320 px**
+ * qu'à **1024×768**, sur **32 px** : le contenu de la feuille commence à
+ * **302 px**, donc le panneau couvrirait **18 px de contenu**, dont la première
+ * lettre du titre ; le texte du bouton perd, lui, **4 px** (316 → 320). À
+ * 1280×720 et 1920×1080, les deux ne se croisent pas.
+ *
+ * `fixed` n'est pas rogné par l'`overflow-hidden` de `ARENA_ROW` : aucun
+ * ancêtre (`html`, `body`, `#root`, `ARENA_SHELL`, `ARENA_ROW`) ne porte
+ * `transform`, `filter`, `contain`, `will-change` ni `isolation`, donc aucun ne
+ * devient bloc conteneur du `fixed` ni ne crée de contexte d'empilement.
+ */
+
 /** Voile de fenêtre : `surface-0` translucide, jamais un fond de panneau (I7). */
 const LAYER_BASE =
   "pointer-events-auto inset-0 flex items-center justify-center overflow-auto bg-[var(--color-scrim)] p-4";
@@ -75,11 +105,18 @@ export const LAYER_SCRIM = `${LAYER_BASE} fixed z-40`;
 export const LAYER_LOCAL = `${LAYER_BASE} absolute z-20`;
 
 /**
- * Voile de la fin de combat : plein écran (l'arène n'est plus jouable), monté
- * **après** le panneau de salle (`z-20` lui aussi, l'ordre du DOM tranche), donc
- * au-dessus de lui — et toujours **sous** la barre d'accès (`z-30`) et sous les
+ * Voile de la fin de combat : plein écran (l'arène n'est plus jouable), rendu
+ * par `BattleEnd` **après** la section de salle. Le panneau étant `z-auto`, ce
+ * `z-20` suffit : un `z-index` positif est peint **après** tout descendant
+ * positionné en `z-auto`, quel que soit l'ordre du DOM. Il couvre donc le
+ * panneau et la carte, et reste **sous** la barre d'accès (`z-30`) et sous les
  * fenêtres (`z-40`), pour que « Nouvelle partie » reste atteignable après une
  * défaite.
+ *
+ * Ne pas donner de `z-index` à `BATTLE_PANEL` (`./battle/battleTheme`) : il
+ * créerait un concurrent dans le même contexte d'empilement et, à 1024×768
+ * seulement, rognerait les 32 px de bord gauche de la feuille de fin (448 px
+ * centrés contre 320 px de colonne). Voir la règle en tête des voiles.
  */
 export const LAYER_END = `${LAYER_BASE} fixed z-20`;
 

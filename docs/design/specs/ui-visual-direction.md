@@ -784,8 +784,9 @@ et l'entrée `ALLOWED_HEX` disparaît.
 
 **Fin de combat (§10 « sobre, pas fanfare »).** Le verdict n'est plus un titre de
 30 px posé sur le HUD : c'est le **titre de fenêtre** (18/24) d'une feuille de
-384 px, sur un voile plein écran (`LAYER_END`, `z-10`, **sous** la barre
-d'accès : « Nouvelle partie » reste atteignable après une défaite).
+448 px, sur un voile plein écran (`LAYER_END`, `fixed z-20`, **sous** la barre
+d'accès : « Nouvelle partie » reste atteignable après une défaite). Voir §10
+pour la pile de couches complète.
 
 ---
 
@@ -834,6 +835,47 @@ sous le dock de combat :
 
 L'écran de fin (`UnifiedEndOverlay`, voile `fixed z-20`) reste un overlay plein
 écran : le combat est terminé, l'arène n'a plus à être cliquable.
+
+**Pile de couches réelle (bas → haut).** L'arène (`section[aria-label="Zone
+jouable"]`, `src/ui/App.tsx`) et le panneau de salle sont tous deux positionnés
+en **`z-auto`** : `BATTLE_PANEL` est `relative` mais **sans `z-index`**
+(`src/ui/components/battle/battleTheme.ts`). Le voile de fin est `fixed z-20` et
+couvre pourtant les deux : un `z-index` positif est peint **après** tous les
+descendants positionnés en `z-auto`, quel que soit leur ordre dans le DOM. Ce
+n'est donc pas l'ordre du DOM qui protège l'écran de fin. Viennent ensuite la
+barre d'accès (`z-30`, `OverlayPanels.tsx`), le voile des fenêtres (`z-40`) et
+le dialogue « Nouvelle partie » (`z-50`).
+
+**Le voile est un frère, pas un descendant du panneau.** `BattlePanel` ne rend
+aucun élément : c'est un fragment (`BattleSections` + `BattleEnd`,
+`BattlePanel.tsx:135-143`). Le voile `fixed z-20` émis par `BattleEnd` est donc
+un **frère** de `section[aria-label="Combat de salle"]` et de
+`section[aria-label="Zone jouable"]` dans `ARENA_ROW`. Ni `ARENA_ROW` ni
+`ARENA_SHELL` ne créent de contexte d'empilement (`relative` + `z-auto`, pas
+d'`isolation`) : panneau et voile sont peints dans le contexte de la racine,
+celui où `ARENA_ROW` vit.
+
+**Règle de non-régression : le panneau de salle n'a pas de `z-index` ; ne pas lui
+en donner un.** Le voile de fin (`fixed z-20`) et le panneau partagent le même
+contexte d'empilement, dans `ARENA_ROW`. Un `z-index` sur `BATTLE_PANEL` y
+introduit un concurrent : la feuille de fin est **centrée, 448 px** et ne croise
+la colonne de **320 px** qu'à **1024×768**, sur **32 px** — le panneau rognerait
+alors son bord gauche (~4 px de glyphe du bouton). À **1280×720** et
+**1920×1080**, les deux ne se croisent pas et rien ne serait masqué. La vraie
+conséquence est donc une amputation visuelle à un seul viewport, pas un bouton
+inaccessible. `tests/ui/layout.spec.ts` épingle déjà que le panneau n'est ni
+`absolute` ni `fixed` ; cette règle-ci couvre le `z-index`.
+
+**Pourquoi `fixed` échappe au rognage.** `ARENA_ROW` et `ARENA_SHELL` portent
+`overflow-hidden`, mais le voile reste entier : aucun ancêtre de la chaîne
+(`html`, `body`, `#root`, `ARENA_SHELL`, `ARENA_ROW`) ne porte de `transform`,
+`filter`, `contain`, `will-change` ni d'`isolation` — donc aucun ne devient bloc
+conteneur du `fixed` ni ne crée de contexte d'empilement. Ajouter une de ces
+propriétés pour un effet visuel rognerait l'écran de fin au cadre de l'arène.
+
+**La barre d'accès ne mord pas sur le panneau.** Elle est ancrée `right-2` dans
+`ARENA_SHELL`, alors que la colonne de 320 px est à gauche du flux : le `z-30`
+ne sert qu'à rester au-dessus de la carte, jamais à recouvrir le panneau.
 
 **Mesures après.** Colonne réservée **320 px** aux trois viewports ; recouvrement
 panneau ∩ zone jouable = **0 px** ; aire de carte = 704 / 960 / 1600 px de large.
