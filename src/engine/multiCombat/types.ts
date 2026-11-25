@@ -75,13 +75,30 @@ export interface BattleState {
   floats?: readonly FloatingEvent[];
 }
 
+/** Fourchette de dégâts d'un sort, bornes incluses. */
+export interface DamageRange {
+  min: number;
+  max: number;
+}
+
 export interface AttackSpec extends SpellLimit {
+  /**
+   * Base fixe du jet **non critique** (attaque nue, tests). Ignorée dès que
+   * `damage` est fourni : le moteur tire alors lui-même, après le CC.
+   */
   base: number;
+  /** Fourchette du sort : le dé de dégâts n'est consommé que hors coup critique. */
+  damage?: DamageRange;
   element: Element;
-  baseCrit: number;
+  /** Dénominateur du coup critique (`1/X`) ; **absent = aucun CC**. */
+  critRate?: number;
+  /** `+CC` d'équipement, retiré du dénominateur **avant** l'Agilité. */
   bonusCrit?: number;
-  /** Bonus de dégâts (%) ajouté en cas de coup critique (défaut 0). */
-  critDamagePct?: number;
+  /**
+   * Jet du coup critique ; défaut = le **maximum** de `damage`. Le CC
+   * substitue le jet, il n'additionne aucun pourcentage.
+   */
+  critMax?: DamageRange;
   /** Cases de poussée ; 0 ou absent = pas de poussée. */
   pushCells?: number;
   /** Valeur de dé de la poussée (voir `computePushbackDamage`). */

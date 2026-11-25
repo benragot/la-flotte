@@ -23,7 +23,6 @@ export interface DamageContext {
   target: CombatantLike;
   attack: AttackSpec;
   critical: boolean;
-  critDamagePct: number;
 }
 
 interface PushOutcome {
@@ -43,18 +42,18 @@ function resistanceInput(target: CombatantLike, element: Element): Pick<DamageIn
   };
 }
 
-/** `% Dégâts` d'équipement et bonus de critique s'ajoutent dans la même parenthèse. */
-function damageBonus(attacker: CombatantLike, critical: boolean, critDamagePct: number): number {
-  return (attacker.percentDmg ?? 0) + (critical ? critDamagePct : 0);
+/** `% Dégâts` d'équipement seulement : le CC substitue le jet, il n'ajoute rien. */
+function damageBonus(attacker: CombatantLike): number {
+  return attacker.percentDmg ?? 0;
 }
 
 /** `isPlayer` décrit bien la **cible** (plafond 50 % sur ses résistances %). */
 function damageInput(context: DamageContext): DamageInput {
-  const { attack, attacker, target, critical, critDamagePct } = context;
+  const { attack, attacker, target } = context;
   return {
     base: attack.base,
     stat: elementStat(attacker.stats, attack.element),
-    percentDmg: damageBonus(attacker, critical, critDamagePct),
+    percentDmg: damageBonus(attacker),
     ...resistanceInput(target, attack.element),
     isPlayer: target.side === "player",
   };

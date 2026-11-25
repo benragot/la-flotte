@@ -45,8 +45,8 @@ const RECIPE_ID = "recette_gourdin_du_matelot";
 const MAX_ACTIONS = 200;
 
 /** Traversée, pas équilibrage : un coup suffit à tomber chaque monstre réel. */
-const HERO_ATTACK: AttackSpec = { base: 400, element: "earth", baseCrit: 0, apCost: 1 };
-const ENEMY_ATTACK = { base: 1, element: "neutral" as const, baseCrit: 0 };
+const HERO_ATTACK: AttackSpec = { base: 400, element: "earth", apCost: 1 };
+const ENEMY_ATTACK = { base: 1, element: "neutral" as const };
 /** Aléa injecté dans le store : crit et drops jamais tirés par `Math.random`. */
 const rng: Rng = () => 0.5;
 /** Tirage des récompenses : 0,35 fait passer tous les butins et varie les kamas. */

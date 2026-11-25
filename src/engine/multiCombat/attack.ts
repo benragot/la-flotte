@@ -55,10 +55,26 @@ function isStrikeAllowed(input: AttackInput, pair: [CombatantLike, CombatantLike
   return canStrike(input, pair[0], pair[1]) && reachable(input, pair) && withinQuota(input, pair[0]);
 }
 
+/** Jet non critique : la fourchette est tirée **après** la décision de CC. */
+function rolledBase(attack: AttackSpec, rng: Rng): number {
+  if (attack.damage === undefined) return attack.base;
+  const { min, max } = attack.damage;
+  return min + Math.floor(rng() * (max - min + 1));
+}
+
+/** Le CC prend le jet **maximum** : `critMax` explicite, sinon le haut de la fourchette. */
+function criticalBase(attack: AttackSpec): number {
+  const crit = attack.critMax;
+  if (crit !== undefined) return crit.max;
+  const damage = attack.damage;
+  if (damage !== undefined) return damage.max;
+  return attack.base;
+}
+
 function hitContext(input: AttackInput, attacker: CombatantLike, target: CombatantLike): DamageContext {
   const critical = rollsCritical(attacker, input.attack, input.rng);
-  const critDamagePct = input.attack.critDamagePct ?? 0;
-  return { state: input.state, attacker, target, attack: input.attack, critical, critDamagePct };
+  const base = critical ? criticalBase(input.attack) : rolledBase(input.attack, input.rng);
+  return { state: input.state, attacker, target, attack: { ...input.attack, base }, critical };
 }
 
 /**

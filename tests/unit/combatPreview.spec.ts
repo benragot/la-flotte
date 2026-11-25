@@ -169,11 +169,12 @@ describe("buildDamagePreview — aucun écart avec computeDamage", () => {
     expect(preview.critical).toBe(computeDamage({ ...direct, base: 18 }));
   });
 
-  it("le bonus de critique passe par percentDmg, comme dans strike.ts", () => {
-    const preview = buildDamagePreview(damageInput({ critDamagePct: 50 }));
-    const direct = { base: 18, stat: 120, flatRes: 5, pctRes: 20, percentDmg: 50, isPlayer: false };
+  it("le CC prend le jet maximum, sans bonus de pourcentage", () => {
+    // PARITÉ: SPELL-03, le CC substitue le jet max (18), il n'additionne rien.
+    const preview = buildDamagePreview(damageInput());
+    const direct = { base: 18, stat: 120, flatRes: 5, pctRes: 20, isPlayer: false };
     expect(preview.critical).toBe(computeDamage(direct));
-    expect(preview.critical).toBeGreaterThan(preview.max);
+    expect(preview.critical).toBe(preview.max);
   });
 });
 
@@ -238,10 +239,12 @@ describe("buildDamagePreview — poussée et critique", () => {
     expect(buildDamagePreview(damageInput({ pushCells: 0 })).pushDamage).toBe(0);
   });
 
-  it("critRate vient de computeCritRate (plancher moteur)", () => {
-    const preview = buildDamagePreview(damageInput());
-    expect(preview.critRate).toBe(2);
-    expect(buildDamagePreview(damageInput({ baseCrit: 60, bonusCrit: 0, attackerStats: { strength: 0, intelligence: 0, chance: 0, agility: 200 } })).critRate).toBeGreaterThan(2);
+  it("critRate = 100 / X, et 0 sans `critRate` déclaré", () => {
+    // PARITÉ: SPELL-03, absent = aucun CC ; sinon la sortie est le dénominateur 1/X.
+    expect(buildDamagePreview(damageInput()).critRate).toBe(0);
+    const agile = { strength: 0, intelligence: 0, chance: 0, agility: 200 };
+    const preview = buildDamagePreview(damageInput({ baseCrit: 60, bonusCrit: 0, attackerStats: agile }));
+    expect(preview.critRate).toBeCloseTo(100 / 33);
   });
 });
 

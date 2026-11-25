@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeApMpLossChance,
+  computeCritDenominator,
   computeCritRate,
   computeDamage,
   computeInitiative,
@@ -44,22 +45,50 @@ describe("computeDamage — résistances", () => {
   });
 });
 
-describe("computeCritRate", () => {
-  it("plancher à 2 quand l'écart de critique est faible", () => {
-    expect(computeCritRate({ baseCrit: 10, bonusCrit: 8, agility: 100 })).toBe(2);
-    expect(computeCritRate({ baseCrit: 5, bonusCrit: 20, agility: 100 })).toBe(2);
+describe("computeCritDenominator — 1/X (SPELL-03)", () => {
+  it("30 de base et 100 d'Agilité ⇒ X = 19, soit 1 chance sur 19", () => {
+    // PARITÉ: SPELL-03, fiche 1.29 : X = floor(base × e × 1,1 / ln(Agi + 12)).
+    expect(computeCritDenominator({ baseCrit: 30, bonusCrit: 0, agility: 100 })).toBe(19);
   });
 
-  it("renvoie l'écart brut quand l'agilité est inférieure à 8", () => {
-    expect(computeCritRate({ baseCrit: 30, bonusCrit: 0, agility: 5 })).toBe(30);
+  it("le +CC d'équipement se retire AVANT l'Agilité : 20 − 10 ⇒ X = 6", () => {
+    // PARITÉ: SPELL-03, base = critRate − bonusCrit.
+    expect(computeCritDenominator({ baseCrit: 20, bonusCrit: 10, agility: 100 })).toBe(6);
   });
 
-  it("applique la courbe logarithmique d'agilité", () => {
-    expect(computeCritRate({ baseCrit: 50, bonusCrit: 0, agility: 100 })).toBe(31);
+  it("12 de base à 8 d'Agilité ⇒ X = 11 (le seuil est atteint, pas dépassé)", () => {
+    // PARITÉ: SPELL-03, l'Agilité ne compte qu'à partir de 8.
+    expect(computeCritDenominator({ baseCrit: 12, bonusCrit: 0, agility: 8 })).toBe(11);
   });
 
-  it("borne le taux calculé à 2 pour une agilité très haute", () => {
-    expect(computeCritRate({ baseCrit: 3, bonusCrit: 0, agility: 1000 })).toBe(2);
+  it("plafonne le taux à 1 chance sur 2 (X = 2), jamais 2 %", () => {
+    // PARITÉ: SPELL-03, X = 2 est un PLAFOND de chance, pas un plancher.
+    expect(computeCritDenominator({ baseCrit: 2, bonusCrit: 0, agility: 0 })).toBe(2);
+    expect(computeCritDenominator({ baseCrit: 10, bonusCrit: 8, agility: 100 })).toBe(2);
+    expect(computeCritDenominator({ baseCrit: 5, bonusCrit: 20, agility: 100 })).toBe(2);
+    expect(computeCritDenominator({ baseCrit: 3, bonusCrit: 0, agility: 1000 })).toBe(2);
+  });
+
+  it("renvoie l'écart brut quand l'Agilité est inférieure à 8", () => {
+    expect(computeCritDenominator({ baseCrit: 30, bonusCrit: 0, agility: 5 })).toBe(30);
+  });
+
+  it("applique la courbe logarithmique d'Agilité : 50 à 100 d'Agi ⇒ X = 31", () => {
+    expect(computeCritDenominator({ baseCrit: 50, bonusCrit: 0, agility: 100 })).toBe(31);
+  });
+
+  it("158 n'est jamais garanti : X = 100, soit 1 chance sur 100", () => {
+    // PARITÉ: SPELL-03, 158 = 1/100 pas garanti.
+    expect(computeCritDenominator({ baseCrit: 157, bonusCrit: 0, agility: 100 })).toBe(99);
+    expect(computeCritDenominator({ baseCrit: 158, bonusCrit: 0, agility: 100 })).toBe(100);
+  });
+});
+
+describe("computeCritRate — dérivé d'affichage de 1/X", () => {
+  it("vaut 100 / X, pour l'affichage seulement", () => {
+    // PARITÉ: SPELL-03, une seule formule : le pourcentage ne fait que diviser 100 par X.
+    expect(computeCritRate({ baseCrit: 30, bonusCrit: 0, agility: 100 })).toBeCloseTo(100 / 19);
+    expect(computeCritRate({ baseCrit: 2, bonusCrit: 0, agility: 0 })).toBe(50);
   });
 });
 

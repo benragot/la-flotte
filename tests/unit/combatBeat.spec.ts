@@ -34,7 +34,7 @@ const DUNGEON_ID = "fer_donjon_casse_vis_sans_fin";
 const TARGET_ID = "piou_mazoute-0";
 const ZERO = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
 const NO_STATS = { strength: 0, intelligence: 0, chance: 0, agility: 0, wisdom: 0 };
-const ONE_HIT: AttackSpec = { base: 10, element: "neutral", baseCrit: 0, apCost: 1 };
+const ONE_HIT: AttackSpec = { base: 10, element: "neutral", apCost: 1 };
 
 function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
   const found = list.find((entry) => entry.id === id);

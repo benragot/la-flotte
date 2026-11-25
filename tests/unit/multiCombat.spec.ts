@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  computeCritRate,
+  computeCritDenominator,
   computeDamage,
   computePushbackDamage,
   computeTackleEscapePercent,
@@ -12,7 +12,6 @@ import {
   approachCell,
   buildTimeline,
   enemiesAct,
-  isCritical,
   isDefeat,
   isVictory,
   moveHero,
@@ -65,7 +64,14 @@ function makeState(combatants: CombatantLike[], extra: Partial<BattleState> = {}
 }
 
 function attackSpec(overrides: Partial<AttackSpec> = {}): AttackSpec {
-  return { base: 10, element: "earth", baseCrit: 0, apCost: 3, ...overrides };
+  return { base: 10, element: "earth", apCost: 3, ...overrides };
+}
+
+/** Dégâts infligés par un coup du héros (`STATS` : +100 % For ⇒ jet × 2). */
+function strikeOnce(attack: AttackSpec, rng: Rng): number {
+  const { player, enemy } = duel();
+  const next = resolveAttack({ state: makeState([player, enemy]), attackerId: "p1", targetId: "e1", attack, rng });
+  return enemy.hp - (next.combatants[1]?.hp ?? 0);
 }
 
 function sequence(...values: number[]): Rng {
@@ -306,15 +312,15 @@ describe("resolveAttack — dégâts", () => {
     expect(next.log).toHaveLength(1);
   });
 
-  it("applique le critique garanti avec le critDamagePct de l'attaque", () => {
+  it("applique le CC en substituant le jet maximum, sans multiplicateur", () => {
+    // PARITÉ: SPELL-03, un CC prend le jet max de la fourchette (12 → 24), jamais ×1,5.
     const { player, enemy } = duel();
     const state = makeState([player, enemy]);
-    const attack = attackSpec({ baseCrit: 200, critDamagePct: 50 });
+    const attack = attackSpec({ base: 8, damage: { min: 8, max: 12 }, critRate: 2, critMax: { min: 8, max: 12 } });
     const rng = countingRng(0);
     const next = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: rng.rng });
-    const expected = computeDamage({ base: attack.base, stat: player.stats.strength, percentDmg: 50 });
-    expect(next.combatants[1]?.hp).toBe(enemy.hp - expected);
-    expect(rng.calls()).toBe(0);
+    expect(next.combatants[1]?.hp).toBe(enemy.hp - 24);
+    expect(rng.calls()).toBe(1);
   });
 });
 
@@ -363,30 +369,43 @@ describe("resolveAttack — résistances joueur", () => {
   });
 });
 
-describe("crit — branche probabiliste", () => {
-  it("tire le critique sous le taux (12 % ici)", () => {
-    const rate = computeCritRate({ baseCrit: 20, bonusCrit: 0, agility: 100 });
-    expect(rate).toBe(12);
-    expect(rate).toBeLessThan(100);
+describe("crit — tirage exact 1/X", () => {
+  it("20 de base à 100 d'Agilité ⇒ X = 12 (une chance sur douze)", () => {
+    // PARITÉ: SPELL-03, la sortie est un dénominateur, pas un pourcentage.
+    const denominator = computeCritDenominator({ baseCrit: 20, bonusCrit: 0, agility: 100 });
+    expect(denominator).toBe(12);
   });
 
-  it("critique quand rng()×100 < taux, sinon non", () => {
-    const { player, enemy } = duel({ player: { stats: { ...STATS, agility: 100 } } });
-    const state = makeState([player, enemy]);
-    const attack = attackSpec({ baseCrit: 20, critDamagePct: 50 });
-    const crit = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.05 });
-    const normal = resolveAttack({ state, attackerId: "p1", targetId: "e1", attack, rng: () => 0.5 });
-    const critDamage = computeDamage({ base: 10, stat: 100, percentDmg: 50 });
-    const normalDamage = computeDamage({ base: 10, stat: 100 });
-    expect(crit.combatants[1]?.hp).toBe(enemy.hp - critDamage);
-    expect(normal.combatants[1]?.hp).toBe(enemy.hp - normalDamage);
+  it("X = 2 : rng 0,49 critique, rng 0,50 non (`rng × X < 1`)", () => {
+    // PARITÉ: SPELL-03, tirage exact : 0,50 × 2 vaut 1, donc l'inégalité stricte échoue.
+    const attack = attackSpec({ critRate: 2, critMax: { min: 12, max: 12 } });
+    const crit = strikeOnce(attack, () => 0.49);
+    const normal = strikeOnce(attack, () => 0.5);
+    expect(crit).toBe(24);
+    expect(normal).toBe(20);
   });
 
-  it("place la frontière de isCritical entre 99 et 100", () => {
-    expect(isCritical({ baseCrit: 157, agility: 100 })).toBe(false);
-    expect(computeCritRate({ baseCrit: 157, bonusCrit: 0, agility: 100 })).toBe(99);
-    expect(isCritical({ baseCrit: 158, agility: 100 })).toBe(true);
-    expect(computeCritRate({ baseCrit: 158, bonusCrit: 0, agility: 100 })).toBe(100);
+  it("158 ⇒ X = 100 : un rng de 0,99 n'est PAS un critique, aucun CC garanti", () => {
+    // PARITÉ: SPELL-03, 158 = 1/100 pas garanti.
+    const attack = attackSpec({ critRate: 158, critMax: { min: 12, max: 12 } });
+    expect(computeCritDenominator({ baseCrit: 158, bonusCrit: 0, agility: 100 })).toBe(100);
+    expect(strikeOnce(attack, () => 0.99)).toBe(20);
+  });
+
+  it("un CC ne consomme pas le dé de dégâts : le 0,9 reste pour l'action suivante", () => {
+    // PARITÉ: SPELL-03, le CC se décide d'abord ; le dé n'est tiré que hors CC.
+    const attack = attackSpec({ base: 8, damage: { min: 8, max: 12 }, critRate: 2 });
+    const rng = sequence(0.1, 0.9);
+    const damage = strikeOnce(attack, rng);
+    expect(damage).toBe(24);
+    expect(rng()).toBe(0.9);
+  });
+
+  it("aucun `critRate` ⇒ aucun CC et aucun tirage consommé", () => {
+    // PARITÉ: SPELL-03, pas de donnée = pas de CC (aucun 2 % fantôme).
+    const rng = countingRng(0.5);
+    expect(strikeOnce(attackSpec(), rng.rng)).toBe(20);
+    expect(rng.calls()).toBe(0);
   });
 });
 
@@ -825,16 +844,18 @@ describe("enemiesAct — arrêts", () => {
 });
 
 describe("enemiesAct — critique ennemi", () => {
-  it("transmet critDamagePct depuis l'action ennemie", () => {
+  it("transmet le jet maximum depuis l'action ennemie", () => {
+    // PARITÉ: SPELL-03, le CC ennemi prend le jet max (12 → 24), jamais un ×1,5.
     const state = enemyTurnFixture();
-    const attack = attackSpec({ baseCrit: 200, critDamagePct: 50 });
+    const attack = attackSpec({ base: 8, damage: { min: 8, max: 12 }, critRate: 2 });
     let calls = 0;
     const strategy = (): EnemyAction | null => {
       calls += 1;
       return calls === 1 ? { kind: "attack", targetId: "p1", attack } : null;
     };
-    const next = enemiesAct({ state, rng: () => 0.99, strategy });
-    const expected = computeDamage({ base: attack.base, stat: STATS.strength, percentDmg: 50, isPlayer: true });
+    const next = enemiesAct({ state, rng: () => 0, strategy });
+    const expected = computeDamage({ base: 12, stat: STATS.strength, isPlayer: true });
+    expect(expected).toBe(24);
     expect(next.combatants.find((entry) => entry.id === "p1")?.hp).toBe(200 - expected);
   });
 });

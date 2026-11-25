@@ -1,7 +1,7 @@
 export { computeApMpLossChance } from "./apMpLoss";
 export type { ApMpLossInput } from "./apMpLoss";
 export { MIN_BEAT_MS, canAct, nextBeatAt } from "./beat";
-export { computeCritRate } from "./crit";
+export { computeCritDenominator, computeCritRate } from "./crit";
 export type { CritRateInput } from "./crit";
 export { computeDamage } from "./damage";
 export type { DamageInput } from "./damage";

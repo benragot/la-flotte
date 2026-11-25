@@ -71,8 +71,7 @@ import {
   needsEnemyStep,
   playEnemyTurns as resolveEnemyTurns,
   playStepOnce,
-  rollSpellBase,
-  spellCastSpec,
+  spellRollSpec,
   spellStrategy,
 } from "./battleSelectors";
 import { battleClickRoute } from "./battleRouting";
@@ -507,13 +506,13 @@ interface UnifiedClick {
 }
 
 /** Attaque de base data-driven : les valeurs viennent du sort de dégâts du héros. */
-function explorationAttack(rng: Rng): AttackSpec | null {
+function explorationAttack(): AttackSpec | null {
   const spell = heroDamageSpell();
-  return spell === null ? null : spellCastSpec(spell, rollSpellBase(spell, rng));
+  return spell === null ? null : spellRollSpec(spell);
 }
 
 function unifiedAttack(click: UnifiedClick, targetId: string): Partial<CombatStore> {
-  const attack = explorationAttack(click.rng);
+  const attack = explorationAttack();
   if (attack === null) return {};
   const options = { state: click.state, targetId, attack, rng: click.rng };
   return scopedBattleUpdate(click.store, resolveBattleAttack(options));
@@ -759,7 +758,7 @@ function refusedCast(state: BattleState, refusal: string | null): CastOutcome | 
 
 function castHeroSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): CastOutcome {
   const rng = input.rng ?? Math.random;
-  const attack = spellCastSpec(spell, rollSpellBase(spell, rng));
+  const attack = spellRollSpec(spell);
   const refusal = refusedCast(state, castRefusal(state, input.targetId, attack));
   if (refusal !== null) return refusal;
   const next = resolveBattleAttack({ state, targetId: input.targetId, attack, rng });
@@ -844,8 +843,8 @@ function enemySpells(enemy: CombatantLike): SpellDef[] {
   return ids.flatMap((id) => spells.filter((spell) => spell.id === id));
 }
 
-function strategyForEnemy(enemy: CombatantLike, rng: Rng): EnemyStrategy {
-  return spellStrategy({ spells: enemySpells(enemy), rng });
+function strategyForEnemy(enemy: CombatantLike): EnemyStrategy {
+  return spellStrategy({ spells: enemySpells(enemy) });
 }
 
 function battleFinished(state: BattleState): boolean {
@@ -862,7 +861,7 @@ function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLik
   const state = store.battle;
   if (state === null) return {};
   if (battleFinished(state)) return {};
-  const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
+  const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy);
   const next = resolveEnemyTurns({ state, strategyFor, rng });
   if (isDefeat(next)) restoreHeroHp(storage);
   return scopedBattleUpdate(store, next);
@@ -872,7 +871,7 @@ function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLik
 function enemyStepUpdate(store: CombatStore, rng: Rng, storage?: StorageLike): Partial<CombatStore> {
   const state = store.battle;
   if (state === null || !needsEnemyStep(state, false)) return {};
-  const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
+  const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy);
   const next = playStepOnce({ state, strategyFor, rng });
   if (isDefeat(next)) restoreHeroHp(storage);
   return turnChangeUpdate(store, scopedBattleUpdate(store, next));

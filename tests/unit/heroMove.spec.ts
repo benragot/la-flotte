@@ -45,7 +45,7 @@ function makeState(combatants: CombatantLike[], extra: Partial<BattleState> = {}
 }
 
 function attackSpec(overrides: Partial<AttackSpec> = {}): AttackSpec {
-  return { base: 10, element: "earth", baseCrit: 0, apCost: 3, ...overrides };
+  return { base: 10, element: "earth", apCost: 3, ...overrides };
 }
 
 function countingRng(value: number): { rng: Rng; calls: () => number } {

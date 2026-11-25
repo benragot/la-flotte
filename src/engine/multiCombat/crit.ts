@@ -1,8 +1,5 @@
-import { computeCritRate } from "../combat";
+import { computeCritDenominator } from "../combat";
 import type { AttackSpec, CombatantLike, Rng } from "./types";
-
-const CRIT_ALWAYS = 100;
-const PERCENT = 100;
 
 export interface CriticalInput {
   baseCrit: number;
@@ -10,22 +7,14 @@ export interface CriticalInput {
   agility: number;
 }
 
-function critInput(input: CriticalInput): { baseCrit: number; bonusCrit: number; agility: number } {
-  return { baseCrit: input.baseCrit, bonusCrit: input.bonusCrit ?? 0, agility: input.agility };
-}
-
-/** Taux de coup critique ≥ 100 % : coup critique garanti, sans jet. */
-export function isCritical(input: CriticalInput): boolean {
-  return computeCritRate(critInput(input)) >= CRIT_ALWAYS;
-}
-
 /**
- * Critique garanti au-delà de 100 %, sinon un tirage unique
- * `rng() × 100 < taux`. Aucun `rng` n'est consommé quand le critique est
- * garanti, pour garder les séquences de jets déterministes.
+ * Tirage **exact** du coup critique 1.29 : `rng() * X < 1`, soit une chance de
+ * `1/X`. `rng() = 0` passe toujours, `rng() >= 1/X` échoue ; `X = 2` plafonne
+ * donc à une chance sur deux. Sans `critRate` déclaré, aucun CC et **aucun dé
+ * consommé** : pas de donnée = pas de coup critique.
  */
 export function rollsCritical(attacker: CombatantLike, attack: AttackSpec, rng: Rng): boolean {
-  const input = { baseCrit: attack.baseCrit, bonusCrit: attack.bonusCrit ?? 0, agility: attacker.stats.agility };
-  if (isCritical(input)) return true;
-  return rng() * PERCENT < computeCritRate(critInput(input));
+  if (attack.critRate === undefined) return false;
+  const input = { baseCrit: attack.critRate, bonusCrit: attack.bonusCrit ?? 0, agility: attacker.stats.agility };
+  return rng() * computeCritDenominator(input) < 1;
 }

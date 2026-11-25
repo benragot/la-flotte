@@ -28,17 +28,16 @@ export interface DamagePreviewInput {
   pushCells?: number;
   /** La cible est un joueur : plafonne sa résistance % à 50 (règle 1.29). */
   isTargetPlayer?: boolean;
-  /** Critère de CC du sort, purement transmis à `computeCritRate`. */
+  /** Dénominateur de CC du sort (`1/X`), purement transmis au moteur. */
   baseCrit?: number;
+  /** `+CC` d'équipement, retiré du dénominateur avant l'Agilité. */
   bonusCrit?: number;
-  /** Bonus de dégâts (%) du coup critique, appliqué via `percentDmg`. */
-  critDamagePct?: number;
 }
 
 export interface DamagePreview {
   min: number;
   max: number;
-  /** Dégâts avec un jet maximal et le bonus de critique éventuel. */
+  /** Dégâts d'un coup critique : le **jet maximum**, sans multiplicateur. */
   critical: number;
   /** Dégâts de collision, 0 sans poussée. */
   pushDamage: number;
@@ -100,7 +99,7 @@ function damageRange(input: DamagePreviewInput): { min: number; max: number; cri
   return {
     min: rollDamage(input, min, 0),
     max: rollDamage(input, max, 0),
-    critical: rollDamage(input, max, input.critDamagePct ?? 0),
+    critical: rollDamage(input, max, 0),
   };
 }
 
@@ -111,21 +110,18 @@ function pushDamageOf(input: DamagePreviewInput): number {
   return computePushbackDamage({ casterLevel, roll: BEST_PUSHBACK_ROLL, remainingCells: cells, isSecondaryTarget: false });
 }
 
+/** `0` sans dénominateur déclaré : en 1.29, pas de donnée = pas de CC. */
 function critRateOf(input: DamagePreviewInput): number {
-  return computeCritRate({
-    baseCrit: input.baseCrit ?? 0,
-    bonusCrit: input.bonusCrit ?? 0,
-    agility: input.attackerStats.agility,
-  });
+  if (input.baseCrit === undefined) return 0;
+  const agility = input.attackerStats.agility;
+  return computeCritRate({ baseCrit: input.baseCrit, bonusCrit: input.bonusCrit ?? 0, agility });
 }
 
 /**
  * Fourchette de dégâts : délègue intégralement à `computeDamage`, `computeCritRate`
- * et `computePushbackDamage` (aucune formule recopiée).
- *
- * `critDamagePct` est une **convention maison** héritée de
- * `multiCombat/strike.ts`, **hors 1.29** (où le CC prend le jet max).
- * Défaut 0 = comportement 1.29. Dette à figer dans une fiche Spec (cible 5B).
+ * et `computePushbackDamage` (aucune formule recopiée). Le CC affiché est le
+ * **jet maximum** de la fourchette, comme le moteur (SPELL-03) ; `critRate` est
+ * un dérivé d'affichage `100 / X`, jamais une seconde formule.
  */
 export function buildDamagePreview(input: DamagePreviewInput): DamagePreview {
   return { ...damageRange(input), pushDamage: pushDamageOf(input), critRate: critRateOf(input) };

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { computeTackleEscapePercent, computeCritRate } from "../../src/engine/combat";
+import { computeTackleEscapePercent, computeCritDenominator } from "../../src/engine/combat";
 import type { CombatResistances } from "../../src/engine/combatLoop";
 import { enterDungeon } from "../../src/engine/dungeon";
 import { healBetweenRooms } from "../../src/engine/dungeon/heal";
@@ -12,7 +12,6 @@ import {
   adjacentEnemies,
   advanceTurn,
   buildTimeline,
-  isCritical,
   moveHero,
   resolveAttack,
   tackleCheck,
@@ -75,7 +74,7 @@ function stateOf(combatants: CombatantLike[], map = OPEN_MAP): BattleState {
 }
 
 function attackSpec(overrides: Partial<AttackSpec> = {}): AttackSpec {
-  return { base: 10, element: "earth", baseCrit: 0, apCost: 3, ...overrides };
+  return { base: 10, element: "earth", apCost: 3, ...overrides };
 }
 
 function countingRng(value: number): { rng: Rng; calls: () => number } {
@@ -198,32 +197,32 @@ describe("PARITÉ 1vN — tacle : effet sur la marche", () => {
 });
 
 describe("PARITÉ 1vN — le coup critique existe", () => {
-  it("20 de base + 100 d'Agilité = 12 % ; le seuil garanti est à 100 %", () => {
-    // PARITÉ: formule de CC 1.29 (base + Agilité) et seuil garanti à 100 %.
-    expect(computeCritRate({ baseCrit: 20, bonusCrit: 0, agility: 100 })).toBe(12);
-    expect(isCritical({ baseCrit: 157, agility: 100 })).toBe(false);
-    expect(isCritical({ baseCrit: 158, agility: 100 })).toBe(true);
+  it("20 de base + 100 d'Agilité ⇒ X = 12 ; 158 vaut 1/100, jamais garanti", () => {
+    // PARITÉ: SPELL-03, la sortie est un dénominateur 1/X ; 158 = 1/100 pas garanti.
+    expect(computeCritDenominator({ baseCrit: 20, bonusCrit: 0, agility: 100 })).toBe(12);
+    expect(computeCritDenominator({ baseCrit: 157, bonusCrit: 0, agility: 100 })).toBe(99);
+    expect(computeCritDenominator({ baseCrit: 158, bonusCrit: 0, agility: 100 })).toBe(100);
   });
 
-  it("critique garanti (200) : aucun jet consommé, +50 % Dégâts (200 → 185 PV)", () => {
-    // PARITÉ: critique garanti sans jet, `critDamagePct` appliqué avant résistance.
+  it("un CC applique le jet max (12) sans multiplicateur : 200 → 188 PV", () => {
+    // PARITÉ: SPELL-03, le CC substitue le jet (8-12 ⇒ 12), il n'additionne rien.
     const { player, enemy } = duel();
     const counter = countingRng(0);
-    const attack = attackSpec({ baseCrit: 200, critDamagePct: 50 });
+    const attack = attackSpec({ base: 8, damage: { min: 8, max: 12 }, critRate: 2 });
     const next = resolveAttack({ state: stateOf([player, enemy]), attackerId: "p1", targetId: "e1", attack, rng: counter.rng });
-    expect(counter.calls()).toBe(0);
-    expect(next.combatants[1]?.hp).toBe(185);
+    expect(counter.calls()).toBe(1);
+    expect(next.combatants[1]?.hp).toBe(188);
     expect(next.combatants[0]?.ap).toBe(3);
   });
 
-  it("critique probabiliste (Agilité 0 ⇒ 20 %) : 5 % critique, 50 % non (185 vs 190 PV)", () => {
-    // PARITÉ: tirage unique `rng()×100 < taux`, frontière stricte.
-    const attack = attackSpec({ baseCrit: 20, critDamagePct: 50 });
+  it("tirage exact 1/2 : 0,49 critique (188 PV), 0,50 non (190 PV)", () => {
+    // PARITÉ: SPELL-03, `rng × X < 1` : 0,50 × 2 = 1 n'est pas strictement inférieur.
+    const attack = attackSpec({ critRate: 2, critMax: { min: 12, max: 12 } });
     const critState = duel();
     const normalState = duel();
-    const crit = resolveAttack({ state: stateOf([critState.player, critState.enemy]), attackerId: "p1", targetId: "e1", attack, rng: () => 0.05 });
+    const crit = resolveAttack({ state: stateOf([critState.player, critState.enemy]), attackerId: "p1", targetId: "e1", attack, rng: () => 0.49 });
     const normal = resolveAttack({ state: stateOf([normalState.player, normalState.enemy]), attackerId: "p1", targetId: "e1", attack, rng: () => 0.5 });
-    expect(crit.combatants[1]?.hp).toBe(185);
+    expect(crit.combatants[1]?.hp).toBe(188);
     expect(normal.combatants[1]?.hp).toBe(190);
   });
 });
