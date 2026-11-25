@@ -1,44 +1,108 @@
 # PLAN — ordre d'attaque
 
-> Suite de `AUDIT/ISSUES.md` : 77 constats, 5 vagues. La règle est la même pour
-> chaque ligne, sans exception.
+> Suite de `AUDIT/ISSUES.md` : **77 constats initiaux + 3 écarts découverts en
+> cours de route**. La règle est la même pour chaque ligne, sans exception.
 >
-> **État au 2026-11-25** : **14 constats faits** — **vague 0 complète** (3 sur 3 :
-> COMBAT-01, COMBAT-02, COMBAT-04), **vague 1 à 10 sur 11** (GRID-01,
-> BALANCE-01, COMBAT-08, RENDER-02, UI-03, UI-02, GRID-02, RENDER-03,
-> RENDER-06, DATA-03) et **vague 2 à 1 sur 6** (ITEM-01), plus **COMBAT-03
-> re-cadré** vers MONSTER-01. Restent **62 constats** sur 77. Détail des hashes
-> dans `AUDIT/ISSUES.md` → `## Suivi des merges`.
+> **État au 2026-11-25, après les PR #154 à #167** : **21 constats clos**, **1
+> re-cadré** (COMBAT-03 → MONSTER-01), **55 restants sur 77** ; les **3 écarts**
+> (ARCH-02, ARCH-03, UI-16) sont ouverts. Total suivi : **80 constats, 58
+> ouverts** (P0 : 0, P1 : 14, P2 : 44). Détail des hashes dans
+> `AUDIT/ISSUES.md` → `## Suivi des merges`, méthode de comptage dans
+> `AUDIT/ISSUES.md` → `## Comptage`.
 
 ## Reste en tête
 
-Ce qui décide de la prochaine PR, dans cet ordre :
+Trois PR peuvent partir **en parallèle** parce qu'elles ne partagent aucun
+fichier. C'est le seul mode autorisé : la nuit du 24/11 a produit des collisions
+de worktree et de merge entre agents qui touchaient la même zone.
 
-1. **Sorts honnêtes** — UI-01 (plus de clic mort) : un sort jouable doit annoncer
-   sa règle ; puis SPELL-03 (CC réel) et SPELL-02 (moteur d'effets).
-2. **Aperçu du chemin** — GRID-03 (et INPUT-01 derrière) : `buildPathPreview` n'a
-   toujours aucun appelant, le clic-to-move reste à l'aveugle.
-3. **Donjon et kamas** — DATA-01 + DATA-02 ensemble : une salle nettoyée doit
-   créditer XP, butin et kamas, sinon la boucle de progression reste morte
-   (COMBAT-09, l'agrégation d'XP de groupe, se traite avec DATA-01).
-4. **Ordre d'initiative** — COMBAT-05 : afficher la timeline débloque toute
-   lecture du tour et l'anticipation côté joueur.
-5. **Stats de monstres** — MONSTER-01 : c'est là que vit le vrai écart
-   d'initiative (COMBAT-03 re-cadré), pas dans une table de stats de classe.
+1. **UI-05 — le panneau de salle sort de l'arène** (voie B, `src/ui/**`). Un
+   combattant caché et des cases non cliquables bloquent le jeu lui-même : c'est
+   le premier correctif à impact immédiat.
+2. **RENDER-01 — décor intercalé** (voie A, `src/renderer/**`). Le héros passe
+   derrière les barils : la lecture de la scène est fausse avant même les sorts.
+3. **SPELL-03 — critiques réels** (voie C, moteur). Le taux affiché ment
+   aujourd'hui ; ITEM-01 est livré, donc `computeDamage` est prêt et la formule
+   ne sera pas dupliquée.
 
-Hors file de cette nuit, mais **débloqué** : **ARCH-01** (unification des deux
-moteurs `combatLoop` 1v1 et `multiCombat` 1vN) est **planifié** par **DEC-12**
-(`docs/design/specs/combat-unification.md`, 4 étapes). Tant que l'étape 4 n'est
-pas livrée, chaque formule corrigée reste appliquée **deux fois**. La divergence
-**« donjon ≠ extérieur »** (DATA-08, `hpScale` réduit les PV en salle) reste
-**ouverte** : aucune PR de la nuit ne l'a tranchée.
+Les trois chantiers suivants de chaque voie prennent le relais dès qu'une PR est
+mergée, **dans l'ordre du tableau de sa voie**. Aucune voie n'attend les autres.
 
-Le reste (vagues 2 à 4, puis les 45 `P2`) suit l'ordre des sections ci-dessous.
+## Une seule voix par zone
+
+| Voie | Zone exclusive | Interdiction |
+| --- | --- | --- |
+| **A — rendu** | `src/renderer/**` uniquement | Ne touche ni `src/ui/**`, ni `src/engine/**`. |
+| **B — UI** | `src/ui/**` uniquement | Ne touche ni `src/renderer/**`, ni `src/engine/**`. |
+| **C — moteur** | `src/engine/**`, `src/store/**`, `src/schemas/**`, `data/**` | Ne touche ni `src/renderer/**`, ni `src/ui/**`. |
+
+**Règle de collision** : un chantier qui a besoin de deux zones est **coupé en
+deux PR**. La seconde attend que la première soit mergée et que la zone soit
+libre — c'est écrit dans la ligne du chantier (« puis UI » / « puis rendu »).
+Deux agents ne prennent jamais la même voie en même temps, même pour deux
+constats différents.
+
+Rappel DEC-12 : **aucune nouvelle règle de combat dans
+`src/engine/combatLoop/`**. Toute règle s'implémente dans
+`src/engine/multiCombat/` ; l'ancien moteur ne reçoit que des correctifs de
+parité déjà planifiés.
+
+## Voie A — `src/renderer/**`
+
+Ordre strict : chaque ligne attend la précédente (mêmes fichiers de scène).
+
+| Ordre | ID | Effort | Fichiers touchés | Pourquoi maintenant |
+| --- | --- | --- | --- | --- |
+| A1 | RENDER-01 | M | `sceneLayerOrder.ts`, `sceneLayers.ts`, `scene.ts`, `decorPaint.ts`, `mapDecor.ts` ; tests `sceneStageOrder.spec.ts`, `rendererScene.spec.ts` | Tri `x+y` commun acteurs + décor. RENDER-03 (murs lisibles) est livré, le prérequis tient. |
+| A2 | RENDER-04 | M | `tileStyle.ts`, `tilePaint.ts`, `scene.ts`, `combatSceneModel.ts`, `battleSceneModel.ts` | Remplacer la nappe opaque de portée par un contour alpha 0,18 teinté par élément. |
+| A3 | INPUT-01 | M | `pointer.ts`, `useCombatPointer.ts`, `entityHover.ts`, `sprites/EntitySprite.ts` ; test `pointerPicking.spec.ts` | Hit-test des jetons **avant** `isoToGrid` : sans lui, l'ennemi n'est pas attaquable à la souris. |
+| A4 | RENDER-05 | M | `battleSceneModel.ts`, `tokens.ts`, `sceneLayers.ts` ; test `battleScene.spec.ts` | `lastAction` typé + animations `attack`/`hit` en salle ; le modèle est déjà le même que le 1v1. |
+| A5 | GRID-03 (reste) | S | `battleSceneModel.ts`, `pathPreview.ts` ; **puis** `src/ui/components/battle/BattlePanel.tsx` | Reste de GRID-03 : les salles renvoient encore `path: []`. Couper en deux PR, la seconde après libération de la voie B. |
+
+## Voie B — `src/ui/**`
+
+Ordre strict : UI-05 et ARCH-02 partagent `App.tsx` et `BattlePanel.tsx`, donc
+jamais en parallèle.
+
+| Ordre | ID | Effort | Fichiers touchés | Pourquoi maintenant |
+| --- | --- | --- | --- | --- |
+| B1 | UI-05 | M | `App.tsx`, `components/battle/battleTheme.ts`, `components/battle/BattlePanel.tsx` ; test `combatLayout.spec.ts` | Réserver une colonne dans le flux : le panneau ne recouvre plus l'arène ni ses cases. |
+| B2 | ARCH-02 | M | `App.tsx`, `dockGate.ts`, `components/battle/BattlePanel.tsx`, `EndOverlay.tsx`, `RewardsSummary.tsx`, `LevelUpLine.tsx`, `VitalMeter.tsx` ; tests `battlePanel.spec.ts`, `dockContent.spec.ts` | Étape 3b-2 de DEC-12 : porter l'écran de fin dans le shell unifié ; débloque l'étape 4. |
+| B3 | COMBAT-05 | M | `components/battle/BattlePanel.tsx`, `components/Timeline.tsx`, `components/TimelineCard.tsx` ; **puis** `src/renderer/battleViewModel.ts` | Afficher l'ordre d'initiative purgé des morts (COMBAT-04 livré). Seconde PR sur la voie A une fois celle-ci libre. |
+
+## Voie C — moteur (`src/engine/**`, `src/store/**`, `data/**`)
+
+Ordre par impact/effort (DEC-01) : les `M` d'abord, les `L` ensuite.
+
+| Ordre | ID | Effort | Fichiers touchés | Pourquoi maintenant |
+| --- | --- | --- | --- | --- |
+| C1 | SPELL-03 | M | `multiCombat/crit.ts`, `multiCombat/strike.ts`, `schemas/spellSchema.ts`, `data/spells.yaml`, `store/battleSelectors.ts` | ITEM-01 livré : `critRate`/`critDamage` en data et jet max, sans dupliquer `computeDamage`. |
+| C2 | SPELL-04 | M | `store/useCombatStore.ts`, `store/battleSelectors.ts`, `multiCombat/attack.ts`, `multiCombat/spellUse.ts` ; puis UI `components/battle/CombatantCard.tsx` | Choix du sort + `targetCell` en 1vN, téléportation incluse. Le volet UI est une seconde PR (voie B). |
+| C3 | COMBAT-07 | M | `multiCombat/enemies.ts`, `store/battleSelectors.ts`, `schemas/monsterSchema.ts`, `data/monsters.yaml` | Brancher `archetype`/`preferredDistance` : les `ai:` des monstres ne sont toujours pas lus. |
+| C4 | DATA-02 | M | `store/useGameStore.ts`, `engine/economy/*`, `engine/inventory/*`, `data/items.yaml` ; puis UI `components/inventory/*` | Le crédit est livré (#157) ; il reste l'action de vente. Le volet UI est une seconde PR (voie B). |
+| C5 | SPELL-02 | L | `multiCombat/` (nouveau moteur d'effets), `schemas/spellSchema.ts`, `data/spells.yaml`, `store/battleSelectors.ts`, `store/useCombatStore.ts` | 18 sorts utilitaires inertes (soin, buff, debuff, piège, glyphe). Débloque COMBAT-06 et ferme UI-16. |
+| C6 | SPELL-01 | L | `multiCombat/range.ts`, nouveau `multiCombat/zone.ts`, `schemas/spellSchema.ts`, `data/spells.yaml` | `zone {shape,size}` + `expandZone` pur : croix, cercle, ligne. Indépendant de SPELL-02. |
+| C7 | COMBAT-06 | L | `multiCombat/turn.ts`, `multiCombat/types.ts`, `schemas/spellSchema.ts`, `data/spells.yaml` | Hook `endTurn` pur (poison, régénération, durées) : après SPELL-01/02, sans quoi un tick n'a rien à décrémenter. |
+
+## Vagues déjà livrées
+
+| Vague | Périmètre | État |
+| --- | --- | --- |
+| 0 — P0 | COMBAT-01, COMBAT-02, COMBAT-04 | ✅ 3 sur 3 |
+| 1 — P1 courts | GRID-01, BALANCE-01, COMBAT-08, RENDER-02, UI-03, UI-02, GRID-02, RENDER-03, RENDER-06, DATA-03 | ✅ 10 sur 11 |
+| 1 — re-cadré | COMBAT-03 → MONSTER-01 | ✅ re-cadré (#148, `89d9886`) |
+| 2 — P1 moyens | ITEM-01 | ✅ fait (#149, `9c7dd8a`) |
+| 2 — P1 moyens | UI-01, UI-04, GRID-03, DATA-01 | ✅ clos par #156, #165, #166, #157 |
+| 2 — P2 | MONSTER-01, COMBAT-09, SPELL-09 | ✅ clos par #163 + #167, #157, #156 |
+
+Total clos : **21** — dont **7** par les PR #154 à #167 (UI-01, UI-04,
+GRID-03, DATA-01, COMBAT-09, MONSTER-01, SPELL-09).
 
 ## Règle d'exécution
 
-1. **Un fix = une micro-PR = une branche = un worktree** (`fix/<slug>`), jamais
-   deux constats dans la même PR sauf dépendance explicite ci-dessous.
+1. **Un fix = une micro-PR = une branche = un worktree** (`fix/<slug>` ou
+   `feat/<slug>`), jamais deux constats dans la même PR sauf dépendance
+   explicite ci-dessous.
 2. **Test RED d'abord** : le test décrit le comportement 1.29 attendu, il échoue
    pour la bonne raison.
 3. Implémentation minimale, fonctions ≤ 10 lignes, aucune dérogation de lint.
@@ -46,103 +110,44 @@ Le reste (vagues 2 à 4, puis les 45 `P2`) suit l'ordre des sections ci-dessous.
 5. `npm run check` vert avant commit, commit `fix(<scope>): 🐛 …`.
 6. PR ouverte, auditée par `qa-reviewer`, mergée par `pr-merger` — jamais en
    direct sur `main`.
+7. **Une seule PR active par voie** : les agents qui partagent une zone se
+   succèdent, ils ne se chevauchent pas.
 
-## Vague 0 — P0 (débloquer le combat) — ✅ faite
+## P2 — après les P1
 
-Ordre imposé, la zone `combat` est la même et COMBAT-02 dépend du chemin ouvert
-par COMBAT-01. Les trois constats sont mergés.
+Les **44 constats P2 ouverts** (42 sur les 77 initiaux + ARCH-03 + UI-16) se
+traitent par lots de même domaine, dans l'ordre : `GRID-05`, `GRID-04`,
+`GRID-06/07/08/09` → `UI-06…UI-15` → `RENDER-07…RENDER-15` → `ITEM-02…ITEM-07`
+→ `DATA-04…DATA-09` → `SPELL-05…SPELL-08` → `ARCH-03` → `TEST-01`.
 
-| Ordre | ID | Effort | Pourquoi d'abord | Statut |
-| --- | --- | --- | --- | --- |
-| 1 | COMBAT-01 | S | Le 1v1 ne calcule pas l'initiative : tout le reste du combat 1v1 se joue sur un ordre faux. | ✅ fait (#139, `fff5d3d`) |
-| 2 | COMBAT-02 | S | Panneau figé quand un monstre ouvre la salle : bloque toute observation du 1vN. | ✅ fait (#136, `8797ac5`) |
-| 3 | COMBAT-04 | S | Les morts restent dans `order` : filtre nécessaire avant d'afficher quoi que ce soit. | ✅ fait (#135, `1512b56`) |
-
-## Vague 1 — P1 courts, fort impact — 10 faits sur 11
-
-Correctifs qui changent immédiatement la lisibilité du jeu. Tous `S` sauf
-COMBAT-03 (`M`) — **re-cadré** vers MONSTER-01 : il n'y a pas de stats de classe
-à ajouter, l'écart d'initiative est une donnée de monstre.
-
-| ID | Effort | Note | Statut |
-| --- | --- | --- | --- |
-| COMBAT-03 | M | **Re-cadré** : Dofus 1.29 n'a aucune stat de base par classe, l'initiative niveau 1 vaut 0. Le seul vrai écart du périmètre (`baseHp` 50 → 55) est livré par #148 ; la suite vit dans MONSTER-01. | re-cadré (#148, `89d9886` → MONSTER-01) |
-| GRID-01 | S | Portée Chebyshev, les 8 voisins en test. Débloque le corps-à-corps diagonal. | ✅ fait (#141, `62ecdda`) |
-| BALANCE-01 | S | **Suite de GRID-01** : le donjon niveau 16 perdait la salle 4 ; soin entre salles 0,50→0,75 (levier autorisé par DEC-03), sans nerf de dégâts ni `hpScale`. | ✅ fait (#142, `5ae59cf`) |
-| GRID-02 | S | Règle des coins en LoS ; corriger `tests/unit/grid.spec.ts:214-217` **en même temps**. | ✅ fait (#145, `ab86aaf`) |
-| COMBAT-08 | S | Filtrer l'IA 1v1 par la portée réelle. | ✅ fait (#140, `4ed327c`) |
-| DATA-03 | S | Table d'écart de niveau en données, `levelGapFactor` cesse d'être un `1`. | ✅ fait (#152, `b873cc2`) |
-| UI-02 | S | Désactiver « Attaquer » à 0 PA / en recharge. | ✅ fait (#146, `f62edf4`) |
-| UI-03 | S | Espace ne termine plus le tour si un bouton a le focus. | ✅ fait (#144, `5ccacd6`) |
-| RENDER-02 | S | `resolution: devicePixelRatio` + `autoDensity`. | ✅ fait (#138, `10d516b`) |
-| RENDER-03 | S | Deuxième face des murs + base remplie. | ✅ fait (#147, `a665ea5`) |
-| RENDER-06 | S | Nom des combattants sur les jetons. | ✅ fait (#151, `54da359`) |
-
-
-## Vague 2 — P1 moyens, « sente Dofus »
-
-Ce qui fait qu'un joueur de Retro reconnaît l'interface.
-
-| ID | Effort | Note |
-| --- | --- | --- |
-| GRID-03 | M | Aperçu de chemin + coût PM au survol (`buildPathPreview` branché sur `view.path`). |
-| INPUT-01 | M | Hit-test des jetons **avant** `isoToGrid`. |
-| RENDER-01 | M | Tri `x+y` commun acteurs + décor (dépend de RENDER-03 pour un mur lisible). |
-| UI-01 | M | Sorts `kind: other` : badge « à venir », état recharge, plus de clic mort. |
-| SPELL-03 | M | CC réel : `critRate`/`critDamage` en data, jet max. **Après ITEM-01** (même formule). |
-| ITEM-01 | M | Projeter res/%dmg dans `CombatantState` — prérequis de SPELL-03 et SPELL-08. ✅ fait (#149, `9c7dd8a`). |
-
-## Vague 3 — P1 moyens, contenu et structure
-
-| ID | Effort | Note |
-| --- | --- | --- |
-| DATA-01 | M | Récompenses par salle — **avec DATA-02** (même point de crédit). |
-| DATA-02 | M | Kamas crédités et dépensés — **avec DATA-01**. |
-| SPELL-04 | M | Choix du sort + `targetCell` en 1vN (téléportation incluse). |
-| COMBAT-05 | M | Afficher l'ordre d'initiative — **après COMBAT-04** (ordre purgé des morts). |
-| COMBAT-07 | M | Brancher `ai:` des monstres (`archetype`, `preferredDistance`). |
-| RENDER-04 | M | Contour de portée teinté alpha 0,18 au lieu de la nappe opaque. |
-| RENDER-05 | M | `lastAction` typé + animations `attack`/`hit` en salle. |
-| UI-04 | M | Cartes de classe : 3 sorts + soft caps (dépend de COMBAT-03 pour des stats réelles). |
-| UI-05 | M | Panneau de salle dans le flux, plus par-dessus l'arène. |
-
-## Vague 4 — P1 longs, nouveaux sous-systèmes
-
-À découper en plusieurs PR internes, mais une seule branche par morceau livrable.
-
-| ID | Effort | Note |
-| --- | --- | --- |
-| SPELL-01 | L | `zone {shape,size}` au schéma + `expandZone` pur ; débloque croix/cercle/ligne. |
-| SPELL-02 | L | Moteur d'effets v1 (heal/buff) par table, 18 sorts inertes rebranchés. |
-| COMBAT-06 | L | Hook `endTurn` pur : poison, régénération, durées — **après SPELL-01/02** (sans zone ni effet, un tick n'a rien à décrémenter). |
-
-## P2 — après les vagues P1
-
-Les 45 constats `P2` restent ouverts et se traitent par lots de même domaine,
-dans l'ordre : `MONSTER-01`, `COMBAT-09` → `GRID-05`, `GRID-04`, `GRID-06/07/08/09`
-→ `UI-06…UI-15` → `RENDER-07…RENDER-15` → `ITEM-02…ITEM-07` →
-`DATA-04…DATA-09` → `SPELL-05…SPELL-09` → `TEST-01`. Aucun n'est un prérequis
-d'une vague P1.
+`UI-06` est le journal sans auto-scroll ; **UI-16** (sorts `requiresState` non
+gérés) se ferme avec SPELL-02, pas dans un lot UI autonome. Aucun P2 n'est un
+prérequis d'une vague P1, sauf ARCH-03 qui clôt DEC-12 après l'étape 3b-2.
 
 ## Dépendances à respecter
 
 | Contrainte | Raison |
 | --- | --- |
-| **COMBAT-04 avant COMBAT-05** | Afficher un `order` qui contient encore les morts produirait une timeline fausse. |
-| **RENDER-02 avant RENDER-09** | Sans DPR réglé, aucun réglage d'échelle de sprite n'est mesurable. |
-| **ITEM-01 avant SPELL-03** | Critiques et résistances partagent `computeDamage` ; corriger l'un sans l'autre duplique la formule. |
-| **ITEM-01 avant SPELL-08** | La poussée doit passer par la même formule de dégâts. |
-| **DATA-01 et DATA-02 ensemble** | Même point de crédit en fin de salle : deux PR successives casseraient la comptabilité. |
-| **COMBAT-01 avant MONSTER-01** | Le calcul d'initiative doit exister avant d'aligner des données de monstres dessus (COMBAT-03 re-cadré : l'écart vient des monstres, jamais des classes). |
-| **RENDER-03 avant RENDER-01** | Un décor intercalé avec des murs à une face reste illisible. |
-| **GRID-01 avant BALANCE-01** | La portée Chebyshev change l'atteignabilité en salle : le soin entre salles (BALANCE-01) se recalibre **après** elle, jamais avant. |
+| **COMBAT-04 avant COMBAT-05** | Afficher un `order` qui contient encore les morts produirait une timeline fausse. (COMBAT-04 livré.) |
+| **RENDER-02 avant RENDER-09** | Sans DPR réglé, aucun réglage d'échelle de sprite n'est mesurable. (RENDER-02 livré.) |
+| **ITEM-01 avant SPELL-03** | Critiques et résistances partagent `computeDamage` ; corriger l'un sans l'autre duplique la formule. (ITEM-01 livré.) |
+| **ITEM-01 avant SPELL-08** | La poussée doit passer par la même formule de dégâts. (ITEM-01 livré.) |
+| **SPELL-02 avant COMBAT-06** | Un tick de durée n'a rien à décrémenter tant que les effets et les états n'existent pas. |
+| **SPELL-01 avant COMBAT-06** | Les glyphes/pièges sont des zones : sans `zone`, pas de tick de zone. |
+| **UI-05 avant ARCH-02** | Les deux touchent `App.tsx` et `BattlePanel.tsx` ; poser l'écran de fin dans un panneau qui recouvre encore l'arène aggraverait le défaut. |
+| **SPELL-02 avec UI-16** | Retirer `hasMissingState` n'a de sens qu'une fois les états réellement appliqués. |
+| **ARCH-02 avant ARCH-03** | On ne supprime pas `combatLoop` avant que l'écran de fin unifié existe : un écran oublié perdrait ses récompenses. |
+| **RENDER-03 avant RENDER-01** | Un décor intercalé avec des murs à une face reste illisible. (RENDER-03 livré.) |
+| **GRID-01 avant BALANCE-01** | La portée Chebyshev change l'atteignabilité en salle : le soin entre salles se recalibre **après** elle. (Les deux sont livrés.) |
+| **DATA-01 avec COMBAT-09** | Même point de crédit en fin de salle. (Les deux sont livrés par #157.) |
 
 ## Points d'arrêt (arbitrage propriétaire)
 
-- **ARCH-01** (unification des deux moteurs) : **migration planifiée** par
-  **DEC-12** (`docs/design/specs/combat-unification.md`, 4 étapes). Tant que
-  l'étape 4 n'est pas livrée, chaque formule corrigée est appliquée **deux
-  fois** (`combatLoop` et `multiCombat`) et testée deux fois.
+- **ARCH-01 / DEC-12 — en cours** : étapes 1 (#158), 2 (#160), 3a (#162) et
+  3b-1 (#164) livrées. Restent **3b-2** (ARCH-02 : écran de fin unifié) et
+  **4** (ARCH-03 : suppression de `combatLoop`). Tant que l'étape 4 n'est pas
+  livrée, chaque formule corrigée est appliquée **deux fois** et testée deux
+  fois.
 - **DEC-10** : la diagonale reste à 2 PM ; ne pas « corriger » vers 1 PM.
-- **GRID-04** : le refus sec hors budget est une décision (`docs/design/PENDING.md:25-26`),
-  pas une préférence d'implémentation.
+- **GRID-04** : le refus sec hors budget est une décision
+  (`docs/design/PENDING.md:25-26`), pas une préférence d'implémentation.
