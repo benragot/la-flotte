@@ -91,6 +91,7 @@ describe("décor — formes dessinées, aucun asset", () => {
     layer: "below",
     center: { x: 160, y: 120 },
     scale: 1,
+    depth: 0,
   });
 
   it("dessine chaque type demandé avec au moins une forme", () => {

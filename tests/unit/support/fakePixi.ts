@@ -33,6 +33,8 @@ export const nodesOf: FakeNode[] = [];
 
 export class FakeNode {
   children: FakeNode[] = [];
+  /** PixiJS détruit réellement le nœud ; la doublure le trace pour l'anti-fantôme. */
+  destroyed = false;
   position = new FakePoint();
   scale = { x: 1, y: 1 };
   alpha = 1;
@@ -54,6 +56,7 @@ export class FakeNode {
   }
 
   destroy(): void {
+    this.destroyed = true;
     this.children = [];
   }
 }

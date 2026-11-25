@@ -4,7 +4,8 @@ import type { Position } from "../engine/grid";
 import { isApplicationAlive } from "./appLifecycle";
 import type { ViewModel } from "./combatSceneModel";
 import type { DecorView } from "./decor";
-import { drawDecor } from "./decorPaint";
+import { isGroundDecal } from "./decor";
+import { decorNode, drawDecor } from "./decorPaint";
 import { drawEntityHover, entityHover } from "./entityHover";
 import { FloatingTextLayer } from "./floatingTextLayer";
 import type { LabelBounds, TokenLabel } from "./labels";
@@ -24,7 +25,7 @@ import {
   viewportBounds,
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
-import type { ActorSyncInput } from "./sprites/actorStage";
+import type { ActorSyncInput, DepthProp } from "./sprites/actorStage";
 import type { SpriteSheetSpec } from "./sprites/types";
 import { cellCenters } from "./walkTrail";
 import { drawExitMarks } from "./exitPaint";
@@ -235,6 +236,17 @@ function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): Dec
   return decor.filter((view) => view.layer === layer);
 }
 
+/** Décals plats : posés au sol, ils ne masquent jamais un acteur. */
+function groundDecals(decor: readonly DecorView[]): DecorView[] {
+  return layerViews(decor, "below").filter((view) => isGroundDecal(view.type));
+}
+
+/** Objets occlusifs : un nœud par objet, trié avec les acteurs par `x + y`. */
+function decorProps(decor: readonly DecorView[]): DepthProp[] {
+  const occluding = layerViews(decor, "below").filter((view) => !isGroundDecal(view.type));
+  return occluding.map((view, order) => ({ depth: view.depth, order, node: decorNode(view) }));
+}
+
 /**
  * Sol, décor opaque puis grille de cases : les contours restent visibles même
  * au-dessus de l'épave. Soleils de sortie, surbrillances et chemin ferment la
@@ -243,7 +255,7 @@ function layerViews(decor: readonly DecorView[], layer: DecorView["layer"]): Dec
  */
 function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawGrid(layers.grid, view.scene.tiles);
-  drawDecor(layers.decor, layerViews(view.scene.decor, "below"));
+  drawDecor(layers.decor, groundDecals(view.scene.decor));
   drawOutlines(layers.grid, view.scene.outlines);
   drawExitMarks(layers.exitMarks, view.scene.exitMarks);
   drawHighlights(layers.highlights, view.scene.highlights);
@@ -315,7 +327,8 @@ function actorSyncInput(paint: ScenePaint): ActorSyncInput {
   const { app, view, input } = paint;
   const centers = cellCenters(view.scene.tiles);
   const onReady = (): void => renderScene(app, view, input);
-  return { tokens: view.tokens, onReady, centers, scene: sceneOf(view, input) };
+  const props = decorProps(view.scene.decor);
+  return { tokens: view.tokens, onReady, centers, scene: sceneOf(view, input), props };
 }
 
 /** Les nombres flottants arrivent du modèle tel quel : la couche ne recalcule rien. */

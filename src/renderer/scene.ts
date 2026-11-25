@@ -7,6 +7,7 @@ import type { ExitMark } from "./exitMarks";
 import { exitMarkViews } from "./exitMarks";
 import type { Diamond, IsoOrigin, PixelPoint } from "./gridProjection";
 import { gridDiamond, originScale } from "./gridProjection";
+import { depthOf } from "./depthOrder";
 import { mapDecorSpecs, mapExitSpecs } from "./mapDefinition";
 import type { Shape } from "./shapes";
 import type { NeighbourLand } from "./tileTexture";
@@ -96,19 +97,17 @@ export function cellKey(position: Position): string {
   return `${position.x}:${position.y}`;
 }
 
-/** Profondeur isométrique d'une case : c'est elle qui ordonne le rendu peintre. */
-export function depthOf(position: Position): number {
-  return position.x + position.y;
-}
+/** Profondeur isométrique d'une case : un seul axe pour tuiles, acteurs et décor. */
+export { depthOf };
 
-function depthOrder(a: Position, b: Position): number {
+function positionOrder(a: Position, b: Position): number {
   const delta = depthOf(a) - depthOf(b);
   return delta === 0 ? a.y - b.y : delta;
 }
 
 /** Ordre peintre : cases du haut de l'écran d'abord (`x + y` croissant). */
 export function painterOrder(positions: readonly Position[]): Position[] {
-  return [...positions].sort(depthOrder);
+  return [...positions].sort(positionOrder);
 }
 
 function neighbourCell(map: AsciiMap, position: Position, delta: NeighbourDelta): CellType | undefined {
@@ -178,17 +177,14 @@ function isTileView(view: TileView | null): view is TileView {
   return view !== null;
 }
 
-function decorDepth(spec: DecorSpec): number {
-  return spec.x + spec.y;
-}
-
 function decorView(spec: DecorSpec, origin: IsoOrigin): DecorView {
   const diamond = gridDiamond({ x: spec.x, y: spec.y, origin });
-  return { type: spec.type, layer: spec.layer, center: { x: diamond.cx, y: diamond.cy }, scale: originScale(origin) };
+  const center = { x: diamond.cx, y: diamond.cy };
+  return { type: spec.type, layer: spec.layer, center, scale: originScale(origin), depth: depthOf(spec) };
 }
 
 function decorViews(specs: readonly DecorSpec[], origin: IsoOrigin): DecorView[] {
-  return [...specs].sort((a, b) => decorDepth(a) - decorDepth(b)).map((spec) => decorView(spec, origin));
+  return [...specs].sort((a, b) => depthOf(a) - depthOf(b)).map((spec) => decorView(spec, origin));
 }
 
 function pontoonCells(specs: readonly DecorSpec[]): ReadonlySet<string> {

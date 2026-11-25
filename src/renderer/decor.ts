@@ -12,6 +12,8 @@ export interface DecorView {
   layer: DecorLayer;
   center: PixelPoint;
   scale: number;
+  /** Profondeur de grille `x + y` : le même axe que les acteurs et les tuiles. */
+  depth: number;
 }
 
 interface Frame {
@@ -172,6 +174,14 @@ const BUILDERS: Record<DecorType, (frame: Frame) => Shape[]> = {
   debris: debrisShapes,
   ponton: emptyShapes,
 };
+
+/** Décor plat posé au sol : il ne masque jamais un acteur, il reste dans la couche de sol. */
+const GROUND_DECALS: ReadonlySet<DecorType> = new Set(["ponton", "algue", "debris", "cordages"]);
+
+/** `true` pour un objet qui ne doit pas entrer dans le tri de profondeur des acteurs. */
+export function isGroundDecal(type: DecorType): boolean {
+  return GROUND_DECALS.has(type);
+}
 
 /** Formes procédurales d'un objet de décor, à l'échelle de la caméra. */
 export function decorShapes(view: DecorView): Shape[] {
