@@ -62,6 +62,11 @@ export interface CombatRewards {
   drops: string[];
   /** Kamas gagnés : renseigné par une salle de donjon, absent en 1v1 (DATA-02). */
   kamas?: number;
+  /**
+   * Niveau du héros **avant** le crédit. Renseigné par le store au moment où il
+   * crédite, pour l'écran de fin unifié : aucune formule ne lit ce champ.
+   */
+  levelBefore?: number;
 }
 
 export interface CombatState {

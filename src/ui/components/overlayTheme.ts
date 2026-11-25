@@ -75,11 +75,13 @@ export const LAYER_SCRIM = `${LAYER_BASE} fixed z-40`;
 export const LAYER_LOCAL = `${LAYER_BASE} absolute z-20`;
 
 /**
- * Voile de la fin de combat : plein écran (l'arène n'est plus jouable) mais
- * **sous** la barre d'accès (`z-30`) et sous les fenêtres (`z-40`), pour que
- * « Nouvelle partie » reste atteignable après une défaite.
+ * Voile de la fin de combat : plein écran (l'arène n'est plus jouable), monté
+ * **après** le panneau de salle (`z-20` lui aussi, l'ordre du DOM tranche), donc
+ * au-dessus de lui — et toujours **sous** la barre d'accès (`z-30`) et sous les
+ * fenêtres (`z-40`), pour que « Nouvelle partie » reste atteignable après une
+ * défaite.
  */
-export const LAYER_END = `${LAYER_BASE} fixed z-10`;
+export const LAYER_END = `${LAYER_BASE} fixed z-20`;
 
 /**
  * Voile d'une boîte de dialogue montée **dans** la barre d'accès (1 px de haut) :

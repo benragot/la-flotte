@@ -273,6 +273,16 @@ export function turnSide(state: BattleState | null): Side | null {
   return activeCombatant(state)?.side ?? null;
 }
 
+/** Verdict de fin de salle : la mort du héros prime sur l'annihilation mutuelle. */
+export type BattleOutcome = "victory" | "defeat";
+
+export function battleOutcome(state: BattleState | null): BattleOutcome | null {
+  if (state === null) return null;
+  if (isDefeat(state)) return "defeat";
+  if (isVictory(state)) return "victory";
+  return null;
+}
+
 /** La main est au héros : partagé par la cadence et la barre de sorts unifiée. */
 export function heroHasHand(state: BattleState): boolean {
   return turnSide(state) === "player";
