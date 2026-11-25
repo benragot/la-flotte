@@ -784,7 +784,7 @@ et l'entrée `ALLOWED_HEX` disparaît.
 
 **Fin de combat (§10 « sobre, pas fanfare »).** Le verdict n'est plus un titre de
 30 px posé sur le HUD : c'est le **titre de fenêtre** (18/24) d'une feuille de
-384 px, sur un voile plein écran (`LAYER_END`, `fixed z-20`, **sous** la barre
+448 px, sur un voile plein écran (`LAYER_END`, `fixed z-20`, **sous** la barre
 d'accès : « Nouvelle partie » reste atteignable après une défaite). Voir §10
 pour la pile de couches complète.
 

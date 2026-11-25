@@ -71,9 +71,10 @@ export const OVERLAY_HEAD =
  * rend aucun élément, c'est un fragment) et partage donc son contexte
  * d'empilement. Y ajouter un `z-index` sur `BATTLE_PANEL` crée un concurrent :
  * la feuille de fin, **centrée sur 448 px**, ne croise la colonne de **320 px**
- * qu'à **1024×768**, sur **32 px** — le panneau rognerait alors son bord gauche
- * (~4 px de glyphe), rien de plus. À 1280×720 et 1920×1080, les deux ne se
- * croisent pas.
+ * qu'à **1024×768**, sur **32 px** : le contenu de la feuille commence à
+ * **302 px**, donc le panneau couvrirait **18 px de contenu**, dont la première
+ * lettre du titre ; le texte du bouton perd, lui, **4 px** (316 → 320). À
+ * 1280×720 et 1920×1080, les deux ne se croisent pas.
  *
  * `fixed` n'est pas rogné par l'`overflow-hidden` de `ARENA_ROW` : aucun
  * ancêtre (`html`, `body`, `#root`, `ARENA_SHELL`, `ARENA_ROW`) ne porte
