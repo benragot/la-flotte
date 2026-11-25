@@ -37,6 +37,11 @@ const TIMELINE = 'aside[aria-label="Ordre de jeu"]';
 const TIMELINE_FIRST = `${TIMELINE} article:first-child`;
 const TIMELINE_LAST = `${TIMELINE} article:last-child`;
 const BATTLE_PANEL = 'section[aria-label="Combat de salle"]';
+/** Bande d'initiative (COMBAT-05) : mêmes jetons que le panneau, aucune palette neuve. */
+const INITIATIVE_BAND = `${BATTLE_PANEL} [aria-label="Ordre d’initiative"]`;
+/** Liste des combattants : `ul` seule, la bande est un `ol`. */
+const COMBATANT_LIST = `${BATTLE_PANEL} ul`;
+const END_TURN = `${BATTLE_PANEL} button:has-text("Terminer le tour")`;
 
 /** Zone jouable mesurée seule : c'est elle qui doit être centrée, pas la page. */
 const ARENA_SECTION = 'section[aria-label="Zone jouable"]';
@@ -162,7 +167,27 @@ test.describe("combat de salle (donjon)", () => {
 
   test("le panneau de salle et ses combattants tiennent dans le viewport", async ({ page }) => {
     await expectInsideViewport(page, BATTLE_PANEL);
-    await expectInsideViewport(page, `${BATTLE_PANEL} li:last-child`);
+    await expectInsideViewport(page, `${COMBATANT_LIST} > li:last-child`);
+  });
+
+  test("la bande d'initiative tient dans le panneau sans repousser la fin de tour", async ({ page }) => {
+    await expect(page.locator(INITIATIVE_BAND)).toBeVisible();
+    await expect(page.locator(`${INITIATIVE_BAND} > li`)).toHaveCount(4);
+    await expect(page.locator(`${INITIATIVE_BAND} [aria-current="true"]`)).toHaveCount(1);
+    await expectInsideViewport(page, INITIATIVE_BAND);
+    await expectInsideViewport(page, END_TURN);
+    await expectInsideViewport(page, `${COMBATANT_LIST} > li:last-child`);
+    await expectNoOverlap(page, [
+      [INITIATIVE_BAND, `${COMBATANT_LIST} > li:first-child`],
+      [INITIATIVE_BAND, END_TURN],
+      [COMBATANT_LIST, END_TURN],
+    ]);
+    const scrolls = await page.evaluate((selector) => {
+      const panel = document.querySelector(selector);
+      const pageScroll = document.documentElement.scrollHeight > window.innerHeight + 1;
+      return pageScroll || (panel !== null && panel.scrollHeight > panel.clientHeight + 1);
+    }, BATTLE_PANEL);
+    expect(scrolls).toBe(false);
   });
 
   test("le bandeau d'exploration ne peut plus être recouvert par le panneau de salle", async ({ page }) => {
