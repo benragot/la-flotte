@@ -787,3 +787,61 @@ et l'entrée `ALLOWED_HEX` disparaît.
 384 px, sur un voile plein écran (`LAYER_END`, `z-10`, **sous** la barre
 d'accès : « Nouvelle partie » reste atteignable après une défaite).
 
+---
+
+## 10. Panneau de salle — une colonne du flux (UI-05)
+
+**Défaut d'origine.** `BattlePanel` était monté en overlay (`absolute left-2
+top-2 z-20`, 320 px) au-dessus de l'arène. Il recouvrait donc une bande de
+cases : combattant invisible et clic de case capté par le panneau. Mesure avant
+(1024×768, `tests/ui/layout.spec.ts`) : panneau `[x=8 y=8 w=320 h=423]` contre
+« Zone jouable » `[x=256 y=0 w=768 h=618]`, recouvrement **72 × 423 px**. Le
+même décalage de 72 px existe à 1280×720 et 1920×1080 : la cause est la colonne
+du journal (256 px) masquée par le panneau, pas la largeur de l'écran.
+
+**Décision.** Le panneau réserve **320 px** dans le flux, à gauche de la carte,
+sous le dock de combat :
+
+```
+[ panneau 320 px ][ carte flex-1 ]
+[ dock (150 px combat / hauteur du contenu en exploration) ]
+```
+
+- Il est un frère de `section[aria-label="Zone jouable"]` dans `ARENA_ROW`
+  (`src/ui/App.tsx`), jamais un enfant positionné au-dessus.
+- `BATTLE_PANEL` (`battleTheme.ts`) passe de `absolute left-2 top-2 z-20` à
+  `relative h-full w-[320px] shrink-0` ; la matière reste `PANEL_MATERIAL`
+  (`surface-2`, filet `line-strong`, socle net). **Aucun jeton neuf.**
+- En salle, le chrome d'exploration (colonne du journal 256 px) cède la place au
+  panneau, exactement comme le bandeau le faisait déjà
+  (`ExplorationStatusSection`). La carte gagne donc `256 + 72 = 328 px` de
+  largeur utile par rapport à l'ancien état visible ; le journal de combat
+  (`ul[aria-label="Journal du combat"]`) reste **dans** le panneau.
+- La disposition d'exploration pure (journal à gauche, dock bas) et le 1v1
+  `legacy` (dock de 150 px, `Timeline`) sont **inchangés** : le portillon reste
+  `battle !== null`.
+
+**Zones conservées.** Toutes sont lisibles sans scroll, aux trois viewports
+(1024×768, 1280×720, 1920×1080) :
+
+| Zone | Repère | Emplacement |
+|---|---|---|
+| Initiative | `[aria-label="Ordre d’initiative"]` | bande dans le panneau, 4 puces, actif marqué `▸` + filet or |
+| Combattants | `ul` du panneau, `li[aria-label="Combattant …"]` | liste verticale sous l'initiative |
+| Journal | `ul[aria-label="Journal du combat"]` | 5 dernières lignes, en bas du panneau |
+| Fin de tour | `button:has-text("Terminer le tour")` | sous le journal, désactivé hors main |
+| Sorts | `BattleSpellDock` | dock bas en combat unifié ; le donjon garde son dock d'exploration |
+
+L'écran de fin (`UnifiedEndOverlay`, voile `fixed z-20`) reste un overlay plein
+écran : le combat est terminé, l'arène n'a plus à être cliquable.
+
+**Mesures après.** Colonne réservée **320 px** aux trois viewports ; recouvrement
+panneau ∩ zone jouable = **0 px** ; aire de carte = 704 / 960 / 1600 px de large.
+Le panneau mesure la hauteur de la rangée (618 / 570 / 930 px) pour un contenu de
+423 px : aucun scroll interne.
+
+**Garde-fou.** `tests/ui/layout.spec.ts` ajoute quatre mesures (UI-05) : aucune
+intersection panneau ∩ (`Zone jouable`, canvas), colonne contiguë et bornée par
+le viewport, `position` jamais `absolute`/`fixed`, et les quatre zones du panneau
+visibles sans scroll. Un retour à l'overlay fait rougir les trois premières.
+

@@ -27,7 +27,12 @@ const ARENA_SHELL = "relative flex h-screen w-screen flex-col overflow-hidden";
 /** Surface de la carte : le canvas y remplit tout, le HUD est un frère. */
 const ARENA_STAGE_CLASS =
   "flex h-full w-full items-center justify-center bg-[var(--color-surface-0)]";
-/** Rangée carte + colonne gauche du journal (exploration) : la carte garde `flex-1`. */
+/**
+ * Rangée de jeu : journal (exploration), panneau de salle et carte. Chaque
+ * surface réserve sa colonne dans le flux — UI-05 : le panneau de salle ne
+ * recouvre plus l'arène, il ne peut donc plus masquer un combattant ni capter
+ * le clic d'une case. La carte garde tout l'espace restant (`flex-1`).
+ */
 const ARENA_ROW = "relative flex min-h-0 w-full flex-1 overflow-hidden";
 /** Combat : bandeau + ligne d'initiative + dock 1.29, soit 240 px de HUD. */
 const HUD_HEIGHT_CLASS = "relative h-[240px] w-full shrink-0";
@@ -43,6 +48,8 @@ interface ArenaView {
   mode: ArenaMode;
   view: ExplorationView | undefined;
   returnToMap: () => void;
+  /** Chrome d'exploration : visible hors salle seulement (journal, bandeau). */
+  exploring: boolean;
 }
 
 interface ArenaStageProps {
@@ -108,13 +115,19 @@ function runOnce(action: () => void, requested: OnceGuard): void {
   action();
 }
 
-/** Le héros prête sa classe à la scène : c'est l'`entityId` de sa feuille de sprite. */
+/**
+ * Le héros prête sa classe à la scène : c'est l'`entityId` de sa feuille de
+ * sprite. En salle, le chrome d'exploration cède la place au panneau — le
+ * bandeau le faisait déjà (`ExplorationStatusSection`), le journal suit.
+ */
 function useArenaView(): ArenaView {
   const mode = useCombatStore((state) => state.mode);
   const exploration = useCombatStore((state) => state.exploration);
+  const battle = useCombatStore((state) => state.battle);
   const heroClassId = useGameStore((state) => state.hero?.classId ?? null);
   const returnToMap = useCombatStore((state) => state.returnToMap);
-  return { mode, view: explorationView({ exploration, heroClassId }), returnToMap };
+  const exploring = mode === "exploration" && battle === null;
+  return { mode, view: explorationView({ exploration, heroClassId }), returnToMap, exploring };
 }
 
 /**
@@ -202,34 +215,29 @@ function CreationScreen() {
   );
 }
 
-/** Couche d'overlays : combat 1vN puis panneaux superposés, hors zone de clic carte. */
-function OverlayLayer() {
-  return (
-    <>
-      <BattlePanel />
-      <OverlayPanels />
-    </>
-  );
-}
-
-/** Colonne gauche du journal + zone jouable : la carte garde tout l'espace restant. */
+/**
+ * Journal (exploration), colonne du panneau de salle (UI-05), puis zone
+ * jouable : la carte garde tout l'espace restant. Le panneau est un **frère**
+ * de l'arène, jamais posé au-dessus d'elle.
+ */
 function ArenaRow({ exploring, mode, view }: { exploring: boolean; mode: ArenaMode; view: ExplorationView | undefined }) {
   return (
     <div className={ARENA_ROW}>
       {exploring ? <ExplorationJournalPanel /> : null}
+      <BattlePanel />
       <ArenaSection mode={mode} exploration={view}>{exploring ? <ExplorationStatus /> : null}</ArenaSection>
     </div>
   );
 }
 
-/** Arène + dock en colonne, plus la couche d'overlays (sac, fiche perso, combat 1vN). */
+/** Arène + dock en colonne, plus les panneaux superposés (sac, fiche perso). */
 function PlayableArena() {
-  const { mode, view, returnToMap } = useArenaView();
+  const { mode, view, returnToMap, exploring } = useArenaView();
   return (
     <div className={ARENA_SHELL}>
-      <ArenaRow exploring={mode === "exploration"} mode={mode} view={view} />
+      <ArenaRow exploring={exploring} mode={mode} view={view} />
       <Dock mode={mode} onReturnToMap={returnToMap} />
-      <OverlayLayer />
+      <OverlayPanels />
     </div>
   );
 }
