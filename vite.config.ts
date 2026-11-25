@@ -25,8 +25,8 @@ import ViteYaml from "@modyfi/vite-plugin-yaml";
 // profondeur — même forme que `**/node_modules/**` et `**/dist/**`.
 export const testExclude = [
   ...configDefaults.exclude,
-  ".wt/**",
-  ".worktrees/**",
+  "**/.wt/**",
+  "**/.worktrees/**",
   "play-report*/**",
 ];
 
