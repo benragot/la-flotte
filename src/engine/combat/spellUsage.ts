@@ -1,15 +1,18 @@
 /**
  * Quotas de lancement lus dans `data/spells.yaml` : `castsPerTurn` (nombre
- * maximum de lancements de CE sort par tour et par lanceur) et `cooldown`
- * (nombre de tours d'indisponibilité après un lancement).
+ * maximum de lancements de CE sort par tour et par lanceur), `castsPerTarget`
+ * (lancers sur une **même** cible pendant ce tour) et `cooldown` (nombre de
+ * tours d'indisponibilité après un lancement).
  *
  * L'état vit dans la bataille (`BattleState.spellUsage`), jamais dans une
  * variable de module : deux salles, deux batailles, deux compteurs. Le tour qui
  * a compté les lancements est mémorisé (`SpellUsage.turn`) : dès que le tour
- * change, le quota repart de zéro sans remise à zéro explicite à oublier.
+ * change, **les deux** quotas repartent de zéro sans remise à zéro explicite à
+ * oublier — `casts` et `castsByTarget` partagent la même estampille de tour.
  */
 export interface SpellLimit {
   castsPerTurn?: number | undefined;
+  castsPerTarget?: number | undefined;
   cooldown?: number | undefined;
 }
 
@@ -20,6 +23,8 @@ export interface SpellUsage {
   turn: number;
   /** Premier tour où le sort redevient lançable (0 = aucune recharge). */
   readyAt: number;
+  /** Lancements par identité de cible pendant `turn` (même remise à zéro que `casts`). */
+  castsByTarget?: Readonly<Record<string, number>> | undefined;
 }
 
 export type SpellUsageMap = Readonly<Record<string, SpellUsage>>;
@@ -30,6 +35,8 @@ export interface SpellUsageInput {
   key: string;
   limit: SpellLimit;
   turn: number;
+  /** Cible visée : sans elle, seul `castsPerTurn` est vérifié. */
+  targetId?: string | undefined;
 }
 
 export function spellUsageKey(casterId: string, spellId: string): string {
@@ -38,7 +45,8 @@ export function spellUsageKey(casterId: string, spellId: string): string {
 
 /** Aucun quota déclaré : le sort n'est limité que par les PA du lanceur. */
 function hasLimit(limit: SpellLimit): boolean {
-  return limit.castsPerTurn !== undefined || limit.cooldown !== undefined;
+  const { castsPerTurn, castsPerTarget, cooldown } = limit;
+  return castsPerTurn !== undefined || castsPerTarget !== undefined || cooldown !== undefined;
 }
 
 function castsOn(usage: SpellUsage | undefined, turn: number): number {
@@ -63,12 +71,32 @@ function withinQuota(usage: SpellUsage | undefined, limit: SpellLimit, turn: num
   return max === undefined || castsOn(usage, turn) < max;
 }
 
+function sameTurn(usage: SpellUsage | undefined, turn: number): boolean {
+  return usage !== undefined && usage.turn === turn;
+}
+
+function countOn(counts: Readonly<Record<string, number>> | undefined, targetId: string): number {
+  return counts?.[targetId] ?? 0;
+}
+
+/** Lancements sur cette cible pendant `turn` ; 0 dès que le tour a changé. */
+function targetCastsOn(usage: SpellUsage | undefined, turn: number, targetId: string): number {
+  if (!sameTurn(usage, turn)) return 0;
+  return countOn(usage?.castsByTarget, targetId);
+}
+
+function withinTargetQuota(usage: SpellUsage | undefined, input: SpellUsageInput): boolean {
+  const max = input.limit.castsPerTarget;
+  if (max === undefined || input.targetId === undefined) return true;
+  return targetCastsOn(usage, input.turn, input.targetId) < max;
+}
+
 /** `true` si le sort peut encore être lancé à ce tour par ce lanceur. */
 export function isSpellAvailable(input: SpellUsageInput): boolean {
   if (!hasLimit(input.limit)) return true;
   const usage = input.usage[input.key];
   if (!isReady(usage, input.turn)) return false;
-  return withinQuota(usage, input.limit, input.turn);
+  return withinQuota(usage, input.limit, input.turn) && withinTargetQuota(usage, input);
 }
 
 /** Contexte de calcul de la recharge armée par un lancement. */
@@ -96,6 +124,29 @@ function nextReadyAt(input: ReadyInput): number {
   return input.turn + input.limit.cooldown + 1;
 }
 
+/** Cible à compter : aucune si le sort ne déclare pas `castsPerTarget`. */
+function targetIdOf(input: SpellUsageInput): string | undefined {
+  return input.limit.castsPerTarget === undefined ? undefined : input.targetId;
+}
+
+/** Carte par cible du tour courant ; vide dès que le tour a changé. */
+function countsOn(previous: SpellUsage | undefined, turn: number): Readonly<Record<string, number>> {
+  if (previous === undefined || previous.turn !== turn) return {};
+  return previous.castsByTarget ?? {};
+}
+
+/**
+ * Compteur par cible du lancer enregistré. Sans `castsPerTarget` (ou sans
+ * cible connue), la carte précédente est rendue telle quelle : aucun état
+ * inutile pour les sorts qui ne déclarent pas la règle.
+ */
+function nextTargetCasts(input: SpellUsageInput, previous: SpellUsage | undefined): Readonly<Record<string, number>> | undefined {
+  const targetId = targetIdOf(input);
+  if (targetId === undefined) return previous?.castsByTarget;
+  const base = countsOn(previous, input.turn);
+  return { ...base, [targetId]: (base[targetId] ?? 0) + 1 };
+}
+
 /**
  * Enregistre un lancement. Sans quota déclaré, la carte est rendue **par
  * identité** : aucun état inutile dans les batailles qui n'en ont pas besoin.
@@ -105,5 +156,6 @@ export function recordSpellCast(input: SpellUsageInput): SpellUsageMap {
   const previous = input.usage[input.key];
   const casts = castsOn(previous, input.turn) + 1;
   const readyAt = nextReadyAt({ limit: input.limit, turn: input.turn, previous, casts });
-  return { ...input.usage, [input.key]: { casts, turn: input.turn, readyAt } };
+  const castsByTarget = nextTargetCasts(input, previous);
+  return { ...input.usage, [input.key]: { casts, turn: input.turn, readyAt, castsByTarget } };
 }

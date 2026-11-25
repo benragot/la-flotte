@@ -50,7 +50,8 @@ function canPay(input: HealInput, healer: CombatantLike): boolean {
 
 function withinQuota(input: HealInput, healer: CombatantLike): boolean {
   const key = spellUsageKey(healer.id, input.heal.id);
-  return isSpellAvailable({ usage: input.state.spellUsage ?? {}, key, limit: input.heal, turn: input.state.turn });
+  const quota = { usage: input.state.spellUsage ?? {}, key, limit: input.heal, turn: input.state.turn };
+  return isSpellAvailable({ ...quota, targetId: input.targetId });
 }
 
 function isHealAllowed(input: HealInput, healer: CombatantLike, target: CombatantLike): boolean {
@@ -58,10 +59,11 @@ function isHealAllowed(input: HealInput, healer: CombatantLike, target: Combatan
   return canPay(input, healer) && withinQuota(input, healer);
 }
 
-function recordHeal(state: BattleState, casterId: string, heal: HealSpec): BattleState {
+function recordHeal(state: BattleState, casterId: string, input: HealInput): BattleState {
   const current = state.spellUsage ?? {};
-  const key = spellUsageKey(casterId, heal.id);
-  const usage = recordSpellCast({ usage: current, key, limit: heal, turn: state.turn });
+  const key = spellUsageKey(casterId, input.heal.id);
+  const quota = { usage: current, key, limit: input.heal, turn: state.turn, targetId: input.targetId };
+  const usage = recordSpellCast(quota);
   return usage === current ? state : { ...state, spellUsage: usage };
 }
 
@@ -75,7 +77,7 @@ interface HealOutcome {
 function applyHeal(outcome: HealOutcome): BattleState {
   const { input, healer, target, amount } = outcome;
   const paid = spendAp(input.state, healer, input.heal.apCost);
-  const recorded = recordHeal(paid, healer.id, input.heal);
+  const recorded = recordHeal(paid, healer.id, input);
   const current = findCombatant(recorded, target.id) ?? target;
   const healed = withCombatant(recorded, { ...current, hp: current.hp + amount });
   const floated = appendFloat(healed, { targetId: target.id, amount, kind: "heal" });

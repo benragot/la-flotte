@@ -66,7 +66,8 @@ function heroOwns(hero: CombatantLike, spell: SpellDef): boolean {
 
 function castableNow(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): SpellDef | null {
   if (!isUnifiedCastable(spell)) return null;
-  return canCastSpellNow(input.battle, hero.id, spell) ? spell : null;
+  const query = { state: input.battle, casterId: hero.id, spell };
+  return canCastSpellNow(query) ? spell : null;
 }
 
 /** La main du héros et la propriété du sort : les deux gardes de camp. */
@@ -96,7 +97,8 @@ function gateState(input: BattleSpellsInput): BattleSlotState | null {
 
 /** Ressources du héros : quota (`castsPerTurn`/`cooldown`) puis PA. */
 function resourceState(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): BattleSlotState | null {
-  if (!canCastSpellNow(input.battle, hero.id, spell)) return "quota-epuise";
+  const query = { state: input.battle, casterId: hero.id, spell };
+  if (!canCastSpellNow(query)) return "quota-epuise";
   return hero.ap < spell.apCost ? "pa-insuffisants" : null;
 }
 
