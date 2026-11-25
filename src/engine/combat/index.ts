@@ -7,6 +7,8 @@ export { computeDamage } from "./damage";
 export type { DamageInput } from "./damage";
 export { FLOAT_BUFFER_SIZE, appendFloat, unseenFloats } from "./floating";
 export type { FloatDraft, FloatKind, FloatSource, FloatingEvent } from "./floating";
+export { healAmount, healRange, rollHeal, scaledHeal } from "./heal";
+export type { HealAmountInput, HealRange } from "./heal";
 export { computeInitiative } from "./initiative";
 export type { InitiativeInput } from "./initiative";
 export { computePushbackDamage } from "./pushback";

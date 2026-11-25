@@ -24,10 +24,12 @@ import type {
   EnemyAim,
   EnemyPlan,
   EnemyStrategy,
+  HealSpec,
   RangeSpec,
   Rng,
   Side,
 } from "../engine/multiCombat";
+import { healRange } from "../engine/combat";
 import { rangeDistance } from "../engine/grid";
 import type { SpellDef } from "../schemas/spellSchema";
 
@@ -127,6 +129,19 @@ export function spellCastSpec(spell: SpellDef, roll: number): AttackSpec {
 export function spellRollSpec(spell: SpellDef): AttackSpec {
   const fixed = spellCastSpec(spell, spell.damage?.min ?? 0);
   return spell.damage === undefined ? fixed : { ...fixed, damage: spell.damage };
+}
+
+/**
+ * Pont `SpellDef` → `HealSpec` pour le 1vN : la fourchette vient de
+ * `effect.amount` (donnée existante) et le soin suit toujours l'Intelligence.
+ * Un sort sans effet de soin rend `null` — l'appelant n'entre pas dans
+ * `resolveHeal`.
+ */
+export function spellHealSpec(spell: SpellDef): HealSpec | null {
+  const range = healRange(spell);
+  if (range === undefined) return null;
+  const quotas = { castsPerTurn: spell.castsPerTurn, cooldown: spell.cooldown };
+  return { id: spell.id, name: spell.name, apCost: spell.apCost, ...range, ...quotas };
 }
 
 function pairFor(state: BattleState, targetId: string): CombatantPair | null {

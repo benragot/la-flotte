@@ -1,6 +1,6 @@
 import { isDefeat, isVictory } from "../engine/multiCombat";
 import { canCastSpellNow } from "../engine/multiCombat/spellUse";
-import { isSpellImplemented } from "../engine/combatLoop/spellSupport";
+import { isHealSpell, isSpellImplemented } from "../engine/combatLoop/spellSupport";
 import type { BattleState, CombatantLike } from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
 import { heroHasHand } from "./battleSelectors";
@@ -45,12 +45,13 @@ export function battleOver(battle: BattleState): boolean {
 }
 
 /**
- * Le chemin unifié ne résout que les frappes (`castHeroSpell` →
- * `resolveAttack`) : un `teleport` ou un effet non implémenté reste hors barre
- * plutôt que de promettre un clic qui ne ferait rien.
+ * Le chemin unifié résout les frappes (`castHeroSpell` → `resolveAttack`) et,
+ * depuis SPELL-02, les soins (`resolveHeal`). Un `teleport` ou tout autre effet
+ * non implémenté reste hors barre plutôt que de promettre un clic qui ne
+ * ferait rien.
  */
 export function isUnifiedCastable(spell: SpellDef): boolean {
-  return spell.kind === "damage" && isSpellImplemented(spell);
+  return (spell.kind === "damage" || isHealSpell(spell)) && isSpellImplemented(spell);
 }
 
 /** Sort du catalogue par id ; la bataille ne transporte que des ids. */

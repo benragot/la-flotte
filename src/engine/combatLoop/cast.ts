@@ -1,6 +1,6 @@
 import type { Element, SpellDef } from "../../schemas/spellSchema";
 import type { DamageInput } from "../combat";
-import { computeDamage, computePushbackDamage, isSpellAvailable, recordSpellCast, spellUsageKey, appendFloat } from "../combat";
+import { computeDamage, computePushbackDamage, healAmount, healRange, isSpellAvailable, recordSpellCast, rollHeal, scaledHeal, spellUsageKey, appendFloat } from "../combat";
 import type { Position } from "../grid";
 import { samePosition } from "../grid";
 import { getActiveCombatant, getOpponent, isPlayablePhase, setCombatant } from "./active";
@@ -8,7 +8,7 @@ import { getCastableCells } from "./castable";
 import { appendLog } from "./log";
 import type { PushResult } from "./push";
 import { applyPush } from "./push";
-import { spellSupportRefusal } from "./spellSupport";
+import { isHealSpell, spellSupportRefusal } from "./spellSupport";
 import type { SpellSupportRefusal } from "./spellSupport";
 import type {
   CombatPhase,
@@ -165,6 +165,25 @@ function strike(state: CombatState, plan: CastPlan): CombatState {
   return appendLog(applyHit(state, hit), describeHit(state, hit, plan.spell));
 }
 
+function healRoll(spell: SpellDef, rng: Rng): number {
+  const range = healRange(spell);
+  return range === undefined ? 0 : rollHeal(range, rng);
+}
+
+/**
+ * Soin 1v1 : la cible est toujours le lanceur (seul allié du modèle à deux
+ * camps). La formule vit dans `engine/combat/heal`, jamais recopiée ici.
+ */
+function healTarget(state: CombatState, plan: CastPlan): CombatState {
+  const caster = getActiveCombatant(state);
+  const roll = healRoll(plan.spell, plan.rng);
+  const base = scaledHeal(roll, caster.stats.intelligence);
+  const amount = healAmount({ heal: base, currentHp: caster.hp, maxHp: caster.maxHp });
+  const healed = setCombatant(state, { ...caster, hp: caster.hp + amount });
+  const floated = appendFloat(healed, { targetId: caster.id, amount, kind: "heal" });
+  return appendLog(floated, `${caster.name} soigne ${caster.name} de ${amount} PV.`);
+}
+
 function teleport(state: CombatState, plan: CastPlan): CombatState {
   const caster = getActiveCombatant(state);
   const moved = setCombatant(state, { ...caster, position: plan.target });
@@ -178,11 +197,15 @@ export function spellRefusal(state: CombatState, spellId: string): SpellSupportR
 }
 
 /** Lance un sort si le support, la phase, les PA et la cible le permettent ; sinon inchangé. */
+function resolveSpell(state: CombatState, plan: CastPlan): CombatState {
+  if (isHealSpell(plan.spell)) return healTarget(state, plan);
+  return plan.spell.kind === "teleport" ? teleport(state, plan) : strike(state, plan);
+}
+
 export function castSpell(input: CastInput): CombatState {
   // Effet absent (SPELL-02) ou état requis non géré : refus nommé, jamais silencieux.
   if (spellRefusal(input.state, input.spellId) !== null) return input.state;
   const plan = planCast(input);
   if (plan === null) return input.state;
-  const spent = recordCast(spendAp(plan.state, plan.spell.apCost), plan);
-  return plan.spell.kind === "teleport" ? teleport(spent, plan) : strike(spent, plan);
+  return resolveSpell(recordCast(spendAp(plan.state, plan.spell.apCost), plan), plan);
 }
