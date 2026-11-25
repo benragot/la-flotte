@@ -16,12 +16,20 @@ import ViteYaml from "@modyfi/vite-plugin-yaml";
 // copies de tests générées dans l'arbre : worktrees imbriqués (`.wt/`,
 // `.worktrees/`) et rapports de session (`play-report*`). Sans elles, un run
 // lancé depuis la racine scanne des centaines de tests dupliqués et rouges.
-const testExclude = [
+//
+// Les motifs sont des globs relatifs au `root` : un motif ancré (`.wt/**`) ne
+// couvre que `<root>/.wt/**`. Or les worktrees d'agent vivent aussi plus bas
+// (`docs/design/specs/.wt/<agent>/`), et le filtre CLI passé à `vitest run
+// tests/unit` est une sous-chaîne : leur copie de `tests/unit` était donc
+// collectée (compteurs ×2, ×3). D'où le préfixe `**/`, qui matche à toute
+// profondeur — même forme que `**/node_modules/**` et `**/dist/**`.
+export const testExclude = [
   ...configDefaults.exclude,
-  ".wt/**",
-  ".worktrees/**",
+  "**/.wt/**",
+  "**/.worktrees/**",
   "play-report*/**",
 ];
+
 
 type VitestConfig = UserConfig & { test: InlineConfig };
 
