@@ -95,6 +95,15 @@ describe("shortcutForKey — Espace sur un contrôle interactif", () => {
     effect?.();
     expect(selectSpell).toHaveBeenCalledWith("flamme");
   });
+
+  it("n'entre pas en sélection sur un sort `kind: other` (aucun clic mort)", () => {
+    const selectSpell = vi.fn();
+    const spellsById = { glyphe: { kind: "other" } };
+    const combat = { player: { spellIds: ["glyphe"] }, spellsById } as unknown as CombatState;
+    const effect = shortcutForKey({ code: "Digit1", target: focusable(true) }, context({ combat, selectSpell }));
+    expect(effect).toBeNull();
+    expect(selectSpell).not.toHaveBeenCalled();
+  });
 });
 
 describe("shortcutForKey — Espace hors contrôle interactif", () => {
