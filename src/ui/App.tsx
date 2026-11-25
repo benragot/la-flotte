@@ -68,13 +68,24 @@ function useGameBootstrap(): void {
 /**
  * Démarre l'exploration dès qu'un héros existe : création manuelle ou
  * sauvegarde restaurée. Le garde couvre le double effet de `StrictMode`.
+ *
+ * La salle de `?demo=dungeon` est publiée **avant** ce hook (`useDemoEntry`) :
+ * `battleOpen` empêche donc le bootstrap de relancer une exploration par-dessus
+ * et de refermer le panneau de combat.
  */
+/** Lecture unique des deux gardes de session : vierge et sans salle ouverte. */
+function useBootstrapSnapshot(): { isFresh: boolean; battleOpen: boolean } {
+  const isFresh = useCombatStore((state) => state.combat === null && state.exploration === null);
+  const battleOpen = useCombatStore((state) => state.battle !== null);
+  return { isFresh, battleOpen };
+}
+
 function useArenaBootstrap(hasHero: boolean): void {
   const startExploration = useCombatStore((state) => state.startExploration);
-  const isFresh = useCombatStore((state) => state.combat === null && state.exploration === null);
+  const { isFresh, battleOpen } = useBootstrapSnapshot();
   const requested = useRef(false);
   useGuardRearm(requested, hasHero);
-  const enabled = shouldStartExploration({ hasHero, isFresh, requested: requested.current });
+  const enabled = shouldStartExploration({ hasHero, isFresh, battleOpen, requested: requested.current });
   useEffect(() => {
     if (enabled) runOnce(startExploration, requested);
   }, [enabled, startExploration]);
