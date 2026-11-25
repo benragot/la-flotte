@@ -1,6 +1,6 @@
 # PLAN — ordre d'attaque
 
-> **État constaté sur `218f8e3` (`main`, 2026-11-25 à 23:30 CET).** Ce plan est
+> **État constaté sur `218f8e3` (`main`, 2026-11-25 à 23:40 CET).** Ce plan est
 > un **instantané de la file**, pas une réservation éternelle : un merge ou une
 > PR ouverte après ce commit peut changer les verrous. Avant de lancer un
 > chantier, relire la section « Verrous » et vérifier
@@ -13,28 +13,35 @@
 > `AUDIT/ISSUES.md` → `## Suivi des merges` ; méthode de comptage dans
 > `AUDIT/ISSUES.md` → `## Comptage`.
 
-## Verrous de zone en cours (instantané `218f8e3`)
+## Verrous de fichiers en cours (instantané `218f8e3`)
+
+La collision se joue **fichier par fichier**, pas par dossier : un dossier
+« libre » peut contenir un fichier tenu.
 
 | Chantier | Fichiers verrouillés | Détenteur |
 | --- | --- | --- |
-| **RENDER-05** — animations `attack`/`hit` | `src/renderer/**` : `battleAction.ts`, `battleSceneModel.ts`, `combatSceneModel.ts`, `index.ts`, `sprites/EntitySprite.ts`, `sprites/actionEffect.ts`, `sprites/actorStage.ts` (+ `tests/unit/battleAction.spec.ts`, `battleScene.spec.ts`, `entitySprite.spec.ts`) | branche `feat/render-anim-work`, **PR #182 ouverte** |
-| **DATA-02 (reste)** — écran de vente | `src/ui/**` : `components/inventory/**`, nouveau panneau de vente, `tests/ui/sellPanel.spec.ts` | branche locale `design/sell-ui` (worktree `docs/design/specs/.wt/sell-ui`, **aucune PR**) |
+| **RENDER-05** — animations `attack`/`hit` | `src/renderer/battleAction.ts`, `src/renderer/battleSceneModel.ts`, `src/renderer/combatSceneModel.ts`, `src/renderer/index.ts`, `src/renderer/sprites/EntitySprite.ts`, `src/renderer/sprites/actionEffect.ts`, `src/renderer/sprites/actorStage.ts` (+ `tests/unit/battleAction.spec.ts`, `battleScene.spec.ts`, `entitySprite.spec.ts`) | branche `feat/render-anim-work`, **PR #182 — en corrections** |
+| **SPELL-05** — `castsPerTarget` | `src/engine/combat/spellUsage.ts`, `src/store/battleSelectors.ts` | branche `fix/spell-casts-per-target`, **PR #184 — ouverte** |
+| **DATA-02 (reste)** — écran de vente | `src/ui/components/OverlayPanels.tsx`, `src/ui/components/inventory/BackpackList.tsx`, `src/ui/components/inventory/inventoryTheme.ts`, `src/ui/inventoryHudHelpers.ts`, nouveaux `src/ui/components/inventory/saleView.ts` et `useSell.ts`, `tests/ui/sellPanel.spec.ts` | branche locale `design/sell-ui` (worktree `docs/design/specs/.wt/sell-ui`, base `30889b4`, **aucune PR**) |
 | **Audit #183** — ce document | `AUDIT/ISSUES.md`, `AUDIT/PLAN.md` | branche `docs/audit-refresh`, **PR #183 ouverte** |
 
-**Zones libres** : `src/engine/**`, `src/store/**`, `src/schemas/**`, `data/**`.
-#179 est mergée (`a44a089`) : elle a rendu `battleSelectors.ts`,
-`useCombatStore.ts`, `battleSpells.ts` et `battleRouting.ts` au moteur. #181 est
-mergée (`218f8e3`) : `App.tsx` et `battleTheme.ts` sont libres, mais **la zone
-`src/ui/**` reste tenue par `design/sell-ui`**.
+**Fichiers libres, au-delà de cette liste** : `src/engine/**` sauf
+`combat/spellUsage.ts` ; `src/store/**` sauf `battleSelectors.ts` ; tout
+`src/schemas/**` ; tout `data/**` ; tout `src/ui/**` hors des fichiers de
+`design/sell-ui` listés ci-dessus. #179 est mergée (`a44a089`) et a rendu
+`useCombatStore.ts`, `battleSpells.ts` et `battleRouting.ts` ; #181 est mergée
+(`218f8e3`) et a rendu `App.tsx` et `battleTheme.ts`. En revanche
+**`battleSelectors.ts` n'est plus libre** : #184 l'occupe, même si
+`src/store/**` l'était dans l'instantané précédent.
 
 ## Règle d'ordonnancement
 
-Deux agents ne prennent jamais la même zone en même temps : les chantiers d'une
-même zone **se succèdent** dans l'ordre du tableau. Un chantier qui a besoin de
-deux zones est **coupé en deux PR** ; la seconde attend que la première soit
-mergée et que la zone soit libre. Le tableau des verrous est la seule source :
-un chantier dont la zone est tenue **ne se lance pas**, même s'il ne partage
-« que » un fichier.
+Deux agents ne prennent jamais le même **fichier tenu** en même temps : les
+chantiers qui le partagent **se succèdent** dans l'ordre du tableau. Un chantier
+qui a besoin de deux fichiers tenus par deux détenteurs est **coupé en deux
+PR** ; la seconde attend que la première soit mergée et que le fichier soit
+libre. Le tableau des verrous est la seule source : un chantier dont un fichier
+est tenu **ne se lance pas**, même pour une seule ligne.
 
 Rappel DEC-12 : **aucune nouvelle règle de combat dans
 `src/engine/combatLoop/`**. Toute règle s'implémente dans
@@ -47,14 +54,14 @@ parité déjà planifiés. L'étape 4 ne part qu'après parité complète.
 | --- | --- | --- | --- |
 | A1 | RENDER-04 — nappe de portée | `src/renderer/tileStyle.ts`, `tilePaint.ts`, `scene.ts`, `battleSceneModel.ts`, `combatSceneModel.ts` | **#182 mergée ou abandonnée** : `battleSceneModel.ts` et `combatSceneModel.ts` sont tenus. |
 | A2 | GRID-03 (reste rendu) | `src/renderer/battleSceneModel.ts`, `pathPreview.ts` | #182 mergée (même `battleSceneModel.ts`). |
-| B1 | 3b-3 — dock de sorts partagé | `src/ui/App.tsx`, `dockGate.ts`, `components/battle/BattleSpellDock.tsx`, `components/battle/BattlePanel.tsx` | **`design/sell-ui` mergée** : la branche tient `src/ui/**`. `App.tsx` est libre depuis #181, le dock ne l'est pas tant que sell-ui n'a pas livré. |
+| B1 | 3b-3 — dock de sorts partagé | `src/ui/App.tsx`, `dockGate.ts`, `components/battle/BattleSpellDock.tsx`, `components/battle/BattlePanel.tsx` | Aucun de ces quatre fichiers n'est tenu à l'instantané (`App.tsx` est libre depuis #181). **Revérifier `git status` de `design/sell-ui` avant de partir** : si elle ajoute une entrée dans `App.tsx`, attendre son merge. |
 | B2 | GRID-03 (reste UI) | `src/ui/components/battle/BattlePanel.tsx` | A2 mergée **et** `design/sell-ui` mergée. |
 | B3 | SPELL-04 (volet UI) | `src/ui/components/battle/CombatantCard.tsx`, `components/SpellSlots.tsx` | C2 mergée (le moteur expose `spellId` + `targetCell`) **et** sell-ui mergée. |
 | B4 | UI-16 — retirer `hasMissingState` | `src/ui/spellSlotState.ts` | C4 livrée (états réellement appliqués). |
 | C1 | ARCH-04 — convergence des archétypes | `src/engine/multiCombat/ai.ts`, `src/schemas/monsterSchema.ts`, `data/monsters.yaml` (+ `data/archetypes.yaml` si créé) | Rien : zone moteur libre. À faire avant toute nouvelle IA. |
-| C2 | SPELL-04 (moteur) | `src/store/battleSelectors.ts`, `useCombatStore.ts`, `engine/multiCombat/attack.ts`, `multiCombat/spellUse.ts` | Rien : **#179 mergée** a rendu ces fichiers. |
+| C2 | SPELL-04 (moteur) | `src/store/battleSelectors.ts`, `useCombatStore.ts`, `engine/multiCombat/attack.ts`, `multiCombat/spellUse.ts` | **#184 mergée** : `battleSelectors.ts` est tenu par `castsPerTarget`. `useCombatStore.ts` est libre depuis #179. |
 | C3 | SPELL-01 — zones | `engine/multiCombat/range.ts`, nouveau `multiCombat/zone.ts`, `schemas/spellSchema.ts`, `data/spells.yaml` | Rien, mais **séquentiel avec C4** (mêmes `spellSchema.ts` + `spells.yaml`). |
-| C4 | SPELL-02 (reste) — buffs/debuffs/pièges | `engine/combat/heal.ts` (pour mémoire), nouveau moteur d'effets dans `multiCombat/`, `combatLoop/spellSupport.ts`, `schemas/spellSchema.ts`, `data/spells.yaml`, `store/battleSelectors.ts` | C3 mergée (mêmes schéma et données) ; le soin est déjà livré par #179. |
+| C4 | SPELL-02 (reste) — buffs/debuffs/pièges | `engine/combat/heal.ts` (pour mémoire), nouveau moteur d'effets dans `multiCombat/`, `combatLoop/spellSupport.ts`, `schemas/spellSchema.ts`, `data/spells.yaml`, `store/battleSelectors.ts` | C3 mergée (mêmes schéma et données) **et #184 mergée** (`battleSelectors.ts` tenu) ; le soin est déjà livré par #179. |
 | C5 | COMBAT-06 — fin de tour | `engine/multiCombat/turn.ts`, `multiCombat/types.ts`, `schemas/spellSchema.ts`, `data/spells.yaml` | C3 **et** C4 mergées : un tick n'a rien à décrémenter avant. |
 | C6 | DATA-02 (moteur) | *déjà livré* (#177, `0754f15`) | — |
 | C7 | ARCH-03 — déduplication | `engine/battleBridge/fromExploration.ts`, `engine/dungeon/combatants.ts` | Rien (zone moteur libre) ; à faire **avant** C9. |
@@ -66,13 +73,14 @@ parité déjà planifiés. L'étape 4 ne part qu'après parité complète.
 | Contrainte | Raison |
 | --- | --- |
 | **#182 avant RENDER-04** | `battleSceneModel.ts` / `combatSceneModel.ts` sont tenus par la PR d'animations ; deux peintres sur le même modèle se contredisent. |
-| **`design/sell-ui` avant 3b-3** | La zone `src/ui/**` est tenue ; `App.tsx` et `BattlePanel.tsx` seraient édités deux fois. |
+| **`design/sell-ui` avant tout chantier qui ajoute une entrée dans `App.tsx`** | Ses fichiers actuels (overlay + inventaire) ne collisionnent pas, mais elle peut ajouter son ouverture dans `App.tsx` ; revérifier avant de partir. |
 | **3b-3 avant l'étape 4a** | Basculer le défaut sur `unified` sans dock partagé laisserait le donjon sur un HUD et l'exploration sur un autre. |
 | **ARCH-04 avant toute nouvelle IA** | Les distances et drapeaux restent en dur (`ai.ts:22-28`) : changer les données ne prouverait pas que l'IA suit. |
 | **SPELL-01 et SPELL-02 avant COMBAT-06** | Un tick de durée ou de zone n'a rien à décrémenter tant que les effets et les états n'existent pas. |
 | **SPELL-02 avec UI-16** | Retirer `hasMissingState` n'a de sens qu'une fois les états réellement appliqués. |
 | **ARCH-03 avant l'étape 4b** | Supprimer `combatLoop` avec deux copies de la formule d'initiative laisse la divergence vivante. |
 | **ARCH-02 clos (#174) avant l'étape 4b** | L'écran de fin unifié existe : un écran oublié ne perd plus ses récompenses. |
+| **#184 avant C2 et C4** | `battleSelectors.ts` est tenu par la PR `castsPerTarget` ; SPELL-04 et SPELL-02 y écrivent aussi. |
 | **A2 avant B2** | Le coût PM n'a rien à afficher tant que `battleSceneModel.ts` renvoie `path: []`. |
 | **C2 avant B3** | Le choix du sort en 1vN est une règle de moteur ; l'UI ne fait que l'exposer. |
 
@@ -105,9 +113,9 @@ ne compte pas dans les clos.
 5. `npm run check` vert avant commit, commit `fix(<scope>): 🐛 …`.
 6. PR ouverte, auditée par `qa-reviewer`, mergée par `pr-merger` — jamais en
    direct sur `main`.
-7. **Une seule PR active par zone** : voir le tableau des verrous. Un agent ne
-   travaille jamais dans l'arbre principal (voir `AUDIT/ISSUES.md` → notes de
-   méthode).
+7. **Une seule PR active par fichier tenu** : voir le tableau des verrous. Un
+   agent ne travaille jamais dans l'arbre principal (voir `AUDIT/ISSUES.md` →
+   notes de méthode).
 
 ## P2 — après les P1
 

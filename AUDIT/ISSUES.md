@@ -1,13 +1,13 @@
 # ISSUES — constats dédupliqués
 
-> **État constaté sur `218f8e3` (`main`, 2026-11-25 à 23:30 CET).** Ce fichier
+> **État constaté sur `218f8e3` (`main`, 2026-11-25 à 23:40 CET).** Ce fichier
 > est un **instantané**, pas une vérité instantanée : un merge postérieur à ce
 > commit n'y est pas reflété. Toute ligne de `main` ajoutée après `218f8e3` est
 > à revérifier ; `git rev-list --count 218f8e3..origin/main` dit combien de
 > commits manquent au moment de la lecture. Les `fichier:ligne` ont été
-> re-vérifiés un par un sur ce commit (chemins et bornes par script, sémantique
-> à la main) ; un décalage de ligne dû à un merge ultérieur est un faux positif
-> connu de ce genre de document.
+> re-vérifiés un par un sur ce commit : chemins, bornes **et symbole cité**
+> contrôlés par script, sémantique relue à la main ; un décalage de ligne dû à
+> un merge ultérieur est un faux positif connu de ce genre de document.
 >
 > **77 constats initiaux**, triés **P0** puis **P1** puis **P2**, puis par
 > domaine à l'intérieur d'une sévérité. **Cinq écarts découverts en cours de
@@ -31,8 +31,9 @@
 > **Plage de PR couverte : `0472ead..218f8e3`.** `git rev-list --count` y compte
 > **15 PR mergées**, dont **2 documentaires** (#169, #172) et donc **13 PR de
 > code** (#164, #168, #170, #171, #173, #174, #175, #176, #177, #178, #179,
-> #180, #181). `#182` (RENDER-05) est **ouverte** au même instant : rien de son
-> périmètre n'est compté comme livré. La méthode de comptage vérifiable est en
+> #180, #181). `#182` (RENDER-05) est **en corrections** et `#184`
+> (`castsPerTarget`) est **ouverte** au même instant : rien de leur périmètre
+> n'est compté comme livré. La méthode de comptage vérifiable est en
 > fin de fichier (`## Comptage`) ; les hashes sont dans `## Suivi des merges`.
 >
 > `Référence` = preuve 1.29 **par constat** : un `chemin:ligne` de la
@@ -48,7 +49,7 @@
 
 | ID | Domaine | Problème | Preuves | Impact | Sévérité | Référence | Fix | Effort | Statut |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| COMBAT-01 | combat | Le 1v1 ne calcule jamais l'initiative : le héros joue toujours en premier. | `combatLoop/init.ts:120-124`, `combatLoop/opening.ts:21-23` | Combat joué d'avance. | P0 | `serveur (non lisible)` | Calculer les deux initiatives et en déduire la phase d'ouverture. | S | fixed (#139, fff5d3d) |
+| COMBAT-01 | combat | Le 1v1 ne calcule jamais l'initiative : le héros joue toujours en premier. | `combatLoop/init.ts:120-125`, `combatLoop/opening.ts:21-23` | Combat joué d'avance. | P0 | `serveur (non lisible)` | Calculer les deux initiatives et en déduire la phase d'ouverture. | S | fixed (#139, fff5d3d) |
 | COMBAT-02 | combat | En 1vN, si un monstre est le plus rapide, la cadence ennemie ne démarre jamais : panneau figé. | `ui/components/battle/useCombatBeat.ts:100-106`, `BattlePanel.tsx:82` | Le joueur doit cliquer « Terminer le tour » pour un monstre. | P0 | `référence non trouvée` | Lancer `scheduleStep` au montage si `needsEnemyStep`. | S | fixed (#136, 8797ac5) |
 | GRID-01 | grille | Portée mesurée en Manhattan : une cible diagonale adjacente est à distance 2. | `combatLoop/castable.ts:16-18`, `multiCombat/range.ts:33-43` | Corps-à-corps diagonal impossible. | P1 | `serveur (non lisible)` | `rangeDistance = max(\|dx\|,\|dy\|)`, test des 8 voisins. | S | fixed (#141, 62ecdda) |
 | GRID-02 | grille | La LoS traverse un coin où les deux orthogonales sont des murs. | `grid/lineOfSight.ts:33-50`, `tests/unit/grid.spec.ts:214-217` | Sorts tirés à travers un angle. | P1 | `%16%04%09/battlefield/%1B%17%07/%16%1E%11.as:583` | Règle des coins sur les pas diagonaux + corriger le test. | S | fixed (#145, ab86aaf) |
@@ -59,7 +60,7 @@
 | RENDER-03 | rendu | Murs à une seule face, base non remplie. | `renderer/tilePaint.ts:51-73` | Murs en papier avec un trou. | P1 | `référence non trouvée` | Deuxième face + remplissage du losange de base. | S | fixed (#147, a665ea5) |
 | RENDER-04 | rendu | Portée des sorts = nappe bleue opaque au-dessus du décor. | `renderer/tileStyle.ts:40,77` (`HIGHLIGHT_ALPHA = 0.5`), `renderer/sceneLayerOrder.ts:14-17` | Décor et cases masqués. | P1 | `référence non trouvée` | Contour alpha 0,18 teinté par élément. | M | ouvert — la zone PM est déjà à 0,18 (`tileStyle.ts:42,78`) ; la case de sort reste un aplat à 0,5 posé après le décor. |
 | RENDER-05 | rendu | En salle, aucune animation `attack`/`hit`. | `renderer/battleSceneModel.ts:37,104` (`lastAction: null`), `renderer/combatSceneModel.ts:165` | Coups invisibles hors nombres flottants. | P1 | `référence non trouvée` | Exposer `lastAction` typé. | M | ouvert |
-| RENDER-06 | rendu | Aucun nom au-dessus des combattants en salle. | `renderer/tokens.ts:150,157-160`, `renderer/battleSceneModel.ts:85-89` | Monstres indiscernables. | P1 | `référence non trouvée` | Passer `name` aux jetons. | S | fixed (#151, 54da359) |
+| RENDER-06 | rendu | Aucun nom au-dessus des combattants en salle. | `renderer/tokens.ts:151,160-161`, `renderer/battleSceneModel.ts:85-89` | Monstres indiscernables. | P1 | `référence non trouvée` | Passer `name` aux jetons. | S | fixed (#151, 54da359) |
 | UI-01 | ui | Sorts `kind: other` = clic mort ; aucun état « recharge » affiché. | `ui/spellSlotState.ts:21-27,106-140`, `combatLoop/spellSupport.ts:13-45`, `combatLoop/cast.ts:196` | Le jeu paraît cassé. | P1 | `dofus/%18%18%12/SpellDatas.as:166-168` | Badge « à venir », désactivation, état recharge. | M | fixed (#156, 655de28) — liste blanche `damage`/`teleport` (`spellSupport.ts:13`) complétée par `heal` (#179), refus nommés `not-implemented`/`missing-state`, cases inertes avec badge et raison, états recharge/quota distincts. |
 | UI-02 | ui | « Attaquer » reste actif à 0 PA ou en recharge. | `ui/components/battle/CombatantCard.tsx:74-80`, `multiCombat/attack.ts:29-31` | Clic sans effet. | P1 | `serveur (non lisible)` | Désactiver + libellé du coût. | S | fixed (#146, f62edf4) |
 | UI-03 | ui | Espace termine le tour même quand un bouton a le focus. | `ui/useGlobalShortcuts.ts:57-62` | Perte des PA/PM restants. | P1 | `référence non trouvée` | Ignorer si la cible est interactive. | S | fixed (#144, 5ccacd6) |
@@ -77,7 +78,7 @@
 | COMBAT-04 | combat | Les morts restent dans `order` et dans le panneau. | `multiCombat/turn.ts:10-13,37-44`, `renderer/battleViewModel.ts:113-118` | Carte morte affichée. | P1 | `serveur (non lisible)` | Filtrer `hp > 0`, purger `order`. | S | fixed (#135, 1512b56) |
 | COMBAT-05 | combat | L'ordre d'initiative du 1vN n'est jamais affiché. | `renderer/battleViewModel.ts:136-140`, `ui/components/battle/BattlePanel.tsx:107`, `ui/components/battle/InitiativeBand.tsx` | Impossible d'anticiper. | P1 | `serveur (non lisible)` | Afficher `order` filtré des vivants. | M | fixed (#168, 061a122) — `initiativeOrder` résout `order` en combattants vivants (`battleViewModel.ts:136-140`) et `BattlePanel` rend `InitiativeBand` (`BattlePanel.tsx:107`) ; le mort est déjà purgé par COMBAT-04. |
 | COMBAT-06 | combat | Aucune phase de fin de tour : poison, régénération, durées inertes. | `combatLoop/turn.ts:26-32`, `multiCombat/turn.ts:37-45` | Sorts à durée sans effet. | P1 | `serveur (non lisible)` | Hook `endTurn` pur (états + poison). | L | ouvert |
-| COMBAT-07 | combat | Les blocs `ai:` des monstres ne sont jamais lus. | `engine/multiCombat/ai.ts:50-55`, `engine/multiCombat/keepDistance.ts:15`, `store/battleSelectors.ts:322-338`, `schemas/monsterSchema.ts:44-50`, `data/monsters.yaml:115`, `data/spells.yaml:123-135` | Toutes les IA sont identiques. | P1 | `serveur (non lisible)` | Brancher `archetype`/`preferredDistance`. | M | fixed (#175, 6bd12c0 + #178, 30889b4) — les blocs `ai:` sont lus (`enemyStrategy` → `aimOf`, câblés par `battleSelectors.ts:332-338`) ; la portée de la Marmite est désormais une donnée cohérente (`fer_spell_projection_de_mazout`, 4-5, `cooldown: 2`, `data/spells.yaml:123-135`, attachée en premier dans `data/monsters.yaml:115`) et le test `tests/data/marmiteRange.spec.ts:16-33` la fige. La régression de softlock a été corrigée par #180. |
+| COMBAT-07 | combat | Les blocs `ai:` des monstres ne sont jamais lus. | `engine/multiCombat/ai.ts:50-55`, `engine/multiCombat/keepDistance.ts:15`, `store/battleSelectors.ts:322-338`, `schemas/monsterSchema.ts:44-50`, `data/monsters.yaml:114`, `data/spells.yaml:123-135` | Toutes les IA sont identiques. | P1 | `serveur (non lisible)` | Brancher `archetype`/`preferredDistance`. | M | fixed (#175, 6bd12c0 + #178, 30889b4) — les blocs `ai:` sont lus (`enemyStrategy` → `aimOf`, câblés par `battleSelectors.ts:332-338`) ; la portée de la Marmite est désormais une donnée cohérente (`fer_spell_projection_de_mazout`, 4-5, `cooldown: 2`, `data/spells.yaml:123-135`, attachée en premier dans `data/monsters.yaml:114`) et le test `tests/data/marmiteRange.spec.ts:16-33` la fige. La régression de softlock a été corrigée par #180. |
 | COMBAT-08 | combat | L'IA 1v1 choisit un sort sans tester la portée. | `combatLoop/enemy.ts:22-37` | Monstre colle au lieu de tirer. | P1 | `serveur (non lisible)` | Filtrer par `canHitOpponent`. | S | fixed (#140, 4ed327c) |
 | BALANCE-01 | équilibrage | Après GRID-01, le donjon niveau 16 perdait la salle 4 (violation DEC-03) ; soin entre salles 0,50→0,75, levier autorisé par DEC-03, sans nerf de dégâts ni `hpScale`. | `data/dungeons.yaml` (`healBetweenRooms`), `tests/walkthrough/gearedDungeon.spec.ts` | Donjon recommandé niveau 16 injouable. | P1 | `docs/design/DECISIONS.md:25-32` | Soin entre salles 0,75, rien d'autre. | S | fixed (#142, 5ae59cf) |
 | MONSTER-01 | données | Les stats des monstres du projet sont inventées : `data/monsters.yaml:27` donne `strength: 15` au Piou, d'où une initiative de 15 face à 0 pour un héros niveau 1 — les monstres ouvrent donc tous les combats. Le calcul du moteur est pourtant conforme (`Init = floor((For+Int+Cha+Agi+bonus) × PV/PVmax)`). | `data/monsters.yaml:22-27`, `engine/combat/initiative.ts:11-22`, `engine/dungeon/combatants.ts:57-62`, `engine/battleBridge/fromExploration.ts:53-58` | Le héros joue systématiquement après les monstres, donjon comme extérieur. | P2 | `serveur (non lisible)` (provenance des stats de monstres non établie côté client) | Aligner les stats des monstres bas niveau, ou documenter l'écart de données. | M | fixed (#163, 551e8a8 + #167, f0519a4) — `initiative` stockée par grade au schéma et au Piou (0), lue par les deux moteurs via `computeInitiative` ; égalité d'initiative, le héros ouvre. |
@@ -173,9 +174,11 @@ les 82 et ne se corrigent pas dans ce dépôt.
   agents à travailler dans l'arbre principal sur une branche de feature :
   `git rev-parse --abbrev-ref HEAD` dans `/Users/benjaminragot/la-flotte`
   renvoie `feat/render-anim-work` (c'est aussi la branche de la PR #182). État
-  mesuré à 23:30 CET : `git rev-list --left-right --count main...origin/main`
-  → `0	3` (colonnes gauche/droite de `--left-right`). Aucun travail de feature
-  ne doit partir de cet arbre : worktree dédié, toujours.
+  mesuré le 2026-11-25 à 23:40 CET :
+  `git rev-list --left-right --count main...origin/main` → `0	4` (colonnes
+  gauche/droite de `--left-right` ; `main` local = `0754f15`, `origin/main` =
+  `218f8e3`). Aucun travail de feature ne doit partir de cet arbre : worktree
+  dédié, toujours.
 - **Le hook du plugin bloque `git merge-base`.** Le motif
   `/\bgit\s+(merge|rebase)\b/` (`.opencode/plugins/la-flotte-guard.ts:114`)
   matche `git merge-base main HEAD` (le `-` est une frontière de mot) et le
@@ -277,12 +280,16 @@ Elles ne comptent **pas** dans les clos : aucune n'est mergée sur `main`.
 
 | PR | Titre | Zone | Ce qu'elle débloque |
 | --- | --- | --- | --- |
-| #182 | `feat(render): 🎨 animer attaque et touche en salle` | `src/renderer/**` | RENDER-05 : `lastAction` typé + animations `attack`/`hit`. |
+| #182 | `feat(render): 🎨 animer attaque et touche en salle` | `src/renderer/**` | RENDER-05 : `lastAction` typé + animations `attack`/`hit` — **en corrections**. |
+| #184 | `fix(spell): 🐛 respecter castsPerTarget` | `src/engine/combat/spellUsage.ts`, `src/store/battleSelectors.ts` | SPELL-05 : quota par cible. |
 
 Hors PR mais en cours : la branche locale `design/sell-ui` (worktree
-`docs/design/specs/.wt/sell-ui`) prépare l'**écran de vente** (reste de
-DATA-02) ; à `30889b4` elle ne contient qu'une spec et un test non suivi. Elle
-réserve `src/ui/**` sans PR ouverte : à traiter comme un verrou de zone.
+`docs/design/specs/.wt/sell-ui`, base `30889b4`) prépare l'**écran de vente**
+(reste de DATA-02). À l'instantané, elle modifie `src/ui/components/OverlayPanels.tsx`,
+`src/ui/components/inventory/BackpackList.tsx`, `inventoryTheme.ts`,
+`src/ui/inventoryHudHelpers.ts` et ajoute `saleView.ts`, `useSell.ts` et
+`tests/ui/sellPanel.spec.ts`. Elle réserve ces **fichiers** sans PR ouverte : à
+traiter comme un verrou de fichiers, pas de dossier.
 
 Total : sur les **77 constats initiaux**, **25 clos** (`fixed`), **4 partiels**,
 **1 re-cadré** (COMBAT-03 → MONSTER-01), **47 restants** (P0 : 0, P1 : 5, P2 :
