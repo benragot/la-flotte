@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { roomMonsters } from "../../src/engine/dungeon";
 import type { DungeonRoom } from "../../src/engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../../src/engine/dungeon/combatants";
+import { battleFromCombat, PLAYER_BATTLE_ID } from "../../src/engine/battleBridge/fromExploration";
 import { initCombat } from "../../src/engine/combatLoop/init";
 import { createHero } from "../../src/engine/createHero";
 import { parseAsciiMap } from "../../src/engine/grid";
@@ -106,6 +107,27 @@ function count(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
+/** Libellés accessibles de la bande : « Initiative 2 : Balthazar, héros, 30, actif ». */
+function initiativeLabels(html: string): string[] {
+  return [...html.matchAll(/aria-label="(Initiative [^"]*)"/g)].map((match) => match[1] ?? "");
+}
+
+function band(html: string): string {
+  return /aria-label="Ordre d’initiative"[\s\S]*?<\/ol>/.exec(html)?.[0] ?? "";
+}
+
+/** Bataille d'exploration projetée par le pont unifié : héros `0_player`. */
+function unifiedBattle(): BattleState {
+  const piou = mustFind(monsters, "piou_mazoute");
+  const combat = initCombat({
+    map: parseAsciiMap(mustFind(maps, "ferraille_plage_01").grid),
+    hero: createHero("Balthazar", mustFind(classes, "iop")),
+    monster: piou,
+    spells,
+  });
+  return battleFromCombat({ combat, monster: piou });
+}
+
 /** Balise exacte du bouton de fin de tour : `disabled` se vérifie sur son ouverture. */
 function endTurnButton(html: string): string {
   const match = /<button[^>]*>Terminer le tour<\/button>/.exec(html);
@@ -153,7 +175,7 @@ describe("panneau de bataille — rendu des N ennemis", () => {
   it("affiche le héros et les trois ennemis de la salle avec leurs PV", () => {
     const html = renderToStaticMarkup(createElement(BattleSections, { battle: roomBattle() }));
     expect(html).toContain("Balthazar");
-    expect(count(html, ">Piou Mazouté<")).toBe(2);
+    expect(count(html, 'aria-label="Combattant Piou Mazouté"')).toBe(2);
     expect(html).toContain("Égoût-dron");
     expect(html).toContain("35 / 35");
     expect(html).toContain("52 / 52");
@@ -165,7 +187,8 @@ describe("panneau de bataille — rendu des N ennemis", () => {
     const battle = heroFirstBattle();
     const html = renderToStaticMarkup(createElement(BattleSections, { battle }));
     expect(html).toContain('aria-label="Combat de salle"');
-    expect(count(html, 'aria-current="true"')).toBe(1);
+    // Deux marqueurs pour un seul actif : sa carte et son entrée d'initiative.
+    expect(count(html, 'aria-current="true"')).toBe(2);
     expect(count(html, 'aria-label="Combattant ')).toBe(4);
   });
 
@@ -180,6 +203,49 @@ describe("panneau de bataille — rendu des N ennemis", () => {
     const html = renderToStaticMarkup(createElement(BattleSections, { battle: roomBattle() }));
     expect(html).toContain("Terminer le tour");
     expect(html).toContain("Clore la salle");
+  });
+});
+
+describe("panneau de bataille — bande d'initiative des vivants (COMBAT-05)", () => {
+  it("affiche une entrée numérotée par vivant, le mort exclu et l'actif signalé", () => {
+    const battle = heroFirstBattle();
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle }));
+    expect(html).toContain('aria-label="Ordre d’initiative"');
+    const labels = initiativeLabels(html);
+    expect(labels).toHaveLength(4);
+    expect(labels.map((label) => label.match(/^Initiative (\d+)/)?.[1])).toEqual(["1", "2", "3", "4"]);
+    expect(labels[1]).toContain("Balthazar");
+    expect(labels.filter((label) => label.endsWith(", actif"))).toEqual([labels[1]]);
+  });
+
+  it("n'affiche pas le nom d'un combattant mort, ni dans la liste ni dans la bande", () => {
+    const base = heroFirstBattle();
+    const battle = {
+      ...base,
+      combatants: base.combatants.map((entry) => (entry.id === "fer_rat_de_cale-2" ? { ...entry, hp: 0 } : entry)),
+    };
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle }));
+    expect(html).not.toContain("Égoût-dron");
+    expect(initiativeLabels(html)).toHaveLength(3);
+    expect(band(html)).not.toContain("Initiative 4 :");
+  });
+
+  it("distingue l'actif par une forme, pas seulement par la couleur", () => {
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle: heroFirstBattle() }));
+    expect(band(html)).toContain("▸");
+    expect(band(html)).toContain('aria-current="true"');
+  });
+});
+
+describe("panneau de bataille — bande d'initiative en moteur unifié", () => {
+  it("reflète la timeline unifiée d'exploration, héros 0_player compris", () => {
+    const battle = unifiedBattle();
+    const html = renderToStaticMarkup(createElement(BattleSections, { battle }));
+    const labels = initiativeLabels(html);
+    expect(labels).toHaveLength(2);
+    expect(labels[0]).toContain("Balthazar");
+    expect(labels[0]?.endsWith(", actif")).toBe(true);
+    expect(battle.order[battle.activeIndex]).toBe(PLAYER_BATTLE_ID);
   });
 });
 

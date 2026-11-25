@@ -65,3 +65,30 @@ export const HINT = "text-[10px] leading-4 text-[var(--color-ink-2)]";
 
 /** Refus géométrique : encre tertiaire, italique, lisible à côté de la cible. */
 export const BLOCKED_HINT = "text-[10px] italic leading-4 text-[var(--color-ink-3)]";
+
+/**
+ * Bande d'initiative (COMBAT-05) : deux colonnes de puces, matières du panneau.
+ * L'actif ne se lit jamais à la couleur seule — la puce porte « ▸ » en plus du
+ * filet or, et son libellé accessible finit par « actif ».
+ */
+export const INITIATIVE_BLOCK = "mt-0.5 flex flex-col gap-0.5";
+
+export const INITIATIVE_GRID = "grid grid-cols-2 gap-x-1 gap-y-0.5";
+
+export const INITIATIVE_CHIP = [
+  "flex min-w-0 items-center gap-1 rounded-[1px] border px-1",
+  "border-[var(--color-line-field)] bg-[var(--color-surface-1)]",
+  "text-[10px] leading-4 text-[var(--color-ink-2)]",
+].join(" ");
+
+export const INITIATIVE_ACTIVE = "border-[var(--color-line-gold)] text-[var(--color-ink-1)]";
+
+export const INITIATIVE_MARK = "w-2 shrink-0 text-center font-mono text-[10px] font-bold text-[var(--color-line-gold)]";
+
+export const INITIATIVE_CAMP = "w-3 shrink-0 text-center text-[9px] text-[var(--color-ink-3)]";
+
+export const INITIATIVE_POSITION = "shrink-0 font-mono text-[10px] font-bold tabular-nums text-[var(--color-ink-3)]";
+
+export const INITIATIVE_NAME = "min-w-0 flex-1 truncate";
+
+export const INITIATIVE_VALUE = "shrink-0 font-mono text-[10px] tabular-nums text-[var(--color-ink-3)]";

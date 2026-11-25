@@ -1,7 +1,7 @@
 import type { BattleState } from "../../../engine/multiCombat";
 import { isDefeat } from "../../../engine/multiCombat";
-import type { BattleCombatantView } from "../../../renderer/battleViewModel";
-import { battleViewModel, shouldRenderBattle } from "../../../renderer/battleViewModel";
+import type { BattleCombatantView, InitiativeEntry } from "../../../renderer/battleViewModel";
+import { battleViewModel, initiativeOrder, shouldRenderBattle } from "../../../renderer/battleViewModel";
 import { turnSide } from "../../../store/battleSelectors";
 import { useCombatStore } from "../../../store/useCombatStore";
 import { battleAttackButton } from "../../battle/attackButtonState";
@@ -10,6 +10,7 @@ import { useEscapeClose } from "../../useEscapeClose";
 import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
 import { closeBattle } from "./closeBattle";
 import { CombatantList } from "./CombatantList";
+import { InitiativeBand } from "./InitiativeBand";
 import { ACTION_BUTTON, BATTLE_PANEL, CARD_HEAD, FOOT, HINT, LOG_LINE } from "./battleTheme";
 import { useCombatBeat } from "./useCombatBeat";
 
@@ -27,6 +28,7 @@ interface BattleHandlers {
 interface BattleChromeProps {
   battle: BattleState;
   views: readonly BattleCombatantView[];
+  initiative: readonly InitiativeEntry[];
   attack: AttackButtonState;
   handlers: BattleHandlers;
 }
@@ -38,10 +40,7 @@ interface PanelHeadProps {
 }
 
 interface PanelFootProps {
-  log: readonly string[];
-  defeated: boolean;
-  /** `false` : l'actif n'est pas le héros, « Terminer le tour » est alors sans effet. */
-  heroTurn: boolean;
+  battle: BattleState;
   onEndTurn: () => void;
 }
 
@@ -89,23 +88,24 @@ function EndTurnButton({ enabled, onEndTurn }: { enabled: boolean; onEndTurn: ()
   );
 }
 
-function PanelFoot({ log, defeated, heroTurn, onEndTurn }: PanelFootProps) {
+function PanelFoot({ battle, onEndTurn }: PanelFootProps) {
+  const enabled = turnSide(battle) === "player" && !isDefeat(battle);
   return (
     <footer className={FOOT}>
-      <LogLines log={log} />
-      {defeated ? <DefeatNotice /> : null}
-      <EndTurnButton enabled={heroTurn && !defeated} onEndTurn={onEndTurn} />
+      <LogLines log={battle.log} />
+      {isDefeat(battle) ? <DefeatNotice /> : null}
+      <EndTurnButton enabled={enabled} onEndTurn={onEndTurn} />
     </footer>
   );
 }
 
-function BattleChrome({ battle, views, attack, handlers }: BattleChromeProps) {
-  const heroTurn = turnSide(battle) === "player";
+function BattleChrome({ battle, views, initiative, attack, handlers }: BattleChromeProps) {
   return (
     <section aria-label="Combat de salle" className={BATTLE_PANEL}>
       <PanelHead battle={battle} views={views} onClose={() => handlers.close(battle)} />
+      <InitiativeBand entries={initiative} />
       <CombatantList views={views} attack={attack} onAttack={handlers.attack} />
-      <PanelFoot log={battle.log} defeated={isDefeat(battle)} heroTurn={heroTurn} onEndTurn={handlers.endTurn} />
+      <PanelFoot battle={battle} onEndTurn={handlers.endTurn} />
     </section>
   );
 }
@@ -113,12 +113,13 @@ function BattleChrome({ battle, views, attack, handlers }: BattleChromeProps) {
 /** Corps du panneau, isolé du store : testable en rendu statique. */
 export function BattleSections({ battle }: { battle: BattleState }) {
   const views = battleViewModel(battle);
+  const initiative = initiativeOrder(battle);
   const handlers = useBattleHandlers();
   const attack = battleAttackButton(battle);
   // Échap emprunte la **seule** sortie du panneau : `closeBattle` reporte la
   // victoire ou abandonne la salle, donc jamais un combat orphelin.
   useEscapeClose(() => handlers.close(battle));
-  return <BattleChrome battle={battle} views={views} attack={attack} handlers={handlers} />;
+  return <BattleChrome battle={battle} views={views} initiative={initiative} attack={attack} handlers={handlers} />;
 }
 
 /** Portillon : `battle` seul décide, le 1v1 (`combat`) garde son arène et son HUD. */

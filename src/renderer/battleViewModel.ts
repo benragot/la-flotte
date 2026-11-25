@@ -1,5 +1,5 @@
 import type { BattleState, CastBlock, CombatantLike, RangeSpec, Side } from "../engine/multiCombat";
-import { activeCombatant, castBlock, isAlive, targetsOf } from "../engine/multiCombat";
+import { activeCombatant, castBlock, findCombatant, isAlive, targetsOf } from "../engine/multiCombat";
 import { hpRatio } from "./tokens";
 
 /** Vue d'un combattant 1vN : tout vient de `BattleState`, aucune valeur en dur. */
@@ -119,6 +119,39 @@ export function battleViewModel(state: BattleState | null): BattleCombatantView[
   const active = activeCombatant(state);
   const context = { state, active, targets: targetIds(state, active) };
   return state.combatants.filter(isAlive).map((combatant) => combatantView(combatant, context));
+}
+
+/** Entrée de la bande d'initiative : le rang, le camp, l'actif. */
+export interface InitiativeEntry {
+  id: string;
+  name: string;
+  initiative: number;
+  side: Side;
+  /** Rang 1-based dans la séquence des vivants. */
+  position: number;
+  /** C'est son tour dans la timeline. */
+  isActive: boolean;
+}
+
+/** Résout `order` en combattants vivants : les morts ne sont jamais affichés. */
+function livingOrder(state: BattleState): CombatantLike[] {
+  const resolved = state.order.map((id) => findCombatant(state, id));
+  return resolved.filter((combatant): combatant is CombatantLike => combatant !== undefined && isAlive(combatant));
+}
+
+function initiativeEntry(combatant: CombatantLike, index: number, activeId: string | undefined): InitiativeEntry {
+  const { id, name, initiative, side } = combatant;
+  return { id, name, initiative, side, position: index + 1, isActive: id === activeId };
+}
+
+/**
+ * Séquence d'initiative des vivants, dans l'ordre de jeu **déjà** calculé par
+ * `buildTimeline` (DEC-12) : aucune règle d'initiative n'est recalculée ici.
+ */
+export function initiativeOrder(state: BattleState | null): InitiativeEntry[] {
+  if (state === null) return [];
+  const activeId = state.order[state.activeIndex];
+  return livingOrder(state).map((combatant, index) => initiativeEntry(combatant, index, activeId));
 }
 
 /** Portillon du panneau : `battle` seul décide, le 1v1 (`combat`) n'est jamais concerné. */
