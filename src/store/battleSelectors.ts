@@ -273,7 +273,8 @@ export function turnSide(state: BattleState | null): Side | null {
   return activeCombatant(state)?.side ?? null;
 }
 
-function heroHasHand(state: BattleState): boolean {
+/** La main est au héros : partagé par la cadence et la barre de sorts unifiée. */
+export function heroHasHand(state: BattleState): boolean {
   return turnSide(state) === "player";
 }
 

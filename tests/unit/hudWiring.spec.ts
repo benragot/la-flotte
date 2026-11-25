@@ -95,3 +95,12 @@ describe("dock unique du moteur unifié (DEC-12 étape 3)", () => {
     expect(dockHidden({ ...open, mode: "exploration" })).toBe(false);
   });
 });
+
+describe("dock du donjon — la barre de sorts unifiée ne le remplace pas", () => {
+  it("une salle ouverte (mode exploration) garde ses ressources, sans barre de sorts", () => {
+    const html = markup(createElement(CombatHud, { mode: "exploration" }));
+    expect(html).toContain('aria-label="Dock du héros"');
+    expect(html).toContain('aria-label="Ressources du héros"');
+    expect(html).not.toContain('aria-label="Sorts disponibles"');
+  });
+});

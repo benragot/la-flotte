@@ -12,10 +12,19 @@ export interface DockGateInput {
 }
 
 /**
- * DEC-12 étape 3 : quand le moteur unique publie un `battle` en mode combat,
- * `BattlePanel` est le **seul** shell — le dock 1v1 disparaît pour ne pas
- * doubler les contrôles. En `legacy`, `battle` reste nul : rien ne change.
+ * DEC-12 étape 3b : un combat d'exploration unifié (`combat` nul, `battle`
+ * publié en mode combat) reçoit **le dock de sorts** au lieu de rien. Un donjon
+ * reste en mode `exploration` : son dock historique du héros ne bouge pas.
  */
+export type DockSurface = "legacy" | "unified-spells";
+
+export function dockSurface(input: DockGateInput): DockSurface {
+  if (input.mode !== "combat") return "legacy";
+  if (input.combat !== null || input.battle === null) return "legacy";
+  return "unified-spells";
+}
+
+/** Le dock 1v1 est masqué quand le dock de sorts unifié le remplace. */
 export function dockHidden(input: DockGateInput): boolean {
-  return input.mode === "combat" && input.combat === null && input.battle !== null;
+  return dockSurface(input) === "unified-spells";
 }

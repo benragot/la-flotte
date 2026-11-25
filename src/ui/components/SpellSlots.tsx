@@ -13,7 +13,7 @@ interface SpellSlotsProps {
   selectedSpellId: string | null;
 }
 
-interface SlotView {
+export interface SlotView {
   spell: SpellDef | null;
   index: number;
   look: SlotLook;
@@ -96,22 +96,26 @@ function viewsOf(input: SlotLookInput): SlotView[] {
   return buildSpellSlots(input).map((spell, index) => ({ spell, index, look: slotLook(input, spell) }));
 }
 
-function SlotGrid({ combat, selectedSpellId }: SpellSlotsProps) {
-  const input = { combat, selectedSpellId };
-  const slots = useMemo(() => viewsOf(input), [combat, selectedSpellId]);
-  return <div className={GRID}>{slots.map((slot) => <SlotTile key={slot.index} {...slot} />)}</div>;
-}
-
 /**
  * Grille 2 × 6 des sorts : numéro de raccourci, coût PA et état de lancement.
  * Chaque état a sa face, son filet et son encre — jamais une simple baisse
  * d'`opacity` (spec §2.4), et la cause est écrite dans l'infobulle.
+ *
+ * Exportée : le combat unifié (`BattleSpellSlots`) rend **exactement** cette
+ * grille, avec ses propres vues. Un seul look pour les deux moteurs.
  */
-export default function SpellSlots({ combat, selectedSpellId }: SpellSlotsProps) {
+export function SpellSlotPanel({ views }: { views: readonly SlotView[] }) {
   return (
     <section aria-label="Sorts disponibles" className={DOCK_PANEL}>
       <h2 className={PANEL_TITLE}>Sorts · touches 1 à 9</h2>
-      <SlotGrid combat={combat} selectedSpellId={selectedSpellId} />
+      <div className={GRID}>{views.map((slot) => <SlotTile key={slot.index} {...slot} />)}</div>
     </section>
   );
+}
+
+/** Grille du 1v1 : les vues viennent de `CombatState` (`slotLook`). */
+export default function SpellSlots({ combat, selectedSpellId }: SpellSlotsProps) {
+  const input = { combat, selectedSpellId };
+  const views = useMemo(() => viewsOf(input), [combat, selectedSpellId]);
+  return <SpellSlotPanel views={views} />;
 }

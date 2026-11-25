@@ -87,6 +87,21 @@ describe("un combat d'exploration joué dans le panneau unique", () => {
     expect(ofSide(after, "player").ap).toBeLessThan(apBefore);
   });
 
+  it("le héros arme Pression, la lance sur l'oiseau et le sort se désarme", () => {
+    const battle = bringEnemy(TOUGH);
+    const enemyBefore = ofSide(battle, "enemy").hp;
+    const apBefore = ofSide(battle, "player").ap;
+    state().selectSpell("pression");
+    expect(state().selectedSpellId).toBe("pression");
+    state().battleMove({ to: ofSide(battleOrThrow(), "enemy").position, rng: () => 0 });
+    const after = battleOrThrow();
+    expect(ofSide(after, "enemy").hp).toBeLessThan(enemyBefore);
+    expect(ofSide(after, "player").ap).toBe(apBefore - 3);
+    expect(state().selectedSpellId).toBeNull();
+  });
+});
+
+describe("sorts, tours et sortie du combat unifié", () => {
   it("terminer le tour rend la main à l'oiseau, qui riposte, puis au héros", () => {
     const battle = bringEnemy(TOUGH);
     state().endTurn();
