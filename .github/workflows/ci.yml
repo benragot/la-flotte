@@ -1,3 +1,4 @@
+# Le filtre de chemins de ui-layout doit être tenu à jour si un nouveau dossier d'interface apparaît.
 name: CI
 
 on:
@@ -28,26 +29,67 @@ jobs:
       - name: Build
         run: npm run build
 
-  ui-layout:
-    needs: quality-gate
+  changes:
     runs-on: ubuntu-latest
+    outputs:
+      ui-changed: ${{ steps.filter.outputs.ui-changed }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter changed paths
+        id: filter
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -z "$BASE_REF" ]; then
+            echo "ui-changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=false
+          while IFS= read -r file; do
+            case "$file" in
+              src/ui/*|src/renderer/*|src/store/*|src/dev/*)
+                changed=true ;;
+              src/styles.css|src/main.tsx|index.html|vite.config.ts|playwright.config.ts)
+                changed=true ;;
+              tests/ui/*|package.json|package-lock.json)
+                changed=true ;;
+            esac
+          done < <(git diff --name-only "origin/${BASE_REF}...HEAD")
+          echo "ui-changed=${changed}" >> "$GITHUB_OUTPUT"
+
+  ui-layout:
+    needs: [quality-gate, changes]
+    runs-on: ubuntu-latest
+    steps:
+      - name: No UI change
+        if: needs.changes.outputs.ui-changed != 'true'
+        run: echo "Aucun changement d'interface, suite Playwright ignorée."
+
+      - name: Checkout
+        if: needs.changes.outputs.ui-changed == 'true'
+        uses: actions/checkout@v4
 
       - name: Setup Node
+        if: needs.changes.outputs.ui-changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
       - name: Install
+        if: needs.changes.outputs.ui-changed == 'true'
         run: npm ci
 
       - name: Install Chromium
+        if: needs.changes.outputs.ui-changed == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Layout suite
+        if: needs.changes.outputs.ui-changed == 'true'
         run: npm run test:ui
 
       - name: Upload Playwright report
