@@ -9,11 +9,13 @@ import type { SpriteSheetSpec } from "./types";
 
 /** Nœud de décor déjà peint, fourni par la couche de scène pour le tri commun. */
 export interface DepthProp {
+  /** Identité du prop : même clé ⇒ même objet, donc même nœud réutilisé. */
+  key: string;
   /** Profondeur de grille `x + y` de la case du prop. */
   depth: number;
   /** Rang de pose à profondeur égale : le décor passe avant les acteurs. */
   order: number;
-  /** Nœud peint, possédé par l'appelant puis détruit au rendu suivant. */
+  /** Nœud peint ; il survit aux rendus suivants tant que son prop reste sur la carte. */
   node: Container;
 }
 
@@ -30,6 +32,14 @@ export interface ActorSyncInput {
 
 interface DepthPlacement extends DepthItem {
   node: Container;
+}
+
+/**
+ * Un prop du rendu précédent est-il **le même objet** dans le nouveau ? Même clé
+ * et même nœud : le garder évite de repeindre tout le décor à chaque survol.
+ */
+function reuses(props: readonly DepthProp[], prop: DepthProp): boolean {
+  return props.some((entry) => entry.key === prop.key && entry.node === prop.node);
 }
 
 function hasSprite(token: TokenView): boolean {
@@ -69,7 +79,7 @@ export class ActorStage {
   private readonly actors = new Map<string, EntitySprite>();
   /** Dernière signature de trajet **jouée** par acteur : elle seule décide d'un rejeu. */
   private readonly played = new Map<string, string>();
-  /** Props du dernier rendu : détruits quand la scène les remplace, jamais laissés fantômes. */
+  /** Props du dernier rendu : seuls ceux qui quittent la carte sont détruits. */
   private props: readonly DepthProp[] = [];
   private centers: ReadonlyMap<string, PixelPoint> = new Map();
   private scene: object | null | undefined;
@@ -183,7 +193,7 @@ export class ActorStage {
   }
 
   private replaceProps(props: readonly DepthProp[]): void {
-    this.props.forEach((prop) => prop.node.destroy({ children: true }));
+    this.props.filter((prop) => !reuses(props, prop)).forEach((prop) => prop.node.destroy({ children: true }));
     this.props = props;
   }
 }
