@@ -3,7 +3,7 @@ import type { Position } from "../grid";
 import { hasLineOfSight, isWalkableCell, rangeDistance, samePosition } from "../grid";
 import { getActiveCombatant, getOpponent } from "./active";
 import { allPositions } from "./cells";
-import { isSpellImplemented } from "./spellSupport";
+import { isHealSpell, isSpellImplemented } from "./spellSupport";
 import type { CombatantState, CombatState } from "./types";
 
 interface CastCellInput {
@@ -36,8 +36,13 @@ function isTeleportCell(input: CastCellInput): boolean {
   return hasSight(input);
 }
 
+function isHealCell(input: CastCellInput): boolean {
+  return isHealSpell(input.spell) && samePosition(input.cell, input.caster.position);
+}
+
 function isValidCell(input: CastCellInput): boolean {
   if (!inRange(input)) return false;
+  if (isHealSpell(input.spell)) return isHealCell(input);
   return input.spell.kind === "teleport" ? isTeleportCell(input) : isDamageCell(input);
 }
 

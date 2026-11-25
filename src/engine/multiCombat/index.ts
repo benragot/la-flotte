@@ -26,6 +26,8 @@ export { isDefeat, isVictory, targetsOf } from "./outcome";
 export { advanceTurn } from "./turn";
 export { resolveAttack } from "./attack";
 export type { AttackInput } from "./attack";
+export { resolveHeal } from "./heal";
+export type { HealInput, HealSpec } from "./heal";
 export { castBlock, rangeOf } from "./range";
 export type { CastBlock, RangeCheck } from "./range";
 export { canCastSpellNow, isAttackAvailable, recordAttack } from "./spellUse";

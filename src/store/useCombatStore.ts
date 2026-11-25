@@ -49,7 +49,7 @@ import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { advanceTurn, buildTimeline, isDefeat, isVictory, moveHero } from "../engine/multiCombat";
+import { advanceTurn, buildTimeline, isDefeat, isVictory, moveHero, resolveHeal } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat/timeline";
 import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, RangeSpec, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
@@ -71,11 +71,13 @@ import {
   needsEnemyStep,
   playEnemyTurns as resolveEnemyTurns,
   playStepOnce,
+  spellHealSpec,
   spellRollSpec,
   spellStrategy,
 } from "./battleSelectors";
 import { battleClickRoute } from "./battleRouting";
 import { armedBattleSpell, battleSpellSlots } from "./battleSpells";
+import { isHealSpell } from "../engine/combatLoop/spellSupport";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 import type { MovementTrail, TrailBatch } from "./trails";
 import { NO_TRAILS, battleTrails, combatTrails, nextBatch } from "./trails";
@@ -533,10 +535,16 @@ function unifiedSpell(click: UnifiedClick, targetId: string): Partial<CombatStor
   return cast.performed ? { ...update, selectedSpellId: null } : update;
 }
 
+function selfHealSelected(store: CombatStore): boolean {
+  const spell = spells.find((entry) => entry.id === store.selectedSpellId);
+  return spell !== undefined && isHealSpell(spell);
+}
+
 /** Un clic d'exploration unifié : la route est pure, le moteur tranche ensuite. */
 function explorationBattleClick(click: UnifiedClick, target: Position): Partial<CombatStore> {
   const spellSelected = click.store.selectedSpellId !== null;
-  const route = battleClickRoute({ battle: click.state, target, spellSelected });
+  const selfSpell = selfHealSelected(click.store);
+  const route = battleClickRoute({ battle: click.state, target, spellSelected, selfSpell });
   if (route.kind === "move") return scopedBattleUpdate(click.store, moveHero({ state: click.state, to: target, rng: click.rng }));
   if (route.kind === "spell") return unifiedSpell(click, route.targetId);
   return unifiedAttack(click, route.targetId);
@@ -757,7 +765,18 @@ function refusedCast(state: BattleState, refusal: string | null): CastOutcome | 
   return refusal === null ? null : { state: appendBattleLog(state, refusal), performed: false };
 }
 
+/** Soin 1vN : `resolveHeal` porte le camp, les PA, le quota et le plafond `maxHp`. */
+function castHealSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): CastOutcome {
+  const healer = activeCombatant(state);
+  const heal = spellHealSpec(spell);
+  if (healer === null || heal === null) return { state, performed: false };
+  const options = { state, healerId: healer.id, targetId: input.targetId, heal, rng: input.rng ?? Math.random };
+  const next = resolveHeal(options);
+  return { state: next, performed: next !== state };
+}
+
 function castHeroSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): CastOutcome {
+  if (isHealSpell(spell)) return castHealSpell(state, input, spell);
   const rng = input.rng ?? Math.random;
   const attack = spellRollSpec(spell);
   const refusal = refusedCast(state, castRefusal(state, input.targetId, attack));
