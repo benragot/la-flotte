@@ -68,10 +68,11 @@ export const CAST_ZONE_INSET = 0.55;
 /**
  * Trait sombre (`surface-0` de `ui-visual-direction.md`) sous le liseré. Mesuré :
  * l'élément seul plafonne à 2,49:1 (Feu) et 1,54:1 (Air) sur le sable ; ce trait
- * tient 6,9:1 sur sable et 3,1:1 sur le ponton, les deux sols jouables.
+ * tient 8,8:1 sur sable et 3,7:1 sur le ponton. À 0,8 le cœur du Feu tombait à
+ * 2,75:1 sur son propre trait : à 0,95 tous les éléments passent 3:1 (Feu 3,5:1).
  */
 export const CAST_ZONE_BACKING = 0x14100d;
-export const CAST_ZONE_BACKING_ALPHA = 0.8;
+export const CAST_ZONE_BACKING_ALPHA = 0.95;
 export const CAST_ZONE_BACKING_WIDTH = 2.2;
 
 /** Zone PM (§3.2) : aplat **très** discret, le sol doit rester lisible dessous. */
