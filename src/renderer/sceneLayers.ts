@@ -19,6 +19,8 @@ import {
   labelBounds,
   labelsFor,
   nameLabelFor,
+  pathCostLabel,
+  pathCostStyle,
   viewportBounds,
 } from "./labels";
 import { ActorStage } from "./sprites/actorStage";
@@ -27,7 +29,8 @@ import type { SpriteSheetSpec } from "./sprites/types";
 import { cellCenters } from "./walkTrail";
 import { drawExitMarks } from "./exitPaint";
 import { drawTeamRings } from "./teamRing";
-import { drawGrid, drawHighlights, drawOutlines, drawPath } from "./tilePaint";
+import type { PathHint } from "./scene";
+import { drawGrid, drawHighlights, drawInvalidTarget, drawOutlines, drawPath } from "./tilePaint";
 import type { TokenView } from "./tokens";
 import { BADGE_FILL, BADGE_RADIUS, BADGE_STROKE, drawActiveRings, drawTokens, hoveredHpBarTokens, paintHpBar, tokensNeedingCircle } from "./tokens";
 import type { SceneLayerName } from "./sceneLayerOrder";
@@ -164,6 +167,17 @@ function sceneLabelBounds(view: ViewModel, viewport: { width: number; height: nu
 
 function drawLabels(container: Container, view: ViewModel, bounds: LabelBounds): void {
   view.tokens.forEach((token) => addTokenLabels(container, token, bounds));
+  addPathCost(container, view.pathHint, bounds);
+}
+
+/** Pastille « N PM » du survol : même conteneur que les noms, donc détruite avec eux. */
+function addPathCost(container: Container, hint: PathHint | null | undefined, bounds: LabelBounds): void {
+  if (hint === null || hint === undefined) return;
+  const text = new Text({ text: `${hint.cost} PM`, style: pathCostStyle(hint) });
+  const label = pathCostLabel({ hint, bounds, width: text.width });
+  text.anchor.set(0.5);
+  text.position.set(label.x, label.y);
+  container.addChild(text);
 }
 
 function clearLabels(container: Container): void {
@@ -234,6 +248,7 @@ function drawBoardLayers(layers: SceneLayers, view: ViewModel): void {
   drawExitMarks(layers.exitMarks, view.scene.exitMarks);
   drawHighlights(layers.highlights, view.scene.highlights);
   drawPath(layers.path, view.path);
+  drawInvalidTarget(layers.path, view.pathHint);
 }
 
 /** Anneau d'équipe sous le sprite, anneau doré **sous** les acteurs, puis jetons, décor haut et badges. */
