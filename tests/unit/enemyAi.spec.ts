@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { spellUsageKey } from "../../src/engine/combat";
 import { monsterCombatant } from "../../src/engine/dungeon/combatants";
 import type { AsciiMap, Position } from "../../src/engine/grid";
 import { parseAsciiMap, rangeDistance } from "../../src/engine/grid";
@@ -35,7 +36,7 @@ const HERO: CombatantLike = {
   initiative: 1,
 };
 
-function spell(minRange: number, maxRange: number): SpellDef {
+function spell(minRange: number, maxRange: number, extra: Partial<SpellDef> = {}): SpellDef {
   const base = {
     id: "test_trait",
     name: "Trait de Test",
@@ -49,7 +50,7 @@ function spell(minRange: number, maxRange: number): SpellDef {
     requiresLos: true,
     damage: { min: 10, max: 10 },
   };
-  return base;
+  return { ...base, ...extra };
 }
 
 interface MonsterInput {
@@ -168,5 +169,50 @@ describe("COMBAT-07 — aucun ai ou ai incohérent", () => {
     const ai = { archetype: "support_healer", preferredDistance: 9 };
     const support = play({ monster: monsterOf({ id: "ia_lointaine", mp: 6, ai }), start: { x: 8, y: 0 }, spells: [spell(1, 3)] });
     expect(positionOf(support.after, "ia_lointaine-0")).toEqual({ x: 3, y: 0 });
+  });
+});
+
+/** Le monstre a déjà lancé son sort ce tour : c'est l'état d'après-cast de la QA. */
+function spent(state: BattleState, casterId: string, spellId: string): BattleState {
+  const key = spellUsageKey(casterId, spellId);
+  const usage = { ...state.spellUsage, [key]: { casts: 1, turn: state.turn, readyAt: 0 } };
+  return { ...state, spellUsage: usage };
+}
+
+/** Marmite : un sort à distance 4–5 (quota d'un lancement) et un sort de contact. */
+const SUPPORT_SPELLS = [spell(4, 5, { castsPerTurn: 1 }), spell(1, 1, { id: "test_contact" })];
+
+describe("repli d'action — un monstre qui ne peut plus frapper avance", () => {
+  it("à sa distance préférée, quota épuisé : il se rapproche au lieu de perdre le tour", () => {
+    const base = battleOf(monsterOf({ id: "ia_repli", mp: 4, ai: SUPPORT }), { x: 4, y: 0 });
+    const state = spent(base, "ia_repli-0", "test_trait");
+    const action = spellStrategy({ spells: [spell(4, 5, { castsPerTurn: 1 })] })(state, "ia_repli-0");
+    expect(action).toEqual({ kind: "move", to: { x: 1, y: 0 } });
+  });
+
+  it("il ne se fige plus : il rejoint le contact et frappe avec l'autre sort", () => {
+    const base = battleOf(monsterOf({ id: "ia_kite", mp: 4, ai: SUPPORT }), { x: 4, y: 0 });
+    const next = enemiesAct({ state: base, rng: () => 0, strategy: spellStrategy({ spells: SUPPORT_SPELLS }) });
+    const kite = combatantIn(next, "ia_kite-0");
+    expect(kite.position).toEqual({ x: 1, y: 0 });
+    expect(kite.mp).toBe(1);
+    expect(kite.ap).toBe(0);
+    expect(combatantIn(next, "player").hp).toBe(980);
+    expect(next.log.filter((line) => line.includes("frappe"))).toHaveLength(2);
+  });
+
+  it("à sa distance préférée avec un sort lançable, il tire sans se déplacer", () => {
+    const base = battleOf(monsterOf({ id: "ia_tir", mp: 4, ai: SUPPORT }), { x: 4, y: 0 });
+    const action = spellStrategy({ spells: SUPPORT_SPELLS })(base, "ia_tir-0");
+    expect(action).toMatchObject({ kind: "attack", targetId: "player" });
+  });
+
+  it("coincé sans PM : le tour est perdu en le disant, sans erreur", () => {
+    const base = battleOf(monsterOf({ id: "ia_bloque", mp: 0, ai: SUPPORT }), { x: 4, y: 0 });
+    const state = spent(base, "ia_bloque-0", "test_trait");
+    const spells = [spell(4, 5, { castsPerTurn: 1 })];
+    const next = enemiesAct({ state, rng: () => 0, strategy: spellStrategy({ spells }) });
+    expect(positionOf(next, "ia_bloque-0")).toEqual({ x: 4, y: 0 });
+    expect(next.log.some((line) => line.includes("ne peut pas atteindre"))).toBe(true);
   });
 });
