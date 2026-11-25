@@ -1,9 +1,9 @@
 import { isDefeat, isVictory } from "../engine/multiCombat";
-import { activeCombatant } from "../engine/multiCombat/timeline";
 import { canCastSpellNow } from "../engine/multiCombat/spellUse";
 import { isSpellImplemented } from "../engine/combatLoop/spellSupport";
 import type { BattleState, CombatantLike } from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
+import { heroHasHand } from "./battleSelectors";
 
 /**
  * DEC-12 étape 3b : la barre de sorts d'un `BattleState`, sans réécrire une
@@ -53,10 +53,43 @@ export function isUnifiedCastable(spell: SpellDef): boolean {
   return spell.kind === "damage" && isSpellImplemented(spell);
 }
 
+/** Sort du catalogue par id ; la bataille ne transporte que des ids. */
+function spellById(spells: readonly SpellDef[], spellId: string | null): SpellDef | null {
+  if (spellId === null) return null;
+  return spells.find((entry) => entry.id === spellId) ?? null;
+}
+
+function heroOwns(hero: CombatantLike, spell: SpellDef): boolean {
+  return (hero.spellIds ?? []).includes(spell.id);
+}
+
+function castableNow(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): SpellDef | null {
+  if (!isUnifiedCastable(spell)) return null;
+  return canCastSpellNow(input.battle, hero.id, spell) ? spell : null;
+}
+
+/** La main du héros et la propriété du sort : les deux gardes de camp. */
+function heroReady(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): boolean {
+  return heroHasHand(input.battle) && heroOwns(hero, spell);
+}
+
+/**
+ * Sort armé réellement résoluble **maintenant** : il appartient au héros, la
+ * main est à lui (`heroHasHand`, garde #156), et le quota est ouvert. Un clic
+ * hors tour rend `null` : l'appelant n'entre pas dans `castHeroSpell` et ne
+ * journalise rien — inerte et silencieux, jamais un faux départ.
+ */
+export function armedBattleSpell(input: BattleSpellsInput): SpellDef | null {
+  const hero = heroCombatant(input.battle);
+  const spell = spellById(input.spells, input.selectedSpellId);
+  if (hero === null || spell === null) return null;
+  return heroReady(input, hero, spell) ? castableNow(input, hero, spell) : null;
+}
+
 /** Verrous de bataille : ils gagnent sur tout le reste. */
 function gateState(input: BattleSpellsInput): BattleSlotState | null {
   if (battleOver(input.battle)) return "salle-terminee";
-  if (activeCombatant(input.battle)?.side !== "player") return "pas-son-tour";
+  if (!heroHasHand(input.battle)) return "pas-son-tour";
   return null;
 }
 

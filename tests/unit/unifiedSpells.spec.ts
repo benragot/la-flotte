@@ -17,6 +17,7 @@ import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { parseMapsYaml } from "../../src/schemas/mapSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
 import { parseSpellsYaml } from "../../src/schemas/spellSchema";
+import * as battleSpellsModule from "../../src/store/battleSpells";
 import { battleSpellSlots } from "../../src/store/battleSpells";
 import { useCombatStore } from "../../src/store/useCombatStore";
 import { useGameStore } from "../../src/store/useGameStore";
@@ -227,6 +228,23 @@ function ofSide(battle: BattleState, side: "player" | "enemy"): CombatantLike {
   return found;
 }
 
+/** Main au monstre : la timeline désigne l'ennemi, sans toucher aux positions. */
+function withEnemyHand(battle: BattleState): BattleState {
+  return { ...battle, activeIndex: battle.order.indexOf(ofSide(battle, "enemy").id) };
+}
+
+/** Monstre volontairement hors de portée de Pression (1–2), carte conservée. */
+function stageDistantEnemy(): BattleState {
+  const base = enteredBattle();
+  const hero = ofSide(base, "player");
+  const enemy = ofSide(base, "enemy");
+  const far = { x: hero.position.x + 5, y: hero.position.y };
+  const combatants = [{ ...hero, ap: 12, spellIds: ["pression"] }, { ...enemy, position: far, hp: 300, maxHp: 300 }];
+  const battle = { ...base, activeIndex: base.order.indexOf(hero.id), combatants };
+  useCombatStore.setState({ battle });
+  return battle;
+}
+
 describe("exploration unifiée — sélection d'un sort", () => {
   beforeEach(() => {
     unified();
@@ -274,6 +292,67 @@ describe("exploration unifiée — lancement d'un sort", () => {
     expect(ofSide(after, "enemy").hp).toBe(292);
     expect(ofSide(after, "player").ap).toBe(9);
     expect(state().selectedSpellId).toBeNull();
+  });
+});
+
+describe("exploration unifiée — changement de tour et refus", () => {
+  beforeEach(() => {
+    unified();
+    newSession();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("le pas de cadence de useCombatBeat désarme le sort armé", () => {
+    stageDuel(12);
+    state().selectSpell("pression");
+    const armed = state().battle as BattleState;
+    state().playEnemyStepOnce({ rng: () => 0 });
+    expect(state().battle).not.toBe(armed);
+    expect(state().selectedSpellId).toBeNull();
+  });
+
+  it("un refus géométrique (hors portée) conserve le sort armé", () => {
+    const battle = stageDistantEnemy();
+    state().selectSpell("pression");
+    state().battleMove({ to: ofSide(battle, "enemy").position, rng: () => 0 });
+    const after = state().battle as BattleState;
+    expect(state().selectedSpellId).toBe("pression");
+    expect(after.log.at(-1)).toContain("hors portée");
+    expect(ofSide(after, "enemy").hp).toBe(300);
+    expect(ofSide(after, "player").ap).toBe(12);
+  });
+});
+
+describe("exploration unifiée — garde de camp", () => {
+  beforeEach(() => {
+    unified();
+    newSession();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("armedBattleSpell exige la main du héros", () => {
+    const guard = battleSpellsModule.armedBattleSpell;
+    expect(guard).toBeDefined();
+    const armed = { battle: duelBattle(), spells, selectedSpellId: "pression" };
+    expect(guard(armed)?.id).toBe("pression");
+    const enemyHand = { ...armed.battle, activeIndex: 1 };
+    expect(guard({ ...armed, battle: enemyHand })).toBeNull();
+  });
+
+  it("un clic sur le monstre pendant le tour adverse ne change rien", () => {
+    const battle = stageDuel(12);
+    state().selectSpell("pression");
+    useCombatStore.setState({ battle: withEnemyHand(battle) });
+    const before = state().battle;
+    state().battleMove({ to: ofSide(battle, "enemy").position, rng: () => 0 });
+    expect(state().battle).toBe(before);
+    expect(state().selectedSpellId).toBe("pression");
   });
 });
 

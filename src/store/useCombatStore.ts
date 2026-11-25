@@ -49,7 +49,7 @@ import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { advanceTurn, buildTimeline, canCastSpellNow, isDefeat, isVictory, moveHero } from "../engine/multiCombat";
+import { advanceTurn, buildTimeline, isDefeat, isVictory, moveHero } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat/timeline";
 import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, RangeSpec, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
@@ -76,7 +76,7 @@ import {
   spellStrategy,
 } from "./battleSelectors";
 import { battleClickRoute } from "./battleRouting";
-import { battleSpellSlots, heroCombatant, isUnifiedCastable } from "./battleSpells";
+import { armedBattleSpell, battleSpellSlots } from "./battleSpells";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 import type { MovementTrail, TrailBatch } from "./trails";
 import { NO_TRAILS, battleTrails, combatTrails, nextBatch } from "./trails";
@@ -519,33 +519,15 @@ function unifiedAttack(click: UnifiedClick, targetId: string): Partial<CombatSto
   return scopedBattleUpdate(click.store, resolveBattleAttack(options));
 }
 
-/** Sort résolu dans `data/spells.yaml` : aucun id de sort écrit en dur ici. */
-function heroSpellById(spellId: string | null): SpellDef | null {
-  if (spellId === null) return null;
-  return spells.find((entry) => entry.id === spellId) ?? null;
-}
-
-/** Sort implémenté et résoluble par le clic unifié (frappe). */
-function armedKind(spell: SpellDef | null): SpellDef | null {
-  if (spell === null) return null;
-  return isUnifiedCastable(spell) ? spell : null;
-}
-
-/** Sort armé que le chemin unifié sait résoudre ET lancer à cet instant. */
-function armedHeroSpell(store: CombatStore, state: BattleState): SpellDef | null {
-  const hero = heroCombatant(state);
-  const spell = armedKind(heroSpellById(store.selectedSpellId));
-  if (hero === null || spell === null) return null;
-  return canCastSpellNow(state, hero.id, spell) ? spell : null;
-}
-
 /**
  * Sort armé : même chemin que le panneau (`castHeroSpell`), récompense comprise.
- * Désarmé après un lancer réussi ; un refus géométrique laisse le sort armé
- * pour que le joueur retente sur une autre cible (le journal dit pourquoi).
+ * `armedBattleSpell` refuse un clic hors main : aucun appel au moteur, aucun
+ * journal, donc rien qui ressemble à une action. Désarmé après un lancer
+ * réussi ; un refus géométrique laisse le sort armé pour retenter ailleurs.
  */
 function unifiedSpell(click: UnifiedClick, targetId: string): Partial<CombatStore> {
-  const spell = armedHeroSpell(click.store, click.state);
+  const input = { battle: click.state, spells, selectedSpellId: click.store.selectedSpellId };
+  const spell = armedBattleSpell(input);
   if (spell === null) return {};
   const cast = castHeroSpell(click.state, { targetId, rng: click.rng }, spell);
   const update = scopedBattleUpdate(click.store, cast.state);
@@ -587,7 +569,7 @@ function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore>
 function endTurnUpdate(store: CombatStore): Partial<CombatStore> {
   if (store.mode !== "combat") return {};
   const battle = explorationBattle(store);
-  if (battle !== null) return { ...playEnemyTurnsUpdate(store, Math.random), selectedSpellId: null };
+  if (battle !== null) return turnChangeUpdate(store, playEnemyTurnsUpdate(store, Math.random));
   if (store.combat === null) return {};
   return stateUpdate(store, endPlayerTurn(store.combat, Math.random));
 }
@@ -839,10 +821,21 @@ function movedBattle(store: CombatStore, to: Position, rng: Rng): Partial<Combat
   return scopedBattleUpdate(store, moveHero({ state, to, rng }));
 }
 
+/**
+ * Toute action qui publie un nouveau `battle` parce que la timeline a avancé
+ * désarme le sort, **ici et seulement ici**. `playEnemyStepOnce` (bouton et
+ * cadence de `useCombatBeat`) et `advanceBattleTurn` passent tous par cette
+ * remise à zéro ; aucun chemin de tour ne la réécrit.
+ */
+function turnChangeUpdate(store: CombatStore, update: Partial<CombatStore>): Partial<CombatStore> {
+  if (update.battle === undefined || update.battle === store.battle) return update;
+  return { ...update, selectedSpellId: null };
+}
+
 function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
   const state = store.battle;
   if (state === null) return {};
-  return scopedBattleUpdate(store, advanceTurn(state));
+  return turnChangeUpdate(store, scopedBattleUpdate(store, advanceTurn(state)));
 }
 
 /** Sorts du combattant ennemi, résolus par id dans `data/spells.yaml`. */
@@ -882,7 +875,7 @@ function enemyStepUpdate(store: CombatStore, rng: Rng, storage?: StorageLike): P
   const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
   const next = playStepOnce({ state, strategyFor, rng });
   if (isDefeat(next)) restoreHeroHp(storage);
-  return scopedBattleUpdate(store, next);
+  return turnChangeUpdate(store, scopedBattleUpdate(store, next));
 }
 
 function heroStatsFor(hero: Hero) {
