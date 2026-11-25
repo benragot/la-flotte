@@ -26,9 +26,10 @@ Ce qui décide de la prochaine PR, dans cet ordre :
 5. **Stats de monstres** — MONSTER-01 : c'est là que vit le vrai écart
    d'initiative (COMBAT-03 re-cadré), pas dans une table de stats de classe.
 
-Hors file, inchangé : **ARCH-01** (unification des deux moteurs `combatLoop` 1v1
-et `multiCombat` 1vN) reste un **point d'arrêt propriétaire** — aucun agent ne le
-démarre, et chaque formule corrigée reste appliquée **deux fois**. La divergence
+Hors file de cette nuit, mais **débloqué** : **ARCH-01** (unification des deux
+moteurs `combatLoop` 1v1 et `multiCombat` 1vN) est **planifié** par **DEC-12**
+(`docs/design/specs/combat-unification.md`, 4 étapes). Tant que l'étape 4 n'est
+pas livrée, chaque formule corrigée reste appliquée **deux fois**. La divergence
 **« donjon ≠ extérieur »** (DATA-08, `hpScale` réduit les PV en salle) reste
 **ouverte** : aucune PR de la nuit ne l'a tranchée.
 
@@ -138,8 +139,9 @@ d'une vague P1.
 
 ## Points d'arrêt (arbitrage propriétaire)
 
-- **ARCH-01** (unification des deux moteurs) : aucun agent ne démarre sans
-  décision écrite ; en attendant, chaque formule corrigée est appliquée **deux
+- **ARCH-01** (unification des deux moteurs) : **migration planifiée** par
+  **DEC-12** (`docs/design/specs/combat-unification.md`, 4 étapes). Tant que
+  l'étape 4 n'est pas livrée, chaque formule corrigée est appliquée **deux
   fois** (`combatLoop` et `multiCombat`) et testée deux fois.
 - **DEC-10** : la diagonale reste à 2 PM ; ne pas « corriger » vers 1 PM.
 - **GRID-04** : le refus sec hors budget est une décision (`docs/design/PENDING.md:25-26`),

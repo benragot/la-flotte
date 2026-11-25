@@ -116,7 +116,7 @@ documentés. Un agent ne les « corrige » pas sans nouvelle décision.
 | DEC-06 | **mort sans pénalité** | Assumé : pas de perte d'XP ni de retour au temple ; hors périmètre de l'audit. |
 | Éventail 1-1 | groupes de monstres **1-1** | Les `data/spawns.yaml` annoncent des groupes d'un monstre : état de données assumé, pas une régression (DATA-04 reste un manque de fonctionnalité, pas une anomalie). |
 | Mono-joueur | **PvP, guildes, HDV** | Hors périmètre produit : aucun de ces systèmes n'est attendu, leur absence n'est pas un constat. |
-| ARCH-01 | **deux moteurs de combat** (`combatLoop` 1v1 + `multiCombat` 1vN) | Unification = **changement d'architecture**, pas un fix ; arbitrage propriétaire requis. En attendant, tout correctif de formule doit être appliqué **deux fois** (voir les écarts GRID-04/05, SPELL-04). |
+| ARCH-01 | **deux moteurs de combat** (`combatLoop` 1v1 + `multiCombat` 1vN) | **Migration planifiée** par **DEC-12** : `multiCombat` devient l'unique moteur, l'exploration passe à `N = 1`. Plan en 4 étapes dans `docs/design/specs/combat-unification.md` ; en attendant l'étape 4, tout correctif de formule reste appliqué **deux fois** (voir les écarts GRID-04/05, SPELL-04). |
 
 ## Backlog
 
