@@ -259,7 +259,7 @@ function shouldStrike(plan: EnemyPlan, placed: boolean, spell: SpellDef | null):
   return plan.aggressive || placed;
 }
 
-function moveAway(input: Placement): EnemyAction | null {
+function moveAway(input: Placement): Extract<EnemyAction, { kind: "move" }> | null {
   const { context, target, aim } = input;
   const cells = context.enemy.mp;
   const options = { state: context.state, enemy: context.enemy, target, distance: aim.distance, cells, requiresLos: aim.requiresLos };
@@ -267,19 +267,50 @@ function moveAway(input: Placement): EnemyAction | null {
   return cell === null ? null : { kind: "move", to: cell };
 }
 
+/**
+ * Repli de placement : un pas n'est retenu que s'il **atteint** la distance
+ * préférée ce tour. Sinon la bête se rapproche (`fallbackAction`), au lieu de
+ * dépenser ses PM à reculer vers une distance qu'elle n'atteindra pas.
+ */
+function settleMove(input: Placement): Extract<EnemyAction, { kind: "move" }> | null {
+  const move = moveAway(input);
+  if (move === null) return null;
+  return rangeDistance(move.to, input.target.position) === input.aim.distance ? move : null;
+}
+
 function fallbackAction(input: Placement, spell: SpellDef | null): EnemyAction {
   if (spell !== null) return attackOn(input.target, spell);
   return approachAction(input.context, input.target);
 }
 
-/** `ai.preferredDistance > 1` : se placer à portée, attaquer, ne pas coller. */
+/** Des PA encore bons à payer un sort : le tour n'est pas fini, avancer sert. */
+function armed(context: StrategyContext): boolean {
+  return affordable(damageSpells(context.spells), context.enemy.ap).length > 0;
+}
+
+/**
+ * À la distance préférée sans sort jouable : la bête avance si des PA attendent
+ * encore un sort (`fallbackAction`), sinon elle garde sa place — un tireur qui a
+ * tout lancé ne se jette pas dans la mêlée pour rien.
+ */
+function holdAction(input: Placement, spell: SpellDef | null): EnemyAction | null {
+  if (!armed(input.context)) return null;
+  return fallbackAction(input, spell);
+}
+
+/**
+ * `ai.preferredDistance > 1` : se placer à portée, attaquer, ne pas coller.
+ * **Aucun tour perdu** : à la distance préférée sans sort lançable (quota,
+ * recharge, portée) mais avec des PA à dépenser, la bête se rapproche avec ses
+ * PM ; le tour se poursuit et elle frappe si un sort porte après le pas.
+ */
 function distanceAction(input: Placement): EnemyAction | null {
   const { context, target, plan, aim } = input;
   const spell = cheapest(castableSpells(context, target));
   const placed = rangeDistance(context.enemy.position, target.position) === aim.distance;
   if (shouldStrike(plan, placed, spell)) return attackOn(target, spell);
-  if (placed) return null;
-  return moveAway(input) ?? fallbackAction(input, spell);
+  if (placed) return holdAction(input, spell);
+  return settleMove(input) ?? fallbackAction(input, spell);
 }
 
 /** Une distance ramenée à 1 reste le contact historique : aucune régression. */
