@@ -6,10 +6,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Hero } from "../../src/engine/createHero";
 import { createHero } from "../../src/engine/createHero";
+import type { BattleState } from "../../src/engine/multiCombat";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import type { ClassDef } from "../../src/schemas/classSchema";
 import { emptyInventory } from "../../src/store/gameSelectors";
 import CombatHud from "../../src/ui/components/CombatHud";
+import { dockHidden } from "../../src/ui/dockGate";
 import { HeroSheet } from "../../src/ui/components/OverlayPanels";
 
 /**
@@ -66,5 +68,30 @@ describe("câblage du HUD sur le domaine de PV effectif", () => {
 
   it("la fiche perso affiche 98 / 98, pas le maximum de niveau", () => {
     expectEffectiveHp(markup(createElement(HeroSheet, { hero: HERO, onClose: () => undefined })));
+  });
+});
+
+/** Battle minimal : le portillon ne lit que la présence de la slice. */
+const OPEN_BATTLE: BattleState = {
+  turn: 1,
+  order: ["0_player"],
+  activeIndex: 0,
+  combatants: [],
+  log: [],
+};
+
+describe("dock unique du moteur unifié (DEC-12 étape 3)", () => {
+  const open = { mode: "combat" as const, combat: null, battle: OPEN_BATTLE };
+
+  it("masque le dock 1v1 quand le battle unifié tient le rôle de shell", () => {
+    expect(dockHidden(open)).toBe(true);
+  });
+
+  it("garde le dock quand aucun battle n'est publié (chemin legacy)", () => {
+    expect(dockHidden({ ...open, battle: null })).toBe(false);
+  });
+
+  it("garde le dock d'exploration, quel que soit l'état du battle", () => {
+    expect(dockHidden({ ...open, mode: "exploration" })).toBe(false);
   });
 });
