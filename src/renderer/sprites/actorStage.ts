@@ -1,10 +1,21 @@
 import { Container } from "pixi.js";
+import { depthOrder, type DepthItem } from "../depthOrder";
 import type { PixelPoint } from "../gridProjection";
 import type { TokenView } from "../tokens";
 import { trailPlan } from "../walkTrail";
 import { EntitySprite } from "./EntitySprite";
 import { ensureSpriteSheet } from "./spriteLoader";
 import type { SpriteSheetSpec } from "./types";
+
+/** Nœud de décor déjà peint, fourni par la couche de scène pour le tri commun. */
+export interface DepthProp {
+  /** Profondeur de grille `x + y` de la case du prop. */
+  depth: number;
+  /** Rang de pose à profondeur égale : le décor passe avant les acteurs. */
+  order: number;
+  /** Nœud peint, possédé par l'appelant puis détruit au rendu suivant. */
+  node: Container;
+}
 
 export interface ActorSyncInput {
   tokens: readonly TokenView[];
@@ -13,11 +24,12 @@ export interface ActorSyncInput {
   centers?: ReadonlyMap<string, PixelPoint>;
   /** Identité de la carte affichée : un changement invalide tous les trajets en cours. */
   scene?: object | null;
+  /** Décor occlusif intercalé dans la même séquence que les acteurs. */
+  props?: readonly DepthProp[];
 }
 
-/** Tri peintre des acteurs : `x + y` croissant, comme les tuiles. */
-function depthSorter(a: TokenView, b: TokenView): number {
-  return a.depth - b.depth;
+interface DepthPlacement extends DepthItem {
+  node: Container;
 }
 
 function hasSprite(token: TokenView): boolean {
@@ -57,6 +69,8 @@ export class ActorStage {
   private readonly actors = new Map<string, EntitySprite>();
   /** Dernière signature de trajet **jouée** par acteur : elle seule décide d'un rejeu. */
   private readonly played = new Map<string, string>();
+  /** Props du dernier rendu : détruits quand la scène les remplace, jamais laissés fantômes. */
+  private props: readonly DepthProp[] = [];
   private centers: ReadonlyMap<string, PixelPoint> = new Map();
   private scene: object | null | undefined;
   private clock = 0;
@@ -73,7 +87,8 @@ export class ActorStage {
     this.centers = input.centers ?? new Map();
     this.switchScene(input.scene);
     input.tokens.forEach((token) => this.syncToken(token));
-    this.orderChildren(input.tokens);
+    this.orderChildren(input.tokens, input.props ?? []);
+    this.replaceProps(input.props ?? []);
     this.forget(actorKeys(input.tokens));
   }
 
@@ -148,13 +163,24 @@ export class ActorStage {
     return actor;
   }
 
-  private orderChildren(tokens: readonly TokenView[]): void {
+  private orderChildren(tokens: readonly TokenView[], props: readonly DepthProp[]): void {
     this.container.removeChildren();
-    tokens.filter(hasSprite).sort(depthSorter).forEach((token) => this.stack(token));
+    const placements = this.placements(tokens, props);
+    depthOrder(placements).forEach((placement) => this.container.addChild(placement.node));
   }
 
-  private stack(token: TokenView): void {
+  private placements(tokens: readonly TokenView[], props: readonly DepthProp[]): DepthPlacement[] {
+    const actors = tokens.flatMap((token, index) => this.actorPlacement(token, props.length + index));
+    return [...props, ...actors];
+  }
+
+  private actorPlacement(token: TokenView, order: number): DepthPlacement[] {
     const actor = token.spriteId === null ? undefined : this.actors.get(actorKey(token));
-    if (actor !== undefined) this.container.addChild(actor.node);
+    return actor === undefined ? [] : [{ depth: token.depth, order, node: actor.node }];
+  }
+
+  private replaceProps(props: readonly DepthProp[]): void {
+    this.props.forEach((prop) => prop.node.destroy({ children: true }));
+    this.props = props;
   }
 }
