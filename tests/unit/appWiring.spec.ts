@@ -17,11 +17,16 @@ describe("aiguillage de App", () => {
   });
 
   it("ne démarre l'exploration qu'avec un héros, une session vierge et pas déjà demandée", () => {
-    const base = { hasHero: true, isFresh: true, requested: false };
+    const base = { hasHero: true, isFresh: true, battleOpen: false, requested: false };
     expect(shouldStartExploration({ ...base, hasHero: false })).toBe(false);
     expect(shouldStartExploration({ ...base, isFresh: false })).toBe(false);
     expect(shouldStartExploration({ ...base, requested: true })).toBe(false);
     expect(shouldStartExploration(base)).toBe(true);
+  });
+
+  it("ne démarre jamais l'exploration par-dessus une salle de combat ouverte", () => {
+    const open = { hasHero: true, isFresh: true, battleOpen: true, requested: false };
+    expect(shouldStartExploration(open)).toBe(false);
   });
 
   it("expose création, inventaire et HUD de combat par le barrel racine", () => {

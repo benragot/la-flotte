@@ -17,6 +17,7 @@ import { explorationView } from "./explorationView";
 import { useEscapeLayer } from "./useEscapeClose";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
+import { dockHidden } from "./dockGate";
 
 /** Écran de création : pontage de bois en fond, feuille centrée (§1.8). */
 const CREATION_SHELL =
@@ -67,13 +68,24 @@ function useGameBootstrap(): void {
 /**
  * Démarre l'exploration dès qu'un héros existe : création manuelle ou
  * sauvegarde restaurée. Le garde couvre le double effet de `StrictMode`.
+ *
+ * La salle de `?demo=dungeon` est publiée **avant** ce hook (`useDemoEntry`) :
+ * `battleOpen` empêche donc le bootstrap de relancer une exploration par-dessus
+ * et de refermer le panneau de combat.
  */
+/** Lecture unique des deux gardes de session : vierge et sans salle ouverte. */
+function useBootstrapSnapshot(): { isFresh: boolean; battleOpen: boolean } {
+  const isFresh = useCombatStore((state) => state.combat === null && state.exploration === null);
+  const battleOpen = useCombatStore((state) => state.battle !== null);
+  return { isFresh, battleOpen };
+}
+
 function useArenaBootstrap(hasHero: boolean): void {
   const startExploration = useCombatStore((state) => state.startExploration);
-  const isFresh = useCombatStore((state) => state.combat === null && state.exploration === null);
+  const { isFresh, battleOpen } = useBootstrapSnapshot();
   const requested = useRef(false);
   useGuardRearm(requested, hasHero);
-  const enabled = shouldStartExploration({ hasHero, isFresh, requested: requested.current });
+  const enabled = shouldStartExploration({ hasHero, isFresh, battleOpen, requested: requested.current });
   useEffect(() => {
     if (enabled) runOnce(startExploration, requested);
   }, [enabled, startExploration]);
@@ -161,8 +173,14 @@ const HUD_CLASS: Record<ArenaMode, string> = {
 /**
  * Le HUD est un frère dans la colonne : sa hauteur suit ses bandes, donc la
  * grille ne passe jamais dessous et aucune bande vide ne mange l'arène.
+ *
+ * DEC-12 étape 3 : en mode unifié, `BattlePanel` tient le rôle de dock de
+ * combat ; la bande de 240 px disparaît donc au lieu de rester vide.
  */
 function Dock({ mode, onReturnToMap }: { mode: ArenaMode; onReturnToMap: () => void }) {
+  const combat = useCombatStore((state) => state.combat);
+  const battle = useCombatStore((state) => state.battle);
+  if (dockHidden({ mode, combat, battle })) return null;
   return (
     <div className={HUD_CLASS[mode]}>
       <CombatHud mode={mode} onReturnToMap={onReturnToMap} />

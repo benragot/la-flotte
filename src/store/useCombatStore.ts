@@ -39,6 +39,8 @@ import type {
   SpawnPlan,
   SpawnZone,
 } from "../engine/exploration";
+import { battleFromCombat } from "../engine/battleBridge/fromExploration";
+import { combatEngine } from "../dev/combatEngineFlag";
 import { devMultipliers } from "../dev/devMultipliers";
 import { attemptRoom, currentRoom, healBetweenRooms, isDungeonComplete, resolveRoomRewards, roomMonsters } from "../engine/dungeon";
 import type { DungeonRoom, DungeonRunState, RoomHeal, RoomRewards } from "../engine/dungeon";
@@ -73,6 +75,7 @@ import {
   spellCastSpec,
   spellStrategy,
 } from "./battleSelectors";
+import { battleClickRoute } from "./battleRouting";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 import type { MovementTrail, TrailBatch } from "./trails";
 import { NO_TRAILS, battleTrails, combatTrails, nextBatch } from "./trails";
@@ -277,16 +280,28 @@ function playerFor(hero: Hero, position: Position): CombatantState {
   return combatantFromHero({ hero, stats, position, spellIds });
 }
 
-/** L'initiative se calcule **après** l'équipement : le héros joue ses vrais stats. */
-function buildCombat(input: { hero: Hero; monsterId: string; mapId: string }): CombatState {
+/**
+ * État 1v1 **avant** l'ouverture : l'équipement du héros est déjà appliqué, la
+ * phase reste neutre. Commun au 1v1 (qui ouvre ensuite) et au pont unifié.
+ */
+function gearedCombat(input: { hero: Hero; monsterId: string; mapId: string }): CombatState {
   const monster = mustFind(monsters, input.monsterId);
   const base = initCombat({ map: mapById(input.mapId), hero: input.hero, monster, spells });
-  const geared = { ...base, player: playerFor(input.hero, base.player.position) };
-  return beginCombat(geared, Math.random);
+  return { ...base, player: playerFor(input.hero, base.player.position) };
+}
+
+/** L'initiative se calcule **après** l'équipement : le héros joue ses vrais stats. */
+function buildCombat(input: { hero: Hero; monsterId: string; mapId: string }): CombatState {
+  return beginCombat(gearedCombat(input), Math.random);
 }
 
 function buildDemoCombat(mapId: string): CombatState {
   return buildCombat({ hero: demoHero(), monsterId: defaultSpawn(mapId).monsterId, mapId });
+}
+
+/** Ligne d'entrée du groupe, la même dans les deux moteurs (aucun nom en dur). */
+function groupOpening(group: MonsterGroup, mapId: string): string {
+  return `Le groupe ${group.id} entre en scène : ${mustFind(monsters, monsterIdFor(group, mapId)).name}.`;
 }
 
 /**
@@ -296,19 +311,41 @@ function buildDemoCombat(mapId: string): CombatState {
  */
 function buildGroupCombat(group: MonsterGroup, mapId: string): CombatState {
   const monsterId = monsterIdFor(group, mapId);
-  const base = buildCombat({ hero: demoHero(), monsterId, mapId });
-  return appendLog(base, `Le groupe ${group.id} entre en scène : ${mustFind(monsters, monsterId).name}.`);
+  return appendLog(buildCombat({ hero: demoHero(), monsterId, mapId }), groupOpening(group, mapId));
+}
+
+/**
+ * Étape 3 : le même groupe, projeté en `BattleState` à **un** monstre par
+ * `battleFromCombat`. Aucune ouverture n'est jouée ici : la timeline et la
+ * cadence (`useCombatBeat`) décident qui agit, comme en salle de donjon.
+ */
+function buildGroupBattle(group: MonsterGroup, mapId: string): BattleState {
+  const monster = mustFind(monsters, monsterIdFor(group, mapId));
+  const combat = appendLog(gearedCombat({ hero: demoHero(), monsterId: monster.id, mapId }), groupOpening(group, mapId));
+  return withCastRange(battleFromCombat({ combat, monster }));
 }
 
 function monsterIdFor(group: MonsterGroup | null, mapId: string): string {
   return group?.monsterIds[0] ?? defaultSpawn(mapId).monsterId;
 }
 
-function rewardsFor(state: CombatState, group: MonsterGroup | null, mapId: string): CombatRewards {
+function rewardsForPlayer(hero: CombatantState, group: MonsterGroup | null, mapId: string): CombatRewards {
   const monster = mustFind(monsters, monsterIdFor(group, mapId));
   const heroXp = useGameStore.getState().hero?.xp ?? 0;
-  const rng = Math.random;
-  return resolveCombatRewards({ heroXp, hero: state.player, monster, progression, rng, multipliers: devMultipliers() });
+  const input = { heroXp, hero, monster, progression, rng: Math.random };
+  return resolveCombatRewards({ ...input, multipliers: devMultipliers() });
+}
+
+function rewardsFor(state: CombatState, group: MonsterGroup | null, mapId: string): CombatRewards {
+  return rewardsForPlayer(state.player, group, mapId);
+}
+
+/**
+ * Récompenses du `BattleState` : mêmes chiffres que le 1v1, lus sur le héros
+ * persistant (PP, Sagesse, Chance, niveau) — le moteur unique n'en invente pas.
+ */
+function battleRewards(store: CombatStore): CombatRewards {
+  return rewardsForPlayer(playerFor(demoHero(), BATTLE_ORIGIN), store.activeGroup, store.mapId);
 }
 
 /** Crédite la victoire au héros persistant ; un échec de sauvegarde est muet. */
@@ -348,9 +385,36 @@ export const BLOCKED_MOVE_LOG = "Le chemin est bloqué : impossible d’aller l�
 /** Un combat ou un donjon ouvert interdit de franchir un « soleil ». */
 export const EXIT_REFUSED = "Transition refusée : termine le combat ou le donjon en cours d’abord.";
 
-function combatUpdate(store: CombatStore, group: MonsterGroup): Partial<CombatStore> {
+/** Lecture unique du drapeau DEC-12 dans le store : le reste du fichier l'appelle. */
+function unifiedEngine(): boolean {
+  return combatEngine() === "unified";
+}
+
+/** Moteur unique **et** combat d'exploration (jamais une salle, jamais une démo). */
+function isExplorationScope(store: CombatStore): boolean {
+  return store.dungeonRun === null && store.activeGroup !== null;
+}
+
+function explorationBattle(store: CombatStore): BattleState | null {
+  if (store.battle === null || !unifiedEngine()) return null;
+  return isExplorationScope(store) ? store.battle : null;
+}
+
+function legacyCombatUpdate(store: CombatStore, group: MonsterGroup): Partial<CombatStore> {
   const combatBase = { mode: "combat" as const, combat: buildGroupCombat(group, store.mapId), activeGroup: group };
   return { ...combatBase, rewards: null, selectedSpellId: null, trails: NO_TRAILS };
+}
+
+/** Entrée unifiée : `battle` publié, `combat` vidé, aucun champ 1v1 inventé. */
+function unifiedCombatUpdate(store: CombatStore, group: MonsterGroup): Partial<CombatStore> {
+  const battle = buildGroupBattle(group, store.mapId);
+  const header = { mode: "combat" as const, battle, combat: null, activeGroup: group };
+  return { ...header, rewards: null, selectedSpellId: null, trails: NO_TRAILS };
+}
+
+function combatUpdate(store: CombatStore, group: MonsterGroup): Partial<CombatStore> {
+  if (!unifiedEngine()) return legacyCombatUpdate(store, group);
+  return unifiedCombatUpdate(store, group);
 }
 
 function blockedUpdate(exploration: ExplorationState): Partial<CombatStore> {
@@ -434,14 +498,55 @@ function explorationUpdate(store: CombatStore, target: Position): Partial<Combat
   return exit === null ? movedUpdate(store, target) : exitUpdate(store, exit);
 }
 
+/** Contexte d'un clic unifié : l'état, le magasin et le seul aléa du tour. */
+interface UnifiedClick {
+  store: CombatStore;
+  state: BattleState;
+  rng: Rng;
+}
+
+/** Attaque de base data-driven : les valeurs viennent du sort de dégâts du héros. */
+function explorationAttack(rng: Rng): AttackSpec | null {
+  const spell = heroDamageSpell();
+  return spell === null ? null : spellCastSpec(spell, rollSpellBase(spell, rng));
+}
+
+function unifiedAttack(click: UnifiedClick, targetId: string): Partial<CombatStore> {
+  const attack = explorationAttack(click.rng);
+  if (attack === null) return {};
+  const options = { state: click.state, targetId, attack, rng: click.rng };
+  return scopedBattleUpdate(click.store, resolveBattleAttack(options));
+}
+
+/** Sort armé : même chemin que le panneau (`castHeroSpell`), récompense comprise. */
+function unifiedSpell(click: UnifiedClick, targetId: string): Partial<CombatStore> {
+  const spell = heroDamageSpell();
+  if (!canCastHeroSpell(click.state, spell)) return {};
+  return scopedBattleUpdate(click.store, castHeroSpell(click.state, { targetId, rng: click.rng }, spell).state);
+}
+
+/** Un clic d'exploration unifié : la route est pure, le moteur tranche ensuite. */
+function explorationBattleClick(click: UnifiedClick, target: Position): Partial<CombatStore> {
+  const spellSelected = click.store.selectedSpellId !== null;
+  const route = battleClickRoute({ battle: click.state, target, spellSelected });
+  if (route.kind === "move") return scopedBattleUpdate(click.store, moveHero({ state: click.state, to: target, rng: click.rng }));
+  if (route.kind === "spell") return unifiedSpell(click, route.targetId);
+  return unifiedAttack(click, route.targetId);
+}
+
 function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
   if (store.mode === "exploration") return explorationUpdate(store, target);
+  const battle = explorationBattle(store);
+  if (battle !== null) return explorationBattleClick({ store, state: battle, rng: Math.random }, target);
   if (store.combat === null) return {};
   return stateUpdate(store, castOrMove(store.combat, store.selectedSpellId, target));
 }
 
 function endTurnUpdate(store: CombatStore): Partial<CombatStore> {
-  if (store.mode !== "combat" || store.combat === null) return {};
+  if (store.mode !== "combat") return {};
+  const battle = explorationBattle(store);
+  if (battle !== null) return playEnemyTurnsUpdate(store, Math.random);
+  if (store.combat === null) return {};
   return stateUpdate(store, endPlayerTurn(store.combat, Math.random));
 }
 
@@ -468,12 +573,16 @@ export function canRespawnAfterVictory(store: Pick<CombatStore, "combat" | "dung
 }
 
 /** Tirage seedé par `(mapId, respawns)`, jamais `Math.random` : rejouable. */
-function respawnOnVictory(store: CombatStore, defeated: ExplorationState): ExplorationState {
-  if (!canRespawnAfterVictory(store)) return defeated;
+function respawnWithVictory(store: CombatStore, defeated: ExplorationState, won: boolean): ExplorationState {
+  if (!won || store.dungeonRun !== null) return defeated;
   const spawn = spawnForGroup(store.activeGroup, store.mapId);
   const minGroups = spawnPlanFor(store.mapId).groups.min;
   const rng = createSeededRng(seedForRespawn(store.mapId, defeated.respawns));
   return respawnMonsterGroup({ state: defeated, spawn, minGroups, rng });
+}
+
+function respawnOnVictory(store: CombatStore, defeated: ExplorationState): ExplorationState {
+  return respawnWithVictory(store, defeated, canRespawnAfterVictory(store));
 }
 
 function victoryReturn(store: CombatStore): Partial<CombatStore> {
@@ -489,12 +598,63 @@ function defeatReturn(store: CombatStore): Partial<CombatStore> {
   return explorationReturn(store.exploration);
 }
 
+/** Sortie unifiée : la même remise à zéro d'exploration, `battle` refermé. */
+function unifiedExplorationReturn(exploration: ExplorationState | null): Partial<CombatStore> {
+  return { ...explorationReturn(exploration), battle: null };
+}
+
+/** PV effectifs de la bataille reportés dans le domaine de niveau, sans soin. */
+function carryBattleHp(battle: BattleState): void {
+  const pool = battleHeroPool(battle);
+  if (pool !== null) carryOverBattleHp(pool.hp);
+}
+
+function battleVictoryExploration(store: CombatStore, battle: BattleState): ExplorationState | null {
+  const exploration = store.exploration;
+  if (exploration === null) return null;
+  const defeated = defeatGroup(exploration, groupId(store.activeGroup));
+  return respawnWithVictory(store, defeated, isVictory(battle));
+}
+
+/** Victoire unifiée : PV reportés, groupe retiré, carte rendue (récompense déjà créditée). */
+function battleVictoryReturn(store: CombatStore, battle: BattleState, storage?: StorageLike): Partial<CombatStore> {
+  const exploration = battleVictoryExploration(store, battle);
+  if (exploration === null) return {};
+  carryBattleHp(battle);
+  useGameStore.getState().saveGame(storage);
+  return unifiedExplorationReturn(exploration);
+}
+
+/** Défaite unifiée : PV rendus au maximum, aucun 0 persisté, le groupe reste. */
+function battleDefeatReturn(store: CombatStore): Partial<CombatStore> {
+  restoreHeroHp();
+  return unifiedExplorationReturn(store.exploration);
+}
+
+/** Abandon : les PV de la bataille sont reportés, le groupe reste sur la carte. */
+function battleAbandonReturn(store: CombatStore, battle: BattleState): Partial<CombatStore> {
+  carryBattleHp(battle);
+  useGameStore.getState().saveGame();
+  return unifiedExplorationReturn(store.exploration);
+}
+
+function battleLeaveUpdate(store: CombatStore, battle: BattleState): Partial<CombatStore> {
+  if (isDefeat(battle)) return battleDefeatReturn(store);
+  if (isVictory(battle)) return unifiedSettle(store, battle);
+  return battleAbandonReturn(store, battle);
+}
+
+/** Retour du 1v1 : seules les phases gagnées ou perdues ferment le combat. */
+function combatReturn(store: CombatStore): Partial<CombatStore> {
+  const phase = store.combat?.phase;
+  if (phase === "victory") return victoryReturn(store);
+  if (phase === "defeat") return defeatReturn(store);
+  return {};
+}
+
 function returnUpdate(store: CombatStore): Partial<CombatStore> {
-  const combat = store.combat;
-  if (combat === null) return {};
-  if (combat.phase === "victory") return victoryReturn(store);
-  if (combat.phase !== "defeat") return {};
-  return defeatReturn(store);
+  const battle = explorationBattle(store);
+  return battle !== null ? battleLeaveUpdate(store, battle) : combatReturn(store);
 }
 
 type RoomBattleGroup = { monster: MonsterDef; count: number };
@@ -510,6 +670,12 @@ function battleRange(): RangeSpec | undefined {
   return { min: spell.minRange, max: spell.maxRange, requiresLos: spell.requiresLos };
 }
 
+/** Ajoute la portée lisible par le panneau, sans écrire aucun chiffre ici. */
+function withCastRange(state: BattleState): BattleState {
+  const castRange = battleRange();
+  return castRange === undefined ? state : { ...state, castRange };
+}
+
 /** Battle d'une salle : la grille de `mapId` entre dans l'état et place les combattants. */
 function battleFromRoom(room: DungeonRoom, opening: string | null = null): BattleState {
   const map = mapById(room.mapId);
@@ -517,9 +683,7 @@ function battleFromRoom(room: DungeonRoom, opening: string | null = null): Battl
   const monsters = roomBattleMonsters(room);
   const { combatants } = setupDungeonBattle({ hero: { combatant: hero }, monsters, map, hpScale: room.hpScale });
   const log = opening === null ? [`Entrée dans ${room.name}`] : [opening, `Entrée dans ${room.name}`];
-  const base = { turn: 1, ...buildTimeline(combatants), combatants, log, map };
-  const castRange = battleRange();
-  return castRange === undefined ? base : { ...base, castRange };
+  return withCastRange({ turn: 1, ...buildTimeline(combatants), combatants, log, map });
 }
 
 function battleUpdate(store: CombatStore, next: BattleState | null): Partial<CombatStore> {
@@ -527,6 +691,24 @@ function battleUpdate(store: CombatStore, next: BattleState | null): Partial<Com
   if (previous === next) return {};
   const trails = nextBatch(store.trails, battleTrails(previous, next));
   return { battle: next, trails };
+}
+
+/** Crédit unique de la victoire d'exploration : même chemin que le 1v1. */
+function creditUnifiedVictory(store: CombatStore): Partial<CombatStore> {
+  const rewards = battleRewards(store);
+  creditVictory(rewards);
+  return { rewards };
+}
+
+/**
+ * `battleUpdate` du moteur unique : une victoire d'exploration crédite XP et
+ * butin **une seule fois** (garde `rewards`). Une salle de donjon n'entre pas
+ * ici : ses récompenses restent `settleDungeonRoom`.
+ */
+function scopedBattleUpdate(store: CombatStore, next: BattleState): Partial<CombatStore> {
+  const base = battleUpdate(store, next);
+  if (explorationBattle(store) === null || store.rewards !== null || !isVictory(next)) return base;
+  return { ...base, ...creditUnifiedVictory(store) };
 }
 
 /** Sort de dégâts du héros, lu dans `data/spells.yaml` : l'UI n'invente aucun chiffre. */
@@ -570,7 +752,7 @@ function spellAttackResult(store: CombatStore, input: { targetId: string; rng?: 
   const spell = heroDamageSpell();
   if (state === null || !canCastHeroSpell(state, spell)) return { update: {}, performed: false };
   const cast = castHeroSpell(state, input, spell);
-  return { update: battleUpdate(store, cast.state), performed: cast.performed };
+  return { update: scopedBattleUpdate(store, cast.state), performed: cast.performed };
 }
 
 /** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */
@@ -581,7 +763,7 @@ function attackUpdate(
   const state = store.battle;
   if (state === null) return {};
   const options = { state, targetId: input.targetId, attack: input.attack, rng: input.rng ?? Math.random };
-  return battleUpdate(store, resolveBattleAttack(options));
+  return scopedBattleUpdate(store, resolveBattleAttack(options));
 }
 
 function enemyTurnUpdate(
@@ -597,17 +779,28 @@ function enemyTurnUpdate(
  * Déplacement du héros (5C-hero-move) : la facture, le tacle et l'arrêt partiel
  * vivent dans `moveHero`. Passage obligé par `battleUpdate` : trajets et état par
  * identité (aucun `set` inutile, `selectedSpellId` intact).
+ *
+ * Étape 3 : un combat d'exploration unifié reçoit ses clics par le canvas via
+ * `battleMove` ; ils suivent donc **la même route** que `clickCell` (sort,
+ * attaque, déplacement), pour que la carte reste jouable sans code de rendu.
  */
 function moveUpdate(store: CombatStore, input: { to: Position; rng?: Rng }): Partial<CombatStore> {
+  const battle = explorationBattle(store);
+  const rng = input.rng ?? Math.random;
+  if (battle !== null) return explorationBattleClick({ store, state: battle, rng }, input.to);
+  return movedBattle(store, input.to, rng);
+}
+
+function movedBattle(store: CombatStore, to: Position, rng: Rng): Partial<CombatStore> {
   const state = store.battle;
   if (state === null) return {};
-  return battleUpdate(store, moveHero({ state, to: input.to, rng: input.rng ?? Math.random }));
+  return scopedBattleUpdate(store, moveHero({ state, to, rng }));
 }
 
 function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
   const state = store.battle;
   if (state === null) return {};
-  return battleUpdate(store, advanceTurn(state));
+  return scopedBattleUpdate(store, advanceTurn(state));
 }
 
 /** Sorts du combattant ennemi, résolus par id dans `data/spells.yaml`. */
@@ -637,7 +830,7 @@ function playEnemyTurnsUpdate(store: CombatStore, rng: Rng, storage?: StorageLik
   const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
   const next = resolveEnemyTurns({ state, strategyFor, rng });
   if (isDefeat(next)) restoreHeroHp(storage);
-  return battleUpdate(store, next);
+  return scopedBattleUpdate(store, next);
 }
 
 /** Un seul pas : même stratégie, même journal, seule la cadence change de place. */
@@ -647,7 +840,7 @@ function enemyStepUpdate(store: CombatStore, rng: Rng, storage?: StorageLike): P
   const strategyFor = (enemy: CombatantLike) => strategyForEnemy(enemy, rng);
   const next = playStepOnce({ state, strategyFor, rng });
   if (isDefeat(next)) restoreHeroHp(storage);
-  return battleUpdate(store, next);
+  return scopedBattleUpdate(store, next);
 }
 
 function heroStatsFor(hero: Hero) {
@@ -823,12 +1016,23 @@ function settledRoomUpdate(store: CombatStore, won: WonRoom, input?: SettleInput
 }
 
 function settleUpdate(store: CombatStore, input?: SettleInput): Partial<CombatStore> {
+  const battle = explorationBattle(store);
+  if (battle !== null) return unifiedSettle(store, battle, input);
   const won = wonRoom(store.battle);
   return won === null ? {} : settledRoomUpdate(store, won, input);
 }
 
+/** Victoire unifiée : crédit si la victoire n'a pas déjà été créditée, puis sortie. */
+function unifiedSettle(store: CombatStore, battle: BattleState, input?: SettleInput): Partial<CombatStore> {
+  if (!isVictory(battle)) return {};
+  const credited = store.rewards === null ? creditUnifiedVictory(store) : {};
+  return { ...credited, ...battleVictoryReturn(store, battle, input?.storage) };
+}
+
 /** Sortie du donjon (défaite ou abandon) : le run est oublié, aucun 0 PV persisté. */
 function endBattleUpdate(store: CombatStore): Partial<CombatStore> {
+  const battle = explorationBattle(store);
+  if (battle !== null) return battleLeaveUpdate(store, battle);
   if (store.dungeonRun === null) return { battle: null };
   return { battle: null, dungeonRun: null, dungeonNotice: DUNGEON_LEFT };
 }
@@ -1041,7 +1245,7 @@ function startExplorationState(input: { mapId: string; rng?: Rng }): Exploration
 
 function explorationStartUpdate(input: { mapId: string; rng?: Rng }): Partial<CombatStore> {
   const exploration = startExplorationState(input);
-  const header = { mode: "exploration" as const, exploration, combat: null, activeGroup: null };
+  const header = { mode: "exploration" as const, exploration, combat: null, battle: null, activeGroup: null };
   return { ...header, mapId: input.mapId, selectedSpellId: null, hoveredCell: null, rewards: null, trails: NO_TRAILS };
 }
 

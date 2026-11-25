@@ -1,9 +1,11 @@
 import type { CombatRewards, CombatState } from "../../engine/combatLoop/types";
 import type { Hero } from "../../engine/createHero";
+import type { BattleState } from "../../engine/multiCombat";
 import { useCombatStore } from "../../store/useCombatStore";
 import { useGameStore } from "../../store/useGameStore";
 import type { HudMode } from "../hudHelpers";
 import type { EffectiveHp } from "../hudHp";
+import { dockHidden } from "../dockGate";
 import { useEffectiveHp } from "../useEffectiveHp";
 import EndOverlay from "./EndOverlay";
 import Timeline from "./Timeline";
@@ -46,6 +48,12 @@ interface HudLayoutProps {
 
 interface CombatLayoutProps {
   combat: CombatState;
+  onReturnToMap?: (() => void) | undefined;
+}
+
+interface CombatDockBodyProps {
+  combat: CombatState | null;
+  battle: BattleState | null;
   onReturnToMap?: (() => void) | undefined;
 }
 
@@ -147,10 +155,21 @@ function IdlePanel() {
 /**
  * Portillon : en exploration le HUD s'affiche même sans combat ; en combat
  * l'absence de combat retombe sur l'invite de démonstration.
+ *
+ * DEC-12 étape 3 : quand le moteur unique publie un `battle` (combat
+ * d'exploration), `BattlePanel` est le **seul** shell de combat. Le dock 1v1
+ * n'affiche donc rien pour ne pas doubler les contrôles.
  */
-export default function CombatHud({ mode = "combat", onReturnToMap }: CombatHudProps) {
-  const combat = useCombatStore((state) => state.combat);
-  if (mode === "exploration") return <ExplorationHud />;
+/** Corps du dock de combat : portillon unique, puis HUD 1v1 ou invite de démo. */
+function CombatDockBody({ combat, battle, onReturnToMap }: CombatDockBodyProps) {
+  if (dockHidden({ mode: "combat", combat, battle })) return null;
   if (combat === null) return <IdlePanel />;
   return <CombatLayout combat={combat} onReturnToMap={onReturnToMap} />;
+}
+
+export default function CombatHud({ mode = "combat", onReturnToMap }: CombatHudProps) {
+  const combat = useCombatStore((state) => state.combat);
+  const battle = useCombatStore((state) => state.battle);
+  if (mode === "exploration") return <ExplorationHud />;
+  return <CombatDockBody combat={combat} battle={battle} onReturnToMap={onReturnToMap} />;
 }
