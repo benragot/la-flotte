@@ -45,14 +45,15 @@ function reachable(input: AttackInput, pair: [CombatantLike, CombatantLike]): bo
   return castBlock(check) === null;
 }
 
-/** Quota du sort (`castsPerTurn`, `cooldown`) : refus tant que le sort recharge. */
-function withinQuota(input: AttackInput, attacker: CombatantLike): boolean {
-  return isAttackAvailable(input.state, attacker.id, input.attack);
+/** Quota du sort (`castsPerTurn`, `castsPerTarget`, `cooldown`) sur la cible visée. */
+function withinQuota(input: AttackInput, pair: [CombatantLike, CombatantLike]): boolean {
+  const { state, attack } = input;
+  return isAttackAvailable({ state, casterId: pair[0].id, attack, targetId: pair[1].id });
 }
 
 /** Tous les refus qui précèdent le jet : budget, géométrie, quota du sort. */
 function isStrikeAllowed(input: AttackInput, pair: [CombatantLike, CombatantLike]): boolean {
-  return canStrike(input, pair[0], pair[1]) && reachable(input, pair) && withinQuota(input, pair[0]);
+  return canStrike(input, pair[0], pair[1]) && reachable(input, pair) && withinQuota(input, pair);
 }
 
 /** Jet non critique : la fourchette est tirée **après** la décision de CC. */
@@ -93,5 +94,6 @@ export function resolveAttack(input: AttackInput): BattleState {
   if (pair === null || !isStrikeAllowed(input, pair)) return input.state;
   const context = hitContext(input, pair[0], pair[1]);
   const paid = spendAp(input.state, pair[0], input.attack.apCost);
-  return resolveHit({ ...context, state: recordAttack(paid, pair[0].id, input.attack) });
+  const quota = { state: paid, casterId: pair[0].id, attack: input.attack, targetId: pair[1].id };
+  return resolveHit({ ...context, state: recordAttack(quota) });
 }

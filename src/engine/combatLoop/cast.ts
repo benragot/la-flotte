@@ -64,11 +64,20 @@ function isTargetValid(plan: CastPlan): boolean {
   return getCastableCells(plan.state, plan.spell.id).some((cell) => samePosition(cell, plan.target));
 }
 
-/** Quota 1.29 du sort : `castsPerTurn` et `cooldown`, lus sur l'état du combat. */
+/** Cible du quota : soi-même pour un soin ou un téléport, l'adversaire sinon. */
+function quotaTargetId(plan: CastPlan): string {
+  const caster = getActiveCombatant(plan.state);
+  const selfTargeted = plan.spell.kind === "teleport" || isHealSpell(plan.spell);
+  return selfTargeted ? caster.id : getOpponent(plan.state).id;
+}
+
+/** Quota 1.29 du sort : `castsPerTurn`, `castsPerTarget` et `cooldown`. */
 function withinQuota(plan: CastPlan): boolean {
   const caster = getActiveCombatant(plan.state);
   const key = spellUsageKey(caster.id, plan.spell.id);
-  return isSpellAvailable({ usage: plan.state.spellUsage ?? {}, key, limit: plan.spell, turn: plan.state.turn });
+  const usage = plan.state.spellUsage ?? {};
+  const turn = plan.state.turn;
+  return isSpellAvailable({ usage, key, limit: plan.spell, turn, targetId: quotaTargetId(plan) });
 }
 
 function isValidPlan(plan: CastPlan): boolean {
@@ -93,7 +102,8 @@ function recordCast(state: CombatState, plan: CastPlan): CombatState {
   const caster = getActiveCombatant(state);
   const current = state.spellUsage ?? {};
   const key = spellUsageKey(caster.id, plan.spell.id);
-  const usage = recordSpellCast({ usage: current, key, limit: plan.spell, turn: state.turn });
+  const turn = state.turn;
+  const usage = recordSpellCast({ usage: current, key, limit: plan.spell, turn, targetId: quotaTargetId(plan) });
   return usage === current ? state : { ...state, spellUsage: usage };
 }
 

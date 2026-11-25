@@ -11,11 +11,13 @@ import type { CombatantState, CombatState, Rng } from "./types";
 
 const MAX_ENEMY_ACTIONS = 12;
 
-/** Un sort connu, payable ET hors recharge (`castsPerTurn`, `cooldown`). */
+/** Un sort connu, payable, hors recharge et non saturé sur la cible visée. */
 function isUsable(state: CombatState, enemy: CombatantState, spell: SpellDef | undefined): spell is SpellDef {
   if (spell === undefined || spell.apCost > enemy.ap) return false;
   const key = spellUsageKey(enemy.id, spell.id);
-  return isSpellAvailable({ usage: state.spellUsage ?? {}, key, limit: spell, turn: state.turn });
+  const turn = state.turn;
+  const targetId = getOpponent(state).id;
+  return isSpellAvailable({ usage: state.spellUsage ?? {}, key, limit: spell, turn, targetId });
 }
 
 function canHitOpponent(state: CombatState, spellId: string): boolean {

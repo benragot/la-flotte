@@ -117,7 +117,8 @@ export function spellAttackSpec(spell: SpellDef, roll: number): AttackSpec {
 /** Même spec, portée YAML comprise : le moteur refuse alors hors bornes et sans LoS. */
 export function spellCastSpec(spell: SpellDef, roll: number): AttackSpec {
   const range = { minRange: spell.minRange, maxRange: spell.maxRange, requiresLos: spell.requiresLos };
-  const quotas = { spellId: spell.id, castsPerTurn: spell.castsPerTurn, cooldown: spell.cooldown };
+  const perTurn = { castsPerTurn: spell.castsPerTurn, castsPerTarget: spell.castsPerTarget };
+  const quotas = { spellId: spell.id, ...perTurn, cooldown: spell.cooldown };
   return { ...spellAttackSpec(spell, roll), ...range, ...quotas };
 }
 
@@ -206,21 +207,28 @@ function cheapest(spells: readonly SpellDef[]): SpellDef | null {
 }
 
 /** Repli sans carte : le moins cher des sorts payables, sans notion de portée. */
-function cheapestAffordable(context: StrategyContext): SpellDef | null {
+function cheapestAffordable(context: StrategyContext, target: CombatantLike): SpellDef | null {
   const payable = affordable(damageSpells(context.spells), context.enemy.ap);
-  const available = payable.filter((spell) => canCastSpellNow(context.state, context.enemy.id, spell));
+  const available = payable.filter((spell) => castableOn(context, target, spell));
   return cheapest(available);
+}
+
+/** Quota du sort **pour cette cible** : une cible saturée ne doit pas être proposée. */
+function castableOn(context: StrategyContext, target: CombatantLike, spell: SpellDef): boolean {
+  const query = { state: context.state, casterId: context.enemy.id, spell, targetId: target.id };
+  return canCastSpellNow(query);
 }
 
 /**
  * Sorts payables, à portée et **hors recharge** : un sort dont `castsPerTurn`
- * est épuisé ou qui attend son `cooldown` n'est pas proposé, sinon le moteur le
- * refuserait et le monstre perdrait son tour.
+ * est épuisé, qui attend son `cooldown` ou dont `castsPerTarget` est atteint sur
+ * la cible n'est pas proposé, sinon le moteur le refuserait et le monstre
+ * perdrait son tour.
  */
 function castableSpells(context: StrategyContext, target: CombatantLike): SpellDef[] {
   const payable = affordable(damageSpells(context.spells), context.enemy.ap);
   const reaching = payable.filter((spell) => spellReaches(context, target, spell));
-  return reaching.filter((spell) => canCastSpellNow(context.state, context.enemy.id, spell));
+  return reaching.filter((spell) => castableOn(context, target, spell));
 }
 
 function spellReaches(context: StrategyContext, target: CombatantLike, spell: SpellDef): boolean {
@@ -240,7 +248,7 @@ function attackOn(target: CombatantLike, spell: SpellDef): EnemyAction {
 
 /** Sans carte, aucune géométrie : comportement historique (le moins cher, sans portée). */
 function noMapAction(context: StrategyContext, target: CombatantLike): EnemyAction | null {
-  const spell = cheapestAffordable(context);
+  const spell = cheapestAffordable(context, target);
   return spell === null ? null : attackOn(target, spell);
 }
 
