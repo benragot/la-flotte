@@ -8,6 +8,7 @@ import type { CombatRewards } from "../engine/combatLoop/types";
 import type { Hero } from "../engine/createHero";
 import { createHero } from "../engine/createHero";
 import { craftMany, findRecipe, isRecipeKnown } from "../engine/craft";
+import { sellItem } from "../engine/economy";
 import { findItem, creditDrops, emptyInventory, inventoryFromSnapshot, toInventorySnapshot } from "./gameSelectors";
 import { gainXp, heroFromSnapshot, heroToSnapshot, spendCapitalPoints } from "../engine/hero";
 import { addItem, countItem, equipItem, removeItem, unequipItem, useConsumable } from "../engine/inventory";
@@ -36,6 +37,12 @@ import { recipesFileSchema } from "../schemas/recipeSchema";
 import { setsFileSchema } from "../schemas/setSchema";
 
 export interface BankMoveInput {
+  itemId: string;
+  quantity: number;
+}
+
+/** Vente au catalogue : le prix est celui de `data/items.yaml`, jamais un argument. */
+export interface SellItemActionInput {
   itemId: string;
   quantity: number;
 }
@@ -78,6 +85,8 @@ export interface GameStore {
   unequip: (input: { slot: EquipmentSlot }) => void;
   drinkConsumable: (input: { itemId: string }) => void;
   creditCombatRewards: (rewards: CombatRewards) => void;
+  /** Vend `quantity` unités au `sellPrice` du catalogue et persiste la bourse. */
+  sellItem: (input: SellItemActionInput) => void;
   depositToBank: (input: BankMoveInput) => void;
   withdrawFromBank: (input: BankMoveInput) => void;
   /** Aucun XP de craft en V1 : le métier viendra avec la découverte de recettes. */
@@ -163,6 +172,7 @@ type KeptOnReset =
   | "unequip"
   | "drinkConsumable"
   | "creditCombatRewards"
+  | "sellItem"
   | "depositToBank"
   | "withdrawFromBank"
   | "craftRecipe"
@@ -282,6 +292,29 @@ function drunkGame(hero: Hero | null, inventory: InventoryState, itemId: string)
   const result = useConsumable({ inventory, item, currentHp: hero.hp, maxHp: hero.maxHp });
   if (result.healed === 0) return {};
   return { hero: { ...hero, hp: result.hp }, inventory: result.inventory };
+}
+
+interface SaleOutcome {
+  hero: Hero;
+  inventory: InventoryState;
+}
+
+/** Prix lu au catalogue : un id inconnu ou un héros absent ne vendent rien. */
+function soldGame(state: GameState, input: SellItemActionInput): SaleOutcome | null {
+  const item = findItem(items, input.itemId);
+  if (state.hero === null || item === undefined) return null;
+  const options = { inventory: state.inventory, kamas: state.hero.kamas, itemId: item.id, price: item.sellPrice, quantity: input.quantity };
+  const sale = sellItem(options);
+  if (sale.sold === 0) return null;
+  return { hero: { ...state.hero, kamas: sale.kamas }, inventory: sale.inventory };
+}
+
+/** Une vente acceptée persiste, comme l'investissement de points (DATA-02). */
+function sellAndSave(set: StoreSetter, get: () => GameStore, input: SellItemActionInput): void {
+  const outcome = soldGame(get(), input);
+  if (outcome === null) return;
+  set(outcome);
+  get().saveGame();
 }
 
 /** Kamas d'une récompense : champ optionnel, donc neutre pour le 1v1 (DATA-02). */
@@ -525,13 +558,28 @@ function craftActions(set: StoreSetter, get: () => GameStore): CraftActions {
   };
 }
 
+type SaleActions = Pick<GameStore, "sellItem">;
+
+/** Vente groupée à part : `characterActions` reste dans la limite des 10 lignes. */
+function saleActions(set: StoreSetter, get: () => GameStore): SaleActions {
+  return { sellItem: (input) => sellAndSave(set, get, input) };
+}
+
+/** Toutes les actions assemblées : `create` reste lui aussi sous 10 lignes. */
+function gameActions(set: StoreSetter, get: () => GameStore) {
+  return {
+    ...characterActions(set, get),
+    ...rosterActions(set, get),
+    ...bankActions(set),
+    ...craftActions(set, get),
+    ...saleActions(set, get),
+    ...saveActions(set, get),
+  };
+}
+
 export const useGameStore = create<GameStore>((set, get) => ({
   ...emptyStore(),
   knownRecipeIds: KNOWN_RECIPE_IDS,
   saveKey: DEFAULT_SAVE_KEY,
-  ...characterActions(set, get),
-  ...rosterActions(set, get),
-  ...bankActions(set),
-  ...craftActions(set, get),
-  ...saveActions(set, get),
+  ...gameActions(set, get),
 }));

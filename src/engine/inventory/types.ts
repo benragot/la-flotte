@@ -45,6 +45,8 @@ export interface ItemLike {
   level?: number;
   stats?: StatBlock;
   heal?: number;
+  /** Prix de revente unitaire (`data/items.yaml`) ; absent ⇒ objet invendable. */
+  sellPrice?: number;
 }
 
 export interface SetBonusTier {
