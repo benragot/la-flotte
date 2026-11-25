@@ -119,7 +119,14 @@ export class EntitySprite {
     return false;
   }
 
-  /** Positionne l'acteur sur le centre du losange, à l'échelle du décor, et applique le retournement. */
+  /**
+   * Positionne l'acteur sur le centre du losange, à l'échelle du décor, et applique le retournement.
+   *
+   * ⚠️ Pendant un glissement, la demande est **mémorisée** mais pas jouée :
+   * `finishWalk` la consomme pour ne pas rejouer le `walk` déjà vu. Un coup porté
+   * pendant un glissement n'est donc **pas animé** (limitation connue, suivie
+   * hors de cette PR) — la donnée du héros, elle, n'attend jamais le visuel.
+   */
   update(placement: ActorPlacement): void {
     this.applyTransform(placement);
     this.pending = `${placement.signature}:${placement.animation}`;

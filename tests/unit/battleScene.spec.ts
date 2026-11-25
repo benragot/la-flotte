@@ -215,12 +215,18 @@ describe("salle de donjon — nombres flottants et noms au tour de l'action", ()
     expect(view.tokens.map((token) => token.name)).toEqual(battle.combatants.map((combatant) => combatant.name));
   });
 
-  it("deux ennemis homonymes gardent des clés de rejeu distinctes", () => {
+  it("touche l'homonyme désigné par le nombre flottant, pas le premier du nom", () => {
     const battle = roomBattle();
-    const view = buildBattleViewModel({ battle, viewport: VIEWPORT });
-    const pious = view.tokens.filter((token) => token.name === "Piou Mazouté");
-    expect(pious).toHaveLength(2);
-    expect(new Set(pious.map((token) => token.animationKey)).size).toBe(2);
+    const hero = mustGet(battle.combatants, 0);
+    const first = mustGet(battle.combatants, 1);
+    const second = mustGet(battle.combatants, 2);
+    expect(first.name).toBe(second.name);
+    const floats = [{ id: 1, targetId: second.id, amount: 9, kind: "damage" as const }];
+    const line = `${hero.name} frappe ${second.name} : 9 dégâts.`;
+    const view = buildBattleViewModel({ battle: { ...withLog(battle, [line]), floats }, viewport: VIEWPORT });
+    expect(view.lastAction?.targetId).toBe(second.id);
+    expect(tokenOf(view, second.id).animation).toBe("hit");
+    expect(tokenOf(view, first.id).animation).toBe("idle");
   });
 });
 

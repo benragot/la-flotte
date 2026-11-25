@@ -28,9 +28,10 @@ describe("lastActionFromBattle — dérivé du journal de salle", () => {
     expect(lastActionFromBattle(room(["Entrée dans la salle"]))).toBeNull();
   });
 
-  it("lit une attaque nue : acteur, cible, tour et signature", () => {
+  it("lit une attaque nue : acteur, cible et signature", () => {
     const action = lastActionFromBattle(room(["Balthazar frappe Piou Mazouté : 12 dégâts."]));
-    expect(action).toMatchObject({ kind: "attack", actorId: "player", targetId: "piou-0", at: 2, signature: "log-0" });
+    expect(action).toMatchObject({ kind: "attack", actorId: "player", targetId: "piou-0", signature: "log-0" });
+    expect(action).not.toHaveProperty("at");
   });
 
   it("distingue un sort lancé (avec son nom) d'une attaque nue", () => {
@@ -45,7 +46,7 @@ describe("lastActionFromBattle — dérivé du journal de salle", () => {
 
   it("lit un déplacement sans cible", () => {
     const action = lastActionFromBattle(room(["Balthazar se déplace de 2 case(s)."]));
-    expect(action).toMatchObject({ kind: "move", actorId: "player", at: 2 });
+    expect(action).toMatchObject({ kind: "move", actorId: "player" });
     expect(action?.targetId).toBeUndefined();
   });
 

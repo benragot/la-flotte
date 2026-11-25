@@ -61,7 +61,7 @@ function decorAt(x: number, y: number): DecorView {
 
 function viewOf(decor: readonly DecorView[], tokens: ViewModel["tokens"]): ViewModel {
   const scene = { tiles: [], highlights: [], decor: [...decor], outlines: [], exitMarks: [] };
-  return { scene, tokens, hpBarTokens: [], path: [], lastAction: null };
+  return { scene, tokens, hpBarTokens: [], path: [] };
 }
 
 /** Enfants de la couche `actors` : c'est là que le décor occlusif et les acteurs partagent l'axe. */

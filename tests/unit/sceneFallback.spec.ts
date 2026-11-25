@@ -42,12 +42,12 @@ function token(spriteId: string | null, cell: Position = { x: 0, y: 0 }, center 
 
 function view(tokens: TokenView[], hpBarTokens: TokenView[] = tokens): ViewModel {
   const scene = { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [] };
-  return { scene, tokens, hpBarTokens, path: [], lastAction: null };
+  return { scene, tokens, hpBarTokens, path: [] };
 }
 
 function exitView(): ViewModel {
   const mark = { cell: { x: 0, y: 0 }, center: { x: 100, y: 80 }, points: [100, 74, 106, 80, 100, 86, 94, 80], scale: 1 };
-  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [mark] }, tokens: [], hpBarTokens: [], path: [], lastAction: null };
+  return { scene: { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [mark] }, tokens: [], hpBarTokens: [], path: [] };
 }
 
 function fakeApp(): Application {

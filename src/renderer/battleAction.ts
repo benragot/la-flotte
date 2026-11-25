@@ -15,8 +15,6 @@ export interface BattleLastAction {
   readonly kind: BattleActionKind;
   readonly actorId: string;
   readonly targetId?: string;
-  /** Tour du combat au moment du rendu : le journal du moteur ne porte pas le tour. */
-  readonly at: number;
   /** Clé de rejeu : index de la ligne, croît même quand l'action identique se répète. */
   readonly signature: string;
 }
@@ -99,7 +97,7 @@ function actionFor(state: BattleState, found: ActionLine, kind: BattleActionKind
   const actor = actorOf(state, found.line);
   if (actor === null) return null;
   const target = kind === "move" ? undefined : targetOf(state, found.line, actor);
-  return { kind, actorId: actor.id, targetId: target?.id, at: state.turn, signature: `log-${found.index}` };
+  return { kind, actorId: actor.id, targetId: target?.id, signature: `log-${found.index}` };
 }
 
 /** Dernière action d'une salle de donjon, ou `null` tant que le journal n'en porte aucune. */

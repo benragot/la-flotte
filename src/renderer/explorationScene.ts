@@ -89,6 +89,8 @@ function explorationTokens(exploration: ExplorationView, origin: IsoOrigin): Tok
  */
 export interface ExplorationViewModel extends ViewModel {
   hpBarTokens: readonly [];
+  /** L'exploration n'a pas de journal de combat : la vue le dit explicitement. */
+  lastAction: null;
 }
 
 /** View model d'exploration : décor iso, héros puis groupes badgés, aucun chemin. */

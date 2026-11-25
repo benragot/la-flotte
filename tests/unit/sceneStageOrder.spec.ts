@@ -51,7 +51,6 @@ const EMPTY_VIEW: ViewModel = {
   tokens: [],
   hpBarTokens: [],
   path: [],
-  lastAction: null,
 };
 
 function fakeApp(): Application {
