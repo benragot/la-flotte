@@ -12,8 +12,10 @@ test-results/
 playwright-report/
 blob-report/
 
-# Session jouée par `npm run play` : rapport de diagnostic, jamais commité
-play-report/
+# Session jouée par `npm run play` : rapport de diagnostic, jamais commité.
+# `play-report*/` (et non `play-report/`) couvre les variantes suffixées
+# (`play-report-hd/`…) et reste aligné sur `test.exclude` de vite.config.ts.
+play-report*/
 
 # Logs
 logs/
@@ -44,7 +46,9 @@ pnpm-debug.log*
 # `.vite/` ne le couvre pas : le motif ne matche que le nom exact `.vite`.
 .vite-cache/
 
+# Worktrees imbriqués créés dans l'arbre (`.wt/`, `.worktrees/`) : jamais commités
 .wt/
+.worktrees/
 
 # macOS
 .DS_Store
