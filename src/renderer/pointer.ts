@@ -18,6 +18,30 @@ export interface BoardLayout {
 export interface PointerHandlers {
   setHoveredCell: (position: Position | null) => void;
   clickCell: (position: Position) => void;
+  /**
+   * Jeton sous le curseur : il passe **avant** la case. `null` (ou absent) fait
+   * retomber le clic sur `isoToGrid`, donc une case vide garde son geste.
+   */
+  pickCell?: CellPicker;
+}
+
+/** Résolution d'un point écran en case cible : les jetons d'abord, la grille ensuite. */
+export type CellPicker = (point: PixelPoint) => Position | null;
+
+/** Entrée d'un tap : le point, la projection de la scène et le picker de jetons. */
+export interface TapInput {
+  point: PixelPoint;
+  layout: BoardLayout;
+  pick?: CellPicker;
+}
+
+/**
+ * Case d'un clic ou d'un tap : le **jeton** sous le curseur d'abord (il est peint
+ * au-dessus de sa case), la case de la grille sinon. Sans picker, le
+ * comportement historique est conservé à l'identique.
+ */
+export function cellAtTap(input: TapInput): Position | null {
+  return input.pick?.(input.point) ?? cellFromPointer(input.point, input.layout);
 }
 
 /** Case sous le curseur, `null` hors du losange de la carte. */
@@ -49,14 +73,14 @@ function attachMove(stage: Container, layout: BoardLayout, onMove: PointerHandle
   stage.on("pointermove", (event: FederatedPointerEvent) => track(cellFromPointer(event.global, layout)));
 }
 
-function tapCell(event: FederatedPointerEvent, layout: BoardLayout, onClick: PointerHandlers["clickCell"]): void {
-  const cell = cellFromPointer(event.global, layout);
-  if (cell === null) return;
-  onClick(cell);
+function tapCell(event: FederatedPointerEvent, layout: BoardLayout, handlers: PointerHandlers): void {
+  const point = { x: event.global.x, y: event.global.y };
+  const cell = cellAtTap({ point, layout, pick: handlers.pickCell });
+  if (cell !== null) handlers.clickCell(cell);
 }
 
-function attachTap(stage: Container, layout: BoardLayout, onClick: PointerHandlers["clickCell"]): void {
-  stage.on("pointertap", (event: FederatedPointerEvent) => tapCell(event, layout, onClick));
+function attachTap(stage: Container, layout: BoardLayout, handlers: PointerHandlers): void {
+  stage.on("pointertap", (event: FederatedPointerEvent) => tapCell(event, layout, handlers));
 }
 
 function attachLeave(stage: Container, onLeave: PointerHandlers["setHoveredCell"]): void {
@@ -81,7 +105,7 @@ export function bindPointer(app: Application, layout: BoardLayout, handlers: Poi
   if (!isApplicationAlive(app)) return () => undefined;
   const stage = prepareStage(app);
   attachMove(stage, layout, handlers.setHoveredCell);
-  attachTap(stage, layout, handlers.clickCell);
+  attachTap(stage, layout, handlers);
   attachLeave(stage, handlers.setHoveredCell);
   return () => detach(stage);
 }
