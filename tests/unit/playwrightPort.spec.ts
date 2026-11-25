@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   DERIVED_PORT_MAX,
@@ -5,7 +6,6 @@ import {
   devCommand,
   resolvePort,
   serverBanner,
-  shouldReuseServer,
 } from "../ui/playwrightPort";
 
 /**
@@ -63,23 +63,17 @@ describe("devCommand", () => {
 });
 
 describe("serverBanner", () => {
-  it("affiche le port et la racine, pour qu'un agent voie qu'il teste un autre arbre", () => {
+  it("affiche le port, la racine et le fait que le serveur n'est jamais emprunté", () => {
     const banner = serverBanner(4312, ROOT_B);
     expect(banner).toContain("4312");
     expect(banner).toContain(ROOT_B);
+    expect(banner).toContain("jamais réutilisé");
   });
 });
 
-describe("shouldReuseServer", () => {
-  it("réutilise hors CI quand rien n'est demandé", () => {
-    expect(shouldReuseServer({})).toBe(true);
-  });
-
-  it("ne réutilise jamais en CI", () => {
-    expect(shouldReuseServer({ CI: "1" })).toBe(false);
-  });
-
-  it("ne réutilise jamais un port explicite : il veut son propre serveur", () => {
-    expect(shouldReuseServer({ PLAYWRIGHT_PORT: "4210" })).toBe(false);
+describe("playwright.config.ts", () => {
+  it("interdit la réutilisation du serveur d'un autre arbre", () => {
+    const file = new URL("../../playwright.config.ts", import.meta.url);
+    expect(readFileSync(file, "utf8")).toContain("reuseExistingServer: false");
   });
 });

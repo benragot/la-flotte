@@ -76,14 +76,6 @@ export function devCommand(port: number): string {
 
 /** Phrase de tête de run : sans elle, un serveur voisin reste invisible. */
 export function serverBanner(port: number, rootDir: string): string {
-  return `Playwright : http://localhost:${port} — worktree ${path.resolve(rootDir)}`;
-}
-
-/**
- * `false` dès qu'un port explicite est demandé : réutiliser un serveur qu'on
- * n'a pas démarré, c'est accepter de mesurer du code inconnu.
- */
-export function shouldReuseServer(env: Env): boolean {
-  if (requestedPort(env) !== undefined) return false;
-  return env.CI === undefined;
+  const root = path.resolve(rootDir);
+  return `Playwright : http://localhost:${port} — worktree ${root} (serveur dédié, jamais réutilisé)`;
 }

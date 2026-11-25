@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { devCommand, resolvePort, shouldReuseServer, suiteRoot } from "./tests/ui/playwrightPort";
+import { devCommand, resolvePort, suiteRoot } from "./tests/ui/playwrightPort";
 
 const CI = process.env.CI !== undefined;
 const ROOT = suiteRoot();
@@ -32,7 +32,9 @@ export default defineConfig({
   webServer: {
     command: devCommand(PORT),
     url: BASE_URL,
-    reuseExistingServer: shouldReuseServer(process.env),
+    // Jamais de réutilisation : sur un port voisin, Playwright mesurerait le
+    // serveur d'un autre worktree (vert sur du code qu'on n'a pas écrit).
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
