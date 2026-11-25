@@ -103,6 +103,9 @@ export const HUD_COLORS = {
 
 export type HudColorKey = keyof typeof HUD_COLORS;
 
+/** Étiquette d'un état requis (`requiresState`) : vocabulaire partagé grimoire/case. */
+export const SPELL_STATE_LABELS: Record<NonNullable<SpellDef["requiresState"]>, string> = { drunk: "Ivre" };
+
 /** Grille de sorts du dock : 2 rangées de 6 emplacements. */
 export const SPELL_SLOT_COUNT = 12;
 

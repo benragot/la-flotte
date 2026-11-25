@@ -291,13 +291,13 @@ test.describe("cases de sort — états rendus dans le dock", () => {
     expect(face.face, "planche slot-disabled").toBe("rgb(51, 44, 36)");
   });
 
-  test("sélectionner un sort le peint en or, sans dépendre de sa portée", async ({ page }) => {
+  test("sélectionner un sort lançable le peint en or", async ({ page }) => {
     await page.goto("/?demo=combat");
     await expect(page.locator(SPELLS)).toBeVisible();
-    const first = page.locator(`${SPELLS} button`).first();
-    await page.keyboard.press("1");
-    await expect(first).toHaveAttribute("aria-pressed", "true");
-    const selected = await first.evaluate(readSlotFace);
+    const second = page.locator(`${SPELLS} button`).nth(1);
+    await page.keyboard.press("2");
+    await expect(second).toHaveAttribute("aria-pressed", "true");
+    const selected = await second.evaluate(readSlotFace);
     expect(selected.border, "filet or du sort sélectionné").toBe("rgb(212, 165, 55)");
     expect(selected.face, "planche surface-3").toBe("rgb(74, 64, 52)");
   });

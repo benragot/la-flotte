@@ -8,6 +8,8 @@ import { getCastableCells } from "./castable";
 import { appendLog } from "./log";
 import type { PushResult } from "./push";
 import { applyPush } from "./push";
+import { spellSupportRefusal } from "./spellSupport";
+import type { SpellSupportRefusal } from "./spellSupport";
 import type {
   CombatPhase,
   CombatStatKey,
@@ -169,14 +171,16 @@ function teleport(state: CombatState, plan: CastPlan): CombatState {
   return appendLog(moved, `${caster.name} se téléporte.`);
 }
 
-function isUtilitySpell(state: CombatState, spellId: string): boolean {
-  return state.spellsById[spellId]?.kind === "other";
+/** Motif pour lequel le moteur refuse ce sort avant toute géométrie ; `null` = tentable. */
+export function spellRefusal(state: CombatState, spellId: string): SpellSupportRefusal | null {
+  const spell = state.spellsById[spellId];
+  return spell === undefined ? null : spellSupportRefusal(spell);
 }
 
-/** Lance un sort si la phase, les PA et la cible le permettent ; sinon état inchangé. */
+/** Lance un sort si le support, la phase, les PA et la cible le permettent ; sinon inchangé. */
 export function castSpell(input: CastInput): CombatState {
-  // Effets utilitaires non implémentés (Vague 6) : refus silencieux par identité.
-  if (isUtilitySpell(input.state, input.spellId)) return input.state;
+  // Effet absent (SPELL-02) ou état requis non géré : refus nommé, jamais silencieux.
+  if (spellRefusal(input.state, input.spellId) !== null) return input.state;
   const plan = planCast(input);
   if (plan === null) return input.state;
   const spent = recordCast(spendAp(plan.state, plan.spell.apCost), plan);

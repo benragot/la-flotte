@@ -4,6 +4,7 @@ import type { ArenaMode } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
 import type { Shortcut, ShortcutInput } from "./shortcuts";
 import { resolveShortcut } from "./shortcuts";
+import { slotLook } from "./spellSlotState";
 
 export interface ShortcutContext {
   phase: CombatPhase;
@@ -91,8 +92,26 @@ function nextSelection(context: ShortcutContext, spellId: string): string | null
   return spellId;
 }
 
+/** Un slot désactivé (recharge, quota, état, portée…) n'entre jamais en sélection. */
+function isSelectable(combat: CombatState, spellId: string): boolean {
+  const spell = combat.spellsById?.[spellId];
+  return spell !== undefined && !slotLook({ combat, selectedSpellId: null }, spell).disabled;
+}
+
+function spellIdAt(combat: CombatState | null, index: number): string | null {
+  if (combat === null) return null;
+  return combat.player.spellIds[index] ?? null;
+}
+
+function selectableId(combat: CombatState, spellId: string | null): string | null {
+  if (spellId === null) return null;
+  return isSelectable(combat, spellId) ? spellId : null;
+}
+
 function spellAction(context: ShortcutContext, index: number): ShortcutEffect | null {
-  const spellId = context.combat?.player.spellIds[index] ?? null;
+  const { combat } = context;
+  if (combat === null) return null;
+  const spellId = selectableId(combat, spellIdAt(combat, index));
   if (spellId === null) return null;
   const next = nextSelection(context, spellId);
   return () => context.selectSpell(next);

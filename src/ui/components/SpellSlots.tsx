@@ -3,8 +3,8 @@ import type { CombatState } from "../../engine/combatLoop/types";
 import type { SpellDef } from "../../schemas/spellSchema";
 import { useCombatStore } from "../../store/useCombatStore";
 import { buildSpellSlots, formatSpellRange, shortcutNumberForSlot } from "../hudHelpers";
-import type { SlotLookInput, SlotState } from "../spellSlotState";
-import { slotFace, slotReason, slotStateOf } from "../spellSlotState";
+import type { SlotLook, SlotLookInput, SlotState } from "../spellSlotState";
+import { slotFace, slotLook } from "../spellSlotState";
 import { MICRO, PANEL_TITLE } from "../uiTokens";
 import { DOCK_PANEL } from "./hudTheme";
 
@@ -16,7 +16,7 @@ interface SpellSlotsProps {
 interface SlotView {
   spell: SpellDef | null;
   index: number;
-  state: SlotState;
+  look: SlotLook;
 }
 
 const GRID = "grid min-h-0 flex-1 grid-cols-6 grid-rows-2 gap-1";
@@ -28,19 +28,17 @@ const COST_INK: Readonly<Record<SlotState, string>> = {
   selectionne: "text-[var(--color-ink-ap)]",
   "pa-insuffisants": "text-[var(--color-ink-danger)]",
   "hors-portee": "text-[var(--color-ink-3)]",
+  "a-venir": "text-[var(--color-ink-3)]",
+  "etat-non-gere": "text-[var(--color-ink-3)]",
+  recharge: "text-[var(--color-ink-3)]",
+  "quota-epuise": "text-[var(--color-ink-3)]",
   verrouille: "text-[var(--color-ink-3)]",
 };
 
-/** Disponible et sélectionné sont les deux seules cases sur lesquelles on clique. */
-function playable(state: SlotState): boolean {
-  return state === "disponible" || state === "selectionne";
-}
-
-function slotTitle({ spell, state }: SlotView): string {
+function slotTitle({ spell, look }: SlotView): string {
   if (spell === null) return "Emplacement vide";
   const base = `${spell.name} — ${spell.apCost} PA — ${formatSpellRange(spell)} — ${spell.description}`;
-  const reason = slotReason(state);
-  return reason === null ? base : `${base} — ${reason}`;
+  return look.reason === null ? base : `${base} — ${look.reason}`;
 }
 
 /**
@@ -54,17 +52,24 @@ function SlotCost({ spell, state }: { spell: SpellDef | null; state: SlotState }
   return <span className={`${chip} font-mono text-[10px] font-bold leading-3 ${COST_INK[state]}`}>{spell.apCost}</span>;
 }
 
-function SlotBody({ spell }: { spell: SpellDef | null }) {
+function SlotBody({ spell, spaced }: { spell: SpellDef | null; spaced: boolean }) {
   if (spell === null) return null;
-  return <strong className="mt-3 line-clamp-2 text-[10px] font-semibold leading-3">{spell.name}</strong>;
+  return <strong className={`${spaced ? "mt-5" : "mt-3"} line-clamp-2 text-[10px] font-semibold leading-3`}>{spell.name}</strong>;
 }
 
-function SlotContent({ spell, index, state }: SlotView) {
+/** Badge court d'honnêteté : « à venir », « Recharge (n) » — jamais une couleur seule. */
+function SlotBadge({ badge }: { badge: string | null }) {
+  if (badge === null) return null;
+  return <span className={`${MICRO} absolute right-0.5 top-0.5 max-w-[90%] truncate`}>{badge}</span>;
+}
+
+function SlotContent({ spell, index, look }: SlotView) {
   return (
     <>
       <span className={MICRO}>{shortcutNumberForSlot(index)}</span>
-      <SlotBody spell={spell} />
-      <SlotCost spell={spell} state={state} />
+      <SlotBody spell={spell} spaced={look.badge !== null} />
+      <SlotBadge badge={look.badge} />
+      <SlotCost spell={spell} state={look.state} />
     </>
   );
 }
@@ -75,20 +80,20 @@ function useSlotToggle(spell: SpellDef | null, isSelected: boolean): () => void 
   return () => selectSpell(isSelected ? null : (spell?.id ?? null));
 }
 
-function SlotTile({ spell, index, state }: SlotView) {
-  const isSelected = state === "selectionne";
+function SlotTile({ spell, index, look }: SlotView) {
+  const isSelected = look.state === "selectionne";
   const onToggle = useSlotToggle(spell, isSelected);
-  const title = slotTitle({ spell, index, state });
+  const title = slotTitle({ spell, index, look });
   return (
-    <button type="button" onClick={onToggle} disabled={!playable(state)} aria-pressed={isSelected} title={title} className={slotFace(state)}>
-      <SlotContent spell={spell} index={index} state={state} />
+    <button type="button" onClick={onToggle} disabled={look.disabled} aria-disabled={look.disabled} aria-pressed={isSelected} title={title} className={slotFace(look.state)}>
+      <SlotContent spell={spell} index={index} look={look} />
     </button>
   );
 }
 
 /** Les douze états sont recalculés une fois par combat, pas à chaque case. */
 function viewsOf(input: SlotLookInput): SlotView[] {
-  return buildSpellSlots(input).map((spell, index) => ({ spell, index, state: slotStateOf(input, spell) }));
+  return buildSpellSlots(input).map((spell, index) => ({ spell, index, look: slotLook(input, spell) }));
 }
 
 function SlotGrid({ combat, selectedSpellId }: SpellSlotsProps) {
@@ -99,8 +104,8 @@ function SlotGrid({ combat, selectedSpellId }: SpellSlotsProps) {
 
 /**
  * Grille 2 × 6 des sorts : numéro de raccourci, coût PA et état de lancement.
- * Cinq états francs, chacun avec sa face, son filet et son encre — jamais une
- * simple baisse d'`opacity` (spec §2.4), et la cause est écrite dans l'infobulle.
+ * Chaque état a sa face, son filet et son encre — jamais une simple baisse
+ * d'`opacity` (spec §2.4), et la cause est écrite dans l'infobulle.
  */
 export default function SpellSlots({ combat, selectedSpellId }: SpellSlotsProps) {
   return (
