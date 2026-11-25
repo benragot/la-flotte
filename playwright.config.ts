@@ -1,8 +1,9 @@
 import { defineConfig } from "@playwright/test";
-import { resolvePort, shouldReuseServer } from "./tests/ui/playwrightPort";
+import { devCommand, resolvePort, suiteRoot } from "./tests/ui/playwrightPort";
 
 const CI = process.env.CI !== undefined;
-const PORT = resolvePort(process.env);
+const ROOT = suiteRoot();
+const PORT = resolvePort(process.env, ROOT);
 const BASE_URL = `http://localhost:${PORT}`;
 
 /** Les trois largeurs réellement visées par le joueur : portable, HD, écran large. */
@@ -25,12 +26,15 @@ export default defineConfig({
   forbidOnly: CI,
   retries: CI ? 1 : 0,
   reporter: CI ? [["github"], ["html", { open: "never" }]] : "list",
+  globalSetup: "./tests/ui/playwrightGlobalSetup.ts",
   use: { baseURL: BASE_URL, trace: "on-first-retry" },
   projects: projects(),
   webServer: {
-    command: `npm run dev -- --port ${PORT} --strictPort`,
+    command: devCommand(PORT),
     url: BASE_URL,
-    reuseExistingServer: shouldReuseServer(process.env),
+    // Jamais de réutilisation : sur un port voisin, Playwright mesurerait le
+    // serveur d'un autre worktree (vert sur du code qu'on n'a pas écrit).
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });
