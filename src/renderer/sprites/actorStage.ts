@@ -109,7 +109,10 @@ export class ActorStage {
     if (scene === this.scene) return;
     this.scene = scene;
     this.played.clear();
-    this.actors.forEach((actor) => actor.cancelWalk());
+    this.actors.forEach((actor) => {
+      actor.cancelWalk();
+      actor.cancelAction();
+    });
   }
 
   private syncToken(token: TokenView): void {

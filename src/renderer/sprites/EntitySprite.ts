@@ -1,6 +1,7 @@
 import { AnimatedSprite, Container } from "pixi.js";
 import type { PixelPoint } from "../gridProjection";
 import { SPRITE_ANCHOR } from "./anchor";
+import { ACTION_EFFECT_MS, NEUTRAL_TINT, actionTint } from "./actionEffect";
 import { displayScaleFor } from "./frameMath";
 import type { Facing, SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "./types";
 import type { WalkPlan, WalkState } from "./walkMotion";
@@ -45,6 +46,8 @@ export class EntitySprite {
   private pending = "";
   /** Glissement en cours : `null` = l'acteur est posé sur sa case logique. */
   private walk: WalkState | null = null;
+  /** Flash d'action en cours : sa date de départ vient du ticker, jamais d'ici. */
+  private effect: { startMs: number | null } | null = null;
 
   constructor(input: EntitySpriteInput) {
     this.spec = input.spec;
@@ -69,6 +72,11 @@ export class EntitySprite {
   private start(animation: SpriteAnimationName): void {
     const { animated, frames } = this;
     if (animated === null || frames === null) return;
+    this.clearEffect();
+    this.playFrames(animated, frames, animation);
+  }
+
+  private playFrames(animated: AnimatedSprite, frames: SpriteSheetFrames, animation: SpriteAnimationName): void {
     const spec = this.spec.animations[animation];
     animated.textures = frames[animation];
     animated.animationSpeed = spec.fps / REFERENCE_FPS;
@@ -85,6 +93,30 @@ export class EntitySprite {
     if (this.requested === signature) return;
     this.requested = signature;
     this.start(animation);
+    this.applyEffect(animation);
+  }
+
+  /** Allume brièvement le sprite : or pour une frappe, rouge pour une touche. */
+  private applyEffect(animation: SpriteAnimationName): void {
+    const tint = actionTint(animation);
+    if (tint === null || this.animated === null) return;
+    this.effect = { startMs: null };
+    this.animated.tint = tint;
+  }
+
+  /** Retire le flash et rend la teinte neutre : aucun état ne survit à l'action. */
+  private clearEffect(): void {
+    if (this.animated !== null) this.animated.tint = NEUTRAL_TINT;
+    this.effect = null;
+  }
+
+  /** Une image d'effet : `true` tant que la teinte tient (il faut repeindre). */
+  private advanceEffect(nowMs: number): boolean {
+    if (this.effect === null) return false;
+    this.effect.startMs ??= nowMs;
+    if (nowMs - this.effect.startMs < ACTION_EFFECT_MS) return true;
+    this.clearEffect();
+    return false;
   }
 
   /** Positionne l'acteur sur le centre du losange, à l'échelle du décor, et applique le retournement. */
@@ -114,10 +146,16 @@ export class EntitySprite {
   }
 
   /**
-   * Avance le glissement à `nowMs`. `true` tant que l'acteur bouge : la boucle
-   * de rendu sait alors qu'il faut repeindre. À l'arrivée, retour à `idle`.
+   * Avance le glissement et le flash à `nowMs`. `true` tant qu'une chose bouge
+   * ou s'allume : la boucle de rendu sait alors qu'il faut repeindre. À
+   * l'arrivée, retour à `idle` ; à l'expiration, teinte neutre.
    */
   advance(nowMs: number): boolean {
+    const effect = this.advanceEffect(nowMs);
+    return this.advanceWalk(nowMs) || effect;
+  }
+
+  private advanceWalk(nowMs: number): boolean {
     if (this.walk === null) return false;
     const sample = sampleWalk(this.walk, nowMs);
     this.placePoint(sample.point);
@@ -131,6 +169,11 @@ export class EntitySprite {
    */
   cancelWalk(): void {
     this.walk = null;
+  }
+
+  /** Un changement de scène emporte aussi le flash : rien ne survit à l'ancienne carte. */
+  cancelAction(): void {
+    this.clearEffect();
   }
 
   /** Fin de trajet : l'acteur est posé et respire, sans rejouer le walk déjà consommé. */

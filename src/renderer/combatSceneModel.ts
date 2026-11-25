@@ -18,6 +18,7 @@ import type { TrailBatch } from "../store/trails";
 import { attachTrails } from "./walkTrail";
 import type { TokenSprite, TokenView } from "./tokens";
 import { facingToward, tokenView } from "./tokens";
+import type { BattleLastAction } from "./battleAction";
 
 export interface CombatSceneInput {
   combat: CombatState;
@@ -50,7 +51,7 @@ export interface ViewModel {
   path: TileView[];
   /** Pastille de coût PM du survol ; `null` hors survol jouable (aucun chemin promis). */
   pathHint?: PathHint | null;
-  lastAction: LastAction | null;
+  lastAction: LastAction | BattleLastAction | null;
   /** Nombres flottants produits par le moteur : le rendu ne les recalcule jamais. */
   floats?: readonly FloatingEvent[];
   /** Identité de la carte dessinée : une carte neuve annule les animations en vol. */
