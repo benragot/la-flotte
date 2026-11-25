@@ -132,6 +132,7 @@ spells:
     requiresLos: true
     castsPerTurn: 1
     castsPerTarget: 1
+    cooldown: 2
     # 5–7 Feu, soit floor(base × 1,40) avec l'Intelligence 40 de la Marmite
     # (cf. `computeDamage`) : 7–9 dégâts nus. Références internes :
     # - `fer_spell_coup_de_couvercle` (même monstre, 3 PA, 1-1) : 6–9 Neutre

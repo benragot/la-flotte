@@ -15,7 +15,7 @@ L'Île de la Ferraille est un lagon de mazout où les épaves de la Coupure se s
 | `piou_mazoute` | Piou Mazouté | 3 | 35 | 5/4 | `ranged_kiter` | `plume_mazoutee`, `fer_anneau_mazoute` |
 | `fer_rat_de_cale` | Rat d'Égoût-dron | 6 | 52 | 5/3 | `melee_rusher` | `fer_dent_rouillee`, `fer_queue_caoutchouc` |
 | `fer_crabe_cle_molette` | Crabe à Clé-à-Molette | 9 | 75 | 5/3 | `tank_tackler` | `fer_pince_de_douze`, `fer_carapace_tole` |
-| `fer_marmite_fuyarde` | Marmite qui Fuit | 12 | 85 | 6/3 | `support_healer` | `fer_couvercle_cabosse`, `fer_huile_de_coude` |
+| `fer_marmite_fuyarde` | Marmite qui Fuit | 12 | 85 | 6/4 | `support_healer` | `fer_couvercle_cabosse`, `fer_huile_de_coude` |
 | `fer_boulon_pousseur` | Écrou-Baton | 15 | 105 | 6/3 | `pusher_control` | `fer_boulon_sans_fin`, `fer_ressort_tendu` |
 | `fer_boss_yvon_rouiller` | Yvon Rouiller (Boss) | 20 | 140 | 6/4 | `boss_custom` | `fer_ecrou_sacre_yvon`, `fer_fruit_coup_de_boulon` |
 
@@ -140,7 +140,7 @@ level: 12
 isBoss: false
 hp: 85
 pa: 6
-pm: 3
+mp: 4
 baseXp: 130
 kamasMin: 18
 kamasMax: 35
@@ -153,7 +153,9 @@ stats:
 resistances:
   flat: { neutral: 1, earth: 0, fire: 2, water: 0, air: 0 }
   percent: { neutral: 0, earth: 0, fire: 15, water: -10, air: 0 }
-spellIds: [fer_spell_soupe_a_lhuile, fer_spell_jet_de_vapeur, fer_spell_coup_de_couvercle]
+# Soupe à l'Huile et Jet de Vapeur restent l'intention de la fiche, mais ne sont
+# pas déclarés dans data/spells.yaml tant que le moteur d'effets ne les gère pas.
+spellIds: [fer_spell_projection_de_mazout, fer_spell_coup_de_couvercle]
 ai:
   archetype: support_healer
   preferredDistance: 4
@@ -595,6 +597,7 @@ maxRange: 5
 requiresLos: true
 castsPerTurn: 1
 castsPerTarget: 1
+cooldown: 2
 kind: damage
 element: fire
 damage: { min: 5, max: 7 }
@@ -614,9 +617,11 @@ Justification interne des 5–7 Feu (Intelligence 40 ⇒ `floor(base × 1,40)`, 
   pour ne pas voler le rôle du sort de zone.
 
 Aucun effet non implémenté n'est utilisé : ni soin, ni zone, ni poussée, ni
-retrait PA/PM. Le donjon est remesuré : +16 PV encaissés en salle 2 et +8 en
-salle 3, six victoires conservées, DEC-03(b) intact (le héros nu meurt en
-salle 2).
+retrait PA/PM. La recharge 2 est le levier DEC-03 : avec le repli d'action
+(#180), elle empêche la Marmite de tirer à chaque tour et ramène les marges de
+16 à 1,157 tour (survie) et 1,317 tour (offense) en salle 3 ; sans elle, les
+deux builds perdaient en salles 2-3. Les six victoires sont conservées et
+DEC-03(b) reste intact (le héros nu meurt en salle 2).
 
 ## 4. Ressources, consommables, clé, amélioration
 
