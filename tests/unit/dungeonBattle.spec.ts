@@ -195,6 +195,27 @@ describe("monsterCombatant — copie et initiative", () => {
   });
 });
 
+describe("MONSTER-01 — initiative stockée par grade (donjon)", () => {
+  it("lit l'initiative 0 du Piou Mazouté, pas les 15 de sa Force", () => {
+    const piou = mustFind(monsters, "piou_mazoute");
+    expect(piou.initiative).toBe(0);
+    expect(monsterCombatant({ monster: piou, index: 0 }).initiative).toBe(0);
+  });
+
+  it("garde la formule pour un monstre sans initiative stockée : Rat à 52", () => {
+    const rat = mustFind(monsters, "fer_rat_de_cale");
+    expect(rat.initiative).toBeUndefined();
+    // 22 + 5 + 10 + 15 = 52, PV plein : valeur inchangée par MONSTER-01.
+    expect(monsterCombatant({ monster: rat, index: 0 }).initiative).toBe(52);
+  });
+
+  it("laisse le héros ouvrir contre le Piou quand sa formule le dépasse", () => {
+    const piou = mustFind(monsters, "piou_mazoute");
+    const setup = setupDungeonBattle({ hero: { combatant: makeHero() }, monsters: [{ monster: piou, count: 1 }] });
+    expect(asState(setup.combatants).order).toEqual(["player", "piou_mazoute-0"]);
+  });
+});
+
 describe("monsterCombatant — hpScale de salle (DEC-03)", () => {
   it("applique floor(hp × hpScale), jamais un arrondi", () => {
     const combatant = monsterCombatant({ monster: ODD, index: 0, hpScale: 0.5 });

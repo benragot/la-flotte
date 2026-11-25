@@ -50,17 +50,29 @@ function copyResistances(resistances: CombatantLike["resistances"]): CombatantLi
   return { flat: { ...resistances.flat }, percent: { ...resistances.percent } };
 }
 
-/** Initiative toujours déléguée à `computeInitiative` : aucun doublon de formule. */
-function initiativeFor(source: BattleSource): number {
+/**
+ * Initiative toujours déléguée à `computeInitiative` : `stored` (donnée du
+ * monstre, 1.29) prime sur la formule, le héros n'en porte jamais.
+ */
+function initiativeFor(source: BattleSource, stored?: number): number {
   const { strength, intelligence, chance, agility } = source.stats;
   const input = { strength, intelligence, chance, agility, currentHp: source.hp, maxHp: source.maxHp };
-  return computeInitiative(input);
+  return computeInitiative({ ...input, storedInitiative: stored });
 }
 
-function withSide(source: BattleSource, side: Side, position: Position): CombatantLike {
+interface SidePlacement {
+  side: Side;
+  position: Position;
+  /** Initiative stockée du monstre ; le héros n'en porte jamais. */
+  storedInitiative?: number;
+}
+
+function withSide(source: BattleSource, placement: SidePlacement): CombatantLike {
+  const { side, position, storedInitiative } = placement;
   const stats = { ...source.stats };
   const resistances = copyResistances(source.resistances);
-  return { ...source, side, position, stats, resistances, initiative: initiativeFor(source) };
+  const initiative = initiativeFor(source, storedInitiative);
+  return { ...source, side, position, stats, resistances, initiative };
 }
 
 /**
@@ -84,13 +96,13 @@ function monsterSource(monster: MonsterDef, index: number, hpScale: number): Bat
 export function monsterCombatant(input: MonsterCombatantInput): CombatantLike {
   const position = input.position ?? ORIGIN;
   const source = monsterSource(input.monster, input.index, input.hpScale ?? 1);
-  return withSide(source, "enemy", position);
+  return withSide(source, { side: "enemy", position, storedInitiative: input.monster.initiative });
 }
 
 /** Pont héros 1v1 → combattant 1vN : ajoute `side` et l'initiative calculée. */
 export function heroBattleCombatant(input: HeroBattleInput): CombatantLike {
   const { combatant } = input;
-  return withSide(combatant, "player", input.position ?? combatant.position);
+  return withSide(combatant, { side: "player", position: input.position ?? combatant.position });
 }
 
 type BattleGroupInput = BattleSetupInput["monsters"][number];
@@ -127,7 +139,7 @@ function monsterPositions(positions: BattlePositions | null): Position[] {
 /** Compose un combat de salle : un héros + `count` copies de chaque monstre. */
 export function setupDungeonBattle(input: BattleSetupInput): BattleSetup {
   const positions = battlePositions(input);
-  const hero = withSide(input.hero.combatant, "player", heroPosition(input, positions));
+  const hero = withSide(input.hero.combatant, { side: "player", position: heroPosition(input, positions) });
   const enemies = enemyCombatants(input, monsterPositions(positions));
   return { combatants: [hero, ...enemies], playerId: hero.id, map: input.map };
 }

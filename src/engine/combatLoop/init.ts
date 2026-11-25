@@ -105,7 +105,8 @@ function buildEnemy(input: InitCombatInput, player: Position): CombatantState {
   const position = enemySpawn(map, player);
   const base = combatantBase({ id: monster.id, kind: "enemy", name: monster.name, position });
   const extras = { level: monster.level, pp: 0, spellIds: monster.spellIds };
-  return { ...base, ...vitals(monster), ...extras, stats: monster.stats, resistances: monster.resistances };
+  const data = { stats: monster.stats, resistances: monster.resistances, storedInitiative: monster.initiative };
+  return { ...base, ...vitals(monster), ...extras, ...data };
 }
 
 function openingLog(player: CombatantState, enemy: CombatantState): string[] {

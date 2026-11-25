@@ -60,9 +60,15 @@ function buildState(rows: readonly string[]): CombatState {
   return initCombat({ map: parseAsciiMap([...rows]), hero: iopHero(), monster: piou(), spells });
 }
 
+/**
+ * Stats synthétiques : ces goldens figent la **formule** d'initiative, pas la
+ * donnée. On retire donc l'override stocké (MONSTER-01) pour que `enemy` n'ait
+ * que ses stats, comme un monstre sans `initiative:`.
+ */
 function withStats(state: CombatState, player: CombatStats, enemy: CombatStats): CombatState {
   const hp = { hp: 100, maxHp: 100 };
-  return { ...state, player: { ...state.player, ...hp, stats: player }, enemy: { ...state.enemy, ...hp, stats: enemy } };
+  const posed = { ...state.enemy, ...hp, stats: enemy, storedInitiative: undefined };
+  return { ...state, player: { ...state.player, ...hp, stats: player }, enemy: posed };
 }
 
 function withEarthResistance(state: CombatState, flat: number, percent: number): CombatState {
@@ -105,14 +111,27 @@ describe("PARITÉ 1v1 — initiative et ordre d'ouverture", () => {
     expect(buildTimeline([monster, hero]).order).toEqual(["0_player", "piou_mazoute"]);
   });
 
-  it("un monstre strictement plus rapide ouvre, journalise 15 vs 0, tour 1", () => {
-    // PARITÉ: le monstre plus rapide joue son tour d'ouverture, le tour reste 1 et le journal nomme l'initiative.
+  it("formule : un monstre sans override et plus rapide ouvre, 15 vs 0, tour 1", () => {
+    // PARITÉ: stats SYNTHÉTIQUES (override retiré par `withStats`) : la formule seule
+    // décide, le tour reste 1 et le journal nomme l'initiative calculée.
     const state = withStats(buildState(["P...", "..M."]), NO_STATS, { ...NO_STATS, strength: 15 });
     expect(openingPhase(state)).toBe("enemy_turn");
     const next = beginCombat(state, alwaysZero);
     expect(next.log).toContain("Piou Mazouté joue en premier (initiative 15 vs 0).");
     expect(next.turn).toBe(1);
     expect(next.phase).toBe("player_turn");
+  });
+
+  it("donnée réelle : le Piou à 0 (MONSTER-01) laisse le héros ouvrir", () => {
+    // PARITÉ: changement VOULU (MONSTER-01). En 1.29, l'initiative du Piou
+    // Mazouté est le champ stocké par grade `0` — pas les 15 de sa Force. Le
+    // golden « 15 vs 0 » ci-dessus reste valide pour la formule ; ici c'est la
+    // DONNÉE réelle qui change l'ouverture : plus de tour ennemi ni de note.
+    const state = buildState(["P...", "..M."]);
+    expect(state.enemy.storedInitiative).toBe(0);
+    expect(openingPhase(state)).toBe("player_turn");
+    expect(beginCombat(state, alwaysZero)).toBe(state);
+    expect(state.log.some((line) => line.includes("joue en premier"))).toBe(false);
   });
 });
 

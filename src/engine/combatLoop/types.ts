@@ -45,6 +45,12 @@ export interface CombatantState {
   stats: CombatStats;
   resistances: CombatResistances;
   spellIds: string[];
+  /**
+   * Initiative stockée par grade en 1.29, projetée depuis `MonsterDef` par
+   * `initCombat`. Sa précédence sur la formule vit dans `computeInitiative`,
+   * jamais dans une règle locale au moteur 1v1.
+   */
+  storedInitiative?: number;
 }
 
 export interface CombatRewards {
