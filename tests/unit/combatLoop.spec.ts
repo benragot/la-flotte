@@ -398,6 +398,43 @@ describe("resolveCombatRewards", () => {
   });
 });
 
+describe("resolveCombatRewards : multiplicateurs injectés", () => {
+  const boosted = (
+    multipliers: { xp?: number; drop?: number },
+    hero = buildState().player,
+    rng: Rng = alwaysZero,
+  ) => resolveCombatRewards({ heroXp: 0, hero, monster: piou(), progression, rng, multipliers });
+
+  it("conserve à l'identique les valeurs 1.29 sans multiplicateur", () => {
+    const neutral = resolveCombatRewards({
+      heroXp: 0,
+      hero: buildState().player,
+      monster: piou(),
+      progression,
+      rng: alwaysZero,
+    });
+    expect(boosted({})).toEqual(neutral);
+  });
+
+  it("applique ×10 à l'XP après l'arrondi 1.29", () => {
+    expect(boosted({ xp: 10 }).xpGained).toBe(1200);
+  });
+
+  it("plafonne la chance de drop à 1 avec ×10", () => {
+    // 0.95 échoue aux taux 1.29 (0.4 / 0.45) mais passe sous min(1, 0.4 × 10).
+    const roll = () => 0.95;
+    expect(boosted({ drop: 10 }, buildState().player, roll).drops).toEqual([
+      "plume_mazoutee",
+      "fer_goutte_mazout",
+    ]);
+  });
+
+  it("n'accorde toujours aucun butin sous le seuil de PP, même à ×10", () => {
+    const underThreshold = { ...buildState().player, pp: 50 };
+    expect(boosted({ drop: 10 }, underThreshold).drops).toEqual([]);
+  });
+});
+
 describe("endPlayerTurn : restauration des PA/PM ennemis", () => {
   it("remet les PA et PM de l'ennemi à chaque début de tour", () => {
     const state = buildState(["PM.."]);

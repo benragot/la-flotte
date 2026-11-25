@@ -39,6 +39,7 @@ import type {
   SpawnPlan,
   SpawnZone,
 } from "../engine/exploration";
+import { devMultipliers } from "../dev/devMultipliers";
 import { attemptRoom, currentRoom, healBetweenRooms, isDungeonComplete, roomMonsters } from "../engine/dungeon";
 import type { DungeonRoom, DungeonRunState, RoomHeal } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
@@ -306,7 +307,8 @@ function monsterIdFor(group: MonsterGroup | null, mapId: string): string {
 function rewardsFor(state: CombatState, group: MonsterGroup | null, mapId: string): CombatRewards {
   const monster = mustFind(monsters, monsterIdFor(group, mapId));
   const heroXp = useGameStore.getState().hero?.xp ?? 0;
-  return resolveCombatRewards({ heroXp, hero: state.player, monster, progression, rng: Math.random });
+  const rng = Math.random;
+  return resolveCombatRewards({ heroXp, hero: state.player, monster, progression, rng, multipliers: devMultipliers() });
 }
 
 /** Crédite la victoire au héros persistant ; un échec de sauvegarde est muet. */
