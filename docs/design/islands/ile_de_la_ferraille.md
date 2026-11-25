@@ -15,7 +15,7 @@ L'Île de la Ferraille est un lagon de mazout où les épaves de la Coupure se s
 | `piou_mazoute` | Piou Mazouté | 3 | 35 | 5/4 | `ranged_kiter` | `plume_mazoutee`, `fer_anneau_mazoute` |
 | `fer_rat_de_cale` | Rat d'Égoût-dron | 6 | 52 | 5/3 | `melee_rusher` | `fer_dent_rouillee`, `fer_queue_caoutchouc` |
 | `fer_crabe_cle_molette` | Crabe à Clé-à-Molette | 9 | 75 | 5/3 | `tank_tackler` | `fer_pince_de_douze`, `fer_carapace_tole` |
-| `fer_marmite_fuyarde` | Marmite qui Fuit | 12 | 85 | 6/3 | `support_healer` | `fer_couvercle_cabosse`, `fer_huile_de_coude` |
+| `fer_marmite_fuyarde` | Marmite qui Fuit | 12 | 85 | 6/4 | `support_healer` | `fer_couvercle_cabosse`, `fer_huile_de_coude` |
 | `fer_boulon_pousseur` | Écrou-Baton | 15 | 105 | 6/3 | `pusher_control` | `fer_boulon_sans_fin`, `fer_ressort_tendu` |
 | `fer_boss_yvon_rouiller` | Yvon Rouiller (Boss) | 20 | 140 | 6/4 | `boss_custom` | `fer_ecrou_sacre_yvon`, `fer_fruit_coup_de_boulon` |
 
@@ -140,7 +140,7 @@ level: 12
 isBoss: false
 hp: 85
 pa: 6
-pm: 3
+mp: 4
 baseXp: 130
 kamasMin: 18
 kamasMax: 35
@@ -153,7 +153,9 @@ stats:
 resistances:
   flat: { neutral: 1, earth: 0, fire: 2, water: 0, air: 0 }
   percent: { neutral: 0, earth: 0, fire: 15, water: -10, air: 0 }
-spellIds: [fer_spell_soupe_a_lhuile, fer_spell_jet_de_vapeur, fer_spell_coup_de_couvercle]
+# Soupe à l'Huile et Jet de Vapeur restent l'intention de la fiche, mais ne sont
+# pas déclarés dans data/spells.yaml tant que le moteur d'effets ne les gère pas.
+spellIds: [fer_spell_projection_de_mazout, fer_spell_coup_de_couvercle]
 ai:
   archetype: support_healer
   preferredDistance: 4
@@ -269,6 +271,7 @@ Règles de comportement résumées :
 | `fer_spell_soupe_a_lhuile` | Soupe à l'Huile | 3 | 1–4 sans LoS | Cible | soin 12–18 |
 | `fer_spell_jet_de_vapeur` | Jet de Vapeur | 3 | 1–3 | Croix 1 | 8–12 Feu |
 | `fer_spell_coup_de_couvercle` | Coup de Couvercle | 3 | 1–1 | Cible | 6–9 Neutre + poussée 2 |
+| `fer_spell_projection_de_mazout` | Projection de Mazout | 3 | 4–5 | Cible | 5–7 Feu |
 | `fer_spell_coup_de_tete_filete` | Coup de Tête Fileté | 3 | 1–1 | Cible | 10–14 Terre + poussée 2 |
 | `fer_spell_lancer_decrou` | Lancer d'Écrou | 3 | 2–4 | Cible | 9–12 Neutre |
 | `fer_spell_graissage` | Graissage | 2 | 0–3 | Cible | +1 PM 2 tours |
@@ -575,6 +578,50 @@ maxValue: 0
 effects:
   - { type: summon, summonMonsterId: fer_rat_de_cale, maxSummons: 2 }
 ```
+
+### Écart implémenté (25/11/2026) — `fer_spell_projection_de_mazout`
+
+La fiche donnait à la Marmite un soin (`soupe_a_lhuile`) et une zone Feu
+(`jet_de_vapeur`), tous deux hors du moteur d'effets. Tant que ces kinds ne sont
+pas exécutés, `fer_marmite_fuyarde` n'aurait qu'un sort de contact 1–1 : son
+archétype `support_healer` et son `preferredDistance: 4` ne s'exprimeraient pas.
+Un sort mono-cible **réellement géré** (`kind: damage`) est donc ajouté, en tête
+de `spellIds` :
+
+```yaml
+id: fer_spell_projection_de_mazout
+name: Projection de Mazout
+apCost: 3
+minRange: 4
+maxRange: 5
+requiresLos: true
+castsPerTurn: 1
+castsPerTarget: 1
+cooldown: 2
+kind: damage
+element: fire
+damage: { min: 5, max: 7 }
+```
+
+Justification interne des 5–7 Feu (Intelligence 40 ⇒ `floor(base × 1,40)`, soit
+7–9 dégâts nus) :
+
+- `fer_spell_coup_de_couvercle`, même monstre, 3 PA, 1–1 : 6–9 Neutre sur
+  Force 10. Même rendition au contact, mais la Projection n'a pas de poussée :
+  l'archétype gagne la portée, pas la puissance.
+- `fer_spell_lancer_decrou`, Écrou-Baton niveau 15, 3 PA, 2–4 : 9–12 Neutre sur
+  Force 45, soit 13–17. Le sort à distance du niveau supérieur frappe plus fort ;
+  la Marmite niveau 12 reste en dessous.
+- `fer_spell_jet_de_vapeur` (fiche, 8–12 Feu, croix 1, non implémenté) : une
+  zone vaut 11–16 ; la version mono-cible reste volontairement sous ce total
+  pour ne pas voler le rôle du sort de zone.
+
+Aucun effet non implémenté n'est utilisé : ni soin, ni zone, ni poussée, ni
+retrait PA/PM. La recharge 2 est le levier DEC-03 : avec le repli d'action
+(#180), elle empêche la Marmite de tirer à chaque tour et ramène les marges de
+16 à 1,157 tour (survie) et 1,317 tour (offense) en salle 3 ; sans elle, les
+deux builds perdaient en salles 2-3. Les six victoires sont conservées et
+DEC-03(b) reste intact (le héros nu meurt en salle 2).
 
 ## 4. Ressources, consommables, clé, amélioration
 
