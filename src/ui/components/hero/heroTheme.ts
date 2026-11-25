@@ -20,8 +20,8 @@ import { OVERLAY_BODY, OVERLAY_SHEET, OVERLAY_TITLE } from "../overlayTheme";
  * - aucun état par `opacity` (I10), aucune transition implicite (I8).
  */
 
-/** Feuille de création : une seule liseré doré en tête (§2.1), 16 px de respiration. */
-export const CREATION_SHEET = `pointer-events-auto flex w-full max-w-3xl flex-col gap-4 p-4 ${OVERLAY_BODY}`;
+/** Feuille de création : une seule liseré doré en tête (§2.1), 12 px de respiration. */
+export const CREATION_SHEET = `pointer-events-auto flex w-full max-w-5xl flex-col gap-2 p-2 ${OVERLAY_BODY}`;
 
 /** Fiche du héros : **la** fenêtre modale standard, même jeton que le grimoire. */
 export const HERO_SHEET = OVERLAY_SHEET;
@@ -35,7 +35,7 @@ export const HERO_SHEET_TITLE = OVERLAY_TITLE;
 
 /** Planche de classe : bois `wood-face` texturé, filet 2 px, socle net (§3 A). */
 const CLASS_CARD = [
-  "flex flex-col gap-1 rounded-[2px] border-2 px-2 py-1.5 text-left",
+  "flex flex-col gap-1 rounded-[2px] border-2 px-2 py-1 text-left",
   "bg-[var(--color-wood-face)] [background-image:var(--texture-wood)] text-[var(--color-wood-ink)]",
   "transition-[border-color,background-color,box-shadow] duration-[90ms] ease-out",
   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-focus)]",
@@ -61,9 +61,43 @@ export const CLASS_CARD_PICKED = [
 /** Nom de classe : 13 / 18, encre de bois claire (8,79:1 sur `wood-face`). */
 export const CLASS_NAME = "text-[13px] font-bold leading-[18px] text-[var(--color-wood-ink)]";
 
-/** Quatre stats de base : 10 px monospace tabulaire, même encre, hiérarchie par la taille. */
-export const CLASS_STATS =
-  "flex justify-between font-mono text-[10px] leading-[14px] tabular-nums text-[var(--color-wood-ink)]";
+/** Sceau monogramme : petit losange gravé, or sur bois sombre (§3 A). */
+export const CLASS_SEAL = [
+  "flex h-[18px] w-[18px] shrink-0 rotate-45 items-center justify-center rounded-[1px]",
+  "border border-[var(--color-line-gold)] bg-[var(--color-wood-low)]",
+  "shadow-[inset_1px_1px_0_var(--color-wood-high)]",
+].join(" ");
+
+/** Initiale du sceau : contrerotation pour rester droite dans le losange. */
+export const CLASS_SEAL_LETTER = "-rotate-45 text-[10px] font-bold leading-none text-[var(--color-line-gold)]";
+
+/** Ligne de sort : nom + coût/effet, séparés par un filet de planche. */
+export const CLASS_SPELL_ROW =
+  "flex items-center gap-1 border-b border-[var(--color-wood-joint)] pb-px text-[10px] leading-3 last:border-b-0";
+
+/** Nom du sort : tronqué plutôt que débordant, nom complet en infobulle. */
+export const CLASS_SPELL_NAME = "min-w-0 truncate font-semibold";
+
+/** Coût / élément / effet : monospace 9 px, tabulaire, aligné à droite. */
+export const CLASS_SPELL_META = "ml-auto shrink-0 whitespace-nowrap font-mono text-[9px] leading-3 tabular-nums";
+
+/** En-tête des paliers : 9 px or (4,92:1 sur `wood-face`), une seule fois. */
+export const CLASS_CAP_TITLE = "font-mono text-[9px] font-bold leading-3 tracking-[0.08em] text-[var(--color-line-gold)]";
+
+/** Palier complet sur une ligne : libellé fixe + « ×1→100 ×2→200 … ». */
+export const CLASS_CAP_ROW = "flex min-w-0 items-baseline gap-1 text-[9px] leading-3";
+
+/** Libellé de stat : largeur fixe pour que les quatre courbes s'alignent. */
+export const CLASS_CAP_LABEL = "w-6 shrink-0 font-bold";
+
+/** Écart réel au socle (PP d'Enutrof, vitalité du Sacrieur) : plaque or discrète. */
+export const CLASS_EXTRA = [
+  "shrink-0 rounded-[1px] border border-[var(--color-wood-line)] px-1",
+  "text-[9px] font-bold leading-3 text-[var(--color-line-gold)]",
+].join(" ");
+
+/** Socle commun, annoncé **une fois** sous le titre (encre secondaire, 7,01:1). */
+export const SOCLE_NOTE = "mt-0.5 text-[11px] leading-[15px] text-[var(--color-ink-2)]";
 
 /** Champ du nom : creux 1 px `surface-inset`, focus visible or (§2.1, §2.2). */
 export const NAME_FIELD = [
