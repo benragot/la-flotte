@@ -66,6 +66,8 @@ export interface SceneModel {
 interface TileFlags {
   isMoveCell: boolean;
   isCastCell: boolean;
+  /** Style imposé par la couche appelante (chemin) : il court-circuite la résolution §3.2. */
+  style?: TileStyle;
 }
 
 interface TileContext {
@@ -160,7 +162,7 @@ function tileAt(context: TileContext, position: Position, flags: TileFlags): Til
   const material = tileMaterial(context, position);
   const scale = originScale(context.origin);
   const isHovered = context.hover === cellKey(position);
-  const style = resolveTileStyle({ cell, isHovered, ...flags });
+  const style = flags.style ?? resolveTileStyle({ cell, isHovered, ...flags });
   const texture = tileTexture(context, position, { material, diamond });
   return { cell, position, center: { x: diamond.cx, y: diamond.cy }, points: diamond.points, scale, style, material, texture };
 }
@@ -215,6 +217,34 @@ function sceneExitMarks(input: SceneInput): ExitMark[] {
 
 /** Aucune surbrillance de base : le sol est peint avant les couches d'état. */
 const NO_TILE_FLAGS: TileFlags = { isMoveCell: false, isCastCell: false };
+
+/**
+ * Marqueur de coût PM d'un aperçu de chemin. `target` est le **losange** visé :
+ * son centre porte la pastille, son contour porte le refus « cible invalide ».
+ */
+export interface PathHint {
+  /** Facture DEC-10 du chemin ; pour une cible hors budget, celle qu'il coûterait. */
+  cost: number;
+  /** `false` : trop cher pour les PM restants — contour et croix `#B83B3B` (§3.2). */
+  payable: boolean;
+  target: TileView;
+}
+
+export interface PathTilesInput {
+  map: AsciiMap;
+  origin: IsoOrigin;
+  path: readonly Position[];
+  /** Style de la couche : la teinte du chemin vient de `tileStyle.ts`, jamais d'ici. */
+  style: TileStyle;
+}
+
+/** Losanges d'une couche de chemin : même projection et même matériau que la grille. */
+export function pathTileViews(input: PathTilesInput): TileView[] {
+  const highlight = { move: new Set<string>(), cast: new Set<string>(), hover: null };
+  const context = contextOf({ map: input.map, origin: input.origin, highlight }, new Set<string>());
+  const flags = { ...NO_TILE_FLAGS, style: input.style };
+  return input.path.map((position) => tileAt(context, position, flags));
+}
 
 /** Modèle d'affichage complet : tuiles, contours, décor, sorties et surbrillances. */
 export function buildSceneModel(input: SceneInput): SceneModel {

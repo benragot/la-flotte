@@ -1,12 +1,17 @@
 import type { Position } from "../engine/grid";
 import type { FloatingEvent } from "../engine/combat";
 import type { CombatantKind, CombatState } from "../engine/combatLoop/types";
+import { getActiveCombatant, getOpponent } from "../engine/combatLoop/active";
 import { getCastableCells } from "../engine/combatLoop/castable";
+import type { AsciiMap } from "../engine/grid";
 import type { GridSize, IsoOrigin } from "./gridProjection";
 import { sceneOrigin } from "./gridProjection";
-import type { GridHighlight, SceneModel, TileView } from "./scene";
-import { buildSceneModel, cellKey } from "./scene";
+import type { GridHighlight, PathHint, SceneModel, TileView } from "./scene";
+import { buildSceneModel, cellKey, pathTileViews } from "./scene";
 import { moveZoneCells } from "./moveZone";
+import type { HoverPath } from "./pathPreview";
+import { hoverPathPreview } from "./pathPreview";
+import { PATH_STYLE } from "./tileStyle";
 import { knownSpriteId } from "./spriteManifest";
 import type { Facing, SpriteAnimationName } from "./sprites/types";
 import type { TrailBatch } from "../store/trails";
@@ -43,6 +48,8 @@ export interface ViewModel {
    */
   hpBarTokens: readonly TokenView[];
   path: TileView[];
+  /** Pastille de coût PM du survol ; `null` hors survol jouable (aucun chemin promis). */
+  pathHint?: PathHint | null;
   lastAction: LastAction | null;
   /** Nombres flottants produits par le moteur : le rendu ne les recalcule jamais. */
   floats?: readonly FloatingEvent[];
@@ -86,6 +93,58 @@ function highlightFor(input: CombatSceneInput): GridHighlight {
 
 function mapSize(combat: CombatState): GridSize {
   return { width: combat.map.width, height: combat.map.height };
+}
+
+/** Couche de chemin d'un survol : les cases peintes et la pastille de coût. */
+interface PathLayer {
+  path: TileView[];
+  pathHint: PathHint | null;
+}
+
+interface HoverPreview {
+  preview: HoverPath;
+  /** Case visée, non nulle : c'est elle que la pastille et la croix désignent. */
+  to: Position;
+}
+
+const NO_PATH_LAYER: PathLayer = { path: [], pathHint: null };
+
+/**
+ * Aperçu du survol : mêmes entrées que `moveActiveEntity` (mover actif, PM
+ * courants, adversaire occupant sa case). Aucune règle de grille n'est recopiée ;
+ * hors tour du joueur, rien n'est promis — c'est l'ennemi qui jouerait.
+ */
+function hoverPreview(input: CombatSceneInput): HoverPreview | null {
+  const to = input.hoveredCell;
+  if (to === null || input.combat.phase !== "player_turn") return null;
+  const mover = getActiveCombatant(input.combat);
+  const opponent = getOpponent(input.combat);
+  const options = { map: input.combat.map, from: mover.position, to, maxPm: mover.mp, occupied: [opponent.position] };
+  return { preview: hoverPathPreview(options), to };
+}
+
+function pathTiles(map: AsciiMap, origin: IsoOrigin, cells: readonly Position[]): TileView[] {
+  return pathTileViews({ map, origin, path: cells, style: PATH_STYLE });
+}
+
+/** Une case de départ seule n'est pas un chemin : rien à peindre sous le héros. */
+function paintedCells(preview: HoverPath): Position[] {
+  return preview.path.length > 1 ? preview.path : [];
+}
+
+/** Pastille posée sur la case visée ; coût nul (sur place) ⇒ rien à annoncer. */
+function hintFor(hover: HoverPreview, map: AsciiMap, origin: IsoOrigin): PathHint | null {
+  const { preview, to } = hover;
+  if (preview.cost === 0) return null;
+  const [target] = pathTiles(map, origin, [to]);
+  return target === undefined ? null : { cost: preview.cost, payable: preview.payable, target };
+}
+
+function pathLayer(input: CombatSceneInput, origin: IsoOrigin): PathLayer {
+  const hover = hoverPreview(input);
+  if (hover === null) return NO_PATH_LAYER;
+  const map = input.combat.map;
+  return { path: pathTiles(map, origin, paintedCells(hover.preview)), pathHint: hintFor(hover, map, origin) };
 }
 
 function actionKind(line: string): LastAction["kind"] | null {
@@ -181,6 +240,7 @@ export function buildViewModel(input: CombatSceneInput): ViewModel {
   const origin = sceneOrigin(mapSize(combat), input.viewport);
   const scene = buildSceneModel({ map: combat.map, highlight: highlightFor(input), origin });
   const tokens = attachTrails(combatTokens({ combat, origin, action }), input.trails);
+  const path = pathLayer(input, origin);
   const animations = { floats: combat.floats ?? [], sceneKey: combat.map };
-  return { ...animations, scene, tokens, hpBarTokens: tokens, path: [], lastAction: action };
+  return { ...animations, scene, tokens, hpBarTokens: tokens, lastAction: action, ...path };
 }

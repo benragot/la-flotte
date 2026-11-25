@@ -28,6 +28,14 @@ export const MOVE_HIGHLIGHT = 0x3fae6a;
 export const CAST_HIGHLIGHT = 0x3f7fd6;
 export const HOVER_STROKE = 0xf2d64b;
 export const PATH_HIGHLIGHT = 0xf0b429;
+/** Cible invalide (§3.2) : le rouge du refus, contour + croix. */
+export const INVALID_TARGET = 0xb83b3b;
+export const INVALID_TARGET_ALPHA = 0.85;
+export const INVALID_TARGET_WIDTH = 1.5;
+/** Branche de la croix « cible invalide », en pixels de référence. */
+export const INVALID_CROSS_HALF = 7;
+/** Pastille du chemin prévisualisé : cercle r 3 px, sans contour (§3.2, §5). */
+export const PATH_DOT_RADIUS = 3;
 
 export const HIGHLIGHT_ALPHA = 0.5;
 /** Zone PM (§3.2) : aplat **très** discret, le sol doit rester lisible dessous. */
