@@ -12,6 +12,8 @@ import type { TrailBatch } from "../store/trails";
 import { attachTrails } from "./walkTrail";
 import type { TokenSprite, TokenView } from "./tokens";
 import { combatantTokenView } from "./tokens";
+import type { BattleActionKind, BattleLastAction } from "./battleAction";
+import { lastActionFromBattle } from "./battleAction";
 
 export interface BattleSceneInput {
   battle: BattleState;
@@ -34,7 +36,8 @@ export interface BattleSceneView {
   /** Salle = combat : une barre de vie par combattant, exactement comme avant. */
   hpBarTokens: readonly TokenView[];
   path: TileView[];
-  lastAction: null;
+  /** Dernière action du journal : le rendu en dérive les animations, sans la recalculer. */
+  lastAction: BattleLastAction | null;
   /** Combattant dont c'est le tour, tel que `activeCombatant` le désigne. */
   activeId: string | null;
   /** Nombres flottants du moteur, consommés par la couche de rendu. */
@@ -68,10 +71,52 @@ function enemySprite(id: string): TokenSprite {
   return { spriteId: resolveSpriteId(id), facing: "left", animation: IDLE, animationKey: `battle-${id}` };
 }
 
+interface ActionAnimation {
+  actor: SpriteAnimationName;
+  suffix: string;
+}
+
+const ACTION_ANIMATION: Record<BattleActionKind, ActionAnimation> = {
+  attack: { actor: "attack", suffix: "attack" },
+  spell: { actor: "attack", suffix: "spell" },
+  move: { actor: "walk", suffix: "move" },
+};
+
+interface TokenAnimation {
+  animation: SpriteAnimationName;
+  key: string;
+}
+
+function idleAnimation(id: string): TokenAnimation {
+  return { animation: IDLE, key: `battle-${id}` };
+}
+
+function actorAnimation(action: BattleLastAction): TokenAnimation {
+  const { actor, suffix } = ACTION_ANIMATION[action.kind];
+  return { animation: actor, key: `${action.signature}:${suffix}` };
+}
+
+function targetAnimation(action: BattleLastAction): TokenAnimation {
+  return { animation: "hit", key: `${action.signature}:hit` };
+}
+
+function isActionTarget(action: BattleLastAction, id: string): boolean {
+  return action.targetId === id && action.kind !== "move";
+}
+
+/** Réaction de chaque jeton : l'acteur frappe ou marche, sa cible encaisse. */
+function animationFor(action: BattleLastAction | null, id: string): TokenAnimation {
+  if (action === null) return idleAnimation(id);
+  if (action.actorId === id) return actorAnimation(action);
+  if (isActionTarget(action, id)) return targetAnimation(action);
+  return idleAnimation(id);
+}
+
 interface TokenContext {
   battle: BattleState;
   origin: IsoOrigin;
   heroSpriteId: string | null | undefined;
+  action: BattleLastAction | null;
 }
 
 function activeIdOf(battle: BattleState): string | null {
@@ -79,7 +124,9 @@ function activeIdOf(battle: BattleState): string | null {
 }
 
 function spriteFor(context: TokenContext, combatant: CombatantLike): TokenSprite {
-  return combatant.side === "player" ? heroSprite(context.heroSpriteId) : enemySprite(combatant.id);
+  const base = combatant.side === "player" ? heroSprite(context.heroSpriteId) : enemySprite(combatant.id);
+  const { animation, key } = animationFor(context.action, combatant.id);
+  return { ...base, animation, animationKey: key };
 }
 
 function tokenFor(context: TokenContext, combatant: CombatantLike): TokenView {
@@ -96,10 +143,11 @@ function battleScene(battle: BattleState, origin: IsoOrigin): SceneModel {
 /** Modèle de scène d'une salle de donjon : tous les combattants, aucun ne manque. */
 export function buildBattleViewModel(input: BattleSceneInput): BattleSceneView {
   const origin = sceneOrigin(battleGridSize(input.battle), input.viewport);
-  const context = { battle: input.battle, origin, heroSpriteId: input.heroSpriteId };
+  const lastAction = lastActionFromBattle(input.battle);
+  const context = { battle: input.battle, origin, heroSpriteId: input.heroSpriteId, action: lastAction };
   const tokens = attachTrails(input.battle.combatants.map((entry) => tokenFor(context, entry)), input.trails);
   const scene = battleScene(input.battle, origin);
   const activeId = activeIdOf(input.battle);
   const floats = input.battle.floats ?? [];
-  return { scene, tokens, hpBarTokens: tokens, path: [], lastAction: null, activeId, floats, sceneKey: input.battle.map ?? null };
+  return { scene, tokens, hpBarTokens: tokens, path: [], lastAction, activeId, floats, sceneKey: input.battle.map ?? null };
 }

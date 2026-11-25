@@ -50,11 +50,19 @@ export interface ViewModel {
   path: TileView[];
   /** Pastille de coût PM du survol ; `null` hors survol jouable (aucun chemin promis). */
   pathHint?: PathHint | null;
-  lastAction: LastAction | null;
   /** Nombres flottants produits par le moteur : le rendu ne les recalcule jamais. */
   floats?: readonly FloatingEvent[];
   /** Identité de la carte dessinée : une carte neuve annule les animations en vol. */
   sceneKey?: object | null;
+}
+
+/**
+ * Vue du **1v1** : elle seule publie l'action dérivée de `combat.log`. Le champ
+ * n'est pas dans `ViewModel` — une salle ou une exploration n'ont pas le même
+ * journal, et aucun consommateur ne lit `lastAction` sur la vue partagée.
+ */
+export interface CombatSceneView extends ViewModel {
+  lastAction: LastAction | null;
 }
 
 const MOVE_MARKERS = [" se déplace"];
@@ -234,7 +242,7 @@ function combatTokens(input: CombatTokenInput): TokenView[] {
 }
 
 /** Modèle de scène dérivé de l'état de combat, du sort sélectionné, du survol et du viewport. */
-export function buildViewModel(input: CombatSceneInput): ViewModel {
+export function buildViewModel(input: CombatSceneInput): CombatSceneView {
   const { combat } = input;
   const action = lastActionFrom(combat);
   const origin = sceneOrigin(mapSize(combat), input.viewport);

@@ -38,7 +38,7 @@ function hint(payable: boolean): PathHint {
 function view(path: TileView[], pathHint: PathHint | null): ViewModel {
   const scene = { tiles: [], highlights: [], decor: [], outlines: [], exitMarks: [] };
   const tokens: TokenView[] = [];
-  return { scene, tokens, hpBarTokens: tokens, path, pathHint, lastAction: null };
+  return { scene, tokens, hpBarTokens: tokens, path, pathHint };
 }
 
 function fakeApp(): Application {

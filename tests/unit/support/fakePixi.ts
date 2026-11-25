@@ -10,6 +10,7 @@ export interface AnimatedLike {
   loop: boolean;
   onComplete?: () => void;
   currentFrame: number;
+  tint: number;
   gotoAndPlay: (frame?: number) => void;
 }
 
@@ -38,6 +39,7 @@ export class FakeNode {
   position = new FakePoint();
   scale = { x: 1, y: 1 };
   alpha = 1;
+  tint = 0xffffff;
   eventMode: string | undefined;
 
   constructor() {
