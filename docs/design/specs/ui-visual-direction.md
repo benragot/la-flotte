@@ -814,9 +814,9 @@ sous le dock de combat :
   (`surface-2`, filet `line-strong`, socle net). **Aucun jeton neuf.**
 - En salle, le chrome d'exploration (colonne du journal 256 px) cède la place au
   panneau, exactement comme le bandeau le faisait déjà
-  (`ExplorationStatusSection`). La carte gagne donc `256 + 72 = 328 px` de
-  largeur utile par rapport à l'ancien état visible ; le journal de combat
-  (`ul[aria-label="Journal du combat"]`) reste **dans** le panneau.
+  (`ExplorationStatusSection`). Les **72 px** que le panneau recouvrait
+  redeviennent cliquables (696 → 704 px visibles à 1024×768) ; le journal de
+  combat (`ul[aria-label="Journal du combat"]`) reste **dans** le panneau.
 - La disposition d'exploration pure (journal à gauche, dock bas) et le 1v1
   `legacy` (dock de 150 px, `Timeline`) sont **inchangés** : le portillon reste
   `battle !== null`.
