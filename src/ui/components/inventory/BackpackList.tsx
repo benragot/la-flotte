@@ -27,7 +27,7 @@ import {
 /**
  * Prix de vente par objet, lu **une fois** dans le catalogue du store : c'est
  * la même donnée que celle consommée par l'action `sellItem`, jamais un calcul
- * local (§10 « afficher, pas calculer »).
+ * local (§11 « afficher, pas calculer »).
  */
 const SALE_PRICES: ReadonlyMap<string, SalePrice> = new Map(
   GAME_CATALOG.items.map((item) => [item.id, item.sellPrice ?? null]),

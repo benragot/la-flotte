@@ -135,7 +135,7 @@ export const ITEM_BUTTON =
   "min-w-0 flex-1 truncate text-left transition-[color] duration-[90ms] ease-out hover:text-[var(--color-line-gold)]";
 
 /**
- * Sac → bourse (§10 de la direction visuelle) : l'en-tête porte le titre à
+ * Sac → bourse (§11 de la direction visuelle) : l'en-tête porte le titre à
  * gauche et la bourse à droite, sur une seule ligne même à 1024 px.
  */
 export const HEAD_ROW = "flex flex-wrap items-baseline justify-between gap-1";
