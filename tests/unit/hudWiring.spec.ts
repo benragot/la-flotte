@@ -91,16 +91,13 @@ describe("dock unique du moteur unifié (DEC-12 étape 3)", () => {
     expect(dockHidden({ ...open, battle: null })).toBe(false);
   });
 
-  it("garde le dock d'exploration, quel que soit l'état du battle", () => {
-    expect(dockHidden({ ...open, mode: "exploration" })).toBe(false);
+  it("garde le dock du héros hors salle, même quand un battle est publié", () => {
+    expect(dockHidden({ ...open, mode: "exploration", battle: null })).toBe(false);
   });
 });
 
-describe("dock du donjon — la barre de sorts unifiée ne le remplace pas", () => {
-  it("une salle ouverte (mode exploration) garde ses ressources, sans barre de sorts", () => {
-    const html = markup(createElement(CombatHud, { mode: "exploration" }));
-    expect(html).toContain('aria-label="Dock du héros"');
-    expect(html).toContain('aria-label="Ressources du héros"');
-    expect(html).not.toContain('aria-label="Sorts disponibles"');
+describe("dock du donjon — la barre de sorts remplace le dock du héros (SPELL-04)", () => {
+  it("une salle ouverte (mode exploration) reçoit la barre de sorts", () => {
+    expect(dockHidden({ mode: "exploration", combat: null, battle: OPEN_BATTLE })).toBe(true);
   });
 });

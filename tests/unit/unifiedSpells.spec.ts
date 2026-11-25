@@ -98,11 +98,6 @@ function slot(str: string, slots: ReturnType<typeof battleSpellSlots>) {
   return found;
 }
 
-/** `null` = la valeur n'est pas un sort du héros : l'appel doit être refusé. */
-function slotOrNull(str: string, slots: ReturnType<typeof battleSpellSlots>) {
-  return slots.find((entry) => entry.spellId === str) ?? null;
-}
-
 describe("battleSpellSlots — sorts disponibles", () => {
   const input = { spells, selectedSpellId: null };
 
@@ -140,23 +135,26 @@ describe("battleSpellSlots — verrous et exclusions", () => {
 
   it("pas son tour : la timeline donne la main au monstre", () => {
     const slots = battleSpellSlots({ ...input, battle: duelBattle({ activeIndex: 1 }) });
-    expect(slots.map((entry) => entry.state)).toEqual(["pas-son-tour", "pas-son-tour"]);
-    expect(slots.every((entry) => entry.disabled)).toBe(true);
+    expect(slots.map((entry) => entry.spellId)).toEqual(["pression", "epee_du_destin", "bond", "gueule_de_bois", "glyphe_agressif"]);
+    expect(slots.every((entry) => entry.state === "pas-son-tour" && entry.disabled)).toBe(true);
   });
 
   it("salle terminée : plus aucun ennemi vivant, tous les sorts sont clos", () => {
     const battle = duelBattle();
     const enemy = battle.combatants[1] as CombatantLike;
     const slots = battleSpellSlots({ ...input, battle: { ...battle, combatants: [battle.combatants[0] as CombatantLike, { ...enemy, hp: 0 }] } });
-    expect(slots.map((entry) => entry.state)).toEqual(["salle-terminee", "salle-terminee"]);
+    expect(new Set(slots.map((entry) => entry.state))).toEqual(new Set(["salle-terminee"]));
+    expect(slots).toHaveLength(5);
   });
 
-  it("exclut les sorts non implémentés et ceux que le clic unifié ne sait pas résoudre", () => {
+  it("expose les sorts non implémentés, désactivés et nommés (aucun clic mort muet)", () => {
     const slots = battleSpellSlots({ ...input, battle: duelBattle() });
-    expect(slots.map((entry) => entry.spellId)).toEqual(["pression", "epee_du_destin"]);
-    expect(slotOrNull("bond", slots)).toBeNull();
-    expect(slotOrNull("gueule_de_bois", slots)).toBeNull();
-    expect(slotOrNull("glyphe_agressif", slots)).toBeNull();
+    expect(slots.map((entry) => entry.spellId)).toEqual(["pression", "epee_du_destin", "bond", "gueule_de_bois", "glyphe_agressif"]);
+    expect(slot("pression", slots).disabled).toBe(false);
+    expect(slot("epee_du_destin", slots).disabled).toBe(false);
+    expect(slot("bond", slots)).toMatchObject({ state: "non-supporte", disabled: true, reason: "Téléportation pas encore gérée en salle" });
+    expect(slot("gueule_de_bois", slots)).toMatchObject({ state: "non-supporte", disabled: true, badge: "état non géré" });
+    expect(slot("glyphe_agressif", slots)).toMatchObject({ state: "non-supporte", disabled: true, badge: "à venir" });
   });
 });
 
@@ -234,15 +232,25 @@ function withEnemyHand(battle: BattleState): BattleState {
 }
 
 /** Monstre volontairement hors de portée de Pression (1–2), carte conservée. */
-function stageDistantEnemy(): BattleState {
+function duelOnMap(heroApValue: number): BattleState {
   const base = enteredBattle();
   const hero = ofSide(base, "player");
   const enemy = ofSide(base, "enemy");
-  const far = { x: hero.position.x + 5, y: hero.position.y };
-  const combatants = [{ ...hero, ap: 12, spellIds: ["pression"] }, { ...enemy, position: far, hp: 300, maxHp: 300 }];
+  const adjacent = { x: hero.position.x + 1, y: hero.position.y };
+  const combatants = [{ ...hero, ap: heroApValue, spellIds: ["pression"] }, { ...enemy, position: adjacent, hp: 300, maxHp: 300 }];
   const battle = { ...base, activeIndex: base.order.indexOf(hero.id), combatants };
   useCombatStore.setState({ battle });
   return battle;
+}
+
+/** Le même duel, carte conservée : l'ennemi recule hors de la portée 1–2. */
+function pushEnemyAway(battle: BattleState): Position {
+  const hero = ofSide(battle, "player");
+  const enemy = ofSide(battle, "enemy");
+  const far = { x: hero.position.x + 5, y: hero.position.y };
+  const combatants = [hero, { ...enemy, position: far }];
+  useCombatStore.setState({ battle: { ...battle, combatants } });
+  return far;
 }
 
 describe("exploration unifiée — sélection d'un sort", () => {
@@ -315,9 +323,11 @@ describe("exploration unifiée — changement de tour et refus", () => {
   });
 
   it("un refus géométrique (hors portée) conserve le sort armé", () => {
-    const battle = stageDistantEnemy();
+    const battle = duelOnMap(12);
     state().selectSpell("pression");
-    state().battleMove({ to: ofSide(battle, "enemy").position, rng: () => 0 });
+    expect(state().selectedSpellId).toBe("pression");
+    const far = pushEnemyAway(battle);
+    state().battleMove({ to: far, rng: () => 0 });
     const after = state().battle as BattleState;
     expect(state().selectedSpellId).toBe("pression");
     expect(after.log.at(-1)).toContain("hors portée");
@@ -409,7 +419,7 @@ describe("dock — le combat unifié reçoit la barre, le donjon garde son dock"
     expect(dockHidden(input)).toBe(true);
   });
 
-  it("une salle de donjon (mode exploration, combat nul) garde son dock complet", () => {
+  it("une salle de donjon (mode exploration, combat nul) reçoit le dock de sorts", () => {
     unified();
     newSession();
     state().startDungeonRoom({ room: dungeonRoomOne() });
@@ -417,8 +427,8 @@ describe("dock — le combat unifié reçoit la barre, le donjon garde son dock"
     expect(state().mode).toBe("exploration");
     expect(state().combat).toBeNull();
     const input = { mode: "exploration" as const, combat: state().combat, battle };
-    expect(dockSurface(input)).toBe("legacy");
-    expect(dockHidden(input)).toBe(false);
+    expect(dockSurface(input)).toBe("unified-spells");
+    expect(dockHidden(input)).toBe(true);
     vi.unstubAllEnvs();
   });
 });

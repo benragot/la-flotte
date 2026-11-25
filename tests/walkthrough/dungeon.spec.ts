@@ -432,6 +432,36 @@ describe("walkthrough donjon de la Ferraille", () => {
   });
 });
 
+/**
+ * SPELL-04 : en salle, le sort armé est celui qui part. Le héros est mis au
+ * contact (placement de salle non déterministe) et ouvre le tour ; le reste est
+ * le vrai chemin (`selectSpell` → `battleSpellAttack`).
+ */
+describe("SPELL-04 — en salle, le joueur choisit son sort", () => {
+  it("Épée du Destin part à la place de Pression : 4 PA et son nom au journal", () => {
+    prepareHero();
+    stockKey();
+    enterWithKey();
+    const battle = battleOrThrow();
+    const hero = battlePlayer(battle);
+    const enemy = livingOf(battle, "enemy")[0];
+    if (hero === undefined || enemy === undefined) throw new Error("salle incomplète");
+    const contact = { ...enemy, position: { x: hero.position.x + 1, y: hero.position.y } };
+    const combatants = battle.combatants.map((entry) => (entry.id === enemy.id ? contact : entry));
+    const activeIndex = battle.order.indexOf(hero.id);
+    useCombatStore.setState({ battle: { ...battle, combatants, activeIndex } });
+    useCombatStore.getState().selectSpell("epee_du_destin");
+    expect(useCombatStore.getState().selectedSpellId).toBe("epee_du_destin");
+    useCombatStore.getState().battleSpellAttack({ targetId: enemy.id, rng: () => 0 });
+    const after = battleOrThrow();
+    const player = battlePlayer(after);
+    if (player === undefined) throw new Error("héros absent après le sort");
+    expect(hero.ap - player.ap).toBe(4);
+    expect(after.log.at(-1)).toContain("Épée du Destin");
+    expect(after.combatants.find((entry) => entry.id === enemy.id)?.hp).toBeLessThan(enemy.hp);
+  });
+});
+
 describe("rechargement entre deux salles", () => {
   it("ne rend pas les PV : héros blessé restauré, salle 2 au même niveau", () => {
     prepareHero();
