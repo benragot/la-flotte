@@ -120,6 +120,30 @@ spells:
     damage: { min: 6, max: 9 } # fiche §3 l.271 : 6–9 Neutre
     pushCells: 2 # fiche §3 l.271 : poussée 2
 
+  - id: fer_spell_projection_de_mazout
+    name: Projection de Mazout
+    description: "La marmite renverse sa louche dans la figure de quelqu'un. Le mazout est brûlant, la marmite est désolée, et le procès en empoisonnement continue."
+    classId: monster
+    kind: damage
+    element: fire
+    apCost: 3
+    minRange: 4
+    maxRange: 5
+    requiresLos: true
+    castsPerTurn: 1
+    castsPerTarget: 1
+    # 5–7 Feu, soit floor(base × 1,40) avec l'Intelligence 40 de la Marmite
+    # (cf. `computeDamage`) : 7–9 dégâts nus. Références internes :
+    # - `fer_spell_coup_de_couvercle` (même monstre, 3 PA, 1-1) : 6–9 Neutre
+    #   sur Force 10, donc un rendement comparable au contact, sans poussée ;
+    # - `fer_spell_lancer_decrou` (Boulon niv. 15, 3 PA, 2-4) : 9–12 Neutre
+    #   sur Force 45, soit 13–17 : le sort à distance du niveau supérieur frappe
+    #   plus fort, notre 7–9 reste celui d'un monstre de niveau 12 ;
+    # - `fer_spell_jet_de_vapeur` de la fiche (8–12 Feu, croix 1, non
+    #   implémenté) est une zone : la version mono-cible est volontairement
+    #   sous ses 11–16 pour ne pas voler le rôle du sort de zone.
+    damage: { min: 5, max: 7 }
+
   - id: fer_spell_coup_de_tete_filete
     name: Coup de Tête Fileté
     description: "Un écrou de la taille d'un homme réclame l'égalité salariale en tête-à-tête, littéralement."

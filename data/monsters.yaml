@@ -111,7 +111,7 @@ monsters:
       flat: { neutral: 1, earth: 0, fire: 2, water: 0, air: 0 }
       percent: { neutral: 0, earth: 0, fire: 15, water: -10, air: 0 }
     baseXp: 130
-    spellIds: [fer_spell_coup_de_couvercle]
+    spellIds: [fer_spell_projection_de_mazout, fer_spell_coup_de_couvercle]
     isBoss: false
     kamasMin: 18
     kamasMax: 35
