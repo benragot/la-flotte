@@ -1,12 +1,13 @@
 import { AnimatedSprite, Container } from "pixi.js";
 import type { PixelPoint } from "../gridProjection";
+import { SPRITE_ANCHOR } from "./anchor";
 import { displayScaleFor } from "./frameMath";
 import type { Facing, SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "./types";
 import type { WalkPlan, WalkState } from "./walkMotion";
 import { resumeWalk, sampleWalk, startWalk } from "./walkMotion";
 
-/** Pieds de la cellule : l'ancre tombe sur le centre du losange isométrique. */
-export const SPRITE_ANCHOR = { x: 0.5, y: 0.85 } as const;
+/** Pieds de la cellule : l'ancre tombe sur le centre du losange (`./anchor`). */
+export { SPRITE_ANCHOR };
 /** Cadence de référence d'`animationSpeed` chez PixiJS (une frame par tick à 1). */
 const REFERENCE_FPS = 60;
 
