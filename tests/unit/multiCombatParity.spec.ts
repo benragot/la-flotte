@@ -216,7 +216,7 @@ describe("PARITÉ 1vN — le coup critique existe", () => {
     expect(next.combatants[0]?.ap).toBe(3);
   });
 
-  it("critique probabiliste : 5 % passe sous 12 %, 50 % non (185 vs 190 PV)", () => {
+  it("critique probabiliste (Agilité 0 ⇒ 20 %) : 5 % critique, 50 % non (185 vs 190 PV)", () => {
     // PARITÉ: tirage unique `rng()×100 < taux`, frontière stricte.
     const attack = attackSpec({ baseCrit: 20, critDamagePct: 50 });
     const critState = duel();

@@ -9,6 +9,8 @@ import { resolveCombatRewards } from "../../src/engine/combatLoop/rewards";
 import type { CombatStats, CombatState, Rng } from "../../src/engine/combatLoop/types";
 import { createHero } from "../../src/engine/createHero";
 import { parseAsciiMap } from "../../src/engine/grid";
+import { buildTimeline } from "../../src/engine/multiCombat";
+import type { CombatantLike } from "../../src/engine/multiCombat";
 import type { StorageLike } from "../../src/engine/save";
 import { parseClassesYaml } from "../../src/schemas/classSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
@@ -44,6 +46,14 @@ function mustFind<T extends { id: string }>(list: readonly T[], id: string): T {
 
 const iopHero = () => createHero("Balthazar", mustFind(classes, "iop"));
 const piou = () => mustFind(monsters, "piou_mazoute");
+
+/** Combattant minimal pour la timeline cible : seuls l'id et l'initiative comptent. */
+function battleCombatant(id: string, initiative: number): CombatantLike {
+  const zero = { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 };
+  const pools = { hp: 10, maxHp: 10, ap: 6, maxAp: 6, mp: 3, maxMp: 3 };
+  const base = { side: "enemy" as const, name: id, level: 1, position: { x: 0, y: 0 } };
+  return { ...base, ...pools, id, stats: { ...NO_STATS }, resistances: { flat: { ...zero }, percent: { ...zero } }, initiative };
+}
 
 /** Carte de test : `P` et `M` fixes, aucune donnée de `maps.yaml` modifiée. */
 function buildState(rows: readonly string[]): CombatState {
@@ -83,10 +93,16 @@ describe("PARITÉ 1v1 — initiative et ordre d'ouverture", () => {
     expect(beginCombat(state, alwaysZero)).toBe(state);
   });
 
-  it("à initiative égale le héros ouvre : le départage est fixe", () => {
-    // PARITÉ: à initiative égale, le départage reste le héros, jamais l'id du monstre.
+  it("à initiative égale le héros ouvre, et l'adaptateur lui donne un id qui trie avant les monstres", () => {
+    // PARITÉ: à initiative égale, le départage reste « héros d'abord » après migration.
     const state = withStats(buildState(["PM.."]), { ...NO_STATS, strength: 10 }, { ...NO_STATS, strength: 10 });
     expect(openingPhase(state)).toBe("player_turn");
+    // Cible `multiCombat` : l'égalité se départage par id croissant. L'adaptateur
+    // doit donc nommer le héros `0_player` (un chiffre trie avant toute lettre),
+    // sinon « piou_mazoute » passerait devant et ce golden rougirait.
+    const hero = battleCombatant("0_player", 10);
+    const monster = battleCombatant("piou_mazoute", 10);
+    expect(buildTimeline([monster, hero]).order).toEqual(["0_player", "piou_mazoute"]);
   });
 
   it("un monstre strictement plus rapide ouvre, journalise 15 vs 0, tour 1", () => {
@@ -141,16 +157,19 @@ describe("PARITÉ 1v1 — le coup critique n'existe PAS hors donjon", () => {
 });
 
 describe("PARITÉ 1v1 — le tacle n'existe PAS hors donjon", () => {
-  it("collé au monstre, le héros s'éloigne et ne paie que le chemin", () => {
+  it("même avec un tacleur à 1 000 000 d'Agilité, le héros avance et paie 2 PM", () => {
     // PARITÉ: ce cas changera sciemment à l'étape 2 (tacle partagé), jamais par accident.
-    // En 1vN, `moveHero` juge `tackleCheck` à chaque pas : un tacle raté arrête
-    // la marche et prélève 1 PM. Ici `moveActiveEntity` n'a même pas de `rng`.
-    const state = buildState(["PM..", "...."]);
-    const moved = moveActiveEntity(state, { x: 0, y: 1 });
-    expect(moved.player.position).toEqual({ x: 0, y: 1 });
-    expect(moved.player.mp).toBe(2);
+    // Discriminant : avec cette Agilité, un tacle existant serait certain (0 %
+    // d'échappée) et arrêterait la marche pour 1 PM. Ici `moveActiveEntity`
+    // n'a même pas de `rng` : le héros parcourt 2 pas orthogonaux et paie 2 PM.
+    const base = buildState(["PM...", ".....", "....."]);
+    const stats = { ...base.enemy.stats, agility: 1000000 };
+    const state = { ...base, enemy: { ...base.enemy, stats } };
+    const moved = moveActiveEntity(state, { x: 0, y: 2 });
+    expect(moved.player.position).toEqual({ x: 0, y: 2 });
+    expect(moved.player.mp).toBe(1);
     expect(moved.player.ap).toBe(state.player.ap);
-    expect(moved.log.at(-1)).toBe("Balthazar se déplace de 1 case(s).");
+    expect(moved.log.at(-1)).toBe("Balthazar se déplace de 2 case(s).");
   });
 });
 
@@ -235,7 +254,7 @@ describe("PARITÉ 1v1 — défaite : PV restaurés, aucun 0 persisté", () => {
     expect(useGameStore.getState().saveGame(storage)).toBe(true);
     useGameStore.getState().resetGame();
     expect(useGameStore.getState().loadGame(storage)).toBe(true);
-    expect(heroOrThrow().hp).toBeGreaterThan(0);
+    expect(heroOrThrow().hp).toBe(heroOrThrow().maxHp);
   });
 });
 

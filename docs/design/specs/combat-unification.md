@@ -34,9 +34,9 @@ appelle** — vérifié dans le code, pas supposé :
 
 | Règle | 1v1 `combatLoop` | 1vN `multiCombat` | Preuve |
 | --- | --- | --- | --- |
-| Initiative | calculée à l'ouverture seulement (`initiativeOf`), égalité ⇒ héros | timeline triée, égalité ⇒ id le plus petit | `combatLoop/opening.ts:9-18` ; `multiCombat/timeline.ts:9-27` |
+| Initiative | calculée à l'ouverture seulement (`initiativeOf`), égalité ⇒ héros | timeline triée, égalité ⇒ **id le plus petit** ; l'adaptateur doit donc nommer le héros `0_player` | `combatLoop/opening.ts:9-18` ; `multiCombat/timeline.ts:9-27` |
 | Ordre des tours | alternance stricte joueur → ennemi ; pas de timeline | `advanceTurn` saute les morts, restaure PA/PM, tour +1 au bouclage | `combatLoop/turn.ts:36-42` ; `multiCombat/turn.ts:37-45` |
-| Tacle | **absent** : `moveActiveEntity(state, target)` n'a pas de `rng` | **présent** : jugé à chaque pas, 4 orthogonales, 1 PM | `combatLoop/move.ts:24-31` ; `multiCombat/tackle.ts:9,30-84` |
+| Tacle | **absent** : `moveActiveEntity(state, target)` n'a pas de `rng`, aucune Agilité ne le déclenche | **présent** : jugé à chaque pas, 4 orthogonales, 1 PM | `combatLoop/move.ts:24-31` ; `multiCombat/tackle.ts:9,30-84` |
 | Coup critique | **absent** : `rollDamage` puis `computeDamage`, aucun `computeCritRate` | **présent** : ≥ 100 % garanti sans jet, sinon `rng()×100 < taux`, `critDamagePct` | `combatLoop/cast.ts:98-103,132-150` ; `multiCombat/crit.ts:27-31` |
 | Attaque de base | **absente** : tout passe par un `SpellDef` | possible (`resolveAttack` sans `spellId`), mais l'UI n'expose que le premier sort de dégâts | `combatLoop/cast.ts:177-184` ; `multiCombat/attack.ts:75-81` ; `store/battleSelectors.ts:79-83` |
 | Sorts et quotas | `castsPerTurn`/`cooldown` dans `spellUsage` | idem via `isAttackAvailable`/`recordAttack` | `combatLoop/cast.ts:65-96` ; `multiCombat/spellUse.ts:21-44` |
@@ -62,10 +62,10 @@ disparaître. Valeurs figées aujourd'hui :
 
 | Sujet | Valeur figée |
 | --- | --- |
-| Ouverture | héros plus rapide ⇒ `player_turn` (identité) ; égalité ⇒ héros ; monstre 15 vs héros 0 ⇒ `enemy_turn`, journal `« initiative 15 vs 0 »`, tour 1 |
+| Ouverture | héros plus rapide ⇒ `player_turn` (identité) ; égalité ⇒ héros, verrouillé par `buildTimeline(["0_player", "piou_mazoute"])` ; monstre 15 vs héros 0 ⇒ `enemy_turn`, journal `« initiative 15 vs 0 »`, tour 1 |
 | Dégâts | Pression, rng 0 ⇒ 8 dégâts (35 → 27 PV), 3 PA ; résistances fixes 2 + 25 % ⇒ 4 dégâts (31 PV) ; rng 0,99 ⇒ 12 dégâts (23 PV) |
 | Critique | **absent** : 1 seul `rng()` consommé, même à 100 000 d'Agilité, dégâts inchangés |
-| Tacle | **absent** : au contact, le héros s'éloigne, paie 1 PM de chemin, aucun PM de tacle |
+| Tacle | **absent** : même avec un tacleur à 1 000 000 d'Agilité, le héros avance 2 pas et paie 2 PM |
 | Déplacement | orthogonal 1 PM ; diagonal 2 PM ; deux diagonales (4 PM) refusées avec 3 PM |
 | Victoire | 120 XP, niveau 2, `levelUp {hp:5, capitalPoints:5, spellPoints:1}`, prospection 100, butin `[plume_mazoutee, fer_goutte_mazout]` ; **aucun champ kamas** |
 | Défaite | phase `defeat`, PV du héros restaurés au max, sauvegarde d'un vivant (aucun 0 persisté) |
@@ -121,6 +121,24 @@ disparaître. Valeurs figées aujourd'hui :
   test de parité **différentiel** prouve qu'un même scénario donne les mêmes
   PV, PA/PM, positions et butin dans les deux modes (hors tacle/CC, qui sont
   ajoutés sciemment) ; `VITE_COMBAT_ENGINE` non défini = comportement actuel.
+- **Changements conscients de l'étape 2** :
+  - **Départage d'initiative (tranché)** : le 1v1 actuel donne l'égalité au
+    héros (`combatLoop/opening.ts:16-18`), tandis que `multiCombat` trie à
+    initiative égale par **id croissant** (`multiCombat/timeline.ts:9-18`).
+    Sans correctif, la cible ferait passer « piou_mazoute » avant le héros et
+    casserait le golden. **Décision : l'adaptateur donne au héros l'id
+    `0_player`** — un chiffre trie avant toute lettre, donc avant tous les ids
+    de monstres de `data/`. Si un écran doit conserver `player` comme id de
+    jeton, c'est l'**adaptateur** qui mappe `player` → `0_player` pour la
+    timeline, jamais le rendu. La règle observable est : **à initiative égale,
+    héros d'abord**. Garde : `tests/unit/combatParity.spec.ts`, cas
+    « à initiative égale le héros ouvre… », qui vérifie `openingPhase` **et**
+    `buildTimeline(["piou_mazoute", "0_player"]) ⇒ ["0_player", ...]`.
+  - **Tacle et critique deviennent actifs en 1v1** : c'est l'objet de DEC-12,
+    pas un effet de bord. Les deux goldens concernés
+    (`combatParity.spec.ts` « tacle absent » et « critique absent ») sont
+    réécrits sciemment à cette étape, en conservant la trace de l'ancien
+    comportement dans la fiche.
 - **Risque de régression** : divergence silencieuse entre les deux chemins.
   Mitigation : le drapeau est lu **à un seul endroit**, et le différentiel est
   un test, pas une revue manuelle. Risque secondaire : l'IA d'exploration
@@ -195,7 +213,8 @@ Estimation volontairement large : l'étape 3 dépend de la validation visuelle d
 
 ## 7. Tests à supprimer au fur et à mesure
 
-`grep -rl "engine/combatLoop" tests` recense **27 fichiers** aujourd'hui.
+`grep -rl "engine/combatLoop" tests | wc -l` recense **32 fichiers** sur cette
+branche (commande exécutée avant rédaction, tableau ci-dessous exhaustif) :
 
 | Vague | Tests | Sort |
 | --- | --- | --- |
