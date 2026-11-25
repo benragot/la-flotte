@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
   ARENA,
+  TOLERANCE_PX,
+  boxOf,
   createHero,
   expectCenteredIn,
   expectCoverage,
@@ -42,6 +45,10 @@ const INITIATIVE_BAND = `${BATTLE_PANEL} [aria-label="Ordre d’initiative"]`;
 /** Liste des combattants : `ul` seule, la bande est un `ol`. */
 const COMBATANT_LIST = `${BATTLE_PANEL} ul`;
 const END_TURN = `${BATTLE_PANEL} button:has-text("Terminer le tour")`;
+/** Journal du combat rendu dans le panneau, distinct du journal d'exploration. */
+const COMBAT_LOG = `${BATTLE_PANEL} ul[aria-label="Journal du combat"]`;
+/** UI-05 : colonne de 320 px, tolérance de 40 px pour un futur élargissement mesuré. */
+const PANEL_COLUMN_MAX = 360;
 
 /** Zone jouable mesurée seule : c'est elle qui doit être centrée, pas la page. */
 const ARENA_SECTION = 'section[aria-label="Zone jouable"]';
@@ -193,5 +200,68 @@ test.describe("combat de salle (donjon)", () => {
   test("le bandeau d'exploration ne peut plus être recouvert par le panneau de salle", async ({ page }) => {
     await expect(page.locator(BATTLE_PANEL)).toBeVisible();
     await expect(page.locator(EXPLORATION_BANNER)).toHaveCount(0);
+  });
+});
+
+/** Ouvre la salle de donjon : le panneau de salle y est monté par `?demo=dungeon`. */
+async function openDungeonRoom(page: Page): Promise<void> {
+  await page.goto("/?demo=dungeon");
+  await expect(page.locator(BATTLE_PANEL)).toBeVisible();
+}
+
+/**
+ * UI-05 — le panneau de salle recouvrait l'arène (combattant invisible, cases
+ * non cliquables). Ces mesures comparent les rectangles DOM du panneau, de la
+ * section jouable et du canvas, aux trois viewports des projets Playwright :
+ * une colonne en flux ne recouvre aucune case, un overlay absolu si.
+ */
+test.describe("combat de salle — panneau dans le flux (UI-05)", () => {
+  test.beforeEach(async ({ page }) => {
+    await openDungeonRoom(page);
+  });
+
+  test("aucune case cliquable de l'arène n'est sous le panneau", async ({ page }) => {
+    await expectNoOverlap(page, [
+      [BATTLE_PANEL, ARENA_SECTION],
+      [BATTLE_PANEL, ARENA],
+    ]);
+  });
+
+  test("le panneau réserve une colonne contiguë à l'arène, bornée par le viewport", async ({ page }) => {
+    const panel = await boxOf(page, BATTLE_PANEL);
+    const arena = await boxOf(page, ARENA_SECTION);
+    const viewport = page.viewportSize() ?? { width: 0, height: 0 };
+    const gap = Math.min(
+      Math.abs(panel.x - (arena.x + arena.width)),
+      Math.abs(arena.x - (panel.x + panel.width)),
+    );
+    expect(gap, "colonne contiguë : aucune case entre elle et l'arène").toBeLessThanOrEqual(TOLERANCE_PX);
+    expect(panel.width, "largeur de la colonne réservée").toBeLessThanOrEqual(PANEL_COLUMN_MAX);
+    expect(panel.y, "colonne posée dans le flux").toBeGreaterThanOrEqual(-TOLERANCE_PX);
+    expect(panel.y + panel.height, "colonne dans le viewport").toBeLessThanOrEqual(viewport.height + TOLERANCE_PX);
+  });
+
+  test("le panneau n'est jamais repositionné en overlay absolu", async ({ page }) => {
+    const position = await page.locator(BATTLE_PANEL).evaluate((panel) => getComputedStyle(panel).position);
+    expect(["absolute", "fixed"], "le panneau doit rester dans le flux").not.toContain(position);
+  });
+});
+
+/** Les zones du panneau (initiative, combattants, journal, fin de tour) restent lisibles. */
+test.describe("combat de salle — zones du panneau (UI-05)", () => {
+  test.beforeEach(async ({ page }) => {
+    await openDungeonRoom(page);
+  });
+
+  test("le panneau et ses zones restent lisibles sans scroll", async ({ page }) => {
+    for (const selector of [INITIATIVE_BAND, COMBATANT_LIST, COMBAT_LOG, END_TURN]) {
+      await expectInsideViewport(page, selector);
+    }
+    const overflow = await page.locator(BATTLE_PANEL).evaluate((panel) => ({
+      pageScroll: document.documentElement.scrollHeight > window.innerHeight + 1,
+      panelScroll: panel.scrollHeight > panel.clientHeight + 1,
+    }));
+    expect(overflow.pageScroll, "aucun scroll de page").toBe(false);
+    expect(overflow.panelScroll, "aucun scroll interne du panneau").toBe(false);
   });
 });
