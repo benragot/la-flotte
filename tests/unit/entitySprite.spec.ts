@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { AnimatedLike } from "./support/fakePixi";
 import type { EntitySprite } from "../../src/renderer/sprites/EntitySprite";
+import { ACTION_EFFECT_MS, NEUTRAL_TINT } from "../../src/renderer/sprites/actionEffect";
 import type { SpriteAnimationName, SpriteSheetFrames, SpriteSheetSpec } from "../../src/renderer/sprites/types";
 
 vi.mock("pixi.js", async () => {
@@ -137,5 +138,52 @@ describe("EntitySprite — feuille tardive et orientation", () => {
     expect(actor.node.scale.y).toBe(2);
     actor.update({ ...placement("idle", "static"), scale: 2 });
     expect(actor.node.scale.x).toBe(2);
+  });
+});
+
+describe("EntitySprite — flash d'action", () => {
+  const ATTACK_TINT = 0xf2d64b;
+  const HIT_TINT = 0xd64545;
+
+  it("teinte l'attaquant en or puis revient au neutre sans décaler le sprite", () => {
+    const { actor, played } = spawn();
+    actor.update(placement("attack", "log-2"));
+    expect(played.tint).toBe(ATTACK_TINT);
+    expect(actor.advance(1000)).toBe(true);
+    expect(played.tint).toBe(ATTACK_TINT);
+    expect(actor.advance(1000 + ACTION_EFFECT_MS)).toBe(false);
+    expect(played.tint).toBe(NEUTRAL_TINT);
+    expect(actor.node.position).toMatchObject({ x: 10, y: 20 });
+  });
+
+  it("teinte la cible en rouge sur hit", () => {
+    const { actor, played } = spawn();
+    actor.update(placement("hit", "log-2"));
+    expect(played.tint).toBe(HIT_TINT);
+    actor.advance(0);
+    actor.advance(ACTION_EFFECT_MS);
+    expect(played.tint).toBe(NEUTRAL_TINT);
+  });
+
+  it("ne rejoue pas la même signature, mais rejoue une nouvelle action", () => {
+    const { actor, played } = spawn();
+    actor.update(placement("attack", "log-2"));
+    actor.advance(0);
+    actor.advance(ACTION_EFFECT_MS);
+    actor.update(placement("attack", "log-2"));
+    expect(played.tint).toBe(NEUTRAL_TINT);
+    actor.update(placement("attack", "log-4"));
+    expect(played.tint).toBe(ATTACK_TINT);
+  });
+});
+
+describe("EntitySprite — le flash ne survit pas à la scène", () => {
+  it("cancelAction éteint le flash sans déplacer le sprite (changement de scène)", () => {
+    const { actor, played } = spawn();
+    actor.update(placement("hit", "log-2"));
+    actor.cancelAction();
+    expect(played.tint).toBe(NEUTRAL_TINT);
+    expect(actor.advance(0)).toBe(false);
+    expect(actor.node.position).toMatchObject({ x: 10, y: 20 });
   });
 });

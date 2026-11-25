@@ -11,6 +11,7 @@ import type { BattleState } from "../../src/engine/multiCombat";
 import { battleViewModel } from "../../src/renderer/battleViewModel";
 import { buildBattleViewModel } from "../../src/renderer/battleSceneModel";
 import { LABEL_FONT_SIZE, hoverBarInBounds, labelsFor, viewportBounds } from "../../src/renderer/labels";
+import type { TokenView } from "../../src/renderer/tokens";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import { useCombatStore } from "../../src/store/useCombatStore";
@@ -149,6 +150,77 @@ describe("salle de donjon — un seul combattant actif, désigné partout pareil
   it("l'actif vient de la timeline du battle, pas d'un index figé au héros", () => {
     const battle = roomBattle();
     expect(buildBattleViewModel({ battle, viewport: VIEWPORT }).activeId).toBe(battle.order[battle.activeIndex]);
+  });
+});
+
+function mustGet<T>(list: readonly T[], index: number): T {
+  const found = list[index];
+  if (found === undefined) throw new Error(`index ${index} absent`);
+  return found;
+}
+
+function withLog(battle: BattleState, lines: readonly string[]): BattleState {
+  return { ...battle, log: [...battle.log, ...lines] };
+}
+
+function tokenOf(view: { tokens: readonly TokenView[] }, id: string): TokenView {
+  const token = view.tokens.find((entry) => entry.id === id);
+  if (token === undefined) throw new Error(`jeton ${id} absent`);
+  return token;
+}
+
+describe("salle de donjon — la dernière action anime les acteurs", () => {
+  it("l'attaquant joue attack, la cible hit, les autres restent idle", () => {
+    const battle = roomBattle();
+    const hero = mustGet(battle.combatants, 0);
+    const target = mustGet(battle.combatants, 1);
+    const line = `${hero.name} frappe ${target.name} : 11 dégâts.`;
+    const view = buildBattleViewModel({ battle: withLog(battle, [line]), viewport: VIEWPORT });
+    const action = view.lastAction;
+    expect(action).toMatchObject({ kind: "attack", actorId: hero.id, targetId: target.id });
+    expect(tokenOf(view, hero.id).animation).toBe("attack");
+    expect(tokenOf(view, target.id).animation).toBe("hit");
+    expect(tokenOf(view, hero.id).animationKey).toBe(`${action?.signature}:attack`);
+    expect(tokenOf(view, target.id).animationKey).toBe(`${action?.signature}:hit`);
+    const others = view.tokens.filter((token) => token.id !== hero.id && token.id !== target.id);
+    expect(others.every((token) => token.animation === "idle")).toBe(true);
+  });
+
+  it("un déplacement fait marcher l'acteur et laisse les cibles au repos", () => {
+    const battle = roomBattle();
+    const hero = mustGet(battle.combatants, 0);
+    const view = buildBattleViewModel({ battle: withLog(battle, [`${hero.name} se déplace de 1 case(s).`]), viewport: VIEWPORT });
+    expect(view.lastAction).toMatchObject({ kind: "move", actorId: hero.id });
+    expect(tokenOf(view, hero.id).animation).toBe("walk");
+    expect(view.tokens.filter((token) => token.id !== hero.id).every((token) => token.animation === "idle")).toBe(true);
+  });
+
+  it("sans action journalisée, tout le monde reste idle", () => {
+    const battle = roomBattle();
+    const view = buildBattleViewModel({ battle, viewport: VIEWPORT });
+    expect(view.lastAction).toBeNull();
+    expect(view.tokens.every((token) => token.animation === "idle")).toBe(true);
+  });
+});
+
+describe("salle de donjon — nombres flottants et noms au tour de l'action", () => {
+  it("conserve les nombres flottants et les noms au tour de l'action", () => {
+    const battle = roomBattle();
+    const hero = mustGet(battle.combatants, 0);
+    const target = mustGet(battle.combatants, 1);
+    const floats = [{ id: 1, targetId: target.id, amount: 11, kind: "damage" as const }];
+    const line = `${hero.name} frappe ${target.name} : 11 dégâts.`;
+    const view = buildBattleViewModel({ battle: { ...withLog(battle, [line]), floats }, viewport: VIEWPORT });
+    expect(view.floats).toEqual(floats);
+    expect(view.tokens.map((token) => token.name)).toEqual(battle.combatants.map((combatant) => combatant.name));
+  });
+
+  it("deux ennemis homonymes gardent des clés de rejeu distinctes", () => {
+    const battle = roomBattle();
+    const view = buildBattleViewModel({ battle, viewport: VIEWPORT });
+    const pious = view.tokens.filter((token) => token.name === "Piou Mazouté");
+    expect(pious).toHaveLength(2);
+    expect(new Set(pious.map((token) => token.animationKey)).size).toBe(2);
   });
 });
 
