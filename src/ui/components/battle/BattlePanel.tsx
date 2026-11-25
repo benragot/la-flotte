@@ -12,6 +12,7 @@ import { closeBattle } from "./closeBattle";
 import { CombatantList } from "./CombatantList";
 import { InitiativeBand } from "./InitiativeBand";
 import { ACTION_BUTTON, BATTLE_PANEL, CARD_HEAD, FOOT, HINT, LOG_LINE } from "./battleTheme";
+import UnifiedEndOverlay from "./UnifiedEndOverlay";
 import { useCombatBeat } from "./useCombatBeat";
 
 /** Nombre de lignes de journal gardées à l'écran : le joueur voit sa riposte. */
@@ -122,9 +123,22 @@ export function BattleSections({ battle }: { battle: BattleState }) {
   return <BattleChrome battle={battle} views={views} initiative={initiative} attack={attack} handlers={handlers} />;
 }
 
+/** Fin unifiée : récompenses créditées + retour carte, jamais une salle de donjon. */
+function BattleEnd({ battle }: { battle: BattleState }) {
+  const rewards = useCombatStore((state) => state.rewards);
+  const excluded = useCombatStore((state) => state.dungeonRun !== null || state.activeGroup === null);
+  const returnToMap = useCombatStore((state) => state.returnToMap);
+  return <UnifiedEndOverlay battle={battle} rewards={rewards} excluded={excluded} onReturn={returnToMap} />;
+}
+
 /** Portillon : `battle` seul décide, le 1v1 (`combat`) garde son arène et son HUD. */
 export default function BattlePanel() {
   const battle = useCombatStore((state) => state.battle);
   if (!shouldRenderBattle(battle)) return null;
-  return <BattleSections battle={battle} />;
+  return (
+    <>
+      <BattleSections battle={battle} />
+      <BattleEnd battle={battle} />
+    </>
+  );
 }

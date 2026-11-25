@@ -719,8 +719,9 @@ function battleUpdate(store: CombatStore, next: BattleState | null): Partial<Com
 /** Crédit unique de la victoire d'exploration : même chemin que le 1v1. */
 function creditUnifiedVictory(store: CombatStore): Partial<CombatStore> {
   const rewards = battleRewards(store);
+  const levelBefore = useGameStore.getState().hero?.level ?? rewards.level;
   creditVictory(rewards);
-  return { rewards };
+  return { rewards: { ...rewards, levelBefore, kamas: rewards.kamas ?? 0 } };
 }
 
 /**

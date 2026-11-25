@@ -110,14 +110,19 @@ describe("sorts, tours et sortie du combat unifié", () => {
     expect(ofSide(after, "player").id).toBe(after.order[after.activeIndex]);
   });
 
-  it("la victoire crédite l'XP, reporte les PV et ramène le héros sur la carte", () => {
+  it("la victoire crédite l'XP, conserve le bilan puis ramène le héros sur la carte", () => {
     bringEnemy(1);
     state().clickCell(ofSide(battleOrThrow(), "enemy").position);
     expect(isVictory(battleOrThrow())).toBe(true);
+    const rewards = state().rewards;
+    expect(rewards?.xpGained).toBe(120);
+    expect(rewards?.levelBefore).toBe(1);
+    expect(rewards?.level).toBe(2);
+    expect(rewards?.kamas).toBe(0);
     state().settleDungeonRoom();
     expect(state().battle).toBeNull();
     expect(state().mode).toBe("exploration");
     expect(state().exploration).not.toBeNull();
-    expect(useGameStore.getState().hero?.xp).toBeGreaterThan(0);
+    expect(useGameStore.getState().hero?.xp).toBe(120);
   });
 });
