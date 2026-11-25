@@ -1,13 +1,16 @@
 import {
   activeCombatant,
   advanceTurn,
+  aimOf,
   approachCell,
   canCastSpellNow,
   castBlock,
   enemiesAct,
+  enemyStrategy,
   findCombatant,
   isDefeat,
   isVictory,
+  keepDistanceCell,
   rangeOf,
   resolveAttack,
   targetsOf,
@@ -18,11 +21,14 @@ import type {
   CastBlock,
   CombatantLike,
   EnemyAction,
+  EnemyAim,
+  EnemyPlan,
   EnemyStrategy,
   RangeSpec,
   Rng,
   Side,
 } from "../engine/multiCombat";
+import { rangeDistance } from "../engine/grid";
 import type { SpellDef } from "../schemas/spellSchema";
 
 export const VICTORY_LOG = "Victoire : la salle est nettoyée.";
@@ -241,11 +247,54 @@ function mappedAction(context: StrategyContext, target: CombatantLike): EnemyAct
   return approachAction(context, target);
 }
 
+interface Placement {
+  context: StrategyContext;
+  target: CombatantLike;
+  plan: EnemyPlan;
+  aim: EnemyAim;
+}
+
+function shouldStrike(plan: EnemyPlan, placed: boolean, spell: SpellDef | null): spell is SpellDef {
+  if (spell === null) return false;
+  return plan.aggressive || placed;
+}
+
+function moveAway(input: Placement): EnemyAction | null {
+  const { context, target, aim } = input;
+  const cells = context.enemy.mp;
+  const options = { state: context.state, enemy: context.enemy, target, distance: aim.distance, cells, requiresLos: aim.requiresLos };
+  const cell = keepDistanceCell(options);
+  return cell === null ? null : { kind: "move", to: cell };
+}
+
+function fallbackAction(input: Placement, spell: SpellDef | null): EnemyAction {
+  if (spell !== null) return attackOn(input.target, spell);
+  return approachAction(input.context, input.target);
+}
+
+/** `ai.preferredDistance > 1` : se placer à portée, attaquer, ne pas coller. */
+function distanceAction(input: Placement): EnemyAction | null {
+  const { context, target, plan, aim } = input;
+  const spell = cheapest(castableSpells(context, target));
+  const placed = rangeDistance(context.enemy.position, target.position) === aim.distance;
+  if (shouldStrike(plan, placed, spell)) return attackOn(target, spell);
+  if (placed) return null;
+  return moveAway(input) ?? fallbackAction(input, spell);
+}
+
+/** Une distance ramenée à 1 reste le contact historique : aucune régression. */
+function plannedAction(context: StrategyContext, target: CombatantLike): EnemyAction | null {
+  const plan = enemyStrategy(context.enemy);
+  const aim = aimOf(plan, damageSpells(context.spells));
+  if (plan.rushes || aim.distance <= 1) return mappedAction(context, target);
+  return distanceAction({ context, target, plan, aim });
+}
+
 function strategyAction(context: StrategyContext): EnemyAction | null {
   const target = targetsOf(context.state, context.enemy.side)[0];
   if (target === undefined) return null;
   if (context.state.map === undefined) return noMapAction(context, target);
-  return mappedAction(context, target);
+  return plannedAction(context, target);
 }
 
 function strategyForEnemy(input: SpellStrategyInput, state: BattleState, enemyId: string): EnemyAction | null {

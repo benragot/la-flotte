@@ -42,3 +42,7 @@ export { nearestFreeCell, separateOccupants } from "./overlap";
 export type { FreeCellInput } from "./overlap";
 export { approachCell } from "./approach";
 export type { ApproachInput } from "./approach";
+export { aimOf, DEFAULT_ENEMY_PLAN, enemyStrategy, firingReach, readPreferredDistance } from "./ai";
+export type { EnemyAim, EnemyPlan, SpellReach } from "./ai";
+export { keepDistanceCell } from "./keepDistance";
+export type { KeepDistanceInput } from "./keepDistance";

@@ -90,7 +90,7 @@ export function heroToCombatant(hero: CombatantState): CombatantLike {
 export function monsterToCombatant(monster: MonsterDef, enemy: CombatantState): CombatantLike {
   const identity = { id: monster.id, side: "enemy" as const, name: enemy.name, level: enemy.level };
   const data = { stats: copyStats(enemy.stats), resistances: copyResistances(enemy.resistances) };
-  const damage = { percentDmg: enemy.percentDmg, armor: 0, spellIds: [...enemy.spellIds] };
+  const damage = { percentDmg: enemy.percentDmg, armor: 0, spellIds: [...enemy.spellIds], ai: monster.ai };
   const initiative = initiativeOf(enemy, monster.initiative);
   return { ...identity, ...vitalsOf(enemy), ...data, ...damage, initiative };
 }
