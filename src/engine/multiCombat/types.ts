@@ -1,4 +1,5 @@
 import type { Element } from "../../schemas/spellSchema";
+import type { MonsterAi } from "../../schemas/monsterSchema";
 import type { FloatingEvent, SpellLimit, SpellUsageMap } from "../combat";
 import type { CombatResistances, Rng } from "../combatLoop/types";
 import type { AsciiMap, Position } from "../grid";
@@ -36,6 +37,8 @@ export interface CombatantLike {
   armor?: number;
   /** Sorts du combattant, recopiés depuis la donnée (`MonsterDef` / héros). */
   spellIds?: readonly string[];
+  /** Bloc `ai:` de la donnée monstre ; absent = comportement historique. */
+  ai?: MonsterAi;
   /** Initiative déjà calculée par l'appelant via `computeInitiative`. */
   initiative: number;
 }

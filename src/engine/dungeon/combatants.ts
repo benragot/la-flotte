@@ -89,7 +89,8 @@ function monsterSource(monster: MonsterDef, index: number, hpScale: number): Bat
   const hp = scaledHp(monster, hpScale);
   const pools = { hp, maxHp: hp, ap: monster.ap, maxAp: monster.ap, mp: monster.mp, maxMp: monster.mp };
   const identity = { id: `${monster.id}-${index}`, name: monster.name, level: monster.level };
-  return { ...identity, ...pools, stats: monster.stats, resistances: monster.resistances, spellIds: [...monster.spellIds] };
+  const spells = { spellIds: [...monster.spellIds], ai: monster.ai };
+  return { ...identity, ...pools, stats: monster.stats, resistances: monster.resistances, ...spells };
 }
 
 /** Pont `MonsterDef` → `CombatantLike` : id déterministe, aucune donnée en dur. */
