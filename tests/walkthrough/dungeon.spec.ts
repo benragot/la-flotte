@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createHero } from "../../src/engine/createHero";
 import type { Hero } from "../../src/engine/createHero";
-import { attemptRoom, roomMonsters } from "../../src/engine/dungeon";
+import { attemptRoom, healBetweenRooms, roomMonsters } from "../../src/engine/dungeon";
 import type { DungeonRoom, DungeonRunState } from "../../src/engine/dungeon";
 import { computeCombatXp, getBaseApForLevel } from "../../src/engine/economy";
 import { gainXp } from "../../src/engine/hero";
@@ -195,8 +195,15 @@ function fallenIds(): string[] {
 }
 
 interface RoomOutcome {
+  /** PV du héros à l'entrée de la salle. */
   hpStart: number;
+  /** PV DANS LA BATAILLE à la victoire, AVANT tout soin de franchissement. */
+  hpBattleEnd: number;
+  /** Plafond du pool de combat, relevé avant la montée de niveau de la salle. */
+  maxHpBattle: number;
+  /** PV persistés APRÈS le soin de franchissement (donc à la sortie de la salle). */
   hpEnd: number;
+  maxHpEnd: number;
   enemies: number;
   fallen: string[];
 }
@@ -209,10 +216,19 @@ function playRoom(room: DungeonRoom, storage?: StorageLike): RoomOutcome {
   const enemies = enemyCount(battle);
   playBattle();
   expect(isVictory(battleOrThrow())).toBe(true);
+  const combat = battlePool();
   const fallen = fallenIds();
   useCombatStore.getState().settleDungeonRoom({ storage, rng: rewardRng });
   expect(useCombatStore.getState().combat).toBeNull();
-  return { hpStart, hpEnd: heroOrThrow().hp, enemies, fallen };
+  const hero = heroOrThrow();
+  return { hpStart, ...combat, hpEnd: hero.hp, maxHpEnd: hero.maxHp, enemies, fallen };
+}
+
+/** Pool du héros DANS la bataille : le coût du combat, avant tout soin. */
+function battlePool(): { hpBattleEnd: number; maxHpBattle: number } {
+  const pool = battlePlayer(battleOrThrow());
+  if (pool === undefined) throw new Error("héros absent de la bataille");
+  return { hpBattleEnd: pool.hp, maxHpBattle: pool.maxHp };
 }
 
 /** `attemptRoom` doit compter les occurrences : 2 Piou vaincus ⇒ l'id apparaît 2 fois. */
@@ -288,12 +304,51 @@ function assertAttemptRoom(dungeon: DungeonDef, run: DungeonRunState, room: Dung
   expect(attemptRoom({ run, dungeon, defeatedMonsterIds: fallen.slice(1) }).cleared).toBe(false);
 }
 
-/** Entrée de salle N+1 : jamais moins de PV que la sortie de la salle N. */
-function assertNoDamage(trail: readonly RoomOutcome[]): void {
-  for (const [index, step] of trail.entries()) {
-    expect(step.hpEnd).toBeGreaterThan(0);
-    if (index > 0) expect(step.hpStart).toBeGreaterThanOrEqual(trail[index - 1]?.hpEnd ?? 0);
+/**
+ * Le donjon COÛTE des PV : dans CHAQUE salle, le héros encaisse avant de gagner.
+ * La mesure est prise dans la bataille (`hpBattleEnd`), donc le soin de
+ * franchissement ne peut pas la masquer — c'est le coût du combat, pas du trajet.
+ */
+function assertEveryRoomCostsHp(trail: readonly RoomOutcome[]): void {
+  for (const step of trail) {
+    expect(step.hpBattleEnd).toBeLessThan(step.hpStart);
+    expect(step.hpBattleEnd).toBeGreaterThan(0);
   }
+}
+
+/** Le soin entre salles ne dépasse jamais le plafond, ni celui du pool de combat. */
+function assertHealCapped(trail: readonly RoomOutcome[]): void {
+  for (const step of trail) {
+    expect(step.hpEnd).toBeLessThanOrEqual(step.maxHpBattle);
+    expect(step.hpEnd).toBeLessThanOrEqual(step.maxHpEnd);
+    expect(step.hpEnd).toBeGreaterThan(0);
+  }
+}
+
+/** Entrée de salle N+1 : jamais moins de PV que la sortie de la salle N. */
+function assertCrossingMonotonic(trail: readonly RoomOutcome[]): void {
+  for (const [index, step] of trail.entries()) {
+    if (index === 0) continue;
+    expect(step.hpStart).toBeGreaterThanOrEqual(trail[index - 1]?.hpEnd ?? 0);
+  }
+}
+
+/**
+ * DEC-03 : le soin de franchissement est un RATIO, jamais un retour au maximum.
+ * Le cas d'école est une barre presque vide (10 %) : à `healBetweenRooms` 0,75
+ * elle ressort entamée ; à 1, elle redeviendrait pleine et cette assertion
+ * rougirait. C'est la preuve que le soin ne peut pas annuler le coût du donjon.
+ * Les PV ci-dessous sont des entrées de fonction pure, pas des données de jeu.
+ */
+function assertCrossingHealIsPartial(): void {
+  const ratio = dungeonOrThrow().healBetweenRooms;
+  const maxHp = 100;
+  const wounded = 10;
+  const healed = healBetweenRooms({ hp: wounded, maxHp, ratio });
+  expect(ratio).toBeLessThan(1);
+  expect(healed.hp).toBeGreaterThan(wounded);
+  expect(healed.hp).toBeLessThanOrEqual(maxHp);
+  expect(healed.hp).toBeLessThan(maxHp);
 }
 
 function invariants() {
@@ -341,7 +396,13 @@ describe("walkthrough donjon de la Ferraille", () => {
     const { dungeon, run } = enterWithKey();
     const traversal = traverseDungeon(dungeon, run);
     expect(traversal.enemyCounts).toEqual([3, 4, 4, 4]);
-    assertNoDamage(traversal.hpTrail);
+    // Le héros n'est PAS invulnérable : chaque salle lui prend des PV. La mesure
+    // est celle du combat (`hpBattleEnd < hpStart`), car avec `healBetweenRooms`
+    // 0,75 les salles 1-3 se referment légitimement à pleine barre : exiger
+    // `hero.hp < hero.maxHp` à la SORTIE de chaque salle serait faux et fragile.
+    assertEveryRoomCostsHp(traversal.hpTrail);
+    assertHealCapped(traversal.hpTrail);
+    assertCrossingMonotonic(traversal.hpTrail);
     expect(traversal.run).toBeNull();
     const hero = heroOrThrow();
     // Chaque salle crédite via `resolveRoomRewards` (mêmes formules 1.29 que
@@ -356,10 +417,18 @@ describe("walkthrough donjon de la Ferraille", () => {
     expect(countItem(useGameStore.getState().inventory, "fer_goutte_mazout")).toBe(4);
     expect(countItem(useGameStore.getState().inventory, "fer_pince_de_douze")).toBe(4);
     expect(countItem(useGameStore.getState().inventory, KEY_ID)).toBe(6);
+    // Assertion restaurée de #41, perdue par #157 : la DERNIÈRE salle ne rend
+    // aucun PV (pas de franchissement après elle), donc le héros finit entamé.
     expect(hero.hp).toBeGreaterThan(0);
+    expect(hero.hp).toBeLessThan(hero.maxHp);
     expect(invariants()).toEqual(before);
     expect(useCombatStore.getState().battle).toBeNull();
     expect(useCombatStore.getState().dungeonNotice).toContain("Donjon terminé");
+  });
+
+  it("DEC-03 — le soin entre salles reste partiel, il ne rembourse pas le donjon", () => {
+    prepareHero();
+    assertCrossingHealIsPartial();
   });
 });
 
