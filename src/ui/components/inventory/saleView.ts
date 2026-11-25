@@ -1,5 +1,5 @@
 /**
- * Vue de l'écran de vente (§11 de `ui-visual-direction.md`).
+ * Vue de l'écran de vente (§11 de `ui-visual-direction-11-sell.md`).
  *
  * **Aucune règle métier ici** : le prix est une **donnée** de `data/items.yaml`,
  * lue par le même catalogue que l'action `sellItem` du store ; le crédit et la
