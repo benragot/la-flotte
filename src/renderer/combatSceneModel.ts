@@ -1,5 +1,6 @@
 import type { Position } from "../engine/grid";
 import type { FloatingEvent } from "../engine/combat";
+import type { Element } from "../schemas/spellSchema";
 import type { CombatantKind, CombatState } from "../engine/combatLoop/types";
 import { getActiveCombatant, getOpponent } from "../engine/combatLoop/active";
 import { getCastableCells } from "../engine/combatLoop/castable";
@@ -91,11 +92,18 @@ function hoverKey(position: Position | null): string | null {
   return position === null ? null : cellKey(position);
 }
 
+/** Élément retenu pour peindre la portée : une donnée du sort, lue telle quelle. */
+function selectedElement(combat: CombatState, spellId: string | null): Element | null {
+  if (spellId === null) return null;
+  return combat.spellsById[spellId]?.element ?? null;
+}
+
 function highlightFor(input: CombatSceneInput): GridHighlight {
   return {
     move: toCellKeys(moveCells(input)),
     cast: toCellKeys(castCells(input.combat, input.selectedSpellId)),
     hover: hoverKey(input.hoveredCell),
+    castElement: selectedElement(input.combat, input.selectedSpellId),
   };
 }
 

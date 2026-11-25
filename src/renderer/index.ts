@@ -16,6 +16,7 @@ export {
 } from "./gridProjection";
 export type { CenteredOriginInput, Diamond, GridSize, IsoCellInput, IsoOrigin, IsoPickInput, PixelPoint } from "./gridProjection";
 export {
+  CAST_ELEMENT_COLORS,
   CAST_HIGHLIGHT,
   GRID_LINE,
   GRID_LINE_ALPHA,
@@ -28,6 +29,7 @@ export {
   WALL_SIDE,
   WALL_SIDE_EAST,
   WALL_TOP,
+  castColor,
   getTileColor,
   resolveTileStyle,
 } from "./tileStyle";

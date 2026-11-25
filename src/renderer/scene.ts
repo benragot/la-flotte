@@ -1,4 +1,5 @@
 import type { CellType, DecorSpec } from "../schemas/mapSchema";
+import type { Element } from "../schemas/spellSchema";
 import type { AsciiMap, Position } from "../engine/grid";
 import { getCell, isWalkableCell } from "../engine/grid";
 import { allPositions } from "../engine/combatLoop/cells";
@@ -35,6 +36,8 @@ export interface GridHighlight {
   move: ReadonlySet<string>;
   cast: ReadonlySet<string>;
   hover: string | null;
+  /** Élément du sort sélectionné : le rendu en déduit une teinte, jamais une règle. */
+  castElement?: Element | null;
 }
 
 export interface SceneInput {
@@ -67,6 +70,8 @@ export interface SceneModel {
 interface TileFlags {
   isMoveCell: boolean;
   isCastCell: boolean;
+  /** Élément du sort en cours : il ne change que la teinte de la portée. */
+  castElement?: Element | null;
   /** Style imposé par la couche appelante (chemin) : il court-circuite la résolution §3.2. */
   style?: TileStyle;
 }
@@ -77,6 +82,7 @@ interface TileContext {
   hover: string | null;
   move: ReadonlySet<string>;
   cast: ReadonlySet<string>;
+  castElement: Element | null | undefined;
   pontoon: ReadonlySet<string>;
 }
 
@@ -169,7 +175,7 @@ function tileAt(context: TileContext, position: Position, flags: TileFlags): Til
 function highlightTile(context: TileContext, position: Position): TileView | null {
   const key = cellKey(position);
   if (!context.move.has(key) && !context.cast.has(key)) return null;
-  const flags = { isMoveCell: context.move.has(key), isCastCell: context.cast.has(key) };
+  const flags = { isMoveCell: context.move.has(key), isCastCell: context.cast.has(key), castElement: context.castElement };
   return tileAt(context, position, flags);
 }
 
@@ -193,7 +199,8 @@ function pontoonCells(specs: readonly DecorSpec[]): ReadonlySet<string> {
 
 function contextOf(input: SceneInput, pontoon: ReadonlySet<string>): TileContext {
   const { map, origin, highlight } = input;
-  return { map, origin, hover: highlight.hover, move: highlight.move, cast: highlight.cast, pontoon };
+  const { hover, move, cast, castElement } = highlight;
+  return { map, origin, hover, move, cast, castElement, pontoon };
 }
 
 function outlineAt(origin: IsoOrigin, cell: Position): GridOutline {

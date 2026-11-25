@@ -53,6 +53,8 @@ interface SceneLayers {
   hpBars: Graphics;
   labels: Container;
   floats: FloatingTextLayer;
+  /** Nœuds de décor occlusif réutilisés d'un rendu à l'autre, indexés par case. */
+  propNodes: Map<string, Graphics>;
 }
 
 /** Contour sombre : le nom reste lisible sur le sable clair comme sur l'eau. */
@@ -75,7 +77,8 @@ function createLayers(sheets: readonly SpriteSheetSpec[]): SceneLayers {
   const markers = { tokens: new Graphics(), hpBars: new Graphics() };
   const floats = new FloatingTextLayer();
   const rings = new Graphics();
-  return { ...graphics, ...moreGraphics, ...markers, hover: new Graphics(), actors: new ActorStage(sheets), labels: new Container(), teamRings: rings, floats };
+  const propNodes = new Map<string, Graphics>();
+  return { ...graphics, ...moreGraphics, ...markers, hover: new Graphics(), actors: new ActorStage(sheets), labels: new Container(), teamRings: rings, floats, propNodes };
 }
 
 /** Chaque couche rangée par son nom : `SCENE_LAYER_ORDER` reste la seule source d'ordre. */
@@ -242,9 +245,34 @@ function groundDecals(decor: readonly DecorView[]): DecorView[] {
 }
 
 /** Objets occlusifs : un nœud par objet, trié avec les acteurs par `x + y`. */
-function decorProps(decor: readonly DecorView[]): DepthProp[] {
-  const occluding = layerViews(decor, "below").filter((view) => !isGroundDecal(view.type));
-  return occluding.map((view, order) => ({ depth: view.depth, order, node: decorNode(view) }));
+function occludingProps(decor: readonly DecorView[]): DecorView[] {
+  return layerViews(decor, "below").filter((view) => !isGroundDecal(view.type));
+}
+
+/** Clé stable d'un prop : sa case projetée, son type, sa couche. Rien d'autre ne change son dessin. */
+function propKey(view: DecorView): string {
+  return `${view.layer}|${view.type}|${view.center.x}:${view.center.y}`;
+}
+
+/** Nœud du prop : **réutilisé** tant que la clé ne change pas (plus de churn par survol). */
+function propNode(view: DecorView, cache: Map<string, Graphics>): Graphics {
+  const cached = cache.get(propKey(view));
+  if (cached !== undefined) return cached;
+  const node = decorNode(view);
+  cache.set(propKey(view), node);
+  return node;
+}
+
+/** Les nœuds des props disparus sont détruits par `ActorStage` : la carte les oublie ici. */
+function prunePropCache(cache: Map<string, Graphics>, views: readonly DecorView[]): void {
+  const live = new Set(views.map(propKey));
+  [...cache.keys()].filter((key) => !live.has(key)).forEach((key) => cache.delete(key));
+}
+
+function decorProps(decor: readonly DecorView[], cache: Map<string, Graphics>): DepthProp[] {
+  const views = occludingProps(decor);
+  prunePropCache(cache, views);
+  return views.map((view, order) => ({ key: propKey(view), depth: view.depth, order, node: propNode(view, cache) }));
 }
 
 /**
@@ -324,10 +352,10 @@ function sceneOf(view: ViewModel, input: RenderInput): object | null | undefined
 
 /** Demande de synchronisation des acteurs : centres de cases, carte et rappel de chargement. */
 function actorSyncInput(paint: ScenePaint): ActorSyncInput {
-  const { app, view, input } = paint;
+  const { app, view, input, layers } = paint;
   const centers = cellCenters(view.scene.tiles);
   const onReady = (): void => renderScene(app, view, input);
-  const props = decorProps(view.scene.decor);
+  const props = decorProps(view.scene.decor, layers.propNodes);
   return { tokens: view.tokens, onReady, centers, scene: sceneOf(view, input), props };
 }
 

@@ -5,6 +5,9 @@ import { groundColor } from "./tileMaterials";
 import type { WallFace } from "./wallFaces";
 import { wallFaces, wallTopPoints } from "./wallFaces";
 import {
+  CAST_ZONE_BACKING,
+  CAST_ZONE_BACKING_ALPHA,
+  CAST_ZONE_BACKING_WIDTH,
   CELL_OUTLINE,
   CELL_OUTLINE_ALPHA,
   CELL_OUTLINE_WIDTH,
@@ -21,16 +24,57 @@ import {
   WALL_TOP,
 } from "./tileStyle";
 
+/** Largeur des surbrillances historiques (zone PM, survol), inchangée. */
+const DEFAULT_STROKE_WIDTH = 3;
+
 function paintOutline(graphics: Graphics, points: number[]): void {
   graphics.poly(points);
   graphics.stroke({ width: 1, color: GRID_LINE, alpha: GRID_LINE_ALPHA });
 }
 
+function lerp(from: number, to: number, ratio: number): number {
+  return from + (to - from) * ratio;
+}
+
+function average(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+/**
+ * Losange rentré vers son centre : le liseré de portée ne touche pas le bord de
+ * la case, donc il ne se confond jamais avec le contour **plein** de la zone PM.
+ */
+export function insetPoints(points: readonly number[], ratio: number): number[] {
+  const xs = points.filter((_, index) => index % 2 === 0);
+  const ys = points.filter((_, index) => index % 2 === 1);
+  const center = { x: average(xs), y: average(ys) };
+  return points.map((value, index) => lerp(value, index % 2 === 0 ? center.x : center.y, ratio));
+}
+
+function strokePoints(view: TileView): number[] {
+  const inset = view.style.strokeInset;
+  return inset === undefined ? view.points : insetPoints(view.points, inset);
+}
+
+function strokeWidthOf(view: TileView): number {
+  const width = view.style.strokeWidth;
+  return width === undefined ? DEFAULT_STROKE_WIDTH : width * view.scale;
+}
+
+/** Trait sombre sous le liseré : sans lui, un vert Air à 1,54:1 disparaît sur le sable. */
+function paintBackingStroke(graphics: Graphics, view: TileView, points: number[]): void {
+  if (view.style.strokeBacking !== true) return;
+  graphics.poly(points);
+  graphics.stroke({ width: CAST_ZONE_BACKING_WIDTH * view.scale, color: CAST_ZONE_BACKING, alpha: CAST_ZONE_BACKING_ALPHA });
+}
+
 function paintStyleStroke(graphics: Graphics, view: TileView): void {
   const { stroke, strokeAlpha } = view.style;
   if (stroke === null) return paintOutline(graphics, view.points);
-  graphics.poly(view.points);
-  graphics.stroke({ width: 3, color: stroke, alpha: strokeAlpha });
+  const points = strokePoints(view);
+  paintBackingStroke(graphics, view, points);
+  graphics.poly(points);
+  graphics.stroke({ width: strokeWidthOf(view), color: stroke, alpha: strokeAlpha });
 }
 
 /** Sol texturé : teinte du matériau (sable, galets, eau, planches) puis motif. */
