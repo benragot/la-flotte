@@ -784,8 +784,9 @@ et l'entrée `ALLOWED_HEX` disparaît.
 
 **Fin de combat (§10 « sobre, pas fanfare »).** Le verdict n'est plus un titre de
 30 px posé sur le HUD : c'est le **titre de fenêtre** (18/24) d'une feuille de
-384 px, sur un voile plein écran (`LAYER_END`, `z-10`, **sous** la barre
-d'accès : « Nouvelle partie » reste atteignable après une défaite).
+384 px, sur un voile plein écran (`LAYER_END`, `fixed z-20`, **sous** la barre
+d'accès : « Nouvelle partie » reste atteignable après une défaite). Voir §10
+pour la pile de couches complète.
 
 ---
 
@@ -834,6 +835,34 @@ sous le dock de combat :
 
 L'écran de fin (`UnifiedEndOverlay`, voile `fixed z-20`) reste un overlay plein
 écran : le combat est terminé, l'arène n'a plus à être cliquable.
+
+**Pile de couches réelle (bas → haut).** L'arène (`section[aria-label="Zone
+jouable"]`, `src/ui/App.tsx`) et le panneau de salle sont tous deux positionnés
+en **`z-auto`** : `BATTLE_PANEL` est `relative` mais **sans `z-index`**
+(`src/ui/components/battle/battleTheme.ts`). Le voile de fin est `fixed z-20` et
+couvre pourtant les deux : un `z-index` positif est peint **après** tous les
+descendants positionnés en `z-auto`, quel que soit leur ordre dans le DOM. Ce
+n'est donc pas l'ordre du DOM qui protège l'écran de fin. Viennent ensuite la
+barre d'accès (`z-30`, `OverlayPanels.tsx`), le voile des fenêtres (`z-40`) et
+le dialogue « Nouvelle partie » (`z-50`).
+
+**Règle de non-régression : le panneau de salle n'a pas de `z-index` ; ne pas lui
+en donner un, sinon l'écran de fin passera dessous.** Un `z-30` sur
+`BATTLE_PANEL` le peindrait au-dessus du voile `z-20` — même contexte
+d'empilement, `z-index` supérieur gagne — et masquerait « Retourner sur la
+carte ». `tests/ui/layout.spec.ts` épingle déjà que le panneau n'est ni
+`absolute` ni `fixed` ; cette règle-ci couvre le `z-index`.
+
+**Pourquoi `fixed` échappe au rognage.** `ARENA_ROW` et `ARENA_SHELL` portent
+`overflow-hidden`, mais le voile reste entier : aucun ancêtre de la chaîne
+(`html`, `body`, `ARENA_SHELL`, `ARENA_ROW`, `BattlePanel`) ne porte de
+`transform`, `filter` ni `contain`, donc aucun ne devient bloc conteneur du
+`fixed`. Ajouter une de ces propriétés pour un effet visuel rognerait l'écran de
+fin au cadre de l'arène.
+
+**La barre d'accès ne mord pas sur le panneau.** Elle est ancrée `right-2` dans
+`ARENA_SHELL`, alors que la colonne de 320 px est à gauche du flux : le `z-30`
+ne sert qu'à rester au-dessus de la carte, jamais à recouvrir le panneau.
 
 **Mesures après.** Colonne réservée **320 px** aux trois viewports ; recouvrement
 panneau ∩ zone jouable = **0 px** ; aire de carte = 704 / 960 / 1600 px de large.

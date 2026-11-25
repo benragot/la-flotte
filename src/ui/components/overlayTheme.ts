@@ -52,6 +52,29 @@ export const OVERLAY_TITLE =
 export const OVERLAY_HEAD =
   "flex items-center justify-between gap-2 border-b border-[var(--color-line-soft)] pb-2";
 
+/**
+ * Pile réelle des voiles, de bas en haut — le panneau de salle n'y figure
+ * **pas**, et c'est volontaire :
+ * - `z-auto` : l'arène (`Zone jouable`) **et** le panneau de salle
+ *   (`BATTLE_PANEL` est `relative` sans `z-index`) — peints avant les
+ *   `z-index` positifs, dans l'ordre du DOM ;
+ * - `z-20` : voiles de fin et voiles locaux — ce n'est pas l'ordre du DOM qui
+ *   les sauve, c'est leur `z-index` positif qui les peint **après** les
+ *   `z-auto` ;
+ * - `z-30` : barre d'accès (`OverlayPanels.tsx`), ancrée `right-2` ;
+ * - `z-40` : voile des fenêtres modales ;
+ * - `z-50` : dialogue « Nouvelle partie » monté dans la barre.
+ *
+ * Règle de non-régression : **le panneau de salle n'a pas de `z-index` ; ne pas
+ * lui en donner un, sinon l'écran de fin passera dessous.** Un `z-30` sur
+ * `BATTLE_PANEL` gagnerait contre le voile `z-20` (même contexte
+ * d'empilement) et masquerait son unique sortie.
+ *
+ * `fixed` n'est pas rogné par l'`overflow-hidden` de `ARENA_ROW` : aucun
+ * ancêtre de la chaîne ne porte `transform`, `filter` ni `contain`, donc aucun
+ * ne devient bloc conteneur du `fixed`.
+ */
+
 /** Voile de fenêtre : `surface-0` translucide, jamais un fond de panneau (I7). */
 const LAYER_BASE =
   "pointer-events-auto inset-0 flex items-center justify-center overflow-auto bg-[var(--color-scrim)] p-4";
@@ -76,10 +99,16 @@ export const LAYER_LOCAL = `${LAYER_BASE} absolute z-20`;
 
 /**
  * Voile de la fin de combat : plein écran (l'arène n'est plus jouable), monté
- * **après** le panneau de salle (`z-20` lui aussi, l'ordre du DOM tranche), donc
- * au-dessus de lui — et toujours **sous** la barre d'accès (`z-30`) et sous les
+ * dans `BattlePanel` **après** le panneau de salle. Le panneau étant `z-auto`,
+ * ce `z-20` suffit : un `z-index` positif est peint **après** tout descendant
+ * positionné en `z-auto`, quel que soit l'ordre du DOM. Il couvre donc le
+ * panneau et la carte, et reste **sous** la barre d'accès (`z-30`) et sous les
  * fenêtres (`z-40`), pour que « Nouvelle partie » reste atteignable après une
  * défaite.
+ *
+ * Ne pas donner de `z-index` à `BATTLE_PANEL` (`./battle/battleTheme`) : un
+ * `z-30` passerait au-dessus de ce voile et cacherait « Retourner sur la
+ * carte ».
  */
 export const LAYER_END = `${LAYER_BASE} fixed z-20`;
 
