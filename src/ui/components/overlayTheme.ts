@@ -66,13 +66,19 @@ export const OVERLAY_HEAD =
  * - `z-50` : dialogue « Nouvelle partie » monté dans la barre.
  *
  * Règle de non-régression : **le panneau de salle n'a pas de `z-index` ; ne pas
- * lui en donner un, sinon l'écran de fin passera dessous.** Un `z-30` sur
- * `BATTLE_PANEL` gagnerait contre le voile `z-20` (même contexte
- * d'empilement) et masquerait son unique sortie.
+ * lui en donner un.** Le voile de fin (`fixed z-20`) est un frère de
+ * `section[aria-label="Combat de salle"]` dans `ARENA_ROW` (`BattlePanel` ne
+ * rend aucun élément, c'est un fragment) et partage donc son contexte
+ * d'empilement. Y ajouter un `z-index` sur `BATTLE_PANEL` crée un concurrent :
+ * la feuille de fin, **centrée sur 448 px**, ne croise la colonne de **320 px**
+ * qu'à **1024×768**, sur **32 px** — le panneau rognerait alors son bord gauche
+ * (~4 px de glyphe), rien de plus. À 1280×720 et 1920×1080, les deux ne se
+ * croisent pas.
  *
  * `fixed` n'est pas rogné par l'`overflow-hidden` de `ARENA_ROW` : aucun
- * ancêtre de la chaîne ne porte `transform`, `filter` ni `contain`, donc aucun
- * ne devient bloc conteneur du `fixed`.
+ * ancêtre (`html`, `body`, `#root`, `ARENA_SHELL`, `ARENA_ROW`) ne porte
+ * `transform`, `filter`, `contain`, `will-change` ni `isolation`, donc aucun ne
+ * devient bloc conteneur du `fixed` ni ne crée de contexte d'empilement.
  */
 
 /** Voile de fenêtre : `surface-0` translucide, jamais un fond de panneau (I7). */
@@ -98,17 +104,18 @@ export const LAYER_SCRIM = `${LAYER_BASE} fixed z-40`;
 export const LAYER_LOCAL = `${LAYER_BASE} absolute z-20`;
 
 /**
- * Voile de la fin de combat : plein écran (l'arène n'est plus jouable), monté
- * dans `BattlePanel` **après** le panneau de salle. Le panneau étant `z-auto`,
- * ce `z-20` suffit : un `z-index` positif est peint **après** tout descendant
+ * Voile de la fin de combat : plein écran (l'arène n'est plus jouable), rendu
+ * par `BattleEnd` **après** la section de salle. Le panneau étant `z-auto`, ce
+ * `z-20` suffit : un `z-index` positif est peint **après** tout descendant
  * positionné en `z-auto`, quel que soit l'ordre du DOM. Il couvre donc le
  * panneau et la carte, et reste **sous** la barre d'accès (`z-30`) et sous les
  * fenêtres (`z-40`), pour que « Nouvelle partie » reste atteignable après une
  * défaite.
  *
- * Ne pas donner de `z-index` à `BATTLE_PANEL` (`./battle/battleTheme`) : un
- * `z-30` passerait au-dessus de ce voile et cacherait « Retourner sur la
- * carte ».
+ * Ne pas donner de `z-index` à `BATTLE_PANEL` (`./battle/battleTheme`) : il
+ * créerait un concurrent dans le même contexte d'empilement et, à 1024×768
+ * seulement, rognerait les 32 px de bord gauche de la feuille de fin (448 px
+ * centrés contre 320 px de colonne). Voir la règle en tête des voiles.
  */
 export const LAYER_END = `${LAYER_BASE} fixed z-20`;
 
