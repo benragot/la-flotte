@@ -110,6 +110,25 @@ describe("bestiaire — faiblesses, boss et IA", () => {
   });
 });
 
+describe("initiative stockée par grade (1.29)", () => {
+  it("force l'initiative du Piou Mazouté à 0, comme les trashs de niveau 1", () => {
+    expect(monsterById("piou_mazoute")?.initiative).toBe(0);
+  });
+
+  it("préserve la Force du Piou : les dégâts de `strike.ts` restent calculés", () => {
+    expect(monsterById("piou_mazoute")?.stats.strength).toBe(15);
+  });
+
+  it("laisse `initiative` optionnel : un monstre sans override reste valide", () => {
+    expect(monsterSchema.parse(baseMonster).initiative).toBeUndefined();
+    expect(monsterById("fer_rat_de_cale")?.initiative).toBeUndefined();
+  });
+
+  it("refuse une initiative négative", () => {
+    expect(() => monsterSchema.parse({ ...baseMonster, initiative: -1 })).toThrow();
+  });
+});
+
 describe("monsterSchema — fail-fast sur les clés inconnues", () => {
   const drop = { itemId: "plume_mazoutee", baseDropRate: 0.4, ppThreshold: 100 };
 

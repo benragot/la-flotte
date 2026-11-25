@@ -90,6 +90,8 @@ export const monsterSchema = z
     hp: z.number().int().positive(),
     ap: z.number().int().positive(),
     mp: z.number().int().positive(),
+    // Override de la valeur stockée par grade en 1.29 ; absent = formule des stats.
+    initiative: z.number().int().nonnegative().optional(),
     stats: combatStatsSchema,
     resistances: z.object({ flat: resistanceSchema, percent: resistanceSchema }).strict(),
     baseXp: z.number().int().positive(),
