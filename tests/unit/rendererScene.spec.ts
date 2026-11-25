@@ -147,7 +147,8 @@ describe("buildViewModel — surbrillances", () => {
     cells.forEach((cell) => {
       const center = gridToIso({ ...cell, origin: ORIGIN });
       const tile = view.scene.highlights.find((item) => samePosition(item.center, center));
-      expect(tile?.style.fill).toBe(CAST_HIGHLIGHT);
+      // Bond est Neutre : la portée porte la couleur de son élément (§3.1), pas un bleu fixe.
+      expect(tile?.style.fill).toBe(0xe8dcc8);
     });
   });
 

@@ -117,22 +117,47 @@ describe("décor intercalé — l'acteur et l'objet partagent l'index de profond
   });
 });
 
-describe("props de décor — destruction réelle et split décals/objets", () => {
-  it("détruit réellement les props du rendu précédent, pas seulement leurs liens", () => {
+describe("props de décor — réutilisation du nœud et split décals/objets", () => {
+  it("réutilise le nœud d'un prop inchangé au lieu de le recréer à chaque rendu", () => {
     const app = fakeApp();
     const view = viewOf([decorAt(5, 4)], [tokenAt(1, 2)]);
     renderScene(app, view, { sheets: [SHEET] });
     const previous = depthChildren(app).filter(isGraphics);
     renderScene(app, view, { sheets: [SHEET] });
-    const current = depthChildren(app);
+    const current = depthChildren(app).filter(isGraphics);
     expect(previous).toHaveLength(1);
-    expect(current).toHaveLength(2);
-    expect(current.filter(isGraphics)).toHaveLength(1);
+    expect(current).toHaveLength(1);
+    expect(current[0]).toBe(previous[0]);
+    expect(current[0]?.destroyed).toBe(false);
+    expect(depthChildren(app)).toHaveLength(2);
+  });
+});
+
+describe("props de décor — cycle de vie d'un nœud", () => {
+  it("détruit le prop qui quitte la scène : aucun décor fantôme ne survit", () => {
+    const app = fakeApp();
+    renderScene(app, viewOf([decorAt(5, 4)], [tokenAt(1, 2)]), { sheets: [SHEET] });
+    const previous = depthChildren(app).filter(isGraphics);
+    renderScene(app, viewOf([], [tokenAt(1, 2)]), { sheets: [SHEET] });
     expect(previous.every((node) => node.destroyed)).toBe(true);
-    expect(current.filter(isGraphics).every((node) => !node.destroyed)).toBe(true);
-    expect(current).not.toContain(previous[0]);
+    expect(depthChildren(app).filter(isGraphics)).toHaveLength(0);
   });
 
+  it("ne réutilise jamais un nœud détruit quand un prop revient sur la carte", () => {
+    const app = fakeApp();
+    const scene = viewOf([decorAt(5, 4)], []);
+    renderScene(app, scene, { sheets: [SHEET] });
+    const [first] = depthChildren(app).filter(isGraphics);
+    renderScene(app, viewOf([], []), { sheets: [SHEET] });
+    renderScene(app, scene, { sheets: [SHEET] });
+    const [second] = depthChildren(app).filter(isGraphics);
+    expect(first?.destroyed).toBe(true);
+    expect(second).not.toBe(first);
+    expect(second?.destroyed).toBe(false);
+  });
+});
+
+describe("props de décor — décals plats et objets occultants", () => {
   it("garde les décals plats dans la couche basse et le rocher dans la séquence des acteurs", () => {
     const decor = [decorOf("algue", 2, 1), decorOf("ponton", 0, 8), decorOf("debris", 3, 7), decorOf("rocher", 5, 4)];
     const app = renderApp(decor, [tokenAt(1, 2)]);
