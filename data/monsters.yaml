@@ -22,6 +22,8 @@ monsters:
     hp: 35
     ap: 6
     mp: 4
+    # Init 1.29 = champ stocké par grade ; Pious niveau 1 = 0 ; égalité → le héros ouvre.
+    initiative: 0
     stats: { strength: 15, intelligence: 0, chance: 0, agility: 0, wisdom: 0 }
     resistances:
       flat: { earth: 0, fire: 0, water: 0, air: 0, neutral: 0 }
