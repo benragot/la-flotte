@@ -42,7 +42,9 @@ function combatWith(playerStats: CombatStats, enemyStats: CombatStats): CombatSt
   });
   const fullHp = { hp: 100, maxHp: 100 };
   const player = { ...base.player, ...fullHp, stats: playerStats };
-  const enemy = { ...base.enemy, ...fullHp, stats: enemyStats };
+  // Stats synthétiques : on retire l'initiative stockée (MONSTER-01) pour
+  // tester la seule formule `computeInitiative`.
+  const enemy = { ...base.enemy, ...fullHp, stats: enemyStats, storedInitiative: undefined };
   return { ...base, player, enemy };
 }
 
@@ -115,6 +117,8 @@ describe("non-régression — initCombat et buildCombat", () => {
     const combat = useCombatStore.getState().combat;
     expect(combat?.phase).toBe("player_turn");
     expect(combat?.player.ap).toBe(combat?.player.maxAp);
-    expect(combat?.log.some((line) => line.includes("joue en premier"))).toBe(true);
+    // MONSTER-01 : le Piou de `data/monsters.yaml` porte `initiative: 0` (1.29),
+    // il n'ouvre donc plus le combat : aucune ligne d'ouverture ennemie.
+    expect(combat?.log.some((line) => line.includes("joue en premier"))).toBe(false);
   });
 });
