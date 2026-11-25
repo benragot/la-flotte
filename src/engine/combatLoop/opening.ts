@@ -5,11 +5,16 @@ import type { CombatantState, CombatState, Rng } from "./types";
 
 export type OpeningPhase = "player_turn" | "enemy_turn";
 
-/** Initiative 1.29 d'un combattant : stats pondérées par les PV restants. */
+/**
+ * Initiative 1.29 d'un combattant : la valeur stockée par grade prime, sinon
+ * les stats sont pondérées par les PV restants. La règle de précédence vit
+ * dans `computeInitiative` (moteur partagé), pas ici.
+ */
 export function initiativeOf(combatant: CombatantState): number {
   const { strength, intelligence, chance, agility } = combatant.stats;
   const maxHp = Math.max(combatant.maxHp, 1);
-  return computeInitiative({ strength, intelligence, chance, agility, currentHp: combatant.hp, maxHp });
+  const input = { strength, intelligence, chance, agility, currentHp: combatant.hp, maxHp };
+  return computeInitiative({ ...input, storedInitiative: combatant.storedInitiative });
 }
 
 /** Égalité ⇒ héros : l'ouverture reste déterministe. */

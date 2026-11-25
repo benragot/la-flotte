@@ -6,6 +6,11 @@ export interface InitiativeInput {
   currentHp: number;
   maxHp: number;
   bonusInitiative?: number;
+  /**
+   * Initiative stockée par grade en 1.29 (`MonsterDef.initiative`). Quand elle
+   * existe, elle prime sur la formule et ne suit pas les PV restants.
+   */
+  storedInitiative?: number;
 }
 
 function statTotal(input: InitiativeInput): number {
@@ -18,5 +23,6 @@ function hpRatio(input: InitiativeInput): number {
 }
 
 export function computeInitiative(input: InitiativeInput): number {
+  if (input.storedInitiative !== undefined) return input.storedInitiative;
   return Math.floor(statTotal(input) * hpRatio(input));
 }

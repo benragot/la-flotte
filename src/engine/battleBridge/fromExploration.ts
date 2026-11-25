@@ -46,11 +46,14 @@ function copyResistances(resistances: CombatantLike["resistances"]): CombatantLi
   return { flat: { ...resistances.flat }, percent: { ...resistances.percent } };
 }
 
-/** Initiative 1.29, formule unique partagée : `statTotal × (PV / PV max)`. */
-export function initiativeOf(source: InitiativeSource): number {
+/**
+ * Initiative 1.29 : la valeur stockée par grade (`stored`) prime sur la
+ * formule `statTotal × (PV / PV max)`, via le moteur partagé.
+ */
+export function initiativeOf(source: InitiativeSource, stored?: number): number {
   const { strength, intelligence, chance, agility } = source.stats;
   const input = { strength, intelligence, chance, agility, currentHp: source.hp, maxHp: source.maxHp };
-  return computeInitiative(input);
+  return computeInitiative({ ...input, storedInitiative: stored });
 }
 
 interface Vitals {
@@ -81,13 +84,15 @@ export function heroToCombatant(hero: CombatantState): CombatantLike {
  * Le monstre garde son id de donnée (aucun suffixe d'index en 1v1, aucun id de
  * jeton). Tout le reste est la projection fidèle de l'état vivant `enemy` :
  * PV/PA/PM/position, niveau, stats, résistances et sorts déjà résolus par
- * `initCombat`. `monster` ne sert donc qu'à nommer l'identité de timeline.
+ * `initCombat`. `monster` nomme l'identité de timeline et porte l'initiative
+ * stockée par grade (1.29), qui ne se lit jamais sur les stats vivantes.
  */
 export function monsterToCombatant(monster: MonsterDef, enemy: CombatantState): CombatantLike {
   const identity = { id: monster.id, side: "enemy" as const, name: enemy.name, level: enemy.level };
   const data = { stats: copyStats(enemy.stats), resistances: copyResistances(enemy.resistances) };
   const damage = { percentDmg: enemy.percentDmg, armor: 0, spellIds: [...enemy.spellIds] };
-  return { ...identity, ...vitalsOf(enemy), ...data, ...damage, initiative: initiativeOf(enemy) };
+  const initiative = initiativeOf(enemy, monster.initiative);
+  return { ...identity, ...vitalsOf(enemy), ...data, ...damage, initiative };
 }
 
 /**
