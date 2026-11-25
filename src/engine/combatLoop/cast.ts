@@ -177,7 +177,7 @@ function healRoll(spell: SpellDef, rng: Rng): number {
 function healTarget(state: CombatState, plan: CastPlan): CombatState {
   const caster = getActiveCombatant(state);
   const roll = healRoll(plan.spell, plan.rng);
-  const base = plan.spell.element === undefined ? roll : scaledHeal(roll, caster.stats.intelligence);
+  const base = scaledHeal(roll, caster.stats.intelligence);
   const amount = healAmount({ heal: base, currentHp: caster.hp, maxHp: caster.maxHp });
   const healed = setCombatant(state, { ...caster, hp: caster.hp + amount });
   const floated = appendFloat(healed, { targetId: caster.id, amount, kind: "heal" });

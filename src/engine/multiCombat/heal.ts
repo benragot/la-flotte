@@ -1,4 +1,4 @@
-import { appendFloat, healAmount, isSpellAvailable, recordSpellCast, scaledHeal, spellUsageKey } from "../combat";
+import { appendFloat, healAmount, isSpellAvailable, recordSpellCast, rollHeal, scaledHeal, spellUsageKey } from "../combat";
 import type { SpellLimit } from "../combat";
 import { appendLog, findCombatant, isActive, isAlive, withCombatant } from "./combatants";
 import { spendAp } from "./strike";
@@ -7,7 +7,8 @@ import type { BattleState, CombatantLike, Rng } from "./types";
 /**
  * Ce que le moteur 1vN doit savoir d'un sort de soin. La fourchette vient de
  * `data/spells.yaml` (`effect.amount` pour `mot_curatif`), jamais d'une valeur
- * écrite dans `src/` ; `scales` dit si la stat de soin 1.29 s'applique.
+ * écrite dans `src/`. Le soin applique **toujours** l'Intelligence (1.29),
+ * élément déclaré ou non.
  */
 export interface HealSpec extends SpellLimit {
   id: string;
@@ -15,8 +16,6 @@ export interface HealSpec extends SpellLimit {
   apCost: number;
   min: number;
   max: number;
-  /** `true` = sort avec élément déclaré : le soin suit l'Intelligence (§1.3). */
-  scales: boolean;
 }
 
 export interface HealInput {
@@ -28,21 +27,16 @@ export interface HealInput {
 }
 
 interface HealContext {
-  heal: HealSpec;
   healer: CombatantLike;
   target: CombatantLike;
   roll: number;
 }
 
-function rolled(heal: HealSpec, rng: Rng): number {
-  return heal.min + Math.floor(rng() * (heal.max - heal.min + 1));
-}
-
-/** Stat puis plafond : les deux règles viennent de `engine/combat/heal`. */
+/** Stat de soin 1.29 puis plafond : les deux règles viennent de `engine/combat/heal`. */
 function amountFor(context: HealContext): number {
-  const { heal, healer, target, roll } = context;
-  const base = heal.scales ? scaledHeal(roll, healer.stats.intelligence) : roll;
-  return healAmount({ heal: base, currentHp: target.hp, maxHp: target.maxHp });
+  const { healer, target, roll } = context;
+  const healed = scaledHeal(roll, healer.stats.intelligence);
+  return healAmount({ heal: healed, currentHp: target.hp, maxHp: target.maxHp });
 }
 
 /** Un soin ne vise qu'un vivant du **même camp** ; l'ennemi est refusé. */
@@ -98,7 +92,7 @@ export function resolveHeal(input: HealInput): BattleState {
   const target = findCombatant(input.state, input.targetId);
   if (healer === undefined || target === undefined) return input.state;
   if (!isHealAllowed(input, healer, target)) return input.state;
-  const roll = rolled(input.heal, input.rng);
-  const amount = amountFor({ heal: input.heal, healer, target, roll });
+  const roll = rollHeal(input.heal, input.rng);
+  const amount = amountFor({ healer, target, roll });
   return applyHeal({ input, healer, target, amount });
 }

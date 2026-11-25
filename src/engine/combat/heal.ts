@@ -14,10 +14,12 @@ export interface HealAmountInput {
 
 /**
  * Règle 1.29 du soin, **définie une seule fois** : le montant appliqué est le
- * jet, borné aux PV manquants. Le surplus est perdu, un soin ne ressuscite
- * jamais et ne dépasse jamais `maxHp`. Aucun plancher au-dessus de 0.
+ * jet, borné aux PV manquants. Le surplus est perdu et un soin ne dépasse
+ * jamais `maxHp`. **Un combattant mort (`currentHp <= 0`) reste à 0 PV** : un
+ * soin ne ressuscite jamais (fiche `effects-engine.md`, cas 24).
  */
 export function healAmount(input: HealAmountInput): number {
+  if (input.currentHp <= 0) return 0;
   const missing = Math.max(0, input.maxHp - input.currentHp);
   return Math.min(Math.max(0, input.heal), missing);
 }

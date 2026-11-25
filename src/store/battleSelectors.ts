@@ -133,15 +133,15 @@ export function spellRollSpec(spell: SpellDef): AttackSpec {
 
 /**
  * Pont `SpellDef` → `HealSpec` pour le 1vN : la fourchette vient de
- * `effect.amount` (donnée existante), les quotas restent ceux du sort. Un sort
- * sans effet de soin rend `null` — l'appelant n'entre pas dans `resolveHeal`.
+ * `effect.amount` (donnée existante) et le soin suit toujours l'Intelligence.
+ * Un sort sans effet de soin rend `null` — l'appelant n'entre pas dans
+ * `resolveHeal`.
  */
 export function spellHealSpec(spell: SpellDef): HealSpec | null {
   const range = healRange(spell);
   if (range === undefined) return null;
   const quotas = { castsPerTurn: spell.castsPerTurn, cooldown: spell.cooldown };
-  const scales = spell.element !== undefined;
-  return { id: spell.id, name: spell.name, apCost: spell.apCost, ...range, scales, ...quotas };
+  return { id: spell.id, name: spell.name, apCost: spell.apCost, ...range, ...quotas };
 }
 
 function pairFor(state: BattleState, targetId: string): CombatantPair | null {

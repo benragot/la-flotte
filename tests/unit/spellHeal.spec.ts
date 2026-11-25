@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { healAmount, scaledHeal } from "../../src/engine/combat";
 import { getCastableCells } from "../../src/engine/combatLoop/castable";
 import { castSpell } from "../../src/engine/combatLoop/cast";
@@ -9,10 +9,12 @@ import type { CombatantState, CombatState } from "../../src/engine/combatLoop/ty
 import { parseAsciiMap } from "../../src/engine/grid";
 import { resolveHeal } from "../../src/engine/multiCombat";
 import type { BattleState, CombatantLike, HealSpec } from "../../src/engine/multiCombat";
-import { parseSpellsYaml } from "../../src/schemas/spellSchema";
+import { parseSpellsYaml, spellSchema } from "../../src/schemas/spellSchema";
 import type { SpellDef } from "../../src/schemas/spellSchema";
+import { spellHealSpec } from "../../src/store/battleSelectors";
 import { armedBattleSpell, battleSpellSlots, isUnifiedCastable } from "../../src/store/battleSpells";
 import { battleClickRoute } from "../../src/store/battleRouting";
+import { useCombatStore } from "../../src/store/useCombatStore";
 import { slotLook } from "../../src/ui/spellSlotState";
 
 /**
@@ -134,9 +136,24 @@ const SPEC: HealSpec = {
   apCost: 6,
   min: 9,
   max: 9,
-  scales: false,
   castsPerTurn: 1,
 };
+
+/** Sort de soin **sans élément** validé par le schéma cible (cas `soupe_a_lhuile`). */
+const SANS_ELEMENT: SpellDef = spellSchema.parse({
+  id: "soupe_de_test",
+  name: "Soupe de Test",
+  description: "Soin sans élément, validé par le schéma.",
+  classId: "eniripsa",
+  kind: "other",
+  apCost: 6,
+  minRange: 0,
+  maxRange: 0,
+  requiresLos: false,
+  effect: { type: "heal", amount: { min: 5, max: 5 }, target: "self" },
+});
+
+const GROUP = { id: "groupe", pos: { x: 0, y: 0 }, monsterIds: ["fer_rat_de_cale"], totalLevel: 1, label: "Groupe" };
 
 function healOnSelf(state: BattleState, spec: HealSpec = SPEC): BattleState {
   return resolveHeal({ state, healerId: "hero", targetId: "hero", heal: spec, rng: () => 0 });
@@ -150,6 +167,10 @@ describe("règle de soin 1.29 — une seule définition", () => {
   it("rend 0 à PV pleins et ne rend jamais de PV sur un jet négatif", () => {
     expect(healAmount({ heal: 9, currentHp: 60, maxHp: 60 })).toBe(0);
     expect(healAmount({ heal: -4, currentHp: 10, maxHp: 60 })).toBe(0);
+  });
+
+  it("ne ressuscite pas : un combattant mort (0 PV) ne reçoit aucun PV", () => {
+    expect(healAmount({ heal: 9, currentHp: 0, maxHp: 60 })).toBe(0);
   });
 
   it("applique la stat de soin 1.29 : floor(base × (100 + Intelligence) / 100)", () => {
@@ -201,6 +222,12 @@ describe("cast 1v1 — soin borné, PA et quota", () => {
     expect(next.player.hp).toBe(47);
   });
 
+  it("un soin SANS élément applique quand même l'Intelligence : jet 5, Int 40 → 7", () => {
+    const stats = { ...STATS, intelligence: 40 };
+    const next = castHeal(SANS_ELEMENT, { hp: 40, ap: 12, stats });
+    expect(next.player.hp).toBe(47);
+  });
+
   it("à PV pleins le soin est légal et rend 0 PV (PA consommés, aucun surplus)", () => {
     const next = castHeal(healSpell(), { hp: 60, ap: 12 });
     expect(next.player.hp).toBe(60);
@@ -246,6 +273,11 @@ describe("cast 1vN — le même soin, une seule règle", () => {
     expect(next).toBe(state);
   });
 
+  it("refuse un soin sans les PA par identité d'état", () => {
+    const state = battleFor({ hp: 40, ap: 5 });
+    expect(healOnSelf(state)).toBe(state);
+  });
+
   it("respecte castsPerTurn: le second lancer du tour est refusé", () => {
     const first = healOnSelf(battleFor({ hp: 40 }));
     expect(healOnSelf(first)).toBe(first);
@@ -263,8 +295,46 @@ describe("cast 1vN — le même soin, une seule règle", () => {
 describe("cast 1vN — stat de soin", () => {
   it("Intelligence 40 porte le jet 9 à 12 (floor(9 × 140 / 100))", () => {
     const stats = { ...STATS, intelligence: 40 };
-    const next = healOnSelf(battleFor({ hp: 40, stats }), { ...SPEC, scales: true });
+    const next = healOnSelf(battleFor({ hp: 40, stats }));
     expect(next.combatants[0]?.hp).toBe(52);
+  });
+});
+
+describe("pont 1vN réel — spellHealSpec part de la donnée", () => {
+  it("mot_curatif : la spec réelle se résout et borne le soin", () => {
+    const spec = spellHealSpec(mustFind("mot_curatif"));
+    if (spec === null) throw new Error("mot_curatif sans effet de soin");
+    const next = resolveHeal({ state: battleFor({ hp: 40 }), healerId: "hero", targetId: "hero", heal: spec, rng: () => 0 });
+    expect(next.combatants[0]?.hp).toBe(45);
+    expect(next.combatants[0]?.ap).toBe(6);
+  });
+
+  it("un soin sans élément passe par la même spec et applique l'Intelligence", () => {
+    const spec = spellHealSpec(SANS_ELEMENT);
+    if (spec === null) throw new Error("sort sans effet de soin");
+    const stats = { ...STATS, intelligence: 40 };
+    const next = resolveHeal({ state: battleFor({ hp: 40, stats }), healerId: "hero", targetId: "hero", heal: spec, rng: () => 0 });
+    expect(next.combatants[0]?.hp).toBe(47);
+  });
+});
+
+describe("store unifié — castHealSpell part du sort réel", () => {
+  beforeEach(() => {
+    vi.stubEnv("VITE_COMBAT_ENGINE", "unified");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("mot_curatif cliqué sur le héros : PV bornés, PA payés, journal", () => {
+    const battle = battleFor({ hp: 55, ap: 12, spellIds: ["mot_curatif"] });
+    useCombatStore.setState({ battle, selectedSpellId: "mot_curatif", activeGroup: GROUP, dungeonRun: null });
+    useCombatStore.getState().battleMove({ to: { x: 0, y: 0 }, rng: () => 0 });
+    const after = useCombatStore.getState().battle;
+    expect(after?.combatants[0]?.hp).toBe(60);
+    expect(after?.combatants[0]?.ap).toBe(6);
+    expect(after?.log.at(-1)).toBe("Balthazar soigne Balthazar de 5 PV.");
   });
 });
 
