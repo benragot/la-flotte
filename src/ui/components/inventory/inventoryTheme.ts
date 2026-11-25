@@ -133,3 +133,37 @@ export const ITEM_ROW_SELECTED = `${ITEM_ROW} border-[var(--color-line-gold)] bg
 /** Nom cliquable d'une ligne : or au survol, 90 ms, propriété nommée (I8). */
 export const ITEM_BUTTON =
   "min-w-0 flex-1 truncate text-left transition-[color] duration-[90ms] ease-out hover:text-[var(--color-line-gold)]";
+
+/**
+ * Sac → bourse (§10 de la direction visuelle) : l'en-tête porte le titre à
+ * gauche et la bourse à droite, sur une seule ligne même à 1024 px.
+ */
+export const HEAD_ROW = "flex flex-wrap items-baseline justify-between gap-1";
+
+/**
+ * Ligne du sac : **deux étages** — nom + prix, puis actions. L'ancienne ligne
+ * d'objet tenait sur une seule rangée parce qu'elle n'avait qu'un bouton ;
+ * quatre contrôles à 1024 px y deviendraient illisibles. Jetons de tuile
+ * conservés : rayon 1 px, filet 1 px, encre principale.
+ */
+const BAG_LINE = "flex flex-col gap-1 rounded-[1px] border border-transparent px-1 py-1 text-[11px]";
+
+/** Ligne fermée : aucun fond, comme l'ancienne ligne d'objet. */
+export const BAG_ROW = BAG_LINE;
+
+/** Ligne ouverte (détail affiché) : `surface-3` cerclé d'or, encre principale. */
+export const BAG_ROW_SELECTED = `${BAG_LINE} border-[var(--color-line-gold)] bg-[var(--color-surface-3)]`;
+
+/** Bourse : 11 px mono tabulaire, encre principale — 9,00:1 sur le parchemin. */
+export const PURSE = "font-mono text-[11px] font-bold leading-4 tabular-nums text-[var(--color-ink-1)]";
+
+/** Prix unitaire : 10 px mono gras, encre secondaire (7,01:1 ; 5,84:1 ligne ouverte). */
+export const SELL_PRICE =
+  "shrink-0 font-mono text-[10px] font-bold leading-3 tabular-nums text-[var(--color-ink-2)]";
+
+/** Prix absent : même encre + barré pointillé, jamais une opacité (I10). */
+export const SELL_PRICE_OFF =
+  "shrink-0 font-mono text-[10px] leading-3 tabular-nums text-[var(--color-ink-2)] line-through decoration-dotted";
+
+/** Confirmation de la dernière vente : encre secondaire, 10 px. */
+export const SALE_NOTICE = DETAIL_META;

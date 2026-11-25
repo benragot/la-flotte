@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { Hero } from "../../engine/createHero";
 import { useCombatStore } from "../../store/useCombatStore";
@@ -31,12 +31,15 @@ interface AccessButtonProps {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  /** Touche qui ouvre la même surface : annoncée, jamais fusionnée dans le nom. */
+  keyshortcut?: string;
 }
 
-function AccessButton({ label, onClick, disabled = false }: AccessButtonProps) {
+function AccessButton({ label, onClick, disabled = false, keyshortcut }: AccessButtonProps) {
   const text = disabled ? `${label} — combat en cours` : label;
+  const title = keyshortcut === undefined ? undefined : `${label} (${keyshortcut})`;
   return (
-    <button type="button" onClick={onClick} className={ACCESS_BUTTON} disabled={disabled}>
+    <button type="button" onClick={onClick} className={ACCESS_BUTTON} disabled={disabled} aria-keyshortcuts={keyshortcut} title={title}>
       {text}
     </button>
   );
@@ -57,7 +60,7 @@ interface PanelButtonsProps {
 function PanelButtons({ onOpen, blocked }: PanelButtonsProps) {
   return (
     <>
-      <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} />
+      <AccessButton label="Inventaire" onClick={() => onOpen("inventory")} keyshortcut="I" />
       <AccessButton label="Fiche perso" onClick={() => onOpen("hero")} />
       <AccessButton label="Sorts" onClick={() => onOpen("spells")} />
       <AccessButton label="Donjons" onClick={() => onOpen("dungeon")} disabled={blocked} />
@@ -154,8 +157,52 @@ interface ActivePanel {
   close: () => void;
 }
 
+const INVENTORY_CODE = "KeyI";
+
+/** Un champ de saisie garde ses frappes : `I` n'y ouvre jamais le sac. */
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName.toLowerCase();
+  return tag === "input" || tag === "textarea" || target.isContentEditable;
+}
+
+function hasModifier(event: KeyboardEvent): boolean {
+  return event.metaKey || event.ctrlKey || event.altKey;
+}
+
+/** `I` seule : les combinaisons (`⌘I`, `Ctrl+I`) restent au navigateur. */
+function isInventoryKey(event: KeyboardEvent): boolean {
+  if (event.code !== INVENTORY_CODE || hasModifier(event)) return false;
+  return !isTypingTarget(event.target);
+}
+
+function inventoryListener(toggle: () => void): (event: KeyboardEvent) => void {
+  return (event) => {
+    if (!isInventoryKey(event)) return;
+    event.preventDefault();
+    toggle();
+  };
+}
+
 /**
- * Panneau affiché et ses deux portes : le bouton « Fermer » et Échap. Le
+ * Touche dédiée du sac (`I`) : elle ouvre, ou referme s'il est déjà au premier
+ * plan. Échap reste la sortie commune de tous les panneaux (`useEscapeClose`).
+ */
+function useInventoryKey(toggle: () => void): void {
+  useEffect(() => {
+    const listener = inventoryListener(toggle);
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, [toggle]);
+}
+
+/** Bascule du sac : `I` le referme s'il est déjà ouvert, sinon l'ouvre. */
+function nextPanel(current: PanelId | null): PanelId | null {
+  return current === "inventory" ? null : "inventory";
+}
+
+/**
+ * Panneau affiché et ses trois portes : « Fermer », `I` (bascule) et Échap. Le
  * panneau est le **parent** de la pile : un détail monté après lui passe
  * devant, et Échap referme donc le détail avant le panneau.
  */
@@ -163,6 +210,8 @@ function useActivePanel(): ActivePanel {
   const [active, setActive] = useState<PanelId | null>(null);
   const open = usePanelOpener(setActive);
   const close = () => setActive(null);
+  const toggleInventory = useCallback(() => setActive(nextPanel), []);
+  useInventoryKey(toggleInventory);
   useEscapeClose(close, active !== null);
   return { active, open, close };
 }
