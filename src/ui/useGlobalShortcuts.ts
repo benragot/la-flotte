@@ -4,6 +4,7 @@ import type { ArenaMode } from "../renderer";
 import { useCombatStore } from "../store/useCombatStore";
 import type { Shortcut, ShortcutInput } from "./shortcuts";
 import { resolveShortcut } from "./shortcuts";
+import { slotLook } from "./spellSlotState";
 
 export interface ShortcutContext {
   phase: CombatPhase;
@@ -91,8 +92,26 @@ function nextSelection(context: ShortcutContext, spellId: string): string | null
   return spellId;
 }
 
+/** Un sort dont l'effet n'existe pas encore ne doit pas entrer en sélection. */
+function isUpcoming(combat: CombatState, spellId: string): boolean {
+  const spell = combat.spellsById?.[spellId];
+  return spell !== undefined && slotLook({ combat, selectedSpellId: null }, spell).state === "a-venir";
+}
+
+function spellIdAt(combat: CombatState | null, index: number): string | null {
+  if (combat === null) return null;
+  return combat.player.spellIds[index] ?? null;
+}
+
+function selectableId(combat: CombatState, spellId: string | null): string | null {
+  if (spellId === null) return null;
+  return isUpcoming(combat, spellId) ? null : spellId;
+}
+
 function spellAction(context: ShortcutContext, index: number): ShortcutEffect | null {
-  const spellId = context.combat?.player.spellIds[index] ?? null;
+  const { combat } = context;
+  if (combat === null) return null;
+  const spellId = selectableId(combat, spellIdAt(combat, index));
   if (spellId === null) return null;
   const next = nextSelection(context, spellId);
   return () => context.selectSpell(next);

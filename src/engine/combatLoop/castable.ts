@@ -3,6 +3,7 @@ import type { Position } from "../grid";
 import { hasLineOfSight, isWalkableCell, rangeDistance, samePosition } from "../grid";
 import { getActiveCombatant, getOpponent } from "./active";
 import { allPositions } from "./cells";
+import { isSpellImplemented } from "./spellSupport";
 import type { CombatantState, CombatState } from "./types";
 
 interface CastCellInput {
@@ -44,7 +45,7 @@ function isValidCell(input: CastCellInput): boolean {
 export function getCastableCells(state: CombatState, spellId: string): Position[] {
   const spell = state.spellsById[spellId];
   if (spell === undefined) return [];
-  if (spell.kind === "other") return [];
+  if (!isSpellImplemented(spell)) return [];
   const caster = getActiveCombatant(state);
   const opponent = getOpponent(state);
   const base = { state, spell, caster, opponent };

@@ -8,6 +8,7 @@ import { getCastableCells } from "./castable";
 import { appendLog } from "./log";
 import type { PushResult } from "./push";
 import { applyPush } from "./push";
+import { isSpellImplemented } from "./spellSupport";
 import type {
   CombatPhase,
   CombatStatKey,
@@ -170,7 +171,8 @@ function teleport(state: CombatState, plan: CastPlan): CombatState {
 }
 
 function isUtilitySpell(state: CombatState, spellId: string): boolean {
-  return state.spellsById[spellId]?.kind === "other";
+  const spell = state.spellsById[spellId];
+  return spell !== undefined && !isSpellImplemented(spell);
 }
 
 /** Lance un sort si la phase, les PA et la cible le permettent ; sinon état inchangé. */

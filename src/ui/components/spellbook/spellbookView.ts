@@ -1,5 +1,5 @@
 import type { Element, SpellDef, SpellDamage, SpellEffect, SpellKind } from "../../../schemas/spellSchema";
-import { formatSpellRange } from "../../hudHelpers";
+import { SPELL_STATE_LABELS, formatSpellRange } from "../../hudHelpers";
 import type { ElementTone } from "../../logElements";
 import { elementLook } from "../../logElements";
 
@@ -58,8 +58,6 @@ const KIND_LABELS: Record<SpellKind, string> = {
   teleport: "Téléportation",
   other: "Utilitaire",
 };
-
-const STATE_LABELS: Record<NonNullable<SpellDef["requiresState"]>, string> = { drunk: "Ivre" };
 
 const EFFECT_LABELS: Record<SpellEffect["type"], string> = {
   heal: "Soin",
@@ -168,7 +166,7 @@ function elementOf(spell: SpellDef): Pick<SpellFacts, "elementTone" | "elementGl
 function limitsOf(spell: SpellDef): Pick<SpellFacts, "cooldown" | "castsPerTurn" | "castsPerTarget" | "pushCells" | "requiresState" | "effect"> {
   const { cooldown, castsPerTurn, castsPerTarget, pushCells } = spell;
   const state = spell.requiresState;
-  return { cooldown, castsPerTurn, castsPerTarget, pushCells, requiresState: state === undefined ? undefined : STATE_LABELS[state], effect: effectLabel(spell.effect) };
+  return { cooldown, castsPerTurn, castsPerTarget, pushCells, requiresState: state === undefined ? undefined : SPELL_STATE_LABELS[state], effect: effectLabel(spell.effect) };
 }
 
 /** Modèle de vue complet d'un sort, sans DOM ni store. */
