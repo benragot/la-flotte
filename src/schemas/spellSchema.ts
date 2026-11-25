@@ -137,8 +137,16 @@ export const spellSchema = z
     critDamage: spellCritDamageSchema.optional(),
     pushCells: z.number().int().nonnegative().optional(),
     cooldown: z.number().int().nonnegative().optional(),
-    castsPerTurn: z.number().int().min(1).optional(),
-    castsPerTarget: z.number().int().min(1).optional(),
+    /**
+     * Quotas 1.29 **toujours renseignés** par le client : `maxCastPerTurn` et
+     * `maxCastPerTarget` valent `0` pour « aucune limite » (Pression #141 =
+     * `0,0` ; Mot Curatif #121 = `1,0` ; Ralentissement #81 = `4,1` ; Flèche
+     * Magique #161 = `0,2`). `0` est donc une **donnée**, pas une absence.
+     * L'omission reste permise mais signifie « non relevé » (dette de
+     * transcription) : `src/` ne doit pas l'inventer.
+     */
+    castsPerTurn: z.number().int().min(0).optional(),
+    castsPerTarget: z.number().int().min(0).optional(),
     requiresState: z.enum(["drunk"]).optional(),
     effect: spellEffectSchema.optional(),
   })
