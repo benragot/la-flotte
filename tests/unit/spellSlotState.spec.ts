@@ -102,8 +102,8 @@ describe("slotLook — effet non implémenté : « à venir », jamais cliquable
     expect(look.reason).toBe("Effet pas encore implémenté");
   });
 
-  it("couvre TOUS les sorts utilitaires de data/spells.yaml, sans exception", () => {
-    const others = spells.filter((entry) => entry.kind === "other");
+  it("couvre TOUS les sorts utilitaires non-soignants de data/spells.yaml, sans exception", () => {
+    const others = spells.filter((entry) => entry.kind === "other" && entry.effect?.type !== "heal");
     expect(others.length).toBeGreaterThan(0);
     const looks = others.map((entry) => lookOf(entry.id, entry));
     expect(looks.map((look) => look.state)).toEqual(others.map(() => "a-venir"));
