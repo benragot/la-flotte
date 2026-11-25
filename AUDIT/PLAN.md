@@ -1,27 +1,38 @@
 # PLAN — ordre d'attaque
 
-> Suite de `AUDIT/ISSUES.md` : 71 constats, 5 vagues. La règle est la même pour
+> Suite de `AUDIT/ISSUES.md` : 77 constats, 5 vagues. La règle est la même pour
 > chaque ligne, sans exception.
 >
-> **État au 2026-11-24** : 7 constats faits — **vague 0 complète** (3 sur 3 :
-> COMBAT-01, COMBAT-02, COMBAT-04) et **vague 1 à 4 sur 11** (GRID-01,
-> BALANCE-01, COMBAT-08, RENDER-02) — 64 restants. Détail des hashes dans
-> `AUDIT/ISSUES.md` → `## Suivi des merges`.
+> **État au 2026-11-25** : **14 constats faits** — **vague 0 complète** (3 sur 3 :
+> COMBAT-01, COMBAT-02, COMBAT-04), **vague 1 à 10 sur 11** (GRID-01,
+> BALANCE-01, COMBAT-08, RENDER-02, UI-03, UI-02, GRID-02, RENDER-03,
+> RENDER-06, DATA-03) et **vague 2 à 1 sur 6** (ITEM-01), plus **COMBAT-03
+> re-cadré** vers MONSTER-01. Restent **62 constats** sur 77. Détail des hashes
+> dans `AUDIT/ISSUES.md` → `## Suivi des merges`.
 
 ## Reste en tête
 
 Ce qui décide de la prochaine PR, dans cet ordre :
 
-1. **Aperçu du chemin** — GRID-03 (et INPUT-01 derrière) : `buildPathPreview` n'a
+1. **Sorts honnêtes** — UI-01 (plus de clic mort) : un sort jouable doit annoncer
+   sa règle ; puis SPELL-03 (CC réel) et SPELL-02 (moteur d'effets).
+2. **Aperçu du chemin** — GRID-03 (et INPUT-01 derrière) : `buildPathPreview` n'a
    toujours aucun appelant, le clic-to-move reste à l'aveugle.
-2. **Sorts honnêtes** — UI-01 (plus de clic mort), puis SPELL-03 (CC réel) et
-   SPELL-02 (moteur d'effets) : un sort jouable doit annoncer sa règle.
-3. **Stuff** — ITEM-01 (résistances et `% Dégâts` dans `CombatantState`) :
-   prérequis de SPELL-03 et SPELL-08, donc avant eux.
-4. **Donjon et kamas** — DATA-01 + DATA-02 ensemble : une salle nettoyée doit
-   créditer XP, butin et kamas, sinon la boucle de progression reste morte.
+3. **Donjon et kamas** — DATA-01 + DATA-02 ensemble : une salle nettoyée doit
+   créditer XP, butin et kamas, sinon la boucle de progression reste morte
+   (COMBAT-09, l'agrégation d'XP de groupe, se traite avec DATA-01).
+4. **Ordre d'initiative** — COMBAT-05 : afficher la timeline débloque toute
+   lecture du tour et l'anticipation côté joueur.
+5. **Stats de monstres** — MONSTER-01 : c'est là que vit le vrai écart
+   d'initiative (COMBAT-03 re-cadré), pas dans une table de stats de classe.
 
-Le reste (vagues 2 à 4, puis les 39 `P2`) suit l'ordre des sections ci-dessous.
+Hors file, inchangé : **ARCH-01** (unification des deux moteurs `combatLoop` 1v1
+et `multiCombat` 1vN) reste un **point d'arrêt propriétaire** — aucun agent ne le
+démarre, et chaque formule corrigée reste appliquée **deux fois**. La divergence
+**« donjon ≠ extérieur »** (DATA-08, `hpScale` réduit les PV en salle) reste
+**ouverte** : aucune PR de la nuit ne l'a tranchée.
+
+Le reste (vagues 2 à 4, puis les 45 `P2`) suit l'ordre des sections ci-dessous.
 
 ## Règle d'exécution
 
@@ -46,25 +57,25 @@ par COMBAT-01. Les trois constats sont mergés.
 | 2 | COMBAT-02 | S | Panneau figé quand un monstre ouvre la salle : bloque toute observation du 1vN. | ✅ fait (#136, `8797ac5`) |
 | 3 | COMBAT-04 | S | Les morts restent dans `order` : filtre nécessaire avant d'afficher quoi que ce soit. | ✅ fait (#135, `1512b56`) |
 
-## Vague 1 — P1 courts, fort impact — 4 faits sur 11
+## Vague 1 — P1 courts, fort impact — 10 faits sur 11
 
 Correctifs qui changent immédiatement la lisibilité du jeu. Tous `S` sauf
-COMBAT-03 (`M`), placé en tête parce qu'il débloque UI-04 et toute valeur
-d'initiative — **après COMBAT-01** (fait).
+COMBAT-03 (`M`) — **re-cadré** vers MONSTER-01 : il n'y a pas de stats de classe
+à ajouter, l'écart d'initiative est une donnée de monstre.
 
 | ID | Effort | Note | Statut |
 | --- | --- | --- | --- |
-| COMBAT-03 | M | Stats de base par classe dans `classes.yaml` : initiative du héros non nulle. **Après COMBAT-01** (dépendance ci-dessous) et avant UI-04. | ouvert |
+| COMBAT-03 | M | **Re-cadré** : Dofus 1.29 n'a aucune stat de base par classe, l'initiative niveau 1 vaut 0. Le seul vrai écart du périmètre (`baseHp` 50 → 55) est livré par #148 ; la suite vit dans MONSTER-01. | re-cadré (#148, `89d9886` → MONSTER-01) |
 | GRID-01 | S | Portée Chebyshev, les 8 voisins en test. Débloque le corps-à-corps diagonal. | ✅ fait (#141, `62ecdda`) |
 | BALANCE-01 | S | **Suite de GRID-01** : le donjon niveau 16 perdait la salle 4 ; soin entre salles 0,50→0,75 (levier autorisé par DEC-03), sans nerf de dégâts ni `hpScale`. | ✅ fait (#142, `5ae59cf`) |
-| GRID-02 | S | Règle des coins en LoS ; corriger `tests/unit/grid.spec.ts:214-217` **en même temps**. | ouvert |
+| GRID-02 | S | Règle des coins en LoS ; corriger `tests/unit/grid.spec.ts:214-217` **en même temps**. | ✅ fait (#145, `ab86aaf`) |
 | COMBAT-08 | S | Filtrer l'IA 1v1 par la portée réelle. | ✅ fait (#140, `4ed327c`) |
-| DATA-03 | S | Table d'écart de niveau en données, `levelGapFactor` cesse d'être un `1`. | ouvert |
-| UI-02 | S | Désactiver « Attaquer » à 0 PA / en recharge. | ouvert |
-| UI-03 | S | Espace ne termine plus le tour si un bouton a le focus. | ouvert |
+| DATA-03 | S | Table d'écart de niveau en données, `levelGapFactor` cesse d'être un `1`. | ✅ fait (#152, `b873cc2`) |
+| UI-02 | S | Désactiver « Attaquer » à 0 PA / en recharge. | ✅ fait (#146, `f62edf4`) |
+| UI-03 | S | Espace ne termine plus le tour si un bouton a le focus. | ✅ fait (#144, `5ccacd6`) |
 | RENDER-02 | S | `resolution: devicePixelRatio` + `autoDensity`. | ✅ fait (#138, `10d516b`) |
-| RENDER-03 | S | Deuxième face des murs + base remplie. | ouvert |
-| RENDER-06 | S | Nom des combattants sur les jetons. | ouvert |
+| RENDER-03 | S | Deuxième face des murs + base remplie. | ✅ fait (#147, `a665ea5`) |
+| RENDER-06 | S | Nom des combattants sur les jetons. | ✅ fait (#151, `54da359`) |
 
 
 ## Vague 2 — P1 moyens, « sente Dofus »
@@ -78,7 +89,7 @@ Ce qui fait qu'un joueur de Retro reconnaît l'interface.
 | RENDER-01 | M | Tri `x+y` commun acteurs + décor (dépend de RENDER-03 pour un mur lisible). |
 | UI-01 | M | Sorts `kind: other` : badge « à venir », état recharge, plus de clic mort. |
 | SPELL-03 | M | CC réel : `critRate`/`critDamage` en data, jet max. **Après ITEM-01** (même formule). |
-| ITEM-01 | M | Projeter res/%dmg dans `CombatantState` — prérequis de SPELL-03 et SPELL-08. |
+| ITEM-01 | M | Projeter res/%dmg dans `CombatantState` — prérequis de SPELL-03 et SPELL-08. ✅ fait (#149, `9c7dd8a`). |
 
 ## Vague 3 — P1 moyens, contenu et structure
 
@@ -106,10 +117,11 @@ Ce qui fait qu'un joueur de Retro reconnaît l'interface.
 
 ## P2 — après les vagues P1
 
-Les 39 constats `P2` restent ouverts et se traitent par lots de même domaine,
-dans l'ordre : `GRID-05`, `GRID-04`, `GRID-06/07/08/09` → `UI-06…UI-15` →
-`RENDER-07…RENDER-13` → `ITEM-02…ITEM-06` → `DATA-04…DATA-08` →
-`SPELL-05…SPELL-09` → `TEST-01`. Aucun n'est un prérequis d'une vague P1.
+Les 45 constats `P2` restent ouverts et se traitent par lots de même domaine,
+dans l'ordre : `MONSTER-01`, `COMBAT-09` → `GRID-05`, `GRID-04`, `GRID-06/07/08/09`
+→ `UI-06…UI-15` → `RENDER-07…RENDER-15` → `ITEM-02…ITEM-07` →
+`DATA-04…DATA-09` → `SPELL-05…SPELL-09` → `TEST-01`. Aucun n'est un prérequis
+d'une vague P1.
 
 ## Dépendances à respecter
 
@@ -120,7 +132,7 @@ dans l'ordre : `GRID-05`, `GRID-04`, `GRID-06/07/08/09` → `UI-06…UI-15` →
 | **ITEM-01 avant SPELL-03** | Critiques et résistances partagent `computeDamage` ; corriger l'un sans l'autre duplique la formule. |
 | **ITEM-01 avant SPELL-08** | La poussée doit passer par la même formule de dégâts. |
 | **DATA-01 et DATA-02 ensemble** | Même point de crédit en fin de salle : deux PR successives casseraient la comptabilité. |
-| **COMBAT-01 avant COMBAT-03** | Le calcul d'initiative doit exister avant qu'une valeur non nulle ait un effet. |
+| **COMBAT-01 avant MONSTER-01** | Le calcul d'initiative doit exister avant d'aligner des données de monstres dessus (COMBAT-03 re-cadré : l'écart vient des monstres, jamais des classes). |
 | **RENDER-03 avant RENDER-01** | Un décor intercalé avec des murs à une face reste illisible. |
 | **GRID-01 avant BALANCE-01** | La portée Chebyshev change l'atteignabilité en salle : le soin entre salles (BALANCE-01) se recalibre **après** elle, jamais avant. |
 

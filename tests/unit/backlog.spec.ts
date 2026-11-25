@@ -1670,6 +1670,7 @@ const DECISION_NUMBERS = [
   "DEC-08",
   "DEC-09",
   "DEC-10",
+  "DEC-11",
 ];
 
 /** Les décisions du propriétaire sont normatives : leur suppression doit casser la CI.

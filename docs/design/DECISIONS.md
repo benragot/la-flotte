@@ -6,7 +6,7 @@
 > Chaque décision dit **ce qu'elle interdit** : c'est cette colonne qui tranche un
 > désaccord, pas l'intention générale.
 >
-> **Identifiants** : `DEC-01` à `DEC-10`, uniques dans tout le dépôt. Le préfixe
+> **Identifiants** : `DEC-01` à `DEC-11`, uniques dans tout le dépôt. Le préfixe
 > `Dnn` est **réservé aux dettes** de `backlog.yaml` : aucun alias `Dnn` n'est
 > admis pour une décision (deux noms pour une chose recréeraient la collision).
 
@@ -76,3 +76,10 @@
 **Conséquence** : la mobilité baisse fortement (3 PM = 1 diagonale + 1 orthogonal, là où 1.29 en donnait 3), donc les portées de sorts et la balance du donjon devront être recalibrées. **Ce recalibrage reste ouvert, à l'arbitrage du propriétaire** : la tâche `5C-spell-range-rebalance` le porte, elle ne l'a pas tranché.
 **Interdit** : facturer un déplacement à vol d'oiseau (Chebyshev, Manhattan) ou par une heuristique ; laisser un pas diagonal passer entre deux cases orthogonales **toutes deux** bloquées — un **seul** orthogonal bloqué **autorise** la diagonale ; appliquer une facture différente au héros et aux monstres.
 **Dette liée** : `D102` — la règle de déplacement en PM n'est documentée dans **aucune** fiche du projet, pas même dans le skill `dofus-129-combat`, qui n'a aucune section déplacement ; l'écrire (avec l'écart) y est hors de portée d'un agent.
+
+## DEC-11 — Initiative niveau 1 et stats de base (2026-11-25)
+
+**Décision** : Dofus 1.29 n'a **aucune** stat de base par classe. Un héros niveau 1 a **0 partout** — For, Int, Cha, Agi, Sag, Vita — et donc une **initiative de 0** (`Init = floor((For+Int+Cha+Agi+bonus) × PV/PVmax)`, PV plein).
+**Interdit** : inventer une `baseInitiative` ou des statistiques de départ par classe, dans `data/classes.yaml` ou ailleurs. Tout gain d'initiative vient des **points investis**, de l'**équipement** ou des **sorts**.
+**Conséquence** : si un héros joue systématiquement après les monstres, la cause est à chercher dans les **données de monstres** (`MONSTER-01`), jamais dans une table de stats de classe — le moteur (`src/engine/combat/initiative.ts`) est déjà conforme.
+**Références** : `src/engine/combat/initiative.ts`, `src/engine/createHero.ts:36-43`, `data/classes.yaml`.
