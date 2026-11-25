@@ -5,14 +5,20 @@ import { classesFileSchema } from "../../../schemas/classSchema";
 import type { ClassDef } from "../../../schemas/classSchema";
 import { useGameStore } from "../../../store/useGameStore";
 import { isValidCharacterName } from "../../heroHudHelpers";
+import { SPELL_CATALOG } from "../../spellCatalog";
 import { PRIMARY_BUTTON } from "../hudTheme";
+import { heroSpells } from "../spellbook/spellbookView";
 import CharacterNameField from "./CharacterNameField";
 import ClassCard from "./ClassCard";
+import { baseSocle, socleLabel } from "./classIdentity";
 import StatAllocation from "./StatAllocation";
-import { CREATION_SHEET, CREATION_TITLE } from "./heroTheme";
+import { CREATION_SHEET, CREATION_TITLE, SOCLE_NOTE } from "./heroTheme";
 
 /** Catalogue validé une fois (12 classes) : aucune donnée métier en dur ici. */
 const classes = classesFileSchema.parse(classesYaml).classes;
+
+/** Socle commun calculé depuis le YAML : jamais un littéral dans l'écran. */
+const SOCLE = baseSocle(classes);
 
 const SHEET = CREATION_SHEET;
 const GRID = "grid grid-cols-2 gap-2 sm:grid-cols-4";
@@ -54,7 +60,7 @@ function ClassGrid({ classId, onSelect }: { classId: string | null; onSelect: (c
   return (
     <div className={GRID}>
       {classes.map((entry) => (
-        <ClassCard key={entry.id} classDef={entry} selected={entry.id === classId} onSelect={onSelect} />
+        <ClassCard key={entry.id} classDef={entry} spells={heroSpells({ spells: SPELL_CATALOG, classId: entry.id })} socle={SOCLE} selected={entry.id === classId} onSelect={onSelect} />
       ))}
     </div>
   );
@@ -74,6 +80,7 @@ function CreationHead() {
   return (
     <header className="border-b border-[var(--color-line-soft)] pb-2">
       <h1 className={CREATION_TITLE}>Crée ton héros</h1>
+      <p data-class-socle="" className={SOCLE_NOTE}>{socleLabel(SOCLE)}</p>
     </header>
   );
 }
