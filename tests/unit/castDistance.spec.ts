@@ -16,7 +16,7 @@ const MAP: AsciiMap = parseAsciiMap([".......", ".......", ".......", "......."]
 
 /** Sort de contact du héros : bornes incluses, 1 à 3 cases, sans LoS. */
 const RANGE: RangeSpec = { min: 1, max: 3, requiresLos: false };
-const SPEC: AttackSpec = { base: 10, element: "earth", baseCrit: 0, apCost: 3, minRange: 1, maxRange: 3 };
+const SPEC: AttackSpec = { base: 10, element: "earth", apCost: 3, minRange: 1, maxRange: 3 };
 
 function makeCombatant(overrides: Partial<CombatantLike>): CombatantLike {
   return {

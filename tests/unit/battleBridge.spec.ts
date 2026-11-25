@@ -93,7 +93,7 @@ function damageRoll(spell: SpellDef, rng: Rng): number {
 function pressionAttack(): AttackSpec {
   const spell = PRESSION;
   const geometry = { minRange: spell.minRange, maxRange: spell.maxRange, requiresLos: spell.requiresLos };
-  const identity = { spellId: spell.id, spellName: spell.name, baseCrit: 0, apCost: spell.apCost };
+  const identity = { spellId: spell.id, spellName: spell.name, apCost: spell.apCost };
   return { base: damageRoll(spell, HIGH_ROLL), element: spell.element ?? "neutral", ...identity, ...geometry };
 }
 
@@ -242,14 +242,18 @@ describe("DIFFÉRENCE VOULUE (DEC-12) — le tacle existe dans le moteur unique"
 });
 
 describe("DIFFÉRENCE VOULUE (DEC-12) — le coup critique peut se déclencher", () => {
-  it("un critique garanti ajoute critDamagePct ; le 1v1 ne le calcule pas", () => {
+  it("un CC applique le jet maximum ; le 1v1 ne le calcule pas", () => {
+    // PARITÉ: SPELL-03, le CC substitue le jet max (12 → 23 PV), jamais un ×1,5.
+    const range = PRESSION.damage;
+    if (range === undefined) throw new Error("Pression sans dégâts");
+    const low: Rng = () => 0;
     const combat = initialCombat(["P.M."]);
-    const viaLoop = castSpell({ state: combat, spellId: "pression", target: { x: 2, y: 0 }, rng: HIGH_ROLL });
+    const viaLoop = castSpell({ state: combat, spellId: "pression", target: { x: 2, y: 0 }, rng: low });
     const battle = heroActive(battleOf(combat));
-    const attack = { ...pressionAttack(), baseCrit: 100, critDamagePct: 50 };
-    const input = { state: battle, attackerId: PLAYER_BATTLE_ID, targetId: "piou_mazoute", attack, rng: HIGH_ROLL };
+    const attack = { ...pressionAttack(), damage: range, critRate: 2 };
+    const input = { state: battle, attackerId: PLAYER_BATTLE_ID, targetId: "piou_mazoute", attack, rng: low };
     const viaBattle = resolveAttack(input);
-    expect(viaLoop.enemy.hp).toBe(23);
-    expect(enemyOf(viaBattle).hp).toBe(17);
+    expect(viaLoop.enemy.hp).toBe(27);
+    expect(enemyOf(viaBattle).hp).toBe(23);
   });
 });

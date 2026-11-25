@@ -88,8 +88,8 @@ function makeHero(): CombatantLike {
   };
 }
 
-const BIG_ATTACK: AttackSpec = { base: 500, element: "earth", baseCrit: 0, apCost: 3 };
-const SMALL_ATTACK: AttackSpec = { base: 10, element: "earth", baseCrit: 0, apCost: 3 };
+const BIG_ATTACK: AttackSpec = { base: 500, element: "earth", apCost: 3 };
+const SMALL_ATTACK: AttackSpec = { base: 10, element: "earth", apCost: 3 };
 
 /** PV IMPAIRS (53) : `floor(hp × 0,5)` vaut 26, un arrondi donnerait 27. */
 const ODD: MonsterDef = { ...MUD, id: "odd_test", name: "Odd de Test", hp: 53 };

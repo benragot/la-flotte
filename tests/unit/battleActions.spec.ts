@@ -8,7 +8,7 @@ import type { BattleState } from "../../src/engine/multiCombat";
 import { parseDungeonsYaml } from "../../src/schemas/dungeonSchema";
 import type { DungeonDef } from "../../src/schemas/dungeonSchema";
 import { parseMonstersYaml } from "../../src/schemas/monsterSchema";
-import { parseSpellsYaml } from "../../src/schemas/spellSchema";
+import { parseSpellsYaml, spellSchema } from "../../src/schemas/spellSchema";
 import { rollSpellBase, spellAttackSpec } from "../../src/store/battleSelectors";
 import { useCombatStore } from "../../src/store/useCombatStore";
 
@@ -81,12 +81,19 @@ describe("spellAttackSpec — pont SpellDef → AttackSpec", () => {
     expect(spellAttackSpec(PRESSION, 8)).toEqual({
       base: 8,
       element: "earth",
-      baseCrit: 0,
       apCost: PRESSION.apCost,
       pushCells: 0,
     });
     expect(spellAttackSpec(EPEE, 10).pushCells).toBe(EPEE.pushCells);
     expect(spellAttackSpec(EPEE, 10).element).toBe(EPEE.element);
+  });
+
+  it("transmet le dénominateur et le jet de CC du sort, sans en inventer", () => {
+    // PARITÉ: SPELL-03, `spell.critRate` → `critRate`, `spell.critDamage` → `critMax`.
+    const withCrit = spellSchema.parse({ ...PRESSION, critRate: 30, critDamage: { min: 10, max: 12 } });
+    expect(spellAttackSpec(withCrit, 8)).toMatchObject({ critRate: 30, critMax: { min: 10, max: 12 } });
+    expect(spellAttackSpec(PRESSION, 8).critRate).toBeUndefined();
+    expect(spellAttackSpec(PRESSION, 8).critMax).toBeUndefined();
   });
 });
 

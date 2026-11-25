@@ -426,11 +426,11 @@ function enemyActive(state: BattleState): BattleState {
 }
 
 function decide(state: BattleState): EnemyAction | null {
-  return spellStrategy({ spells: boulonSpells(), rng: () => 0 })(state, BOULON_ID);
+  return spellStrategy({ spells: boulonSpells() })(state, BOULON_ID);
 }
 
 function runTurn(state: BattleState): BattleState {
-  const strategy = spellStrategy({ spells: boulonSpells(), rng: () => 0 });
+  const strategy = spellStrategy({ spells: boulonSpells() });
   return enemiesAct({ state: enemyActive(state), rng: () => 0, strategy });
 }
 

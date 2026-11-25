@@ -163,8 +163,9 @@ describe("PARITÉ 1v1 — dégâts d'un sort", () => {
 describe("PARITÉ 1v1 — le coup critique n'existe PAS hors donjon", () => {
   it("un seul jet aléatoire, même avec 100 000 d'Agilité : aucun tirage de CC", () => {
     // PARITÉ: après unification, le CC 1vN s'appliquera ici ; l'ancien 1v1 ne consomme qu'un jet et n'a aucun multiplicateur.
-    // En 1vN, `rollsCritical` consomme un second `rng()` et applique un
-    // `critDamagePct`. Ici `castSpell` ne fait que `rollDamage` : 1 jet, 8 PV.
+    // En 1vN, `rollsCritical` ne consomme un jet que si le sort porte un
+    // `critRate` ; sans donnée, aucun CC (SPELL-03). Ici `castSpell` ne fait que
+    // `rollDamage` : 1 jet, 8 PV.
     const base = buildState(["P.M."]);
     const agile = { ...base, player: { ...base.player, stats: { ...base.player.stats, agility: 100000 } } };
     const counter = countingRng(0);

@@ -88,7 +88,7 @@ function withActive(state: BattleState, id: string): BattleState {
   return { ...state, activeIndex: Math.max(0, state.order.indexOf(id)) };
 }
 
-const strategy = (spell: SpellDef): EnemyStrategy => spellStrategy({ spells: [spell], rng: RNG });
+const strategy = (spell: SpellDef): EnemyStrategy => spellStrategy({ spells: [spell] });
 
 /** Coups réellement portés : le journal du moteur est l'arbitre, pas le test. */
 function hits(state: BattleState): number {
@@ -141,8 +141,7 @@ function consumeQuotaThroughEngine(): BattleState {
   const attack = {
     base: 1,
     element: "neutral" as const,
-    baseCrit: 0,
-    apCost: RAT_SPELL.apCost,
+        apCost: RAT_SPELL.apCost,
     spellId: RAT_SPELL.id,
     castsPerTurn: RAT_SPELL.castsPerTurn,
     cooldown: RAT_SPELL.cooldown,

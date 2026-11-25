@@ -69,7 +69,7 @@ function duel(target = duelist({ id: "monster" })): BattleState {
 }
 
 function bareAttack(overrides: Partial<AttackSpec> = {}): AttackSpec {
-  return { base: 8, element: "earth", baseCrit: 0, apCost: 3, ...overrides };
+  return { base: 8, element: "earth", apCost: 3, ...overrides };
 }
 
 function hit(state: BattleState, attack = bareAttack()): BattleState {

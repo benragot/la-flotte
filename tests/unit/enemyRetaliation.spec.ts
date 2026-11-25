@@ -85,7 +85,7 @@ function crabBattle(): { state: BattleState; enemy: CombatantLike } {
   return { state: asState([heroCombatant(), enemy]), enemy };
 }
 
-function attackOf(action: EnemyAction | null): { targetId: string; attack: { base: number; apCost: number } } {
+function attackOf(action: EnemyAction | null): Extract<EnemyAction, { kind: "attack" }> {
   if (action === null || action.kind !== "attack") throw new Error("action d'attaque attendue");
   return action;
 }
@@ -135,39 +135,42 @@ function count(haystack: string, needle: string): number {
 }
 
 describe("spellStrategy — sorts réels du monstre", () => {
-  it("frappe le héros avec le sort dispo et tire sa base dans la plage YAML", () => {
+  it("transmet la plage YAML du sort : la stratégie ne tire plus le dé", () => {
+    // PARITÉ: SPELL-03, le dé de dégâts appartient au moteur, après la décision de CC.
     const { state, enemy } = crabBattle();
-    const action = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0) })(state, enemy.id);
+    const action = spellStrategy({ spells: spellsFor(CRABE) })(state, enemy.id);
     const attack = attackOf(action);
     expect(attack.targetId).toBe("player");
+    expect(attack.attack.damage).toEqual(PINCE.damage);
     expect(attack.attack.base).toBe(PINCE.damage?.min);
-    expect(attack.attack.base).toBeGreaterThanOrEqual(PINCE.damage?.min ?? 0);
-    expect(attack.attack.base).toBeLessThanOrEqual(PINCE.damage?.max ?? 0);
     expect(attack.attack.apCost).toBe(PINCE.apCost);
   });
 
-  it("borne le tirage au maximum de la plage du sort", () => {
+  it("le jet maximum reste dans la plage du sort, côté moteur", () => {
+    // PARITÉ: SPELL-03, `critMax` absent ⇒ le CC vaut `max` de `damage`, borné au YAML.
     const { state, enemy } = crabBattle();
-    const action = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0.999_999) })(state, enemy.id);
-    expect(attackOf(action).attack.base).toBe(PINCE.damage?.max);
+    const action = spellStrategy({ spells: spellsFor(CRABE) })(state, enemy.id);
+    const attack = attackOf(action).attack;
+    expect(attack.critMax ?? attack.damage?.max).toBe(PINCE.damage?.max);
+    expect(attack.critRate).toBeUndefined();
   });
 
   it("rend null quand le monstre n'a aucun sort de dégâts", () => {
     const { state, enemy } = crabBattle();
     const bond = mustFind(spells, "bond");
-    expect(spellStrategy({ spells: [bond], rng: fixedRng(0) })(state, enemy.id)).toBeNull();
+    expect(spellStrategy({ spells: [bond] })(state, enemy.id)).toBeNull();
   });
 
   it("rend null quand les PA restants ne paient pas le sort", () => {
     const enemy = { ...monsterCombatant({ monster: CRABE, index: 0 }), ap: 1 };
     const state = asState([heroCombatant(), enemy]);
-    expect(spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0) })(state, enemy.id)).toBeNull();
+    expect(spellStrategy({ spells: spellsFor(CRABE) })(state, enemy.id)).toBeNull();
   });
 
   it("est déterministe pour un rng fixé", () => {
     const { state, enemy } = crabBattle();
-    const first = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0.5) })(state, enemy.id);
-    const second = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0.5) })(state, enemy.id);
+    const first = spellStrategy({ spells: spellsFor(CRABE) })(state, enemy.id);
+    const second = spellStrategy({ spells: spellsFor(CRABE) })(state, enemy.id);
     expect(first).toEqual(second);
   });
 });
@@ -191,13 +194,13 @@ describe("riposte en diagonale (D104 + GRID-01) — le monstre collé frappe", (
 
   it("décide d'attaquer depuis la diagonale, sans se décaler d'abord", () => {
     const { state, enemy } = diagonalCrab();
-    const action = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0) })(state, enemy.id);
+    const action = spellStrategy({ spells: spellsFor(CRABE) })(state, enemy.id);
     expect(action).toMatchObject({ kind: "attack", targetId: "player", attack: { apCost: PINCE.apCost } });
   });
 
   it("frappe en diagonale sans dépenser un seul PM : portée 1, pas 2", () => {
     const { state, enemy } = stuckCrab();
-    const strategy = spellStrategy({ spells: spellsFor(CRABE), rng: fixedRng(0) });
+    const strategy = spellStrategy({ spells: spellsFor(CRABE) });
     const next = enemiesAct({ state, rng: fixedRng(0), strategy });
     expect(heroOf(next).hp).toBeLessThan(50);
     const crab = next.combatants.find((entry) => entry.id === enemy.id);
@@ -315,7 +318,7 @@ describe("playEnemyTurns — borne dure", () => {
     const enemy = monsterCombatant({ monster: CRABE, index: 0 });
     const stuck: BattleState = { turn: 1, order: [enemy.id], activeIndex: 0, combatants: [heroCombatant(), enemy], log: [] };
     let calls = 0;
-    const attack = { base: 1, element: "neutral" as const, baseCrit: 0, apCost: 1 };
+    const attack = { base: 1, element: "neutral" as const, apCost: 1 };
     const strategyFor = (): EnemyStrategy => () => {
       calls += 1;
       return { kind: "attack", targetId: "fantome", attack };
