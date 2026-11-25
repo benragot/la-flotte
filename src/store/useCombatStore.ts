@@ -40,8 +40,8 @@ import type {
   SpawnZone,
 } from "../engine/exploration";
 import { devMultipliers } from "../dev/devMultipliers";
-import { attemptRoom, currentRoom, healBetweenRooms, isDungeonComplete, roomMonsters } from "../engine/dungeon";
-import type { DungeonRoom, DungeonRunState, RoomHeal } from "../engine/dungeon";
+import { attemptRoom, currentRoom, healBetweenRooms, isDungeonComplete, resolveRoomRewards, roomMonsters } from "../engine/dungeon";
+import type { DungeonRoom, DungeonRunState, RoomHeal, RoomRewards } from "../engine/dungeon";
 import { heroBattleCombatant, setupDungeonBattle } from "../engine/dungeon/combatants";
 import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
@@ -175,7 +175,7 @@ interface CombatStore {
    * existe. Refusée sur une défaite (D29) et idempotente sur un second clic ;
    * la sauvegarde est écrite si `storage` est fourni.
    */
-  settleDungeonRoom: (input?: { storage?: StorageLike }) => void;
+  settleDungeonRoom: (input?: { storage?: StorageLike; rng?: Rng }) => void;
   endBattle: () => void;
   /**
    * NOUVEAU : remise à zéro complète demandée par « Nouvelle partie ». Les onze
@@ -739,30 +739,92 @@ function nextRoomNotice(run: DungeonRunState, dungeon: DungeonDef): string {
   return room === null ? DUNGEON_LEFT : `Salle gagnée. La suivante t'attend : ${room.name}.`;
 }
 
-/** Progression : salle suivante, refus ou victoire de donjon (message + sortie). */
-function progressedUpdate(advance: RoomAdvance | null, opening: string | null): Partial<CombatStore> {
-  if (advance === null) return { battle: null };
-  if (!advance.cleared) return { battle: null, dungeonRun: advance.run, dungeonNotice: ROOM_REFUSED };
-  if (advance.complete) return { battle: null, dungeonRun: null, dungeonNotice: `Donjon terminé : ${advance.dungeon.name}.` };
-  const battle = roomBattleAt(advance.run, advance.dungeon, opening);
-  return { battle, dungeonRun: advance.run, dungeonNotice: nextRoomNotice(advance.run, advance.dungeon) };
+/** Salle réellement nettoyée : relue AVANT l'avance, et seulement si `cleared`. */
+function clearedRoomOf(store: CombatStore, advance: RoomAdvance | null): DungeonRoom | null {
+  if (advance === null || !advance.cleared || store.dungeonRun === null) return null;
+  return currentRoom(store.dungeonRun, advance.dungeon);
 }
 
 /**
- * Salle gagnée : les PV effectifs sont soignés du ratio du donjon (DEC-03), puis
- * reportés dans le domaine de niveau, la sauvegarde est écrite, et la salle
- * suivante démarre (ou le donjon se ferme). Une défaite est refusée ici :
- * c'est `endBattle` qui sort proprement (D44). Un second clic ne peut pas
- * soigner deux fois : `wonBattle` est faux dès que la salle suivante est ouverte.
+ * DATA-01/DATA-02 : mêmes formules que le 1v1 (`resolveRoomRewards`), kamas
+ * compris. Crédité une seule fois, avant que la salle suivante n'écrase le
+ * `battle` ; un second `settleUpdate` retombe sur `wonRoom === null`.
  */
-function settleUpdate(store: CombatStore, storage?: StorageLike): Partial<CombatStore> {
-  const won = wonRoom(store.battle);
-  if (won === null) return {};
-  const advance = attemptCurrentRoom(store, won.state);
-  const crossing = crossingHeal(advance, won.pool);
+function creditRoomRewards(room: DungeonRoom | null, rng: Rng): RoomRewards | null {
+  const hero = useGameStore.getState().hero;
+  if (room === null || hero === null) return null;
+  const groups = roomBattleMonsters(room);
+  const input = { heroXp: hero.xp, hero: playerFor(hero, BATTLE_ORIGIN), groups, progression, rng };
+  const rewards = resolveRoomRewards({ ...input, multipliers: devMultipliers() });
+  if (rewards !== null) useGameStore.getState().creditCombatRewards(rewards);
+  return rewards;
+}
+
+/** Ligne de récompense de la notice : XP, kamas et nombre de butins gagnés. */
+function rewardSuffix(rewards: RoomRewards | null): string {
+  if (rewards === null) return "";
+  const loot = rewards.drops.length === 0 ? "" : `, ${rewards.drops.length} butin(s)`;
+  return ` Récompense : ${rewards.xpGained} XP, ${rewards.kamas} kamas${loot}.`;
+}
+
+function clearedNotice(advance: RoomAdvance, rewards: RoomRewards | null): string {
+  const { run, dungeon, complete } = advance;
+  const base = complete ? `Donjon terminé : ${dungeon.name}.` : nextRoomNotice(run, dungeon);
+  return `${base}${rewardSuffix(rewards)}`;
+}
+
+/** Progression : salle suivante, refus ou victoire de donjon (message + sortie). */
+function clearedProgress(
+  advance: RoomAdvance,
+  rewards: RoomRewards | null,
+  opening: string | null,
+): Partial<CombatStore> {
+  const notice = clearedNotice(advance, rewards);
+  if (advance.complete) return { battle: null, dungeonRun: null, dungeonNotice: notice };
+  const battle = roomBattleAt(advance.run, advance.dungeon, opening);
+  return { battle, dungeonRun: advance.run, dungeonNotice: notice };
+}
+
+function progressedUpdate(
+  advance: RoomAdvance | null,
+  opening: string | null,
+  rewards: RoomRewards | null = null,
+): Partial<CombatStore> {
+  if (advance === null) return { battle: null };
+  if (!advance.cleared) return { battle: null, dungeonRun: advance.run, dungeonNotice: ROOM_REFUSED };
+  return clearedProgress(advance, rewards, opening);
+}
+
+interface RoomSettlement {
+  advance: RoomAdvance | null;
+  rewards: RoomRewards | null;
+  pool: HeroPool;
+}
+
+type SettleInput = { storage?: StorageLike; rng?: Rng };
+
+function applySettlement(store: CombatStore, settle: RoomSettlement, input?: SettleInput): Partial<CombatStore> {
+  const crossing = crossingHeal(settle.advance, settle.pool);
   carryOverBattleHp(crossing.hp);
-  useGameStore.getState().saveGame(storage);
-  return progressedUpdate(advance, healLine(crossing.healed));
+  useGameStore.getState().saveGame(input?.storage);
+  return progressedUpdate(settle.advance, healLine(crossing.healed), settle.rewards);
+}
+
+/**
+ * Salle gagnée : récompenses créditées (DATA-01/DATA-02), PV effectifs soignés
+ * du ratio du donjon puis reportés dans le domaine de niveau, sauvegarde écrite,
+ * salle suivante ouverte. Un second clic ne crédite ni ne soigne deux fois :
+ * `wonBattle` est faux dès que la salle suivante est ouverte.
+ */
+function settledRoomUpdate(store: CombatStore, won: WonRoom, input?: SettleInput): Partial<CombatStore> {
+  const advance = attemptCurrentRoom(store, won.state);
+  const rewards = creditRoomRewards(clearedRoomOf(store, advance), input?.rng ?? Math.random);
+  return applySettlement(store, { advance, rewards, pool: won.pool }, input);
+}
+
+function settleUpdate(store: CombatStore, input?: SettleInput): Partial<CombatStore> {
+  const won = wonRoom(store.battle);
+  return won === null ? {} : settledRoomUpdate(store, won, input);
 }
 
 /** Sortie du donjon (défaite ou abandon) : le run est oublié, aucun 0 PV persisté. */
@@ -884,7 +946,7 @@ function battleSpellActions(set: StoreSetter, get: () => CombatStore) {
 
 function battleCloseActions(set: StoreSetter) {
   return {
-    settleDungeonRoom: (input?: { storage?: StorageLike }) => set((store) => settleUpdate(store, input?.storage)),
+    settleDungeonRoom: (input?: { storage?: StorageLike; rng?: Rng }) => set((store) => settleUpdate(store, input)),
     endBattle: () => set((store) => endBattleUpdate(store)),
   };
 }

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createHero } from "../../src/engine/createHero";
 import type { Hero } from "../../src/engine/createHero";
-import { attemptRoom, enterDungeon, isDungeonComplete, roomMonsters } from "../../src/engine/dungeon";
+import { attemptRoom, roomMonsters } from "../../src/engine/dungeon";
 import type { DungeonRoom, DungeonRunState } from "../../src/engine/dungeon";
 import { computeCombatXp, getBaseApForLevel } from "../../src/engine/economy";
 import { gainXp } from "../../src/engine/hero";
@@ -49,6 +49,8 @@ const HERO_ATTACK: AttackSpec = { base: 400, element: "earth", baseCrit: 0, apCo
 const ENEMY_ATTACK = { base: 1, element: "neutral" as const, baseCrit: 0 };
 /** Aléa injecté dans le store : crit et drops jamais tirés par `Math.random`. */
 const rng: Rng = () => 0.5;
+/** Tirage des récompenses : 0,35 fait passer tous les butins et varie les kamas. */
+const rewardRng: Rng = () => 0.35;
 
 class MemoryStorage implements StorageLike {
   private readonly entries = new Map<string, string>();
@@ -128,15 +130,18 @@ function stockKey(): void {
   useGameStore.setState({ inventory: addItem({ inventory, itemId: KEY_ID, quantity: 1 }) });
 }
 
+/**
+ * Entrée par le **chemin de production** (`enterDungeonRun`) : le run vit dans
+ * le store, donc chaque `settleDungeonRoom` crédite réellement les récompenses.
+ */
 function enterWithKey(): { dungeon: DungeonDef; run: DungeonRunState } {
   const dungeon = dungeonOrThrow();
-  const result = enterDungeon({ dungeon, inventory: useGameStore.getState().inventory });
-  if (result.run === null) throw new Error(`entrée refusée : ${result.reason ?? "raison inconnue"}`);
-  expect(result.reason).toBeNull();
-  expect(result.run.keysConsumed).toBe(1);
-  expect(countItem(result.inventory, KEY_ID)).toBe(0);
-  useGameStore.setState({ inventory: result.inventory });
-  return { dungeon, run: result.run };
+  expect(useCombatStore.getState().enterDungeonRun({ dungeonId: dungeon.id })).toBe(true);
+  const run = useCombatStore.getState().dungeonRun;
+  if (run === null) throw new Error("entrée acceptée sans run dans le store");
+  expect(run.keysConsumed).toBe(1);
+  expect(countItem(useGameStore.getState().inventory, KEY_ID)).toBe(0);
+  return { dungeon, run };
 }
 
 function battlePlayer(battle: BattleState) {
@@ -205,8 +210,7 @@ function playRoom(room: DungeonRoom, storage?: StorageLike): RoomOutcome {
   playBattle();
   expect(isVictory(battleOrThrow())).toBe(true);
   const fallen = fallenIds();
-  useCombatStore.getState().settleDungeonRoom({ storage });
-  expect(useCombatStore.getState().battle).toBeNull();
+  useCombatStore.getState().settleDungeonRoom({ storage, rng: rewardRng });
   expect(useCombatStore.getState().combat).toBeNull();
   return { hpStart, hpEnd: heroOrThrow().hp, enemies, fallen };
 }
@@ -218,28 +222,38 @@ function assertOccurrences(room: DungeonRoom, fallen: readonly string[]): void {
   }
 }
 
-function monsterXp(monsterId: string): number {
-  const monster: MonsterDef = mustFind(monsters, monsterId);
-  const { level, wisdom } = heroOrThrow();
-  const input = {
-    baseMonsterXp: monster.baseXp,
-    playerLevel: level,
-    monsterLevel: monster.level,
-    wisdom,
-    ...progression.experience,
-  };
-  return computeCombatXp(input);
+/** Kamas d'un monstre au tirage constant du walkthrough (`rewardRng = 0.35`). */
+function kamasOf(monsterId: string): number {
+  const monster = mustFind(monsters, monsterId);
+  if (monster.kamasMin === undefined || monster.kamasMax === undefined) return 0;
+  return monster.kamasMin + Math.floor(0.35 * (monster.kamasMax - monster.kamasMin + 1));
 }
 
+function roomInstances(room: DungeonRoom): MonsterDef[] {
+  return roomMonsters(room).flatMap((group) =>
+    Array.from({ length: group.count }, () => mustFind(monsters, group.monsterId)),
+  );
+}
+
+/** Attendu COMBAT-09 : Σ des `baseXp`, `max(M)` pour l'écart et l'anti-farm. */
 function roomXp(room: DungeonRoom): number {
-  return roomMonsters(room).reduce((total, group) => total + monsterXp(group.monsterId) * group.count, 0);
+  const defs = roomInstances(room);
+  const baseMonsterXp = defs.reduce((total, monster) => total + monster.baseXp, 0);
+  const monsterLevel = Math.max(...defs.map((monster) => monster.level));
+  const { level, wisdom } = heroOrThrow();
+  return computeCombatXp({ baseMonsterXp, playerLevel: level, monsterLevel, wisdom, ...progression.experience });
+}
+
+function roomKamas(room: DungeonRoom): number {
+  return roomInstances(room).reduce((total, monster) => total + kamasOf(monster.id), 0);
 }
 
 interface Traversal {
-  run: DungeonRunState;
+  run: DungeonRunState | null;
   hpTrail: RoomOutcome[];
   enemyCounts: number[];
   xp: number;
+  kamas: number;
 }
 
 // `attemptRoom` a désormais un appelant de production (5D-a) :
@@ -250,38 +264,36 @@ interface Traversal {
 // Dette D71 : ces 4 salles restent infaisables au niveau 16 réel (l'équilibrage
 // n'est pas prouvé ici, le walkthrough mesure le moteur, pas la viabilité).
 function traverseDungeon(dungeon: DungeonDef, start: DungeonRunState): Traversal {
-  const traversal: Traversal = { run: start, hpTrail: [], enemyCounts: [], xp: 0 };
+  const traversal: Traversal = { run: start, hpTrail: [], enemyCounts: [], xp: 0, kamas: 0 };
   for (const room of dungeon.rooms) {
+    const expected = { xp: roomXp(room), kamas: roomKamas(room) };
+    const before = useCombatStore.getState().dungeonRun;
+    if (before === null) throw new Error(`run absent avant la salle ${room.roomNumber}`);
     const outcome = playRoom(room);
-    const defeatedMonsterIds = outcome.fallen;
-    const attempt = attemptRoom({ run: traversal.run, dungeon, defeatedMonsterIds });
-    expect(attempt.cleared).toBe(true);
-    assertOccurrences(room, defeatedMonsterIds);
-    const truncated = attemptRoom({ run: traversal.run, dungeon, defeatedMonsterIds: defeatedMonsterIds.slice(1) });
-    expect(truncated.cleared).toBe(false);
-    traversal.run = attempt.run;
+    assertAttemptRoom(dungeon, before, room, outcome.fallen);
+    traversal.run = useCombatStore.getState().dungeonRun;
     traversal.hpTrail.push(outcome);
     traversal.enemyCounts.push(outcome.enemies);
-    traversal.xp += roomXp(room);
+    traversal.xp += expected.xp;
+    traversal.kamas += expected.kamas;
   }
   return traversal;
 }
 
-function assertNoHeal(trail: readonly RoomOutcome[]): void {
-  for (const [index, step] of trail.entries()) {
-    expect(step.hpEnd).toBeLessThanOrEqual(step.hpStart);
-    if (index > 0) expect(step.hpStart).toBe(trail[index - 1]?.hpEnd);
-  }
+/** `attemptRoom` seul : salle complète acceptée, un vaincu manquant refusé. */
+function assertAttemptRoom(dungeon: DungeonDef, run: DungeonRunState, room: DungeonRoom, fallen: string[]): void {
+  const attempt = attemptRoom({ run, dungeon, defeatedMonsterIds: fallen });
+  expect(attempt.cleared).toBe(true);
+  assertOccurrences(room, fallen);
+  expect(attemptRoom({ run, dungeon, defeatedMonsterIds: fallen.slice(1) }).cleared).toBe(false);
 }
 
-// Le `rewards` ci-dessous est CONSTRUIT À LA MAIN : ce chemin ne traverse PAS
-// `resolveCombatRewards` (donc ni prospection, ni drops, ni `levelUp`).
-// Seul le crédit via `gainXp` (dans `creditCombatRewards`) est prouvé ici.
-function creditXp(amount: number): void {
-  const hero = heroOrThrow();
-  const totalXp = hero.xp + amount;
-  const rewards = { xpGained: amount, totalXp, level: hero.level, levelUp: null, prospection: hero.pp, drops: [] };
-  useGameStore.getState().creditCombatRewards(rewards);
+/** Entrée de salle N+1 : jamais moins de PV que la sortie de la salle N. */
+function assertNoDamage(trail: readonly RoomOutcome[]): void {
+  for (const [index, step] of trail.entries()) {
+    expect(step.hpEnd).toBeGreaterThan(0);
+    if (index > 0) expect(step.hpStart).toBeGreaterThanOrEqual(trail[index - 1]?.hpEnd ?? 0);
+  }
 }
 
 function invariants() {
@@ -321,7 +333,7 @@ beforeEach(() => {
 });
 
 describe("walkthrough donjon de la Ferraille", () => {
-  it("craft → entrée → 4 salles 1vN → victoire → XP", () => {
+  it("craft → entrée → 4 salles 1vN → victoire → XP, kamas et butin par salle", () => {
     prepareHero();
     expect(craftRealRecipe()).toBe(1);
     const before = invariants();
@@ -329,22 +341,25 @@ describe("walkthrough donjon de la Ferraille", () => {
     const { dungeon, run } = enterWithKey();
     const traversal = traverseDungeon(dungeon, run);
     expect(traversal.enemyCounts).toEqual([3, 4, 4, 4]);
-    assertNoHeal(traversal.hpTrail);
-    expect(isDungeonComplete(traversal.run, dungeon)).toBe(true);
-    creditXp(traversal.xp);
+    assertNoDamage(traversal.hpTrail);
+    expect(traversal.run).toBeNull();
     const hero = heroOrThrow();
-    // XP CALCULÉE depuis les `baseXp` du YAML (via `computeCombatXp`),
-    // mais CRÉDITÉE via un `rewards` fabriqué à la main (cf. `creditXp`).
-    // Ce n'est donc pas `resolveCombatRewards` qui est exercé.
-    // Depuis le rendement décroissant 1.29, le héros niveau 16 ne touche plus
-    // l'XP pleine des monstres 1 à 15 : 2135 → 1736 (écart de niveau + anti-farm).
-    expect(traversal.xp).toBe(1736);
+    // Chaque salle crédite via `resolveRoomRewards` (mêmes formules 1.29 que
+    // le 1v1, agrégat Σ des `baseXp` / `max(M)`). Le héros monte au fil des
+    // salles : 295 + 365 + 511 + 575 = 1746 XP, niveaux 1 → 3 → 3 → 4.
+    expect(traversal.xp).toBe(1746);
+    expect(traversal.kamas).toBe(359);
     expect(hero.level).toBe(4);
-    expect(hero.xp).toBe(1736);
+    expect(hero.xp).toBe(1746);
+    expect(hero.kamas).toBe(359);
+    expect(countItem(useGameStore.getState().inventory, "plume_mazoutee")).toBe(2);
+    expect(countItem(useGameStore.getState().inventory, "fer_goutte_mazout")).toBe(4);
+    expect(countItem(useGameStore.getState().inventory, "fer_pince_de_douze")).toBe(4);
+    expect(countItem(useGameStore.getState().inventory, KEY_ID)).toBe(6);
     expect(hero.hp).toBeGreaterThan(0);
-    expect(hero.hp).toBeLessThan(hero.maxHp);
     expect(invariants()).toEqual(before);
     expect(useCombatStore.getState().battle).toBeNull();
+    expect(useCombatStore.getState().dungeonNotice).toContain("Donjon terminé");
   });
 });
 

@@ -1,4 +1,6 @@
 export { attemptRoom, completeRoom, enterDungeon } from "./run";
+export { resolveRoomRewards, rollRoomKamas } from "./rewards";
+export type { RoomMonsterGroup, RoomRewards, RoomRewardsInput } from "./rewards";
 export { healBetweenRooms } from "./heal";
 export type { RoomHeal, RoomHealInput } from "./heal";
 export { currentRoom, dungeonProgress, isDungeonComplete, roomMonsters } from "./rooms";
