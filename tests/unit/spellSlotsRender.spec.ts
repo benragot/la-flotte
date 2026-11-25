@@ -64,13 +64,12 @@ function inReach(base: CombatState): CombatState {
 describe("SpellSlots — plus de clic mort", () => {
   it("un sort `kind: other` est disabled, aria-disabled et badgé « à venir »", () => {
     const combat = combatWith();
-    const html = renderToStaticMarkup(createElement(SpellSlots, { combat, selectedSpellId: null }));
     const slot = slotMarkup("Glyphe Agressif", combat);
     expect(slot).toContain("disabled");
     expect(slot).toContain('aria-disabled="true"');
     expect(slot).toContain("à venir");
     expect(slot).toContain("Effet pas encore implémenté");
-    expect(html).toContain("3"); // coût PA toujours lisible
+    expect(slot).toMatch(/bottom-0\.5 right-1[^>]*>3<\/span>/);
   });
 
   it("un sort en recharge affiche « Recharge (n) » et reste désactivé", () => {
@@ -80,6 +79,15 @@ describe("SpellSlots — plus de clic mort", () => {
     const slot = slotMarkup("Aile Gras", combat);
     expect(slot).toContain("disabled");
     expect(slot).toContain("Recharge (1)");
+  });
+
+  it("un sort à état requis affiche « état non géré », sans promesse", () => {
+    const base = combatWith();
+    const combat = { ...base, player: { ...base.player, spellIds: [...base.player.spellIds, "gueule_de_bois"] } };
+    const slot = slotMarkup("Gueule de Bois", combat);
+    expect(slot).toContain('aria-disabled="true"');
+    expect(slot).toContain("état non géré");
+    expect(slot).toContain("État non géré par le moteur");
   });
 
   it("un sort lançable reste actif, sans badge", () => {

@@ -66,7 +66,7 @@ test.describe("priorité d'Échap : le panneau passe avant l'annulation du sort"
   test("le sort reste sélectionné quand Échap ferme un panneau", async ({ page }) => {
     await page.goto("/?demo=combat");
     await expect(page.locator(ARENA)).toBeVisible();
-    await page.keyboard.press("1");
+    await page.keyboard.press("2");
     await expect(page.locator(SELECTED_SPELL)).toHaveCount(1);
     await page.locator(INVENTORY_BUTTON).click();
     await expect(page.locator(INVENTORY)).toBeVisible();

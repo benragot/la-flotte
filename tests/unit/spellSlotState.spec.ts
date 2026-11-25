@@ -149,13 +149,33 @@ describe("slotLook — quota du tour", () => {
   });
 });
 
-describe("slotLook — état requis (SPELL-09)", () => {
-  it("désactive « Gueule de Bois » et nomme l'état manquant", () => {
+describe("slotLook — état non géré (SPELL-02 absent)", () => {
+  it("désactive « Gueule de Bois » avec un badge sans promesse", () => {
     const target = mustFind(spells, "gueule_de_bois");
     const look = lookFor(target, { player: combatant({ ap: 12 }) });
-    expect(look.state).toBe("etat-requis");
+    expect(look.state).toBe("etat-non-gere");
     expect(look.disabled).toBe(true);
-    expect(look.reason).toBe("État requis : Ivre");
+    expect(look.badge).toBe("état non géré");
+    expect(look.reason).toBe("État non géré par le moteur");
+  });
+});
+
+describe("slotLook — liste blanche des kinds exécutés", () => {
+  it("un kind sans handler (même futur) reste « à venir », jamais lançable", () => {
+    const heal = { ...spell({ id: "soin" }), kind: "heal" } as unknown as SpellDef;
+    const look = lookFor(heal);
+    expect(look.state).toBe("a-venir");
+    expect(look.disabled).toBe(true);
+  });
+});
+
+describe("slotLook — la recharge l'emporte sur la sélection", () => {
+  it("un sort sélectionné mais en recharge reste « recharge », désactivé", () => {
+    const target = spell({ id: "pression", cooldown: 2 });
+    const state = combat({ turn: 2, spellsById: { pression: target }, spellUsage: usageOf(1, 4) });
+    const look = slotLook({ combat: state, selectedSpellId: "pression" }, target);
+    expect(look.state).toBe("recharge");
+    expect(look.disabled).toBe(true);
   });
 });
 

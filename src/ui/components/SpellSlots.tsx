@@ -29,9 +29,9 @@ const COST_INK: Readonly<Record<SlotState, string>> = {
   "pa-insuffisants": "text-[var(--color-ink-danger)]",
   "hors-portee": "text-[var(--color-ink-3)]",
   "a-venir": "text-[var(--color-ink-3)]",
+  "etat-non-gere": "text-[var(--color-ink-3)]",
   recharge: "text-[var(--color-ink-3)]",
   "quota-epuise": "text-[var(--color-ink-3)]",
-  "etat-requis": "text-[var(--color-ink-3)]",
   verrouille: "text-[var(--color-ink-3)]",
 };
 

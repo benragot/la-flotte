@@ -1,9 +1,8 @@
 import { isSpellAvailable, spellUsageKey } from "../engine/combat";
 import { getCastableCells } from "../engine/combatLoop/castable";
-import { isSpellImplemented } from "../engine/combatLoop/spellSupport";
+import { spellSupportRefusal } from "../engine/combatLoop/spellSupport";
 import type { CombatState } from "../engine/combatLoop/types";
 import type { SpellDef } from "../schemas/spellSchema";
-import { SPELL_STATE_LABELS } from "./hudHelpers";
 import {
   SLOT_EMPTY,
   SLOT_IDLE,
@@ -15,21 +14,21 @@ import {
 
 /**
  * Les états d'une case de sort (spec §2.4) : disponible, sélectionné, à venir,
- * recharge, quota épuisé, état requis, hors portée, PA insuffisants, verrouillé
- * — plus la case vide.
+ * état non géré, recharge, quota épuisé, hors portée, PA insuffisants,
+ * verrouillé — plus la case vide.
  *
  * Le HUD ne refait aucune règle : la géométrie vient de `getCastableCells`, les
- * quotas de `isSpellAvailable`. Ici on **nomme la cause** pour que la case
- * l'affiche autrement qu'en couleur — la teinte seule n'est pas un état.
+ * quotas de `isSpellAvailable`, les refus de support de `spellSupportRefusal`.
+ * Ici on **nomme la cause** pour que la case l'affiche autrement qu'en couleur.
  */
 export type SlotState =
   | "vide"
   | "disponible"
   | "selectionne"
   | "a-venir"
+  | "etat-non-gere"
   | "recharge"
   | "quota-epuise"
-  | "etat-requis"
   | "hors-portee"
   | "pa-insuffisants"
   | "verrouille";
@@ -52,9 +51,9 @@ const FACES: Readonly<Record<SlotState, string>> = {
   disponible: SLOT_IDLE,
   selectionne: SLOT_SELECTED,
   "a-venir": SLOT_LOCKED,
+  "etat-non-gere": SLOT_LOCKED,
   recharge: SLOT_LOCKED,
   "quota-epuise": SLOT_LOCKED,
-  "etat-requis": SLOT_LOCKED,
   "hors-portee": SLOT_OUT_OF_RANGE,
   "pa-insuffisants": SLOT_NO_AP,
   verrouille: SLOT_LOCKED,
@@ -62,6 +61,7 @@ const FACES: Readonly<Record<SlotState, string>> = {
 
 const REASONS: Readonly<Partial<Record<SlotState, string>>> = {
   "a-venir": "Effet pas encore implémenté",
+  "etat-non-gere": "État non géré par le moteur",
   "quota-epuise": "Quota du tour épuisé",
   "hors-portee": "Hors portée",
   "pa-insuffisants": "PA insuffisants",
@@ -109,8 +109,9 @@ function quotaState(combat: CombatState, spell: SpellDef): SlotState | null {
 }
 
 function intrinsicBlock(spell: SpellDef): SlotState | null {
-  if (!isSpellImplemented(spell)) return "a-venir";
-  return spell.requiresState !== undefined ? "etat-requis" : null;
+  const refusal = spellSupportRefusal(spell);
+  if (refusal === "missing-state") return "etat-non-gere";
+  return refusal === "not-implemented" ? "a-venir" : null;
 }
 
 function apBlock(combat: CombatState, spell: SpellDef): SlotState | null {
@@ -118,37 +119,38 @@ function apBlock(combat: CombatState, spell: SpellDef): SlotState | null {
   return outOfReach(combat, spell) ? "hors-portee" : null;
 }
 
-/**
- * Pourquoi la case est bloquée ; `null` = lançable. Le moteur répond oui/non,
- * il ne dit pas **pourquoi** : chaque refus doit rester nommable par le joueur.
- * La sélection est peinte avant ces causes (elle sert à lire la portée), sauf
- * pour un sort intrinsèquement inlançable (`intrinsicBlock`).
- */
-function turnBlock(combat: CombatState, spell: SpellDef): SlotState | null {
+/** Blocages liés au tour et au quota : ils gagnent sur la sélection. */
+function gateBlock(combat: CombatState, spell: SpellDef): SlotState | null {
   if (combat.phase !== "player_turn") return "verrouille";
-  return quotaState(combat, spell) ?? apBlock(combat, spell);
+  return quotaState(combat, spell);
 }
 
+function playableState(input: SlotLookInput, spell: SpellDef): SlotState {
+  if (spell.id === input.selectedSpellId) return "selectionne";
+  return "disponible";
+}
+
+/**
+ * La recharge et le quota gagnent sur la sélection ; la portée et les PA la
+ * laissent peindre (le joueur sélectionne pour lire la zone). Aucun état ne
+ * peut contredire un refus intrinsèque du moteur.
+ */
 function stateOf(input: SlotLookInput, spell: SpellDef): SlotState {
   const intrinsic = intrinsicBlock(spell);
   if (intrinsic !== null) return intrinsic;
-  if (spell.id === input.selectedSpellId) return "selectionne";
-  return turnBlock(input.combat, spell) ?? "disponible";
-}
-
-function requiredStateText(spell: SpellDef): string | null {
-  const state = spell.requiresState;
-  return state === undefined ? null : `État requis : ${SPELL_STATE_LABELS[state]}`;
+  const gate = gateBlock(input.combat, spell);
+  if (gate !== null) return gate;
+  return apBlock(input.combat, spell) ?? playableState(input, spell);
 }
 
 function badgeOf(combat: CombatState, spell: SpellDef, state: SlotState): string | null {
   if (state === "a-venir") return "à venir";
+  if (state === "etat-non-gere") return "état non géré";
   return state === "recharge" ? `Recharge (${cooldownLeft(combat, spell)})` : null;
 }
 
 function reasonOf(combat: CombatState, spell: SpellDef, state: SlotState): string | null {
   if (state === "recharge") return `Recharge (${cooldownLeft(combat, spell)})`;
-  if (state === "etat-requis") return requiredStateText(spell);
   return REASONS[state] ?? null;
 }
 

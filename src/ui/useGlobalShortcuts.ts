@@ -92,10 +92,10 @@ function nextSelection(context: ShortcutContext, spellId: string): string | null
   return spellId;
 }
 
-/** Un sort dont l'effet n'existe pas encore ne doit pas entrer en sélection. */
-function isUpcoming(combat: CombatState, spellId: string): boolean {
+/** Un slot désactivé (recharge, quota, état, portée…) n'entre jamais en sélection. */
+function isSelectable(combat: CombatState, spellId: string): boolean {
   const spell = combat.spellsById?.[spellId];
-  return spell !== undefined && slotLook({ combat, selectedSpellId: null }, spell).state === "a-venir";
+  return spell !== undefined && !slotLook({ combat, selectedSpellId: null }, spell).disabled;
 }
 
 function spellIdAt(combat: CombatState | null, index: number): string | null {
@@ -105,7 +105,7 @@ function spellIdAt(combat: CombatState | null, index: number): string | null {
 
 function selectableId(combat: CombatState, spellId: string | null): string | null {
   if (spellId === null) return null;
-  return isUpcoming(combat, spellId) ? null : spellId;
+  return isSelectable(combat, spellId) ? spellId : null;
 }
 
 function spellAction(context: ShortcutContext, index: number): ShortcutEffect | null {
