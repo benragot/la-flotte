@@ -11,8 +11,14 @@ import { DOCK_SHELL, FIELD_MATERIAL, PANEL_MATERIAL } from "../../uiTokens";
  * `shadow-lg` a disparu : l'ombre d'un panneau est un socle net de 2 px, sans
  * flou (I6), et aucune transition n'est globale (I8).
  */
+/**
+ * UI-05 : le panneau est une **colonne du flux**, pas un overlay. Il réserve
+ * 320 px à côté de l'arène ; aucune case ne passe dessous et le clic de carte
+ * ne peut plus être capté par le HUD. `h-full` épouse la rangée de jeu, donc le
+ * panneau et l'arène partagent la même hauteur au-dessus du dock.
+ */
 export const BATTLE_PANEL =
-  `pointer-events-auto absolute left-2 top-2 z-20 flex w-[320px] flex-col gap-1 p-2 ${PANEL_MATERIAL}`;
+  `pointer-events-auto relative flex h-full w-[320px] shrink-0 flex-col gap-1 p-2 ${PANEL_MATERIAL}`;
 
 export const BATTLE_LIST = "flex flex-col gap-1";
 
