@@ -1,7 +1,10 @@
 import { useEffect } from "react";
 import type { CombatPhase, CombatState } from "../engine/combatLoop/types";
+import type { BattleState } from "../engine/multiCombat";
 import type { ArenaMode } from "../renderer";
+import { battleSpellSlots } from "../store/battleSpells";
 import { useCombatStore } from "../store/useCombatStore";
+import { SPELL_CATALOG } from "./spellCatalog";
 import type { Shortcut, ShortcutInput } from "./shortcuts";
 import { resolveShortcut } from "./shortcuts";
 import { slotLook } from "./spellSlotState";
@@ -10,6 +13,8 @@ export interface ShortcutContext {
   phase: CombatPhase;
   mode: ArenaMode;
   combat: CombatState | null;
+  /** Combat unifié : la barre de sorts est la sienne, `combat` reste nul. */
+  battle?: BattleState | null;
   selectedSpellId: string | null;
   selectSpell: (spellId: string | null) => void;
   endTurn: () => void;
@@ -108,10 +113,23 @@ function selectableId(combat: CombatState, spellId: string | null): string | nul
   return isSelectable(combat, spellId) ? spellId : null;
 }
 
+/** Case de la barre unifiée à cet index, `null` hors barre. */
+function battleSlotAt(context: ShortcutContext, index: number) {
+  const battle = context.battle ?? null;
+  if (battle === null) return null;
+  const input = { battle, spells: SPELL_CATALOG, selectedSpellId: context.selectedSpellId };
+  return battleSpellSlots(input)[index] ?? null;
+}
+
+/** Index de la barre unifiée : le même ordre que les cases affichées. */
+function battleSpellId(context: ShortcutContext, index: number): string | null {
+  const slot = battleSlotAt(context, index);
+  return slot === null || slot.disabled ? null : slot.spellId;
+}
+
 function spellAction(context: ShortcutContext, index: number): ShortcutEffect | null {
   const { combat } = context;
-  if (combat === null) return null;
-  const spellId = selectableId(combat, spellIdAt(combat, index));
+  const spellId = combat === null ? battleSpellId(context, index) : selectableId(combat, spellIdAt(combat, index));
   if (spellId === null) return null;
   const next = nextSelection(context, spellId);
   return () => context.selectSpell(next);
@@ -144,12 +162,13 @@ function onKeyDown(event: KeyboardEvent, context: ShortcutContext): void {
 
 function useShortcutContext(): ShortcutContext {
   const combat = useCombatStore((state) => state.combat);
+  const battle = useCombatStore((state) => state.battle);
   const mode = useCombatStore((state) => state.mode);
   const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
   const selectSpell = useCombatStore((state) => state.selectSpell);
   const endTurn = useCombatStore((state) => state.endTurn);
   const phase = combat?.phase ?? "player_turn";
-  return { phase, mode, combat, selectedSpellId, selectSpell, endTurn };
+  return { phase, mode, combat, battle, selectedSpellId, selectSpell, endTurn };
 }
 
 /** Écouteur clavier global unique : il remplace celui du HUD et couvre les deux modes. */

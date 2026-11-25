@@ -49,7 +49,7 @@ import { combatantFromHero, heroHpFromCombat } from "../engine/hero/combatant";
 import { totalStatsFor } from "../engine/hero/totalStats";
 import { parseAsciiMap } from "../engine/grid";
 import type { AsciiMap, Position } from "../engine/grid";
-import { advanceTurn, buildTimeline, isDefeat, isVictory, moveHero } from "../engine/multiCombat";
+import { advanceTurn, buildTimeline, canCastSpellNow, isDefeat, isVictory, moveHero } from "../engine/multiCombat";
 import { activeCombatant } from "../engine/multiCombat/timeline";
 import type { AttackSpec, BattleState, CombatantLike, EnemyStrategy, RangeSpec, Rng } from "../engine/multiCombat";
 import type { StorageLike } from "../engine/save";
@@ -76,6 +76,7 @@ import {
   spellStrategy,
 } from "./battleSelectors";
 import { battleClickRoute } from "./battleRouting";
+import { battleSpellSlots, heroCombatant, isUnifiedCastable } from "./battleSpells";
 import { GAME_CATALOG, useGameStore } from "./useGameStore";
 import type { MovementTrail, TrailBatch } from "./trails";
 import { NO_TRAILS, battleTrails, combatTrails, nextBatch } from "./trails";
@@ -518,11 +519,37 @@ function unifiedAttack(click: UnifiedClick, targetId: string): Partial<CombatSto
   return scopedBattleUpdate(click.store, resolveBattleAttack(options));
 }
 
-/** Sort armé : même chemin que le panneau (`castHeroSpell`), récompense comprise. */
+/** Sort résolu dans `data/spells.yaml` : aucun id de sort écrit en dur ici. */
+function heroSpellById(spellId: string | null): SpellDef | null {
+  if (spellId === null) return null;
+  return spells.find((entry) => entry.id === spellId) ?? null;
+}
+
+/** Sort implémenté et résoluble par le clic unifié (frappe). */
+function armedKind(spell: SpellDef | null): SpellDef | null {
+  if (spell === null) return null;
+  return isUnifiedCastable(spell) ? spell : null;
+}
+
+/** Sort armé que le chemin unifié sait résoudre ET lancer à cet instant. */
+function armedHeroSpell(store: CombatStore, state: BattleState): SpellDef | null {
+  const hero = heroCombatant(state);
+  const spell = armedKind(heroSpellById(store.selectedSpellId));
+  if (hero === null || spell === null) return null;
+  return canCastSpellNow(state, hero.id, spell) ? spell : null;
+}
+
+/**
+ * Sort armé : même chemin que le panneau (`castHeroSpell`), récompense comprise.
+ * Désarmé après un lancer réussi ; un refus géométrique laisse le sort armé
+ * pour que le joueur retente sur une autre cible (le journal dit pourquoi).
+ */
 function unifiedSpell(click: UnifiedClick, targetId: string): Partial<CombatStore> {
-  const spell = heroDamageSpell();
-  if (!canCastHeroSpell(click.state, spell)) return {};
-  return scopedBattleUpdate(click.store, castHeroSpell(click.state, { targetId, rng: click.rng }, spell).state);
+  const spell = armedHeroSpell(click.store, click.state);
+  if (spell === null) return {};
+  const cast = castHeroSpell(click.state, { targetId, rng: click.rng }, spell);
+  const update = scopedBattleUpdate(click.store, cast.state);
+  return cast.performed ? { ...update, selectedSpellId: null } : update;
 }
 
 /** Un clic d'exploration unifié : la route est pure, le moteur tranche ensuite. */
@@ -532,6 +559,21 @@ function explorationBattleClick(click: UnifiedClick, target: Position): Partial<
   if (route.kind === "move") return scopedBattleUpdate(click.store, moveHero({ state: click.state, to: target, rng: click.rng }));
   if (route.kind === "spell") return unifiedSpell(click, route.targetId);
   return unifiedAttack(click, route.targetId);
+}
+
+/** Une case jouable seulement : un sort non lançable n'entre jamais en sélection. */
+function unifiedSelectable(store: CombatStore, spellId: string): boolean {
+  const battle = explorationBattle(store);
+  if (battle === null) return true;
+  const slots = battleSpellSlots({ battle, spells, selectedSpellId: null });
+  const slot = slots.find((entry) => entry.spellId === spellId);
+  return slot !== undefined && !slot.disabled;
+}
+
+function spellSelectionUpdate(store: CombatStore, spellId: string | null): Partial<CombatStore> {
+  if (spellId === null) return { selectedSpellId: null };
+  if (!unifiedSelectable(store, spellId)) return {};
+  return { selectedSpellId: spellId };
 }
 
 function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
@@ -545,7 +587,7 @@ function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore>
 function endTurnUpdate(store: CombatStore): Partial<CombatStore> {
   if (store.mode !== "combat") return {};
   const battle = explorationBattle(store);
-  if (battle !== null) return playEnemyTurnsUpdate(store, Math.random);
+  if (battle !== null) return { ...playEnemyTurnsUpdate(store, Math.random), selectedSpellId: null };
   if (store.combat === null) return {};
   return stateUpdate(store, endPlayerTurn(store.combat, Math.random));
 }
@@ -1083,7 +1125,7 @@ function mapStartActions(set: StoreSetter) {
 
 function mapClickActions(set: StoreSetter) {
   return {
-    selectSpell: (spellId: string | null) => set({ selectedSpellId: spellId }),
+    selectSpell: (spellId: string | null) => set((store) => spellSelectionUpdate(store, spellId)),
     setHoveredCell: (hoveredCell: Position | null) => set({ hoveredCell }),
     clickCell: (pos: Position) => set((store) => clickUpdate(store, pos)),
   };

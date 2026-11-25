@@ -10,6 +10,7 @@ import { useCombatStore } from "../store/useCombatStore";
 import { useGameStore } from "../store/useGameStore";
 import { appScreen, shouldStartExploration } from "./appRouting";
 import { CombatHud, BattlePanel, HeroCreation } from "./components";
+import BattleSpellDock from "./components/battle/BattleSpellDock";
 import { ExplorationJournalPanel, ExplorationStatus } from "./components/ExplorationOverlay";
 import { useDemoEntry } from "./demoEntry";
 import OverlayPanels from "./components/OverlayPanels";
@@ -17,7 +18,7 @@ import { explorationView } from "./explorationView";
 import { useEscapeLayer } from "./useEscapeClose";
 import { useExplorationPointer } from "./useExplorationPointer";
 import { useGlobalShortcuts } from "./useGlobalShortcuts";
-import { dockHidden } from "./dockGate";
+import { dockSurface } from "./dockGate";
 
 /** Écran de création : pontage de bois en fond, feuille centrée (§1.8). */
 const CREATION_SHELL =
@@ -176,11 +177,15 @@ const HUD_CLASS: Record<ArenaMode, string> = {
  *
  * DEC-12 étape 3 : en mode unifié, `BattlePanel` tient le rôle de dock de
  * combat ; la bande de 240 px disparaît donc au lieu de rester vide.
+ *
+ * Étape 3b : le combat d'exploration unifié reprend le dock pour sa barre de
+ * sorts (`unified-spells`), sans inventer une seconde coquille. Un donjon reste
+ * en `legacy` et garde son dock d'exploration complet.
  */
 function Dock({ mode, onReturnToMap }: { mode: ArenaMode; onReturnToMap: () => void }) {
   const combat = useCombatStore((state) => state.combat);
   const battle = useCombatStore((state) => state.battle);
-  if (dockHidden({ mode, combat, battle })) return null;
+  if (dockSurface({ mode, combat, battle }) === "unified-spells") return <BattleSpellDock />;
   return (
     <div className={HUD_CLASS[mode]}>
       <CombatHud mode={mode} onReturnToMap={onReturnToMap} />
