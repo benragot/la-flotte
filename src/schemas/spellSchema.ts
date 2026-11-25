@@ -10,6 +10,12 @@ export const spellDamageSchema = z.object({
   max: z.number().int().nonnegative(),
 });
 
+/** Jet du coup critique : le moteur retient `max`, qui doit rester ≤ 999. */
+export const spellCritDamageSchema = z.object({
+  min: z.number().int().min(0).max(999),
+  max: z.number().int().min(0).max(999),
+});
+
 export const spellEffectTypeSchema = z.enum([
   "heal",
   "buff",
@@ -34,6 +40,7 @@ export const spellEffectSchema = z.object({
 export type Element = z.infer<typeof elementSchema>;
 export type SpellKind = z.infer<typeof spellKindSchema>;
 export type SpellDamage = z.infer<typeof spellDamageSchema>;
+export type SpellCritDamage = z.infer<typeof spellCritDamageSchema>;
 export type SpellEffect = z.infer<typeof spellEffectSchema>;
 
 const ID_PATTERN = /^[a-z0-9]+(?:_[a-z0-9]+)*$/;
@@ -45,6 +52,7 @@ type SpellFields = {
   maxRange: number;
   element?: Element | undefined;
   damage?: SpellDamage | undefined;
+  critDamage?: SpellCritDamage | undefined;
   effect?: SpellEffect | undefined;
 };
 
@@ -81,6 +89,13 @@ function checkDamageOrder(damage: SpellDamage, ctx: IssueSink): void {
   }
 }
 
+/** Jet de CC : un dénominateur `1/X` (≥ 2) et une fourchette ordonnée. */
+function checkCritDamage(spell: SpellFields, ctx: IssueSink): void {
+  const crit = spell.critDamage;
+  if (crit === undefined || crit.min <= crit.max) return;
+  addIssue(ctx, ["critDamage", "min"], "critDamage.min doit être inférieur ou égal à critDamage.max");
+}
+
 function checkTeleport(spell: SpellFields, ctx: IssueSink): void {
   if (spell.kind === "teleport" && spell.damage !== undefined) {
     addIssue(ctx, ["damage"], "un sort de téléportation ne peut pas infliger de dégâts");
@@ -113,6 +128,13 @@ export const spellSchema = z
     maxRange: z.number().int().nonnegative(),
     requiresLos: z.boolean(),
     damage: spellDamageSchema.optional(),
+    /**
+     * Dénominateur du coup critique, `1/X` (1.29) : `2` = une chance sur deux,
+     * `100` = 1 %. **Absent = aucun coup critique** : on n'invente pas de valeur.
+     */
+    critRate: z.number().int().min(2).max(200).optional(),
+    /** Jet du CC ; absent = le maximum de `damage`. */
+    critDamage: spellCritDamageSchema.optional(),
     pushCells: z.number().int().nonnegative().optional(),
     cooldown: z.number().int().nonnegative().optional(),
     castsPerTurn: z.number().int().min(1).optional(),
@@ -124,6 +146,7 @@ export const spellSchema = z
     checkRanges(spell, ctx);
     checkElement(spell, ctx);
     checkDamage(spell, ctx);
+    checkCritDamage(spell, ctx);
     checkTeleport(spell, ctx);
     checkEffect(spell, ctx);
   });

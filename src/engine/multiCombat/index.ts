@@ -3,6 +3,7 @@ export type {
   BattleState,
   CombatantLike,
   CombatStats,
+  DamageRange,
   EnemyAction,
   EnemyStrategy,
   RangeSpec,
@@ -29,7 +30,7 @@ export { castBlock, rangeOf } from "./range";
 export type { CastBlock, RangeCheck } from "./range";
 export { canCastSpellNow, isAttackAvailable, recordAttack } from "./spellUse";
 export type { CastableSpell } from "./spellUse";
-export { isCritical } from "./crit";
+export { rollsCritical } from "./crit";
 export type { CriticalInput } from "./crit";
 export { adjacentEnemies, TACKLE_MP_LOSS, tackleCheck } from "./tackle";
 export type { TackleCheckInput, TackleCheckResult } from "./tackle";

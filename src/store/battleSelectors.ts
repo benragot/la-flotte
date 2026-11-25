@@ -95,14 +95,15 @@ export function rollSpellBase(spell: SpellDef, rng: Rng): number {
 }
 
 /**
- * Pont `SpellDef` → `AttackSpec` pour le 1vN. `baseCrit: 0` : `data/spells.yaml`
- * ne porte pas encore de taux de critique, on n'en invente pas. La géométrie
- * (portée, LoS) est ajoutée par `spellCastSpec`, jamais ici : les attaques nues
- * et les tests historiques gardent exactement cette forme.
+ * Pont `SpellDef` → `AttackSpec` pour le 1vN. Le CC vient **du sort** :
+ * `critRate` (dénominateur `1/X`) et `critDamage` (jet max) restent absents
+ * tant que la donnée 1.29 n'est pas sourcée — **absent = aucun CC**, donc
+ * aucun « 2 % fantôme » inventé (SPELL-03).
  */
 export function spellAttackSpec(spell: SpellDef, roll: number): AttackSpec {
   const element = spell.element ?? "neutral";
-  return { base: roll, element, baseCrit: 0, apCost: spell.apCost, pushCells: spell.pushCells ?? 0 };
+  const crit = { critRate: spell.critRate, critMax: spell.critDamage };
+  return { base: roll, element, ...crit, apCost: spell.apCost, pushCells: spell.pushCells ?? 0 };
 }
 
 /** Même spec, portée YAML comprise : le moteur refuse alors hors bornes et sans LoS. */
@@ -110,6 +111,16 @@ export function spellCastSpec(spell: SpellDef, roll: number): AttackSpec {
   const range = { minRange: spell.minRange, maxRange: spell.maxRange, requiresLos: spell.requiresLos };
   const quotas = { spellId: spell.id, castsPerTurn: spell.castsPerTurn, cooldown: spell.cooldown };
   return { ...spellAttackSpec(spell, roll), ...range, ...quotas };
+}
+
+/**
+ * Spec du **jeu réel** : la fourchette part au moteur, qui décide le CC (jet
+ * max) **avant** de consommer le dé de dégâts. Un sort sans `damage` garde
+ * `base` comme attaque nue.
+ */
+export function spellRollSpec(spell: SpellDef): AttackSpec {
+  const fixed = spellCastSpec(spell, spell.damage?.min ?? 0);
+  return spell.damage === undefined ? fixed : { ...fixed, damage: spell.damage };
 }
 
 function pairFor(state: BattleState, targetId: string): CombatantPair | null {
@@ -149,14 +160,12 @@ export function castRefusal(state: BattleState, targetId: string, attack: Attack
 
 export interface SpellStrategyInput {
   spells: readonly SpellDef[];
-  rng: Rng;
 }
 
 interface StrategyContext {
   state: BattleState;
   enemy: CombatantLike;
   spells: readonly SpellDef[];
-  rng: Rng;
 }
 
 function damageSpells(spells: readonly SpellDef[]): SpellDef[] {
@@ -199,17 +208,19 @@ function spellReaches(context: StrategyContext, target: CombatantLike, spell: Sp
   return castBlock(check) === null;
 }
 
-/** Cible le héros (unique camp adverse en 1vN), jamais une cible morte. */
-function attackOn(context: StrategyContext, target: CombatantLike, spell: SpellDef): EnemyAction {
-  const base = rollSpellBase(spell, context.rng);
-  const attack = { ...spellCastSpec(spell, base), spellName: spell.name };
+/**
+ * Cible le héros (unique camp adverse en 1vN), jamais une cible morte. Le dé
+ * reste au moteur : il décide le CC avant de consommer le tirage de dégâts.
+ */
+function attackOn(target: CombatantLike, spell: SpellDef): EnemyAction {
+  const attack = { ...spellRollSpec(spell), spellName: spell.name };
   return { kind: "attack", targetId: target.id, attack };
 }
 
 /** Sans carte, aucune géométrie : comportement historique (le moins cher, sans portée). */
 function noMapAction(context: StrategyContext, target: CombatantLike): EnemyAction | null {
   const spell = cheapestAffordable(context);
-  return spell === null ? null : attackOn(context, target, spell);
+  return spell === null ? null : attackOn(target, spell);
 }
 
 function blockedReason(context: StrategyContext): string {
@@ -226,7 +237,7 @@ function approachAction(context: StrategyContext, target: CombatantLike): EnemyA
 
 function mappedAction(context: StrategyContext, target: CombatantLike): EnemyAction {
   const spell = cheapest(castableSpells(context, target));
-  if (spell !== null) return attackOn(context, target, spell);
+  if (spell !== null) return attackOn(target, spell);
   return approachAction(context, target);
 }
 
@@ -245,8 +256,8 @@ function strategyForEnemy(input: SpellStrategyInput, state: BattleState, enemyId
 
 /**
  * Stratégie ennemie pilotée par les sorts du monstre : elle emprunte **le même
- * chemin** que le héros (`rollSpellBase` + `spellCastSpec`), donc aucune valeur
- * de dégâts n'est écrite à la main dans `src/`. **Distance-aware** : seuls les
+ * chemin** que le héros (`spellRollSpec`), donc aucune valeur de dégâts n'est
+ * écrite à la main dans `src/`, et le dé reste au moteur (SPELL-03). **Distance-aware** : seuls les
  * sorts dont la portée contient la distance et dont la LoS passe sont joués ;
  * sinon le monstre **approche** avec ses PM (`kind: "move"`) et attaque dès
  * qu'il est à portée, dans le même tour. Sans carte, aucune géométrie : le
