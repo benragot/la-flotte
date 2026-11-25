@@ -137,6 +137,17 @@ function staged(input: StageInput): BattleState {
   return battle;
 }
 
+/**
+ * Même duel, timeline réduite à [héros, ennemi] : deux `advanceBattleTurn`
+ * ramènent la main au héros en incrémentant le tour, comme la cadence réelle.
+ */
+function orderedDuel(input: StageInput): BattleState {
+  const base = staged(input);
+  const battle = { ...base, order: [ofSide(base, "player").id, ofSide(base, "enemy").id], activeIndex: 0 };
+  useCombatStore.setState({ battle });
+  return battle;
+}
+
 function slot(spellId: string, list = battleSpellSlots({ battle: battleOrThrow(), spells, selectedSpellId: state().selectedSpellId })) {
   const found = list.find((entry) => entry.spellId === spellId);
   if (found === undefined) throw new Error(`sort ${spellId} absent des cases`);
@@ -349,6 +360,58 @@ describe("SPELL-04 — la barre et le panneau reflètent l'état réel", () => {
     );
     expect(html).toContain("Se soigner (6 PA)");
     expect(buttonOf(html, "Soin armé")).toContain("disabled");
+  });
+});
+
+/* --------------------------- changement de tour ---------------------------- */
+
+/** Deux pas de timeline : héros → ennemi → héros (tour 2), aucun sort armé. */
+function finishTurn(): BattleState {
+  state().advanceBattleTurn();
+  state().advanceBattleTurn();
+  return battleOrThrow();
+}
+
+describe("SPELL-04 — le changement de tour restaure la portée par défaut", () => {
+  it("Épée du Destin (1–3) rendue à Pression (1–2) : la cible à 3 cases n'est plus attaquable", () => {
+    orderedDuel({ spellIds: ["pression", "epee_du_destin"], ap: 12, distance: 3 });
+    state().selectSpell("epee_du_destin");
+    expect(battleOrThrow().castRange).toEqual({ min: 1, max: 3, requiresLos: true });
+    const after = finishTurn();
+    expect(state().selectedSpellId).toBeNull();
+    expect(after.castRange).toEqual({ min: 1, max: 2, requiresLos: true });
+    const target = battleViewModel(after).find((view) => view.id === enemyId());
+    expect(target?.blockedReason).toBe("out-of-range");
+    expect(target?.isTargetable).toBe(false);
+    const views = battleViewModel(after);
+    const html = renderToStaticMarkup(
+      createElement(CombatantList, { views, attack: battleAttackButton(after), onAttack: () => undefined }),
+    );
+    expect(html).not.toContain("Attaquer");
+  });
+
+  it("Mot Curatif (0–0) rendue à Pression (1–2) : l'ennemi adjacent redevient ciblable", () => {
+    orderedDuel({ spellIds: ["pression", "mot_curatif"], ap: 20, distance: 1 });
+    state().selectSpell("mot_curatif");
+    expect(battleOrThrow().castRange).toEqual({ min: 0, max: 0, requiresLos: false });
+    const after = finishTurn();
+    expect(state().selectedSpellId).toBeNull();
+    expect(after.castRange).toEqual({ min: 1, max: 2, requiresLos: true });
+    const target = battleViewModel(after).find((view) => view.id === enemyId());
+    expect(target?.blockedReason).toBeNull();
+    expect(target?.isTargetable).toBe(true);
+  });
+
+});
+
+describe("SPELL-04 — ouvrir une salle neuve désarme le sort précédent", () => {
+  it("la salle suivante repart sans sort armé et à la portée du défaut", () => {
+    staged({ spellIds: ["pression", "epee_du_destin"], ap: 12 });
+    state().selectSpell("epee_du_destin");
+    expect(state().selectedSpellId).toBe("epee_du_destin");
+    state().startDungeonRoom({ room: roomOne() });
+    expect(state().selectedSpellId).toBeNull();
+    expect(battleOrThrow().castRange).toEqual({ min: 1, max: 2, requiresLos: true });
   });
 });
 

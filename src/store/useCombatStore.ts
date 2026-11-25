@@ -532,7 +532,7 @@ function unifiedSpell(click: UnifiedClick, targetId: string): Partial<CombatStor
   if (spell === null) return {};
   const cast = castHeroSpell(click.state, { targetId, rng: click.rng }, spell);
   const update = scopedBattleUpdate(click.store, cast.state);
-  return cast.performed ? { ...update, selectedSpellId: null } : update;
+  return cast.performed ? disarmedUpdate(update) : update;
 }
 
 function selfHealSelected(store: CombatStore): boolean {
@@ -562,8 +562,7 @@ function unifiedSelectable(store: CombatStore, spellId: string): boolean {
 /** Désarmement : la portée du panneau revient au sort de dégâts par défaut. */
 function deselectUpdate(store: CombatStore): Partial<CombatStore> {
   const battle = store.battle;
-  if (battle === null) return { selectedSpellId: null };
-  return { selectedSpellId: null, battle: withSelectedRange(battle, null) };
+  return battle === null ? { selectedSpellId: null } : disarmedUpdate({ battle });
 }
 
 /**
@@ -714,14 +713,29 @@ function rangeForSpell(spell: SpellDef | null): RangeSpec | undefined {
   return { min: chosen.minRange, max: chosen.maxRange, requiresLos: chosen.requiresLos };
 }
 
+/** Portée publiée : `undefined` efface une portée périmée plutôt que la garder. */
+function withRange(state: BattleState, castRange: RangeSpec | undefined): BattleState {
+  return castRange === undefined ? { ...state, castRange: undefined } : { ...state, castRange };
+}
+
 /**
  * `castRange` est la portée que le panneau mesure pour cibler : elle suit donc
  * le sort **armé** (SPELL-04) et retombe sur le sort de dégâts par défaut.
  */
 function withSelectedRange(state: BattleState, spellId: string | null): BattleState {
   const spell = spellId === null ? null : spells.find((entry) => entry.id === spellId) ?? null;
-  const castRange = rangeForSpell(spell);
-  return castRange === undefined ? state : { ...state, castRange };
+  return withRange(state, rangeForSpell(spell));
+}
+
+/**
+ * Désarmement : un seul point de vérité. La portée rendue au panneau est celle
+ * du sort qui partira réellement ensuite (`heroDamageSpell`, la même résolution
+ * que `armedHeroSpell` sans sélection), jamais une valeur laissée en place.
+ */
+function disarmedUpdate(update: Partial<CombatStore>): Partial<CombatStore> {
+  const battle = update.battle ?? null;
+  if (battle === null) return { ...update, selectedSpellId: null };
+  return { ...update, battle: withSelectedRange(battle, null), selectedSpellId: null };
 }
 
 /** Ajoute la portée lisible par le panneau, sans écrire aucun chiffre ici. */
@@ -830,8 +844,7 @@ function castSpellUpdate(store: CombatStore, input: { targetId: string; rng?: Rn
   const cast = castHeroSpell(state, input, spell);
   const update = scopedBattleUpdate(store, cast.state);
   if (!cast.performed) return { update, performed: false };
-  const battle = withSelectedRange(cast.state, null);
-  return { update: { ...update, battle, selectedSpellId: null }, performed: true };
+  return { update: disarmedUpdate(update), performed: true };
 }
 
 function spellAttackResult(store: CombatStore, input: { targetId: string; rng?: Rng }): SpellAttackResult {
@@ -890,8 +903,9 @@ function movedBattle(store: CombatStore, to: Position, rng: Rng): Partial<Combat
  * remise à zéro ; aucun chemin de tour ne la réécrit.
  */
 function turnChangeUpdate(store: CombatStore, update: Partial<CombatStore>): Partial<CombatStore> {
-  if (update.battle === undefined || update.battle === store.battle) return update;
-  return { ...update, selectedSpellId: null };
+  const next = update.battle;
+  if (next === undefined || next === store.battle) return update;
+  return disarmedUpdate(update);
 }
 
 function advanceTurnUpdate(store: CombatStore): Partial<CombatStore> {
@@ -1070,9 +1084,9 @@ function clearedProgress(
   opening: string | null,
 ): Partial<CombatStore> {
   const notice = clearedNotice(advance, rewards);
-  if (advance.complete) return { battle: null, dungeonRun: null, dungeonNotice: notice };
+  if (advance.complete) return { battle: null, dungeonRun: null, dungeonNotice: notice, selectedSpellId: null };
   const battle = roomBattleAt(advance.run, advance.dungeon, opening);
-  return { battle, dungeonRun: advance.run, dungeonNotice: notice };
+  return { battle, dungeonRun: advance.run, dungeonNotice: notice, selectedSpellId: null };
 }
 
 function progressedUpdate(
@@ -1080,8 +1094,8 @@ function progressedUpdate(
   opening: string | null,
   rewards: RoomRewards | null = null,
 ): Partial<CombatStore> {
-  if (advance === null) return { battle: null };
-  if (!advance.cleared) return { battle: null, dungeonRun: advance.run, dungeonNotice: ROOM_REFUSED };
+  if (advance === null) return { battle: null, selectedSpellId: null };
+  if (!advance.cleared) return { battle: null, dungeonRun: advance.run, dungeonNotice: ROOM_REFUSED, selectedSpellId: null };
   return clearedProgress(advance, rewards, opening);
 }
 
@@ -1130,8 +1144,8 @@ function unifiedSettle(store: CombatStore, battle: BattleState, input?: SettleIn
 function endBattleUpdate(store: CombatStore): Partial<CombatStore> {
   const battle = explorationBattle(store);
   if (battle !== null) return battleLeaveUpdate(store, battle);
-  if (store.dungeonRun === null) return { battle: null };
-  return { battle: null, dungeonRun: null, dungeonNotice: DUNGEON_LEFT };
+  if (store.dungeonRun === null) return { battle: null, selectedSpellId: null };
+  return { battle: null, dungeonRun: null, dungeonNotice: DUNGEON_LEFT, selectedSpellId: null };
 }
 
 /** Refus d'entrée lisible : le nom du donjon vient du YAML, la clef aussi. */
@@ -1145,7 +1159,7 @@ function startedRunUpdate(outcome: DungeonEntryOutcome): Partial<CombatStore> {
   if (result.run === null) return { dungeonNotice: keyRefusal(dungeon) };
   useGameStore.setState({ inventory: result.inventory });
   const battle = roomBattleAt(result.run, dungeon);
-  return { dungeonRun: result.run, battle, dungeonNotice: null };
+  return { dungeonRun: result.run, battle, dungeonNotice: null, selectedSpellId: null };
 }
 
 /** Un 1v1 ou une salle de donjon déjà ouverte interdit l'entrée. */
@@ -1207,7 +1221,7 @@ type BeatActions = Pick<CombatStore, "stampActionAt" | "canActNow">;
 
 function battlePlayActions(set: StoreSetter) {
   return {
-    startDungeonRoom: (input: { room: DungeonRoom }) => set({ battle: battleFromRoom(input.room) }),
+    startDungeonRoom: (input: { room: DungeonRoom }) => set({ battle: battleFromRoom(input.room), selectedSpellId: null }),
     battleAttack: (input: { targetId: string; attack: AttackSpec; rng?: Rng }) =>
       set((store) => attackUpdate(store, input)),
     battleMove: (input: { to: Position; rng?: Rng }) => set((store) => moveUpdate(store, input)),
