@@ -1,7 +1,9 @@
-import { isDefeat, isVictory } from "../engine/multiCombat";
+import { spellUsageKey } from "../engine/combat";
 import { canCastSpellNow } from "../engine/multiCombat/spellUse";
-import { isHealSpell, isSpellImplemented } from "../engine/combatLoop/spellSupport";
-import type { BattleState, CombatantLike } from "../engine/multiCombat";
+import { castBlock } from "../engine/multiCombat";
+import { isDefeat, isVictory } from "../engine/multiCombat";
+import { isHealSpell, isSpellImplemented, spellSupportRefusal } from "../engine/combatLoop/spellSupport";
+import type { BattleState, CombatantLike, RangeSpec } from "../engine/multiCombat";
 import type { SpellDef } from "../schemas/spellSchema";
 import { heroHasHand } from "./battleSelectors";
 
@@ -11,6 +13,9 @@ import { heroHasHand } from "./battleSelectors";
  * les fonctions du moteur (`canCastSpellNow`, `activeCombatant`, `isVictory`),
  * exactement comme la stratégie ennemie. Ce module ne connaît ni React ni le
  * store : il rend l'état affichable, le rendu ne décide rien.
+ *
+ * SPELL-04 : **tous** les sorts connus du héros sont rendus, y compris ceux que
+ * le 1vN ne sait pas exécuter — désactivés et nommés, jamais un clic mort.
  */
 export type BattleSlotState =
   | "disponible"
@@ -18,13 +23,19 @@ export type BattleSlotState =
   | "pa-insuffisants"
   | "quota-epuise"
   | "pas-son-tour"
-  | "salle-terminee";
+  | "salle-terminee"
+  | "hors-portee"
+  | "non-supporte";
 
 export interface BattleSpellSlot {
   spellId: string;
   apCost: number;
   state: BattleSlotState;
   disabled: boolean;
+  /** Badge court d'honnêteté : « à venir », « Recharge (2) ». */
+  badge: string | null;
+  /** Cause longue, écrite dans l'infobulle. */
+  reason: string | null;
 }
 
 export interface BattleSpellsInput {
@@ -52,6 +63,24 @@ export function battleOver(battle: BattleState): boolean {
  */
 export function isUnifiedCastable(spell: SpellDef): boolean {
   return (spell.kind === "damage" || isHealSpell(spell)) && isSpellImplemented(spell);
+}
+
+/** Ce que la barre doit dire d'un sort que le 1vN ne sait pas exécuter. */
+interface SupportGap {
+  state: BattleSlotState;
+  badge: string;
+  reason: string;
+}
+
+const TELEPORT_GAP: SupportGap = { state: "non-supporte", badge: "à venir", reason: "Téléportation pas encore gérée en salle" };
+const FUTURE_GAP: SupportGap = { state: "non-supporte", badge: "à venir", reason: "Effet pas encore implémenté" };
+const MISSING_GAP: SupportGap = { state: "non-supporte", badge: "état non géré", reason: "État non géré par le moteur" };
+
+/** Écart entre ce que le héros connaît et ce que le moteur 1vN exécute. */
+function supportGap(spell: SpellDef): SupportGap | null {
+  if (isUnifiedCastable(spell)) return null;
+  if (spell.kind === "teleport") return TELEPORT_GAP;
+  return spellSupportRefusal(spell) === "missing-state" ? MISSING_GAP : FUTURE_GAP;
 }
 
 /** Sort du catalogue par id ; la bataille ne transporte que des ids. */
@@ -95,36 +124,134 @@ function gateState(input: BattleSpellsInput): BattleSlotState | null {
   return null;
 }
 
+function quotaOpen(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): boolean {
+  return canCastSpellNow({ state: input.battle, casterId: hero.id, spell });
+}
+
+/** Tours de recharge restants lus sur `spellUsage` : `0` = pas de recharge. */
+function cooldownLeft(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): number {
+  const usage = input.battle.spellUsage?.[spellUsageKey(hero.id, spell.id)];
+  return usage === undefined ? 0 : Math.max(0, usage.readyAt - input.battle.turn);
+}
+
+/** Recharge armée seulement quand le quota refuse : `0` sinon. */
+function rechargeLeft(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): number {
+  return quotaOpen(input, hero, spell) ? 0 : cooldownLeft(input, hero, spell);
+}
+
 /** Ressources du héros : quota (`castsPerTurn`/`cooldown`) puis PA. */
 function resourceState(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): BattleSlotState | null {
-  const query = { state: input.battle, casterId: hero.id, spell };
-  if (!canCastSpellNow(query)) return "quota-epuise";
+  if (!quotaOpen(input, hero, spell)) return "quota-epuise";
   return hero.ap < spell.apCost ? "pa-insuffisants" : null;
+}
+
+/** Portée déclarée par la donnée : `castBlock` refuse hors bornes et sans LoS. */
+function spellRange(spell: SpellDef): RangeSpec {
+  return { min: spell.minRange, max: spell.maxRange, requiresLos: spell.requiresLos };
+}
+
+/** Ce qu'il faut pour juger un sort : l'entrée, le lanceur, le sort et son écart. */
+interface CastContext {
+  input: BattleSpellsInput;
+  hero: CombatantLike;
+  spell: SpellDef;
+  gap: SupportGap | null;
+}
+
+/** Contexte de jugement **plus** l'état calculé, pour badge et motif. */
+interface SlotContext extends CastContext {
+  state: BattleSlotState;
+}
+
+function targetInSight(context: CastContext, target: CombatantLike): boolean {
+  const range = spellRange(context.spell);
+  const check = { state: context.input.battle, attacker: context.hero, target, range };
+  return castBlock(check) === null;
+}
+
+/** Sans carte, aucune mesure : le comportement historique reste intact. */
+function measurable(input: BattleSpellsInput): boolean {
+  return input.battle.map !== undefined;
+}
+
+/**
+ * Un sort sans **aucune cible légale** ne s'arme pas : la case le dit et refuse
+ * le clic (`hors-portee`), plutôt que de laisser le joueur armer dans le vide.
+ * Un soin vise son lanceur : il a toujours une cible.
+ */
+function hasLegalTarget(context: CastContext): boolean {
+  const { input, hero, spell } = context;
+  if (isHealSpell(spell) || !measurable(input)) return true;
+  const enemies = input.battle.combatants.filter((entry) => entry.side !== hero.side && entry.hp > 0);
+  return enemies.some((target) => targetInSight(context, target));
 }
 
 function playableState(input: BattleSpellsInput, spell: SpellDef): BattleSlotState {
   return spell.id === input.selectedSpellId ? "selectionne" : "disponible";
 }
 
-function stateOf(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): BattleSlotState {
-  const gate = gateState(input);
+/** Verrous du tour et écart de support : ils gagnent sur les ressources. */
+function blockedState(context: CastContext): BattleSlotState | null {
+  const gate = gateState(context.input);
   if (gate !== null) return gate;
-  return resourceState(input, hero, spell) ?? playableState(input, spell);
+  return context.gap === null ? null : context.gap.state;
+}
+
+/** Quota et PA d'abord, portée ensuite : le joueur lit la cause la plus proche. */
+function resourceOrPortee(context: CastContext): BattleSlotState | null {
+  const resource = resourceState(context.input, context.hero, context.spell);
+  if (resource !== null) return resource;
+  return hasLegalTarget(context) ? null : "hors-portee";
+}
+
+function stateOf(context: CastContext): BattleSlotState {
+  const blocked = blockedState(context);
+  if (blocked !== null) return blocked;
+  const resource = resourceOrPortee(context);
+  if (resource !== null) return resource;
+  return playableState(context.input, context.spell);
 }
 
 function isPlayable(state: BattleSlotState): boolean {
   return state === "disponible" || state === "selectionne";
 }
 
-function slotOf(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): BattleSpellSlot {
-  const state = stateOf(input, hero, spell);
-  return { spellId: spell.id, apCost: spell.apCost, state, disabled: !isPlayable(state) };
+const REASONS: Readonly<Partial<Record<BattleSlotState, string>>> = {
+  "pa-insuffisants": "PA insuffisants",
+  "quota-epuise": "Quota du tour épuisé",
+  "pas-son-tour": "Tour adverse",
+  "salle-terminee": "Combat terminé",
+  "hors-portee": "Hors portée",
+};
+
+function rechargeBadge(context: SlotContext): string | null {
+  if (context.state !== "quota-epuise") return null;
+  const { input, hero, spell } = context;
+  const left = rechargeLeft(input, hero, spell);
+  return left > 0 ? `Recharge (${left})` : null;
 }
 
+function badgeOf(context: SlotContext): string | null {
+  return context.gap === null ? rechargeBadge(context) : context.gap.badge;
+}
+
+function reasonOf(context: SlotContext): string | null {
+  if (context.gap !== null) return context.gap.reason;
+  return rechargeBadge(context) ?? REASONS[context.state] ?? null;
+}
+
+function slotOf(input: BattleSpellsInput, hero: CombatantLike, spell: SpellDef): BattleSpellSlot {
+  const cast = { input, hero, spell, gap: supportGap(spell) };
+  const state = stateOf(cast);
+  const context = { ...cast, state };
+  const disabled = !isPlayable(state);
+  return { spellId: spell.id, apCost: spell.apCost, state, disabled, badge: badgeOf(context), reason: reasonOf(context) };
+}
+
+/** Tous les sorts connus du héros, dans l'ordre de `spellIds`. */
 function heroSpells(input: BattleSpellsInput, hero: CombatantLike): SpellDef[] {
   const ids = hero.spellIds ?? [];
-  const owned = ids.flatMap((id) => input.spells.filter((spell) => spell.id === id));
-  return owned.filter(isUnifiedCastable);
+  return ids.flatMap((id) => input.spells.filter((spell) => spell.id === id));
 }
 
 /** Sorts du héros, dans l'ordre de `spellIds`, avec leur état de lancement. */

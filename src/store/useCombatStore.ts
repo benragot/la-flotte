@@ -552,17 +552,30 @@ function explorationBattleClick(click: UnifiedClick, target: Position): Partial<
 
 /** Une case jouable seulement : un sort non lançable n'entre jamais en sélection. */
 function unifiedSelectable(store: CombatStore, spellId: string): boolean {
-  const battle = explorationBattle(store);
+  const battle = store.battle;
   if (battle === null) return true;
   const slots = battleSpellSlots({ battle, spells, selectedSpellId: null });
   const slot = slots.find((entry) => entry.spellId === spellId);
   return slot !== undefined && !slot.disabled;
 }
 
+/** Désarmement : la portée du panneau revient au sort de dégâts par défaut. */
+function deselectUpdate(store: CombatStore): Partial<CombatStore> {
+  const battle = store.battle;
+  if (battle === null) return { selectedSpellId: null };
+  return { selectedSpellId: null, battle: withSelectedRange(battle, null) };
+}
+
+/**
+ * Sélection d'un sort en salle comme en exploration unifiée : la barre de la
+ * salle est la référence (DEC-12), donc la garde lit `store.battle` et non le
+ * seul combat d'exploration. Un refus ne touche ni PA ni journal.
+ */
 function spellSelectionUpdate(store: CombatStore, spellId: string | null): Partial<CombatStore> {
-  if (spellId === null) return { selectedSpellId: null };
+  if (spellId === null) return deselectUpdate(store);
   if (!unifiedSelectable(store, spellId)) return {};
-  return { selectedSpellId: spellId };
+  const battle = store.battle;
+  return battle === null ? { selectedSpellId: spellId } : { selectedSpellId: spellId, battle: withSelectedRange(battle, spellId) };
 }
 
 function clickUpdate(store: CombatStore, target: Position): Partial<CombatStore> {
@@ -694,17 +707,26 @@ function roomBattleMonsters(room: DungeonRoom): RoomBattleGroup[] {
   return roomMonsters(room).map((group) => ({ monster: mustFind(monsters, group.monsterId), count: group.count }));
 }
 
-/** Portée du sort de dégâts du héros : le panneau la lit dans le battle, pas ici. */
-function battleRange(): RangeSpec | undefined {
-  const spell = heroDamageSpell();
-  if (spell === null) return undefined;
-  return { min: spell.minRange, max: spell.maxRange, requiresLos: spell.requiresLos };
+/** Portée d'un sort, ou celle du sort de dégâts par défaut : le panneau la lit. */
+function rangeForSpell(spell: SpellDef | null): RangeSpec | undefined {
+  const chosen = spell ?? heroDamageSpell();
+  if (chosen === null) return undefined;
+  return { min: chosen.minRange, max: chosen.maxRange, requiresLos: chosen.requiresLos };
+}
+
+/**
+ * `castRange` est la portée que le panneau mesure pour cibler : elle suit donc
+ * le sort **armé** (SPELL-04) et retombe sur le sort de dégâts par défaut.
+ */
+function withSelectedRange(state: BattleState, spellId: string | null): BattleState {
+  const spell = spellId === null ? null : spells.find((entry) => entry.id === spellId) ?? null;
+  const castRange = rangeForSpell(spell);
+  return castRange === undefined ? state : { ...state, castRange };
 }
 
 /** Ajoute la portée lisible par le panneau, sans écrire aucun chiffre ici. */
 function withCastRange(state: BattleState): BattleState {
-  const castRange = battleRange();
-  return castRange === undefined ? state : { ...state, castRange };
+  return withSelectedRange(state, null);
 }
 
 /** Battle d'une salle : la grille de `mapId` entre dans l'état et place les combattants. */
@@ -778,7 +800,7 @@ function castHealSpell(state: BattleState, input: { targetId: string; rng?: Rng 
 function castHeroSpell(state: BattleState, input: { targetId: string; rng?: Rng }, spell: SpellDef): CastOutcome {
   if (isHealSpell(spell)) return castHealSpell(state, input, spell);
   const rng = input.rng ?? Math.random;
-  const attack = spellRollSpec(spell);
+  const attack = { ...spellRollSpec(spell), spellName: spell.name };
   const refusal = refusedCast(state, castRefusal(state, input.targetId, attack));
   if (refusal !== null) return refusal;
   const next = resolveBattleAttack({ state, targetId: input.targetId, attack, rng });
@@ -790,12 +812,33 @@ interface SpellAttackResult {
   performed: boolean;
 }
 
+/**
+ * Sort qui part réellement : **le sort armé** s'il est résoluble maintenant
+ * (SPELL-04), sinon le sort de dégâts du héros — le bouton du panneau reste
+ * donc fonctionnel sans sélection, comme avant. Un sort armé mais refusé ne
+ * retombe jamais sur un autre sort : état inchangé par identité.
+ */
+function armedHeroSpell(state: BattleState, selectedSpellId: string | null): SpellDef | null {
+  if (selectedSpellId === null) return heroDamageSpell();
+  return armedBattleSpell({ battle: state, spells, selectedSpellId });
+}
+
+/** Un lancer réussi désarme, comme le clic unifié ; un refus garde le sort armé. */
+function castSpellUpdate(store: CombatStore, input: { targetId: string; rng?: Rng }, spell: SpellDef): SpellAttackResult {
+  const state = store.battle;
+  if (state === null) return { update: {}, performed: false };
+  const cast = castHeroSpell(state, input, spell);
+  const update = scopedBattleUpdate(store, cast.state);
+  if (!cast.performed) return { update, performed: false };
+  const battle = withSelectedRange(cast.state, null);
+  return { update: { ...update, battle, selectedSpellId: null }, performed: true };
+}
+
 function spellAttackResult(store: CombatStore, input: { targetId: string; rng?: Rng }): SpellAttackResult {
   const state = store.battle;
-  const spell = heroDamageSpell();
+  const spell = state === null ? null : armedHeroSpell(state, store.selectedSpellId);
   if (state === null || !canCastHeroSpell(state, spell)) return { update: {}, performed: false };
-  const cast = castHeroSpell(state, input, spell);
-  return { update: scopedBattleUpdate(store, cast.state), performed: cast.performed };
+  return castSpellUpdate(store, input, spell);
 }
 
 /** Aucun `set` utile quand `resolveAttack` refuse le coup (même référence). */

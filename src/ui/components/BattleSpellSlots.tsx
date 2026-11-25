@@ -23,6 +23,8 @@ const VISUAL_STATE: Readonly<Record<BattleSlotState, SlotState>> = {
   selectionne: "selectionne",
   "pa-insuffisants": "pa-insuffisants",
   "quota-epuise": "quota-epuise",
+  "hors-portee": "hors-portee",
+  "non-supporte": "a-venir",
   "pas-son-tour": "verrouille",
   "salle-terminee": "verrouille",
 };
@@ -39,10 +41,11 @@ function emptyView(index: number): SlotView {
   return { spell: null, index, look: EMPTY_LOOK };
 }
 
+/** Le motif long vient de la case (`slot.reason`) : téléportation, « à venir »… */
 function spellView(slot: BattleSpellSlot, spells: readonly SpellDef[], index: number): SlotView {
   const spell = spells.find((entry) => entry.id === slot.spellId) ?? null;
   const state = VISUAL_STATE[slot.state];
-  const look: SlotLook = { state, disabled: slot.disabled, badge: null, reason: reasonOf(slot.state) };
+  const look: SlotLook = { state, disabled: slot.disabled, badge: slot.badge, reason: slot.reason ?? reasonOf(slot.state) };
   return { spell, index, look };
 }
 
