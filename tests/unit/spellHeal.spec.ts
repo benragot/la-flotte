@@ -344,11 +344,12 @@ describe("barre unifiée et routage — le soin est sélectionnable et cliquable
     expect(isUnifiedCastable(mustFind("armure_terrestre"))).toBe(false);
   });
 
-  it("le slot de soin est disponible et le sort s'arme", () => {
+  it("le slot de soin est disponible, le buff reste désactivé et nommé", () => {
     const battle = battleFor({ hp: 40, spellIds: ["mot_curatif", "armure_terrestre"] });
     const slots = battleSpellSlots({ battle, spells, selectedSpellId: null });
-    expect(slots.map((entry) => entry.spellId)).toEqual(["mot_curatif"]);
+    expect(slots.map((entry) => entry.spellId)).toEqual(["mot_curatif", "armure_terrestre"]);
     expect(slots[0]).toMatchObject({ state: "disponible", disabled: false });
+    expect(slots[1]).toMatchObject({ state: "non-supporte", disabled: true, reason: "Effet pas encore implémenté" });
     expect(armedBattleSpell({ battle, spells, selectedSpellId: "mot_curatif" })?.id).toBe("mot_curatif");
   });
 

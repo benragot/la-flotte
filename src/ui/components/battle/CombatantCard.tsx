@@ -20,6 +20,8 @@ export interface CombatantCardProps {
   canAttack: boolean;
   /** État du bouton (coût, PA, recharge), calculé une fois pour tout le panneau. */
   attack: AttackButtonState;
+  /** Soin armé : action sur la carte du héros, `null` hors soin (SPELL-04). */
+  self?: AttackButtonState | null;
   onAttack: (targetId: string) => void;
 }
 
@@ -69,6 +71,27 @@ interface AttackActionProps {
   onAttack: (targetId: string) => void;
 }
 
+interface SelfActionProps {
+  view: BattleCombatantView;
+  self?: AttackButtonState | null | undefined;
+  onAttack: (targetId: string) => void;
+}
+
+interface ButtonBodyProps {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+}
+
+/** Un seul dessin de bouton d'action : attaque sur une cible, ou soin sur soi. */
+function ButtonBody({ label, disabled, onClick }: ButtonBodyProps) {
+  return (
+    <button type="button" className={ACTION_BUTTON} onClick={onClick} disabled={disabled} aria-disabled={disabled}>
+      {label}
+    </button>
+  );
+}
+
 /**
  * Le moteur refuserait le clic (PA manquants, recharge) : le bouton le dit
  * **avant** le clic, en attribut `disabled` et en `aria-disabled`, jamais
@@ -76,11 +99,18 @@ interface AttackActionProps {
  */
 function AttackButton({ view, attack, onAttack }: AttackActionProps) {
   if (!view.isTargetable) return null;
-  return (
-    <button type="button" className={ACTION_BUTTON} onClick={() => onAttack(view.id)} disabled={attack.disabled} aria-disabled={attack.disabled}>
-      {attack.label}
-    </button>
-  );
+  return <ButtonBody label={attack.label} disabled={attack.disabled} onClick={() => onAttack(view.id)} />;
+}
+
+function selfArmed(self?: AttackButtonState | null): self is AttackButtonState {
+  return self !== undefined && self !== null;
+}
+
+/** Soin armé : la seule cible du lanceur est lui-même, sa carte porte l'action. */
+function SelfButton({ view, self, onAttack }: SelfActionProps) {
+  if (!selfArmed(self)) return null;
+  if (view.side !== "player" || !view.isActive) return null;
+  return <ButtonBody label={self.label} disabled={self.disabled} onClick={() => onAttack(view.id)} />;
 }
 
 /** Cible présente mais trop proche, hors portée ou sans LoS : la raison remplace le bouton. */
@@ -98,21 +128,30 @@ function Actions({ view, attack, onAttack }: AttackActionProps) {
   );
 }
 
-function CardBody({ view, canAttack, attack, onAttack }: CombatantCardProps) {
+function CardActions({ view, canAttack, attack, self, onAttack }: CombatantCardProps) {
   return (
     <>
-      <CardHead view={view} />
-      <StatsLine view={view} />
-      <HpBar ratio={view.hpRatio} color={view.color} />
+      <SelfButton view={view} self={self} onAttack={onAttack} />
       {canAttack ? <Actions view={view} attack={attack} onAttack={onAttack} /> : null}
     </>
   );
 }
 
-export function CombatantCard({ view, canAttack, attack, onAttack }: CombatantCardProps) {
+function CardBody({ view, canAttack, attack, self, onAttack }: CombatantCardProps) {
+  return (
+    <>
+      <CardHead view={view} />
+      <StatsLine view={view} />
+      <HpBar ratio={view.hpRatio} color={view.color} />
+      <CardActions view={view} canAttack={canAttack} attack={attack} self={self} onAttack={onAttack} />
+    </>
+  );
+}
+
+export function CombatantCard({ view, canAttack, attack, self = null, onAttack }: CombatantCardProps) {
   return (
     <li className={cardClass(view)} aria-label={`Combattant ${view.name}`} aria-current={activeFlag(view)}>
-      <CardBody view={view} canAttack={canAttack} attack={attack} onAttack={onAttack} />
+      <CardBody view={view} canAttack={canAttack} attack={attack} self={self} onAttack={onAttack} />
     </li>
   );
 }

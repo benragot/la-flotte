@@ -4,7 +4,7 @@ import type { BattleCombatantView, InitiativeEntry } from "../../../renderer/bat
 import { battleViewModel, initiativeOrder, shouldRenderBattle } from "../../../renderer/battleViewModel";
 import { turnSide } from "../../../store/battleSelectors";
 import { useCombatStore } from "../../../store/useCombatStore";
-import { battleAttackButton } from "../../battle/attackButtonState";
+import { battleAttackButton, battleSelfButton } from "../../battle/attackButtonState";
 import type { AttackButtonState } from "../../battle/attackButtonState";
 import { useEscapeClose } from "../../useEscapeClose";
 import { PRIMARY_BUTTON, SECTION_HEADING } from "../hudTheme";
@@ -31,6 +31,7 @@ interface BattleChromeProps {
   views: readonly BattleCombatantView[];
   initiative: readonly InitiativeEntry[];
   attack: AttackButtonState;
+  self: AttackButtonState | null;
   handlers: BattleHandlers;
 }
 
@@ -100,15 +101,21 @@ function PanelFoot({ battle, onEndTurn }: PanelFootProps) {
   );
 }
 
-function BattleChrome({ battle, views, initiative, attack, handlers }: BattleChromeProps) {
+function BattleChrome({ battle, views, initiative, attack, self, handlers }: BattleChromeProps) {
   return (
     <section aria-label="Combat de salle" className={BATTLE_PANEL}>
       <PanelHead battle={battle} views={views} onClose={() => handlers.close(battle)} />
       <InitiativeBand entries={initiative} />
-      <CombatantList views={views} attack={attack} onAttack={handlers.attack} />
+      <CombatantList views={views} attack={attack} self={self} onAttack={handlers.attack} />
       <PanelFoot battle={battle} onEndTurn={handlers.endTurn} />
     </section>
   );
+}
+
+/** Les deux boutons du panneau : leur coût suit le sort armé (SPELL-04). */
+function armedButtons(battle: BattleState, selectedSpellId: string | null): Pick<BattleChromeProps, "attack" | "self"> {
+  const attack = battleAttackButton(battle, selectedSpellId);
+  return { attack, self: battleSelfButton(battle, selectedSpellId) };
 }
 
 /** Corps du panneau, isolé du store : testable en rendu statique. */
@@ -116,11 +123,12 @@ export function BattleSections({ battle }: { battle: BattleState }) {
   const views = battleViewModel(battle);
   const initiative = initiativeOrder(battle);
   const handlers = useBattleHandlers();
-  const attack = battleAttackButton(battle);
+  const selectedSpellId = useCombatStore((state) => state.selectedSpellId);
+  const buttons = armedButtons(battle, selectedSpellId);
   // Échap emprunte la **seule** sortie du panneau : `closeBattle` reporte la
   // victoire ou abandonne la salle, donc jamais un combat orphelin.
   useEscapeClose(() => handlers.close(battle));
-  return <BattleChrome battle={battle} views={views} initiative={initiative} attack={attack} handlers={handlers} />;
+  return <BattleChrome battle={battle} views={views} initiative={initiative} {...buttons} handlers={handlers} />;
 }
 
 /** Fin unifiée : récompenses créditées + retour carte, jamais une salle de donjon. */

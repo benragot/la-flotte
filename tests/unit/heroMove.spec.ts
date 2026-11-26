@@ -343,17 +343,23 @@ function findIn(id: string): CombatantLike | undefined {
   return battle()?.combatants.find((entry) => entry.id === id);
 }
 
-function freeNeighbor(state: BattleState, from: Position): Position {
+const NEIGHBOURS = (from: Position): Position[] => [
+  { x: from.x + 1, y: from.y },
+  { x: from.x, y: from.y + 1 },
+  { x: from.x - 1, y: from.y },
+  { x: from.x, y: from.y - 1 },
+];
+
+/** Voisins praticables et libres, dans l'ordre fixe ci-dessus. */
+function freeCells(state: BattleState, from: Position): Position[] {
   const map = state.map;
   if (map === undefined) throw new Error("carte absente");
   const taken = state.combatants.filter((entry) => entry.hp > 0).map((entry) => entry.position);
-  const cells = [
-    { x: from.x + 1, y: from.y },
-    { x: from.x, y: from.y + 1 },
-    { x: from.x - 1, y: from.y },
-    { x: from.x, y: from.y - 1 },
-  ];
-  const free = cells.find((cell) => isWalkableCell(map, cell) && !taken.some((takenCell) => samePosition(takenCell, cell)));
+  return NEIGHBOURS(from).filter((cell) => isWalkableCell(map, cell) && !taken.some((pos) => samePosition(pos, cell)));
+}
+
+function freeNeighbor(state: BattleState, from: Position): Position {
+  const free = freeCells(state, from)[0];
   if (free === undefined) throw new Error("aucune case libre");
   return free;
 }
@@ -369,13 +375,18 @@ describe("useCombatStore — battleMove paie et peint le chemin", () => {
     const state = battle();
     const hero = findIn("player");
     if (state === null || hero === undefined) throw new Error("battle incomplet");
-    const to = freeNeighbor(state, hero.position);
-    useCombatStore.getState().selectSpell("pression");
+    // Mot Curatif vise son lanceur : l'armement ne dépend d'aucune portée ici.
+    const combatants = state.combatants.map((entry) => (
+      entry.id === hero.id ? { ...entry, spellIds: [...(entry.spellIds ?? []), "mot_curatif"] } : entry
+    ));
+    useCombatStore.setState({ battle: { ...state, combatants } });
+    const to = freeNeighbor(battle()!, hero.position);
+    useCombatStore.getState().selectSpell("mot_curatif");
     useCombatStore.getState().battleMove({ to, rng: () => 0.99 });
     expect(findIn("player")?.position).toEqual(to);
     expect(findIn("player")?.mp).toBe(hero.mp - 1);
     expect(findIn("player")?.ap).toBe(hero.ap);
-    expect(useCombatStore.getState().selectedSpellId).toBe("pression");
+    expect(useCombatStore.getState().selectedSpellId).toBe("mot_curatif");
   });
 
   it("peint le chemin réel du moteur dans les trajets", () => {
